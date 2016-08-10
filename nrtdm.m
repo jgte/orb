@@ -60,7 +60,12 @@ classdef nrtdm
       if ~exist('time_stop','var') || isempty(time_stop)
         time_stop=nrtdm.default_list.test_time_stop;
       end
-      nrtdm(product_name,time_start,time_stop,'data_dir',nrtdm.data_dir_fix).ts.plot
+      data_dir=nrtdm.data_dir_fix;
+      if isempty(dir(nrtdm.data_dir_fix))
+        disp([mfilename,':WARNING: cannot find NRTDM data dir: ',data_dir,'. Skipping test.'])
+        return
+      end
+      nrtdm(product_name,time_start,time_stop,'data_dir',data_dir).ts.plot
     end
   end
   methods
