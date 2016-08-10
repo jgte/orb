@@ -625,7 +625,7 @@ classdef orbit
     function out=test(l)
     
       if ~exist('l','var') || isempty(l)
-        l={'tudelft','aiub','ifg','sp3xcom'};
+        l=1e4;
       end
       
       switch class(l)
@@ -639,6 +639,8 @@ classdef orbit
         legend(l)
       case 'char'
         switch lower(l)
+        case 'formats'
+          a=orbit.test({'tudelft','aiub','ifg','sp3xcom'});
         case 'rel'
           a=orbit.test_parameters('tudelft',orbit.test_parameters('duration'));
           b=orbit.test_parameters('ifg',    orbit.test_parameters('duration'));
