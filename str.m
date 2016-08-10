@@ -1,5 +1,23 @@
 classdef str
   methods(Static)
+    function test
+      disp(' - str.rand -')
+      for i={'u','l','n'}
+        disp(str.rand(10,1,i{1}))
+      end
+      disp(' - str.show -')
+      for i={1,'1',true,datetime('now'),seconds(1)}
+        disp(str.show(i{1}))
+      end
+      disp(' - str.tabbed -')
+      for j={true,false}
+        disp(['right_justified:',str.show(j{1})])
+        for i=1:10
+          disp(['<',str.tabbed('str',i,j{1}),'>'])
+        end
+      end
+      
+    end
     function out=rand(n,l,mode)
       if ~exist('l','var') || isempty(l)
         l=1;
@@ -48,9 +66,9 @@ classdef str
         right_justified=false;
       end
       if right_justified
-        out=[in,repmat(' ',1,tab-numel(in))];
-      else
         out=[repmat(' ',1,tab-numel(in)),in];
+      else
+        out=[in,repmat(' ',1,tab-numel(in))];
       end
     end
   end
