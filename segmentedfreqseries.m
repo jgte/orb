@@ -74,15 +74,15 @@ classdef segmentedfreqseries < simplefreqseries
       end
     end
     %general test for the current object
-    function out=test_parameters(l,w,field)
+    function out=test_parameters(field,l,w)
       switch field
       case 'timestep'
         out=minutes(10);
       case 'time'
-        timestep=segmentedfreqseries.test_parameters(l,w,'timestep');
+        timestep=segmentedfreqseries.test_parameters('timestep',l,w);
         out=datetime('2015-01-01')+(-l/2*timestep:timestep:(l/2-1)*timestep);
       case 'y-dyn-sin'
-        t=juliandate(segmentedfreqseries.test_parameters(l,w,'time'),'modifiedjuliandate');
+        t=juliandate(segmentedfreqseries.test_parameters('time',l,w),'modifiedjuliandate');
         t=t(:);
         % number of frequencies in the signal
         nf=1;
@@ -99,7 +99,7 @@ classdef segmentedfreqseries < simplefreqseries
           out=out+randn(l,w)*0.1; %noise
         end
       otherwise
-        out=simplefreqseries.test_parameters(l,w,field);
+        out=simplefreqseries.test_parameters(field,l,w);
       end
     end
     function test(l,w)
@@ -112,7 +112,7 @@ classdef segmentedfreqseries < simplefreqseries
       end
 
       %test current object
-      args=segmentedfreqseries.test_parameters(l,w,'args');
+      args=segmentedfreqseries.test_parameters('args',l,w);
       columns={'columns',1};
       line_seg={'line',{'-o'}};
       line_y  ={'line',{'-+'}};
@@ -120,8 +120,8 @@ classdef segmentedfreqseries < simplefreqseries
       %simple plot
 
       a=segmentedfreqseries(...
-        segmentedfreqseries.test_parameters(l,w,'time'),...
-        segmentedfreqseries.test_parameters(l,w,'y-dyn-sin'),...
+        segmentedfreqseries.test_parameters('time',l,w),...
+        segmentedfreqseries.test_parameters('y-dyn-sin',l,w),...
         'format','datetime',...
         args{:}...
       );
@@ -162,7 +162,7 @@ classdef segmentedfreqseries < simplefreqseries
       p.addRequired( 't',     @(i)                 ~isscalar(i)); %this can be char, double or datetime
       p.addRequired( 'y',     @(i) isnumeric(i) && ~isscalar(i));
       %declare parameters
-      for j=1:numel(orbit.parameters)
+      for j=1:numel(segmentedfreqseries.parameters)
         %shorter names
         pn=segmentedfreqseries.parameters{j};
         %declare parameters
