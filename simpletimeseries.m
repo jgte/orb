@@ -157,6 +157,19 @@ classdef simpletimeseries < simpledata
         disp([mfilename,': final timestep is ',char(out),'.'])
       end
     end
+    function v=fix_interp_over_gaps_narrower_than(v)
+      if ~iscell(v)
+        error([mfilename,': expecting input ''v'' to be a cell array, not a ',class(v),'.'])
+      end
+      for i=1:numel(v)
+        if strcmp(v{i},'interp_over_gaps_narrower_than')
+          if isduration(v{i+1})
+            v{i+1}=simpletimeseries.timescale(v{i+1});
+          end
+          break
+        end
+      end
+    end
     %this function converts from many forms of date/time representations to
     %matlab's 'datetime' class.
     function [out,format_out]=ToDateTime(in,format_in,debug)
@@ -304,19 +317,6 @@ classdef simpletimeseries < simpledata
       end
     end
     %this function tests the reciprocity of From/ToDateTime 
-    function v=fix_interp_over_gaps_narrower_than(v)
-      if ~iscell(v)
-        error([mfilename,': expecting input ''v'' to be a cell array, not a ',class(v),'.'])
-      end
-      for i=1:numel(v)
-        if strcmp(v{i},'interp_over_gaps_narrower_than')
-          if isduration(v{i+1})
-            v{i+1}=simpletimeseries.timescale(v{i+1});
-          end
-          break
-        end
-      end
-    end
     function test_time(n,max_date,col_width)
       if ~exist('n','var') || isempty(n)
         n=100;
