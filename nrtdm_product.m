@@ -17,6 +17,15 @@ classdef nrtdm_product
   properties(GetAccess = 'public', SetAccess = 'private')
     str
   end
+  methods(Static)
+    function test
+      if isempty(dir(nrtdm_product.config_dir))
+        disp([mfilename,':WARNING: cannot find NRTDM config dir: ',nrtdm_product.config_dir,'. Skipping test.'])
+        return
+      end
+      %TODO: complete this test
+    end
+  end
   methods
     function obj=nrtdm_product(product_name,debug)  
       if ~exist('debug','var') || isempty(debug)
