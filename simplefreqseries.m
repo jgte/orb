@@ -193,7 +193,7 @@ classdef simplefreqseries < simpletimeseries
       % PSD coefficients.
       obj.psdi=in;
       %sanitize (in very very general terms)
-      obj.check
+      obj.check_sf
     end
     function out=plot_psd(obj,varargin)
       obj=psd_refresh_if_empty(obj);
@@ -245,8 +245,8 @@ classdef simplefreqseries < simpletimeseries
       end
       %handle empty data
       if isempty(working.y_masked)
-        f=obj.f;
-        psd=zeros(numel(f),obj.width);
+        f0=obj.f;
+        psd0=zeros(numel(f0),obj.width);
       else
         % compute PSD, according to requested method (y_masked is needed in
         % order to avoid NaNs going into PSD computation methods)
@@ -257,31 +257,31 @@ classdef simplefreqseries < simpletimeseries
           else
             freqrange='twosided';
           end
-          [psd,f]=periodogram(working.y_masked,[],2^nextpow2(obj.length),1/obj.step_num,freqrange);
+          [psd0,f0]=periodogram(working.y_masked,[],2^nextpow2(obj.length),1/obj.step_num,freqrange);
         case 'fft'
           %build long filter domain
-          f=obj.f;
-          m=numel(f);
+          f0=obj.f;
+          m=numel(f0);
           %compute Fourier coefficients
           X=fft(working.y_masked,obj.psd_nfft);
           %compute power spectra
-          psd=X(1:m,:).*conj(X(1:m,:))/obj.psd_nfft*obj.step_num;
+          psd0=X(1:m,:).*conj(X(1:m,:))/obj.psd_nfft*obj.step_num;
           %one-sidedeness
           if p.Results.onesided
-            psd=2*psd;
+            psd0=2*psd0;
           end
         otherwise
           error([mfilename,': unknown method ''',method,'''.'])
         end
       end
-      if any(isnan(psd(:)))
+      if any(isnan(psd0(:)))
         error([mfilename,': detected NaNs in psd computation algorithm.'])
       end
       y_units=cell(size(obj.y_units));
       for i=1:numel(obj.y_units)
         y_units{i}=[obj.y_units{i},'/(Hz)^{1/2}'];
       end
-      obj.psdi=simpledata(f,psd,...
+      obj.psdi=simpledata(f0,psd0,...
         'y_units',y_units,...
         'x_units','Hz',...
         'labels' ,obj.labels,...
@@ -291,12 +291,10 @@ classdef simplefreqseries < simpletimeseries
         obj=obj.smooth;
       end
       %sanitize
-      obj.check
+      obj.check_sf
     end
     %% management methods
-    function check(obj)
-      %call superclass
-      check@simpletimeseries(obj)
+    function check_sf(obj)
       %check for negative PSD entries
       if ~isempty(obj.psdi)
         if any(obj.psdi.x<0)
@@ -358,7 +356,7 @@ classdef simplefreqseries < simpletimeseries
       %recovering
       obj.psd=obj.psd.assign(out);
       %sanitize
-      obj.check
+      obj.check_sf
     end
     %% band-pass filtering
     function [obj,filter_response]=fft_bandpass(obj,Wn,varargin)
@@ -367,7 +365,7 @@ classdef simplefreqseries < simpletimeseries
       p.KeepUnmatched=true;
       % add stuff as needed
       p.addRequired('Wn',                  @(i) isnumeric(i) && numel(i)==2);
-      p.addParameter('gaps',      'interp',@(i) ischar(i));
+      p.addParameter('gaps',      'zeroed',@(i) ischar(i));
       p.addParameter('detrend',   true,    @(i) islogical(i) && isscalar(i));
       p.addParameter('debug_plot',false,   @(i) islogical(i) && isscalar(i));
       % parse it
@@ -380,10 +378,7 @@ classdef simplefreqseries < simpletimeseries
       case 'zeroed'
         %zeroing bad data
         data_in=obj.y;
-        data_in(obj.mask,:)=0;
-      case 'interp'
-        %interpolating over bad data
-        data_in=obj.resample.y;
+        data_in(~obj.mask,:)=0;
       otherwise
         error([mfilename,': unknown gap handling mode ''',p.Results.gaps,'''.'])
       end
@@ -446,7 +441,7 @@ classdef simplefreqseries < simpletimeseries
         keyboard
       end
       %propagate
-      obj=obj.assign(fx,obj.t,obj,mask);
+      obj=obj.assign(fx,'t',obj.t,'mask',obj.mask);
       %recompute PSD (sanitization done in psd_refresh)
       obj=obj.psd_refresh;
       %additional outputs
@@ -495,7 +490,7 @@ classdef simplefreqseries < simpletimeseries
       error([mfilename,': not yet implemented'])
       
       %sanitize
-      obj.check
+      obj.check_sf
     end
     function obj=bandpass(obj,varargin)
       p=inputParser;
@@ -563,7 +558,7 @@ classdef simplefreqseries < simpletimeseries
         keyboard
       end
       %sanitize
-      obj.check
+      obj.check_sf
     end
     %% overloading
     % uses a method from a superclass and resets PSD
