@@ -1,0 +1,58 @@
+classdef str
+  methods(Static)
+    function out=rand(n,l,mode)
+      if ~exist('l','var') || isempty(l)
+        l=1;
+      end
+      if ~exist('mode','var') || isempty(mode)
+        mode='l';
+      end
+      switch lower(mode)
+        case {'u','upper','caps'}
+          ascii_start=65;
+          ascii_stop=90;
+        case {'l','lower','noncaps'}
+          ascii_start=97;
+          ascii_stop=122;
+        case {'n','numeric'}
+          ascii_start=48;
+          ascii_stop=57;
+        otherwise
+          error([mfilename,': unknown mode ''',mode,'''.'])
+      end
+      out=char(floor((ascii_stop-ascii_start)*rand(l,n)) + ascii_start);
+    end
+    function out=show(in)
+      if isnumeric(in)
+        out=num2str(in);
+      elseif ischar(in)
+        out=in;
+      elseif islogical(in)
+        if in
+          out='true';
+        else
+          out='false';
+        end
+      elseif isdatetime(in)
+        out=datestr(in,'yyyy-mm-dd HH:MM:SS.FFF');
+      elseif isduration(in)
+        out=char(in);
+      elseif iscell(in)
+        out=strjoin(cellfun(@(i)([str.show(i),'; ']),in,'UniformOutput',false));
+      else
+        error([mfilename,': cannot handle variables of class ',class(in),'.'])
+      end
+    end
+    function out=tabbed(in,tab,right_justified)
+      if ~exist('right_justified','var') || isempty(right_justified)
+        right_justified=false;
+      end
+      if right_justified
+        out=[in,repmat(' ',1,tab-numel(in))];
+      else
+        out=[repmat(' ',1,tab-numel(in)),in];
+      end
+    end
+  end
+end
+    
