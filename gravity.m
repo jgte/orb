@@ -46,21 +46,28 @@ classdef gravity
     
   end
   methods(Static)
+    function out=issquare(in)
+      in_sqrt=sqrt(in);
+      out=(in_sqrt-round(in_sqrt)==0);
+    end
     function out=default
       out=gravity.default_list;
     end
     function out=y_valid(y)
-      out=min(size(y))==1 && round(sqrt(numel(y)))==0;
+      out=min(size(y))==1 && gravity.issquare(numel(y));
     end
     function out=mat_valid(mat)
       out=size(mat,1)==size(mat,2);
     end
-    function out=cs_valid(C,S)
-      z=triu(C,1)+triu(S,0);
-      out=all(size(C)~=size(S)) && size(C,1) == size(C,2) && all(z(:)==0) ;
+    function out=cs_valid(in)
+      out=isfield(in,'C') && isfield(in,'S');
+      if ~out,return,end
+      z=triu(in.C,1)+triu(in.S,0);
+      out=all(size(in.C)==size(in.S)) && size(in.C,1) == size(in.C,2) && all(z(:)==0) ;
     end
     function out=mod_valid(mod)
-      out=size(mod,2)==4 && round(sqrt(size(mod,1)))==0;
+      n=max(mod(:,1))+1;
+      out=size(mod,2)==4 && size(mod,1)==n*(n+1)/2;
     end
     function mat=y2mat(y)
       mat=zeros(sqrt(numel(y)));
@@ -69,16 +76,18 @@ classdef gravity
     function y=mat2y(mat)
       y=mat(:);
     end
-    function [C,S]=mat2cs(mat)
-      C=tril(mat,0);
-      S=transpose(triu(mat,1));
+    function out=mat2cs(mat)
+      out=struct(...
+        'C',tril(mat,0),...
+        'S',transpose(triu(mat,1))...
+      );
     end
-    function mat=cs2mat(C,S)
-      mat=C+transpose(S);
+    function mat=cs2mat(in)
+      mat=in.C+transpose(in.S);
     end
-    function out=cs2mod(C,S)
+    function mod=cs2mod(in)
       %shortcuts
-      n=size(C,1);
+      n=size(in.C,1);
       %create lower triangle index matrix
       idxm=zeros(n);
       idxm(:)=1:n*n;
@@ -88,29 +97,78 @@ classdef gravity
       %get location of NaNs
       i=isnan(d);
       %flatten coefficients
-      C=C(:);S=S(:);
+      C=in.C(:);S=in.S(:);
       %filter out upper diagonals
       d(i)=[];
       o(i)=[];
       C(i)=[];
       S(i)=[];
       %assemble
-      out=[d-1,o-1,C,S];
+      mod=[d-1,o-1,C,S];
     end
-    function [C,S]=mod2cs(mod)
+    function out=mod2cs(mod)
       %shortcuts
       n=max(mod(:,1))+1;
       %create lower triangle index matrix
       idxm=zeros(n);
       idxm(:)=1:n*n;
       %make room
-      C=zeros(max(mod(:,1))+1);
-      S=C;
+      out=struct(...
+        'C',zeros(max(mod(:,1))+1),...
+        'S',zeros(max(mod(:,1))+1)...
+      );
       %propagate
-      C(idxm==tril(idxm, 0)) = mod(:,3);
-      S(idxm==tril(idxm, 0)) = mod(:,4);
+      out.C(idxm==tril(idxm, 0)) = mod(:,3);
+      out.S(idxm==tril(idxm, 0)) = mod(:,4);
+      %assing outputs
     end
-    
+    %data type converter
+    function out=dtc(from,to,in)
+      %trivial call
+      if strcmpi(from,to)
+        out=in;
+        return
+      end
+      %check input
+      switch lower(from)
+      case 'y';  c=gravity.y_valid(in);
+      case 'mat';c=gravity.mat_valid(in);
+      case 'cs'; c=gravity.cs_valid(in);
+      case 'mod';c=gravity.mod_valid(in);
+      otherwise
+        error([mfilename,': unknown data type ''',from,'''.'])
+      end
+      if ~c
+        error([mfilename,': invalid data of type ''',from,'''.'])
+      end
+      %convert to required types
+      switch lower(from)
+        case 'y'
+          switch lower(to)
+            case 'mat'; out=gravity.y2mat(in);
+            case 'cs';  out=gravity.mat2cs(gravity.y2mat(in));
+            case 'mod'; out=gravity.cs2mod(gravity.mat2cs(gravity.y2mat(in)));
+          end
+        case 'mat'
+          switch lower(to)
+            case 'y';   out=gravity.mat2y(in);
+            case 'cs';  out=gravity.mat2cs(in);
+            case 'mod'; out=gravity.cs2mod(gravity.mat2cs(in));
+          end
+        case 'cs'
+          switch lower(to)
+            case 'y';   out=gravity.mat2y(gravity.cs2mat(in));
+            case 'mat'; out=gravity.cs2mat(in);
+            case 'mod'; out=gravity.cs2mod(in);
+          end
+        case 'mod'
+          switch lower(to)
+            case 'y';   out=gravity.mat2y(gravity.cs2mat(gravity.mod2cs(in)));
+            case 'mat'; out=gravity.cs2mat(gravity.mod2cs(in));
+            case 'cs';  out=gravity.mod2cs(in);
+          end
+      end
+    end
     %general test for the current object
     function out=test_parameters(field,l,w)
       switch field
@@ -137,76 +195,37 @@ classdef gravity
         out=simpledata.test_parameters(field,l,w);
       end
     end
-    function test(l,w)
+    function test(l)
       
       if ~exist('l','var') || isempty(l)
-        l=1000;
+        l=20;
       end
-      if ~exist('w','var') || isempty(w)
-        w=3;
+
+      nr_coeff=(l+1)^2;
+      
+      dt={'y','mat','cs','mod'};
+      y=randn(nr_coeff,1);
+      dd={...
+        y,...
+        gravity.y2mat(y),...
+        gravity.mat2cs(gravity.y2mat(y)),...
+        gravity.cs2mod(gravity.mat2cs(gravity.y2mat(y)))...
+      };
+      for i=1:numel(dt)
+        for j=1:numel(dt)
+          out=gravity.dtc(dt{i},dt{j},dd{i});
+          switch dt{j}
+          case 'cs'
+            c=any(any([out.C,out.S] ~= [dd{j}.C,dd{j}.S]));
+          otherwise
+            c=any(any(out~=dd{j}));
+          end
+          if c
+            error([mfilename,': failed data type conversion between ''',dt{i},''' and ''',dt{j},'''.'])
+          end
+        end
       end
       
-      %test current object
-      args=simplefreqseries.test_parameters('args',l,w);
-      now=juliandate(datetime('now'),'modifiedjuliandate');
-      
-      t=[1:l/2,round(l/2+l/10):l];
-      a=simplefreqseries(...
-        now+t,...  % t
-        simplefreqseries.test_parameters('y-sin',t,w),...           % y
-        'no-mask',simplefreqseries.test_parameters('mask',l,w),...
-        args{:},...
-        'format','modifiedjuliandate'...
-      );
-    
-      %TODO: fft_bandpass doesn't work if there are gaps in the time domain
-      %(which is something uncommon anyway)
-      a=a.fill;
-
-      %despiking
-      
-      [d,s]=a.despike(5e-7,'nSigma',1);
-      figure
-      subplot(2,1,1)
-      a.plot('columns',1)
-      d.plot('columns',1)
-      s.plot('columns',1)
-      legend('original','despiked','spikes')
-      
-      subplot(2,1,2)
-      a.plot_psd('columns',1)
-      d.plot_psd('columns',1)
-      s.plot_psd('columns',1)
-      legend('original','despiked','spikes')
-      
-      %smoothing
-      
-      figure
-      a.psd_refresh('smooth',false).plot_psd('columns',1)
-      a.psd_refresh('smooth',true ).plot_psd('columns',1)
-      legend('original','smoothed')
-     
-      %different PSD computation methods
-
-      methods={'periodogram','fft'};
-      figure
-      for i=1:numel(methods)
-        a=a.psd_refresh('method',methods{i}); hold on
-        a.plot_psd('columns',1)
-      end
-      legend(methods)
-      title('different PSD computation algorithms')
-      
-      %band-pass filtering
-      
-      h{1}=figure; a.plot('columns',1);
-      h{2}=figure; a.plot_psd('columns',1)
-      
-      a=a.fft_bandpass(simplefreqseries.test_parameters('Wn',t,w));
-      
-      figure(h{1}); a.plot('columns',1);     legend('original','filtered'), title('band-pass filtering')
-      figure(h{2}); a.plot_psd('columns',1); legend('original','filtered'), title('band-pass filtering')
-
     end
   end
   methods
