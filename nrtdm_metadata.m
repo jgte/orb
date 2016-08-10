@@ -19,6 +19,14 @@ classdef nrtdm_metadata
         '-','_'...
       );
     end
+    function test
+      if isempty(dir(nrtdm_product.config_dir))
+        disp([mfilename,':WARNING: cannot find NRTDM config dir: ',nrtdm_product.config_dir,'. Skipping test.'])
+        return
+      end
+      a=nrtdm_metadata('SC_Basic/Quaternion_Interpolated');
+      %TODO: finish this test
+    end
   end
   methods
     function obj=nrtdm_metadata(product_name,debug)  
@@ -103,27 +111,27 @@ classdef nrtdm_metadata
       end
     end
     function out=get.units(obj)
-      fields=obj.fields;
-      out=cell(size(fields));
-      for i=1:numel(fields)
-        idx=[strfind(fields{i},'('),strfind(fields{i},')')];
+      f=obj.fields;
+      out=cell(size(f));
+      for i=1:numel(f)
+        idx=[strfind(f{i},'('),strfind(f{i},')')];
         if numel(idx) ~= 2
           out{i}='?';
         else
-          out{i}=fields{i}(idx(1)+1:idx(2)-1);
+          out{i}=f{i}(idx(1)+1:idx(2)-1);
         end
       end
     end
     function out=get.fields_no_units(obj)
-      fields=obj.fields;
-      out=cell(size(fields));
-      for i=1:numel(fields)
-        idx=strfind(fields{i},'(');
+      f=obj.fields;
+      out=cell(size(f));
+      for i=1:numel(f)
+        idx=strfind(f{i},'(');
         switch numel(idx)
         case 0
-          out{i}=fields{i};
+          out{i}=f{i};
         otherwise
-          out{i}=fields{i}(1:min(idx)-1);
+          out{i}=f{i}(1:min(idx)-1);
         end
       end
     end
