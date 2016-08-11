@@ -104,7 +104,7 @@ classdef simpletimeseries < simpledata
     function out=timestep(in,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'in',              @(i) isdatetime(i) && ~isscalar(i));
+      p.addRequired( 'in',              @(i) isdatetime(i));
       p.addParameter('nsigma',    4,    @(i) isnumeric(i)  &&  isscalar(i));
       p.addParameter('max_iter',  10,   @(i) isnumeric(i)  &&  isscalar(i));
       p.addParameter('sigma_iter',2,    @(i) isnumeric(i)  &&  isscalar(i));
@@ -113,6 +113,14 @@ classdef simpletimeseries < simpledata
       p.addParameter('disp_flag', false,@(i) islogical(i));
       % parse it
       p.parse(in,varargin{:});
+      %handle singularities
+      switch numel(in)
+        case 0
+          error([mfilename,': cannot handle empty time stamps'])
+        case 1
+          out=NaN;
+          return
+      end
       %get numeric diff of time
       tdiff=simpletimeseries.timescale(diff(in));
       %get diff of time domain without jumps
@@ -562,7 +570,7 @@ classdef simpletimeseries < simpledata
     function obj=simpletimeseries(t,y,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 't',      @(i) ~isscalar(i)); %this can be char, double or datetime
+      p.addRequired( 't'); %this can be char, double or datetime
       p.addRequired( 'y',      @(i) simpledata.valid_y(i));
       %declare parameters
       for j=1:numel(simpletimeseries.parameters)
@@ -643,7 +651,7 @@ classdef simpletimeseries < simpledata
       %call superclass
       obj=copy_metadata@simpledata(obj,obj_in);
       %propagate parameters of this object
-      parameters=fields(simpletimeseries.parameter_list);
+      parameters=simpletimeseries.parameters;
       for i=1:numel(parameters)
         if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
           obj.(parameters{i})=obj_in.(parameters{i});
