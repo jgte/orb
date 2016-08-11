@@ -1,4 +1,4 @@
-classdef gravity
+classdef gravity < simpletimeseries
   %static
   properties(Constant,GetAccess=private)
     %default value of some internal parameters
@@ -29,13 +29,43 @@ classdef gravity
                   70     -0.020;...
                   100    -0.014;...
                   150    -0.010;...
-                  200    -0.007]...
+                  200    -0.007],...
+        'units',  'non-dim'...
     );
+%   Supported units are the following,
+%       'non-dim'   - non-dimensional Stoked coefficients.
+%       'eqwh'      - equivalent water height [m]
+%       'geoid'     - geoid height [m]
+%       'potential' - [m2/s2]
+%       'gravity'   - [m /s2], if input represents the disturbing potential,
+%                     then the output represents the gravity disturbances.
+%                     Otherwise, it represents the gravity accelerations
+%                     (-dU/dr).
+%       'anomalies' - If input represents the disturbing potential, then
+%                     the output represents the gravity anomalies.
+%                     Otherwise, it represents (-dU/dr - 2/r*U).
+%       'vert-grav-grad' - vertical gravity gradient.
+    valid_units={...
+      'non-dim',...
+      'eqwh',...
+      'geoid',...
+      'potential',...
+      'anomalies',...
+      'vert-grav-grad',...
+      'gravity'...
+    };
+    parameter_list=struct(...
+      'GM',    struct('default',gravity.default_list.GM,    'validation',@(i) isdouble(i)),...
+      'R',     struct('default',gravity.default_list.R,     'validation',@(i) isdouble(i)),...
+      'units', struct('default',gravity.default_list.units, 'validation',@(i) ischar(i))...
+    );
+
   end
   %read only
   properties(SetAccess=private)
     GM
     R
+    units
   end
   %private (visible only to this object)
   properties(GetAccess=private)
@@ -43,9 +73,16 @@ classdef gravity
   end
   %calculated only when asked for
   properties(Dependent)
-    
+    lmax
+    mat
+    cs
+    tri
+    mod
   end
   methods(Static)
+    function out=parameters
+      out=fieldnames(gravity.parameter_list);
+    end
     function out=issquare(in)
       in_sqrt=sqrt(in);
       out=(in_sqrt-round(in_sqrt)==0);
@@ -53,38 +90,95 @@ classdef gravity
     function out=default
       out=gravity.default_list;
     end
+    %% y representation
     function out=y_valid(y)
-      out=min(size(y))==1 && gravity.issquare(numel(y));
+      out=size(y,1)==1 && gravity.issquare(numel(y));
     end
+    function lmax=y_lmax(y)
+      lmax=sqrt(numel(y))-1;
+    end
+    function s=y_length(lmax)
+      s=(lmax+1).^2;
+    end
+    %% mat representation
     function out=mat_valid(mat)
       out=size(mat,1)==size(mat,2);
     end
+    function lmax=mat_lmax(mat)
+      lmax=y_lmax(mat(:));
+    end
+    function [s1,s2]=mat_length(lmax)
+      s1=lmax+1;
+      s2=s1;
+    end
+    %% cs representation
     function out=cs_valid(in)
       out=isfield(in,'C') && isfield(in,'S');
       if ~out,return,end
-      z=triu(in.C,1)+triu(in.S,0);
+      z=triu(in.C,1)+triu([in.S(:,2:end),zeros(size(in.C,1),1)],0);
       out=all(size(in.C)==size(in.S)) && size(in.C,1) == size(in.C,2) && all(z(:)==0) ;
     end
+    function lmax=cs_lmax(cs)
+      lmax=gravity.y_lmax(cs.C(:));
+    end
+    function [s1,s2]=cs_length(lmax)
+      [s1,s2]=gravity.mat_length(lmax);
+    end
+    %% tri representation
+    function out=tri_valid(tri)
+      lmax=gravity.tri_lmax(tri);
+      out=size(tri,1)==lmax+1 && round(lmax)==lmax && gravity.cs_valid(gravity.tri2cs(tri));
+    end
+    function lmax=tri_lmax(tri)
+      lmax=(size(tri,2)+1)/2-1;
+    end
+    function [s1,s2]=tri_length(lmax)
+      s1=mat_length(lmax);
+      s2=2*(lmax+1)-1;
+    end
+    %% mod representation
     function out=mod_valid(mod)
-      n=max(mod(:,1))+1;
+      n=gravity.mod_lmax(mod)+1;
       out=size(mod,2)==4 && size(mod,1)==n*(n+1)/2;
     end
+    function lmax=mod_lmax(mod)
+      lmax=max(mod(:,1));
+    end
+    function [s1,s2]=mod_length(lmax)
+      s1=(lmax*(lmax+1))/2;
+      s2=2*(lmax+1)-1;
+    end
+    %% y and mat convertions
     function mat=y2mat(y)
       mat=zeros(sqrt(numel(y)));
       mat(:)=y;
     end
     function y=mat2y(mat)
-      y=mat(:);
+      y=transpose(mat(:));
     end
-    function out=mat2cs(mat)
-      out=struct(...
+    %% cs and mat convertions
+    function cs=mat2cs(mat)
+      S=transpose(triu(mat,1));
+      cs=struct(...
         'C',tril(mat,0),...
-        'S',transpose(triu(mat,1))...
+        'S',[zeros(size(mat,1),1),S(:,1:end-1)]...
       );
     end
-    function mat=cs2mat(in)
-      mat=in.C+transpose(in.S);
+    function mat=cs2mat(cs)
+      mat=cs.C+transpose([cs.S(:,2:end),zeros(size(cs.C,1),1)]);
     end
+    %% cs and tri convertions
+    function tri=cs2tri(cs)
+      tri=[fliplr(cs.S(:,2:end)),cs.C];
+    end
+    function cs=tri2cs(tri)
+      n=(size(tri,2)+1)/2;
+      cs=struct(...
+        'S',[zeros(n,1),fliplr(tri(:,1:n-1))],...
+        'C',tri(:,n:end)...
+      );
+    end
+    %% cs and mod convertions
     function mod=cs2mod(in)
       %shortcuts
       n=size(in.C,1);
@@ -108,7 +202,7 @@ classdef gravity
     end
     function out=mod2cs(mod)
       %shortcuts
-      n=max(mod(:,1))+1;
+      n=gravity.mod_lmax(mod)+1;
       %create lower triangle index matrix
       idxm=zeros(n);
       idxm(:)=1:n*n;
@@ -122,6 +216,7 @@ classdef gravity
       out.S(idxm==tril(idxm, 0)) = mod(:,4);
       %assing outputs
     end
+    %% agregator routines
     %data type converter
     function out=dtc(from,to,in)
       %trivial call
@@ -130,15 +225,7 @@ classdef gravity
         return
       end
       %check input
-      switch lower(from)
-      case 'y';  c=gravity.y_valid(in);
-      case 'mat';c=gravity.mat_valid(in);
-      case 'cs'; c=gravity.cs_valid(in);
-      case 'mod';c=gravity.mod_valid(in);
-      otherwise
-        error([mfilename,': unknown data type ''',from,'''.'])
-      end
-      if ~c
+      if ~gravity.dtv(from,in)
         error([mfilename,': invalid data of type ''',from,'''.'])
       end
       %convert to required types
@@ -147,50 +234,105 @@ classdef gravity
           switch lower(to)
             case 'mat'; out=gravity.y2mat(in);
             case 'cs';  out=gravity.mat2cs(gravity.y2mat(in));
+            case 'tri'; out=gravity.cs2tri(gravity.mat2cs(gravity.y2mat(in)));
             case 'mod'; out=gravity.cs2mod(gravity.mat2cs(gravity.y2mat(in)));
           end
         case 'mat'
           switch lower(to)
             case 'y';   out=gravity.mat2y(in);
             case 'cs';  out=gravity.mat2cs(in);
+            case 'tri'; out=gravity.cs2tri(gravity.mat2cs(in));
             case 'mod'; out=gravity.cs2mod(gravity.mat2cs(in));
           end
         case 'cs'
           switch lower(to)
             case 'y';   out=gravity.mat2y(gravity.cs2mat(in));
             case 'mat'; out=gravity.cs2mat(in);
+            case 'tri'; out=gravity.cs2tri(in);
             case 'mod'; out=gravity.cs2mod(in);
+          end
+        case 'tri'
+          switch lower(to)
+            case 'y';   out=gravity.mat2y(gravity.cs2mat(gravity.tri2cs(in)));
+            case 'mat'; out=gravity.cs2mat(gravity.tri2cs(in));
+            case 'cs';  out=gravity.tri2cs(in);
+            case 'mod'; out=gravity.cs2mod(gravity.tri2cs(in));
           end
         case 'mod'
           switch lower(to)
             case 'y';   out=gravity.mat2y(gravity.cs2mat(gravity.mod2cs(in)));
             case 'mat'; out=gravity.cs2mat(gravity.mod2cs(in));
             case 'cs';  out=gravity.mod2cs(in);
+            case 'tri'; out=gravity.cs2tri(gravity.mod2cs(in));
           end
       end
+    end
+    %data type validity
+    function c=dtv(type,in)
+      switch lower(type)
+      case 'y';  c=gravity.y_valid(in);
+      case 'mat';c=gravity.mat_valid(in);
+      case 'cs'; c=gravity.cs_valid(in);
+      case 'tri';c=gravity.tri_valid(in);
+      case 'mod';c=gravity.mod_valid(in);
+      otherwise
+        error([mfilename,': unknown data type ''',from,'''.'])
+      end
+    end
+    %data type lmax
+    function c=dtlmax(type,in)
+      switch lower(type)
+      case 'y';  c=gravity.y_lmax(in);
+      case 'mat';c=gravity.mat_lmax(in);
+      case 'cs'; c=gravity.cs_lmax(in);
+      case 'tri';c=gravity.tri_lmax(in);
+      case 'mod';c=gravity.mod_lmax(in);
+      otherwise
+        error([mfilename,': unknown data type ''',from,'''.'])
+      end
+    end
+    %data type length
+    function [s1,s2]=dtlength(type,in)
+      switch lower(type)
+      case 'y';  s2=0;s1=gravity.y_length(in);
+      case 'mat';[s1,s2]=gravity.mat_length(in);
+      case 'cs'; [s1,s2]=gravity.cs_length(in);
+      case 'tri';[s1,s2]=gravity.tri_length(in);
+      case 'mod';[s1,s2]=gravity.mod_length(in);
+      otherwise
+        error([mfilename,': unknown data type ''',from,'''.'])
+      end
+    end
+    %% constructors
+    function obj=unit(lmax,scale)
+      if ~exist('scale','var') || isempty(scale)
+          scale=ones(lmax+1,1);
+      end
+      %sanity
+      if min(size(scale)) ~= 1 || lmax+1 ~= numel(scale)
+        error([mfilename,': input ''scale'' has to be a vector with length lmax+1'])
+      end
+      %create unitary triangular matrix
+      t=gravity.dtc('mat','tri',ones(lmax+1));
+      %scale along rows
+      t=scale(:)*ones(1,size(t,2)).*t;
+      %initialize
+      obj=gravity(...
+        datetime('now'),...
+        gravity.dtc('tri','y',t)...
+      );
+    end
+    function obj=unit_amplitude(lmax)
+      obj=gravity.unit(lmax,1./sqrt(2*(0:lmax)+1));
+    end
+    function obj=unit_rms(lmax)
+      obj=gravity.unit(lmax,gravity.unit(lmax).drms);
     end
     %general test for the current object
     function out=test_parameters(field,l,w)
       switch field
-      case 'y-sin'
-        %here, <l> is assumed to refer to the time domain (in integers from 1 to l, or thereabout)
-        t=l';
-        %reassign traditional meaning of <l>
-        l=numel(t);
-        % number of frequencies in the signal
-        nf=5;
-        %build frequency content of signal
-        f=0.1*l./logspace(0,1,nf);
-        %make room for output
-        out=zeros(l,w);
-        %build signal
-        for i=1:nf
-          out=out+ones(l,1)*randn(1,w)*10; %random bias
-          out=out+sin(2*pi*t*f(i))*(1+10*rand(1,w)); %sinusoidal signal (random amplitudes)
-          out=out+randn(l,w)*0.1; %noise
-        end
-      case 'Wn'
-        out=[0,4e-7];
+      case 'something'
+        %To be implemented
       otherwise
         out=simpledata.test_parameters(field,l,w);
       end
@@ -198,17 +340,18 @@ classdef gravity
     function test(l)
       
       if ~exist('l','var') || isempty(l)
-        l=20;
+        l=4;
       end
 
       nr_coeff=(l+1)^2;
       
-      dt={'y','mat','cs','mod'};
-      y=randn(nr_coeff,1);
+      dt={'y','mat','cs','tri','mod'};
+      y=randn(1,nr_coeff);
       dd={...
         y,...
         gravity.y2mat(y),...
         gravity.mat2cs(gravity.y2mat(y)),...
+        gravity.cs2tri(gravity.mat2cs(gravity.y2mat(y))),...
         gravity.cs2mod(gravity.mat2cs(gravity.y2mat(y)))...
       };
       for i=1:numel(dt)
@@ -226,449 +369,255 @@ classdef gravity
         end
       end
       
+      disp('--- unit amplitude')
+      a=gravity.unit_amplitude(l);
+      disp('- C')
+      disp(a.cs(1).C)
+      disp('- S')
+      disp(a.cs(1).S)
+      disp('- tri')
+      disp(a.tri{1})
+      disp('- mod')
+      disp(a.mod{1})
+      disp('- das')
+      disp(a.das)
+      
+      disp('--- unit rms')
+      a=gravity.unit_rms(l);
+      disp('- tri')
+      disp(a.tri{1})
+      disp('- drms')
+      disp(a.drms)
+
+      disp('--- change R')
+      b=a.change_R(a.R*2);
+      disp('- tri')
+      disp(b.tri{1})
+      
     end
   end
   methods
     %% constructor
-    function obj=simplefreqseries(t,y,varargin)
+    function obj=gravity(t,y,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 't',     @(i)                 ~isscalar(i)); %this can be char, double or datetime
+      p.addRequired( 't'); %this can be char, double or datetime
       p.addRequired( 'y',     @(i) simpledata.valid_y(i));
+      %declare parameters
+      for j=1:numel(gravity.parameters)
+        %shorter names
+        pn=gravity.parameters{j};
+        %declare parameters
+        p.addParameter(pn,gravity.parameter_list.(pn).default,gravity.parameter_list.(pn).validation)
+      end
       % parse it
       p.parse(t,y,varargin{:});
-
-      %initialize internal records
-      obj.psdi=[];
-      %save delta frequency
-      obj.nyquist=2/obj.step_num;
-      %no need to sanitize, since psdi is still empty
-    end   
+      % call superclass
+      obj=obj@simpletimeseries(p.Results.t,p.Results.y,varargin{:});
+      % save parameters
+      for i=1:numel(gravity.parameters)
+        %shorter names
+        pn=gravity.parameters{i};
+%         %parameter 'units' has already been handled when calling simpledata
+%         %constructor, so skip it
+%         if strcmp(pn,'units')
+%           continue
+%         end
+        if ~isscalar(p.Results.(pn))
+          %vectors are always lines (easier to handle strings)
+          obj.(pn)=transpose(p.Results.(pn)(:));
+        else
+          obj.(pn)=p.Results.(pn);
+        end
+      end
+    end
     function obj=assign(obj,y,varargin)
       %pass it upstream
       obj=assign@simpletimeseries(obj,y,varargin{:});
-      %update local records
-      obj=obj.psd_init;
-      obj.nyquist=2/obj.step_num;
     end
     function obj=copy_metadata(obj,obj_in)
       %call superclass
       obj=copy_metadata@simpletimeseries(obj,obj_in);
-%TODO: fix this if there is relevant metadata in this object
-%       parameters=fields(simpletimeseries.parameter_list);
-%       for i=1:numel(parameters)
-%         if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
-%           obj.(parameters{i})=obj_in.(parameters{i});
-%         end
-%       end
-    end
-
-    function out=plot_psd(obj,varargin)
-      obj=psd_refresh_if_empty(obj);
-      out=obj.psd.plot(varargin{:});
-      set(gca,'xscale','log','yscale','log')
-      %outputs
-      if nargout == 0
-        clear out
-      end
-    end
-    function obj=psd_init(obj)
-      obj.psdi=[];
-    end
-    %% delayed constructor method
-    function obj=psd_refresh_if_empty(obj)
-      if isempty(obj.psdi)
-        obj=psd_refresh(obj);
-      end
-    end
-    function n=psd_nfft(obj)
-      n = 2^nextpow2(obj.length);
-    end
-    function obj=psd_refresh(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      % add stuff as needed
-      p.addParameter('method',  simplefreqseries.default.psd_method,@(i) ischar(i));
-      p.addParameter('resample',false,@(i)islogical(i) && isscalar(i));
-      p.addParameter('detrend', true, @(i)islogical(i) && isscalar(i));
-      p.addParameter('despike', false,@(i)islogical(i) && isscalar(i));
-      p.addParameter('onesided',true, @(i)islogical(i) && isscalar(i));
-      p.addParameter('smooth',  true, @(i)islogical(i) && isscalar(i));
-      % parse it
-      p.parse(varargin{:});
-      %duplicate
-      working=obj;
-      %interpolate gaps for computing the PSD if requested
-      if p.Results.detrend
-        working=working.resample;
-      end
-      %remove trend if requested
-      if p.Results.detrend
-        working=working.detrend;
-      end
-      %remove spikes if requested
-      if p.Results.despike
-        %not implemented yet!
-        working=working.despike;
-      end
-      %handle empty data
-      if isempty(working.y_masked)
-        f=obj.f;
-        psd=zeros(numel(f),obj.width);
-      else
-        % compute PSD, according to requested method (y_masked is needed in
-        % order to avoid NaNs going into PSD computation methods)
-        switch p.Results.method
-        case 'periodogram'
-          if p.Results.onesided
-            freqrange='onesided';
-          else
-            freqrange='twosided';
-          end
-          [psd,f]=periodogram(working.y_masked,[],2^nextpow2(obj.length),1/obj.step_num,freqrange);
-        case 'fft'
-          %build long filter domain
-          f=obj.f;
-          m=numel(f);
-          %compute Fourier coefficients
-          X=fft(working.y_masked,obj.psd_nfft);
-          %compute power spectra
-          psd=X(1:m,:).*conj(X(1:m,:))/obj.psd_nfft*obj.step_num;
-          %one-sidedeness
-          if p.Results.onesided
-            psd=2*psd;
-          end
-        otherwise
-          error([mfilename,': unknown method ''',method,'''.'])
-        end
-      end
-      if any(isnan(psd(:)))
-        error([mfilename,': detected NaNs in psd computation algorithm.'])
-      end
-      y_units=cell(size(obj.y_units));
-      for i=1:numel(obj.y_units)
-        y_units{i}=[obj.y_units{i},'/(Hz)^{1/2}'];
-      end
-      obj.psdi=simpledata(f,psd,...
-        'y_units',y_units,...
-        'x_units','Hz',...
-        'labels' ,obj.labels,...
-        'descriptor',obj.descriptor...
-      );
-      if p.Results.smooth
-        obj=obj.smooth;
-      end
-      %sanitize
-      obj.check
-    end
-    %% management methods
-    function check(obj)
-      %call superclass
-      check@simpletimeseries(obj)
-      %check for negative PSD entries
-      if ~isempty(obj.psdi)
-        if any(obj.psdi.x<0)
-          error([mfilename,': the frequency domain must be positive.'])
-        end
-        if any(obj.psdi.y<0)
-          error([mfilename,': the power must be positive.'])
+      %propagate parameters of this object
+      parameters=gravity.parameters;
+      for i=1:numel(parameters)
+        if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
+          obj.(parameters{i})=obj_in.(parameters{i});
         end
       end
     end
-    %% PSD operations
-    function obj=smooth(obj,varargin)
-      obj=psd_refresh_if_empty(obj);
-      dws=max([round(obj.length*1e-3),2]);
-      p=inputParser;
-      p.KeepUnmatched=true;
-      % add stuff as needed
-      p.addParameter('window_size',    dws,@(i)isnumeric(i) && isscalar(i) && round(i)==i);
-      p.addParameter('iter',           2,  @(i)isnumeric(i) && isscalar(i) && round(i)==i);
-      p.addParameter('window_stretch', 20, @(i)isnumeric(i) && isscalar(i) && round(i)==i);
-      % parse it
-      p.parse(varargin{:});
-      % trivial call
-      if p.Results.window_size < 2 || p.Results.iter < 1
-          %nothing to do
-          return
+    %% lmax
+    function obj=set.lmax(obj,l)
+      %trivial call
+      if obj.lmax==l
+        return
       end
-      % add additional dependent parameters
-      p.KeepUnmatched=false;
-      p.addParameter('min_window_size',max([1,round(p.Results.window_size/100)]),@(i)isnumeric(i) && isscalar(i) && round(i)==i);
-      % parse it again
-      p.parse(varargin{:});
-      %easier names
-      n=obj.psd.length;
+      %make room for new matrix representation
+      mat_new=cell(obj.length,1);
+      %get existing mat representation
+      mat_old=obj.mat;
+      %branch between extending and truncating
+      if obj.lmax<l
+        for i=1:obj.length
+          %make room for this epoch
+          mat_new{i}=zeros(l,l);
+          %propagate existing coefficients
+          mat_new{i}(1:obj.lmax+1,1:obj.lmax+1)=mat_old{i};
+        end
+      else 
+        for i=1:obj.length
+          %truncate
+          mat_new{i}=mat_old{i}(1:l+1,1:l+1);
+        end
+      end
+      %assign result
+      obj.mat=mat_new;
+    end
+    function out=get.lmax(obj)
+      out=sqrt(obj.width)-1;
+    end
+    %% representations
+    %returns a cell array with matrix representation
+    function out=get.mat(obj)
+      out=cell(obj.length,1);
+      for i=1:obj.length
+        out{i}=gravity.dtc('y','mat',obj.y(i,:));
+      end
+    end
+    function obj=set.mat(obj,in)
       %sanity
-      if p.Results.window_size > n
-          disp([mfilename,':WARNING: window size too big for input data (',...
-              num2str(p.Results.window_size),'), setting at maximum value (',num2str(n),').'])
-          p.Results.window_size=n;
+      if ~iscell(in)
+        error([mfilename,': input <in> must be a cell array of matrices.'])
       end
-      %building window size domain
-      if (p.Results.window_stretch==0)
-          wz=ones(1,n)*p.Results.window_size;
-      else
-          min_win_size=max([1,round(p.Results.window_size/100)]);
-          wz=round(min_win_size+(p.Results.window_size-min_win_size)*((1:n)/n).^p.Results.window_stretch);
+      if (numel(in)~=obj.length)
+        error([mfilename,': cannot handle input <in> if it does not have the same number of elements as obj.length.'])
       end
-      %building lower/upper index
-      lower_idx=max([  ones(1,n);(1:n)-wz]);
-      upper_idx=min([n*ones(1,n);(1:n)+wz]);
-      %propagating
-      out=obj.psd.y;
-      %smoothing
-      for j=1:p.Results.iter
-        for i = 1:n
-          out(i,:)=sum(out( lower_idx(i):upper_idx(i),: ),1)/(upper_idx(i)-lower_idx(i)+1);
-        end
+      %make room for data
+      y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('mat',in)));
+      %build data 
+      for i=1:obj.length
+        y_now(i,:)=gravity.mat2y(in{i});
       end
-      %recovering
-      obj.psd=obj.psd.assign(out);
-      %sanitize
-      obj.check
+      %assign data
+      obj=obj.assign(y_now);
     end
-    %% band-pass filtering
-    function [obj,filter_response]=fft_bandpass(obj,Wn,varargin)
-      obj=psd_refresh_if_empty(obj);
-      p=inputParser;
-      p.KeepUnmatched=true;
-      % add stuff as needed
-      p.addRequired('Wn',                  @(i) isnumeric(i) && numel(i)==2);
-      p.addParameter('gaps',      'interp',@(i) ischar(i));
-      p.addParameter('detrend',   true,    @(i) islogical(i) && isscalar(i));
-      p.addParameter('debug_plot',false,   @(i) islogical(i) && isscalar(i));
-      % parse it
-      p.parse(Wn,varargin{:});
-      %handle gaps
-      switch p.Results.gaps
-      case 'trunc'
-        %truncating bad data (not a good idea)
-        data_in=obj.y_masked;
-      case 'zeroed'
-        %zeroing bad data
-        data_in=obj.y;
-        data_in(obj.mask,:)=0;
-      case 'interp'
-        %interpolating over bad data
-        data_in=obj.resample.y;
-      otherwise
-        error([mfilename,': unknown gap handling mode ''',p.Results.gaps,'''.'])
+    %returns a structure array with C and S representation
+    function out=get.cs(obj)
+      out(obj.length)=struct('C',[],'S',[]);
+      for i=1:obj.length
+        out(i)=gravity.dtc('y','cs',obj.y(i,:));
       end
+    end
+    function obj=set.cs(obj,in)
       %sanity
-      if any(isnan(data_in(:)))
-          error([mfilename,': found NaNs in the input data.'])
+      if ~isstruct(in)
+        error([mfilename,': input <in> must be a structure array.'])
       end
-      disp(['FFT filter: [',num2str(Wn),']'])
-      %computational length
-      n = 2^nextpow2(size(data_in,1));
-      %build long filter domain
-      ff=1/obj.step_num/2*linspace(0,1,n/2);
-      fP=zeros(size(ff));
-      %assign filter factors
-      fP(Wn(1)<=ff&ff<=Wn(2))=1;
-      fP(Wn(1)<=ff&ff<=Wn(2))=1;
-      %parameters (min is needed in case the pass-band is very wide)
-      smooth_radius=min([ceil(sum(~fP)*0.1),ceil(sum(fP)*0.1)]); %data points
-      %smooth transitions
-      idx=[...
-        simplefreqseries.get_freq_idx(ff,Wn(1),'lower'),...
-        simplefreqseries.get_freq_idx(ff,Wn(2),'upper')...
-      ];
-      % figure
-      % semilogx(ff,fP), hold on
-      for i=1:2
-        if idx(i)>0
-          idx_out=(idx(i)-smooth_radius):(idx(i)+smooth_radius+1);
-          idx_in =[idx_out(1),idx_out(end)];
-          fP(idx_out)=spline(ff(idx_in),[0 fP(idx_in) 0],ff(idx_out));
-        end
+      if (numel(in)~=obj.length)
+        error([mfilename,': cannot handle input <in> if it does not have the same number of elements as obj.length.'])
       end
-      % semilogx(ff,fP), hold on
-      % keyboard
-      %mirror the filter
-      fP=[fP,fliplr(fP)];
-      %apply the filter
-      fX=fft(data_in,n).*(fP(:)*ones(1,size(data_in,2)));
-      fx=ifft(fX,'symmetric');
-      %trim excess
-      fx=fx(1:size(data_in,1),:);
-      if p.Results.debug_plot
-        m=numel(ff);
-        X=fft(data_in(:,1),n);
-        PX=X(1:m).*conj(X(1:m));
-        PfX=fX(1:m,1).*conj(fX(1:m,1));
-        figure
-        subplot(2,1,1)
-        title('frequency domain')
-        loglog(ff,PX), hold on
-        loglog(ff,PfX)
-        loglog(ff,fP(1:m)*max([max(PX),max(PfX)]))
-        legend('original','filtered','filter')
-
-        subplot(2,1,2)
-        title('time domain')
-        plot(fx(:,1)), hold on
-        plot(obj.y(:,1))
-        legend('filtered','original')
-        keyboard
+      %make room for data
+      y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('cs',in)));
+      %build data 
+      for i=1:obj.length
+        y_now(i,:)=gravity.mat2y(gravity.cs2mat(in(i)));
       end
-      %propagate
-      obj=obj.assign(fx,obj.t,obj,mask);
-      %recompute PSD (sanitization done in psd_refresh)
-      obj=obj.psd_refresh;
-      %additional outputs
-      if nargout>1
-        filter_response.f=ff;
-        filter_response.a=fP(1:numel(ff));
+      %assign data
+      obj=obj.assign(y_now);
+    end
+    %return a cell array with triangular matrix representation
+    function out=get.tri(obj)
+      out=cell(obj.length,1);
+      for i=1:obj.length
+        out{i}=gravity.dtc('y','tri',obj.y(i,:));
       end
     end
-    function obj=butter_bandpass(obj,Wn,varargin)
-      obj=psd_refresh_if_empty(obj);
-      p=inputParser;
-      p.KeepUnmatched=true;
-      % add stuff as needed
-      p.addRequired('Wn',                  @(i) isnumeric(i) && numel(i)==2);
-      p.addParameter('gaps',      'interp',@(i) ischar(i));
-      p.addParameter('detrend',   true,    @(i) islogical(i) && isscalar(i));
-      p.addParameter('debug_plot',false,   @(i) islogical(i) && isscalar(i));
-      % parse it
-      p.parse(Wn,varargin{:});
-      %handle gaps
-      switch p.Results.gaps
-      case 'trunc'
-        %truncating bad data (not a good idea)
-        data_in=obj.y_masked;
-      case 'zeroed'
-        %zeroing bad data
-        data_in=obj.y;
-        data_in(obj.mask,:)=0;
-      case 'interp'
-        %interpolating over bad data
-        data_in=obj.resample.y;
-      otherwise
-        error([mfilename,': unknown gap handling mode ''',p.Results.gaps,'''.'])
-      end
-      
+    function obj=set.tri(obj,in)
       %sanity
-      if any(isnan(data_in(:)))
-          error([mfilename,': found NaNs in the input data.'])
+      if ~isstruct(in)
+        error([mfilename,': input <in> must be a cell array of matrices.'])
       end
-      
-      disp(['Butterworth filter: [',num2str(Wn),']'])
-
-      %computational length
-      n = 2^nextpow2(size(data_in,1));
-
-      error([mfilename,': not yet implemented'])
-      
-      %sanitize
-      obj.check
+      if (numel(in)~=obj.length)
+        error([mfilename,': cannot handle input <in> if it does not have the same number of elements as obj.length.'])
+      end
+      %make room for data
+      y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('tri',in)));
+      %build data 
+      for i=1:obj.length
+        y_now(i,:)=gravity.mat2y(gravity.cs2mat(gravity.tri2cs(in)));
+      end
+      %assign data
+      obj=obj.assign(y_now);
     end
-    function obj=bandpass(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      % add stuff as needed
-      p.addParameter('Wn',NaN,@(i) isnumeric(i) && numel(i)==2);
-      p.addParameter('method',simplefreqseries.default.bandpass_method,@(i) ischar(i));
-      % parse it
-      p.parse(varargin{:});
+    %return a cell array with the mod representation
+    function out=get.mod(obj)
+      out=cell(obj.length,1);
+      for i=1:obj.length
+        out{i}=gravity.dtc('y','mod',obj.y(i,:));
+      end
+    end
+    function obj=set.mod(obj,in)
       %sanity
-      if ~isfinite(p.Results.Wn)
-        error([mfilename,': invalid value for input ''Wn'':',num2str(p.Results.Wn),'.'])
+      if ~isstruct(in)
+        error([mfilename,': input <in> must be a cell array of matrices.'])
       end
-      % branching
-      switch p.Results.method
-      case 'fft'
-        obj=fft_bandpass(obj,p.Results.Wn,varargin{:});
-      case 'butter'
-        obj=fft_bandpass(obj,p.Results.Wn,varargin{:});
-      otherwise
-        error([mfilename,': unknown bandpass method ''',method,'''.'])
+      if (numel(in)~=obj.length)
+        error([mfilename,': cannot handle input <in> if it does not have the same number of elements as obj.length.'])
+      end
+      %make room for data
+      y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('mod',in)));
+      %build data 
+      for i=1:obj.length
+        y_now(i,:)=gravity.mat2y(gravity.cs2mat(gravity.mod2cs(in)));
+      end
+      %assign data
+      obj=obj.assign(y_now);
+    end
+    %% radius
+    function obj=change_R(obj,r)
+      deg=(0:obj.lmax)'*ones(1,obj.lmax+1);
+      scale=(obj.R/r).^(deg+1);
+      cs_now=obj.cs;
+      for i=1:obj.length
+        cs_now(i).C=cs_now(i).C.*scale;
+        cs_now(i).S=cs_now(i).S.*scale;
+      end
+      obj.cs=cs_now;
+    end
+    %% derived quantities
+    function out=dorders(obj)
+      % number of orders in each degree
+      out=2*(1:obj.lmax+1)-1;
+    end
+    %degree RMS
+    function out=drms(obj)
+      das=obj.das;
+      out=zeros(size(das));
+      l=obj.dorders;
+      for i=1:obj.length
+        out(i,:)=das(i,:)./sqrt(l);
       end
     end
-    %% time-domain operations, done at the level of the frequency domain
-    function [despiked,spikes]=despike(obj,cutoff,varargin)
-      obj=psd_refresh_if_empty(obj);
-      p=inputParser;
-      p.KeepUnmatched=true;
-      % add stuff as needed
-      p.addRequired('cutoff',                          @(i) isnumeric(i) && numel(i)==1);
-      p.addParameter('nSigma',simpledata.default.nSigma,@(i) isnumeric(i));
-      p.addParameter('debug_plot',false,                @(i) islogical(i) && isscalar(i));
-      % parse it
-      p.parse(cutoff,varargin{:});
-      % clear varargin of some parameters
-      varargin=simpledata.vararginclean(varargin,{'debug_plot'});
-      % apply low-pass filter
-      smoothed=obj.bandpass('Wn',[0,cutoff],varargin{:});
-      % get high-frequency signal
-      highfreq=obj-smoothed;
-      % find outliers in high-frequency signal
-      [despiked,spikes]=highfreq.outlier(p.Results.nSigma);
-      spikes=spikes.psd_init;
-      % restore smoothed signal
-      despiked=despiked+smoothed;
-      % debug plot
-      if p.Results.debug_plot
-        figure
-        subplot(3,1,1)
-             obj.plot('column',1,'line',{'-o'})
-        despiked.plot('column',1,'line',{'+'})
-        spikes.plus(smoothed).plot('column',1,'line',{'x'})
-        smoothed.plot('column',1)
-        legend('original','despiked','spikes','smooth')
-        subplot(3,1,2)
-        a=despiked+spikes-obj;
-        a.plot('column',1)
-        title('residual')
-        subplot(3,1,3)
-             obj.plot_psd('column',1,'line',{'-o'})
-        despiked.plot_psd('column',1,'line',{'+'})
-        spikes.plus(smoothed).plot_psd('column',1,'line',{'x'})
-        smoothed.plot_psd('column',1)
-        legend('original','despiked','spikes','smooth')
-        keyboard
-      end
-      %sanitize
-      obj.check
+    %cumulative degree RMS
+    function out=cumdrms(obj)
+      out=sqrt(cumsum(obj.drms.^2,2));
     end
-    %% overloading
-    % uses a method from a superclass and resets PSD
-    function obj=op(obj,operation,varargin)
-      %operate
-      obj=obj.(operation)(varargin{:});
-      %reset PSD
-      obj=obj.psd_init;
+    % returns degree amplitude spectrum for each row of obj.y. The output
+    % matrix has in each row the epochs of obj.y (corresponding to the epochs
+    % of the models) and for each column i the degree i-1 (this is implicit).
+    function out=das(obj)
+      out=zeros(obj.length,obj.lmax+1);
+      tri_now=obj.tri;
+      for i=1:obj.length
+        %compute DAS
+        out(i,:) = sqrt(sum(tri_now{i}.^2,2));
+      end
+    end
+    % returns the cumulative degree amplitude spectrum for each row of obj.y.
+    % the output matrix is arranged as <das>.
+    function out=cumdas(obj)
+      out=cumsum(obj.das,2);
     end
     
-    function obj=scale(obj,scale)
-      obj=scale@simpledata(obj,scale);
-      obj=obj.psd_init;
-    end
-    function obj=plus(obj,obj_new)
-      obj=plus@simpledata(obj,obj_new);
-      obj=obj.psd_init;
-    end
-    function obj=minus(obj,obj_new)
-      obj=minus@simpledata(obj,obj_new);
-      obj=obj.psd_init;
-    end
-    function obj=times(obj,obj_new)
-      obj=times@simpledata(obj,obj_new);
-      obj=obj.psd_init;
-    end
-    function obj=rdivide(obj,obj_new)
-      obj=rdivide@simpledata(obj,obj_new);
-      obj=obj.psd_init;
-    end
-    function obj=interp(obj,t_now,varargin)
-      % call superclass
-      obj=interp@simpletimeseries(obj,t_now,varargin{:});
-      %initialize internal records
-      obj.psdi=[];
-      %save delta frequency
-      obj.nyquist=2/obj.step_num;
-    end
   end
 end
