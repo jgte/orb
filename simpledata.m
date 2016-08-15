@@ -441,7 +441,7 @@ classdef simpledata
       p.addRequired( 'y'          ,         @(i) simpledata.valid_y(i));
       p.addParameter('x'          ,obj.x,   @(i) simpledata.valid_x(i));
       p.addParameter('mask'       ,obj.mask,@(i) simpledata.valid_mask(i));
-      p.addParameter('reset_width',false,   @(i) islogical(i));
+      p.addParameter('reset_width',false,   @(i) isscalar(i));
       % parse it
       p.parse(y,varargin{:});
       % ---- x ----
@@ -454,7 +454,7 @@ classdef simpledata
       %update length
       obj.length=numel(obj.x);
       % ---- y ----
-      if ~p.Results.reset_width && ~isempty(obj.width) && size(y,2) ~= obj.width
+      if ~logical(p.Results.reset_width) && ~isempty(obj.width) && size(y,2) ~= obj.width
         error([mfilename,': data width changed from ',num2str(obj.width),' to ',num2str(size(y,2)),'.'])
       end
       if obj.length~=size(y,1)
