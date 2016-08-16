@@ -118,7 +118,7 @@ classdef simpletimeseries < simpledata
         case 0
           error([mfilename,': cannot handle empty time stamps'])
         case 1
-          out=NaN;
+          out=0;
           return
       end
       %get numeric diff of time
@@ -951,7 +951,7 @@ classdef simpletimeseries < simpledata
       if istequal(obj1,obj2)
         return
       end
-      %build extended time domain, with gcd timesteo, rounded to the nearest second
+      %build extended time domain, with lcm timestep, rounded to the nearest second
       t_now=dateshift(min([obj1.start,obj2.start]),'start','second'):...
            step_lcm(obj1,obj2):...
            dateshift(max([obj1.stop, obj2.stop]),  'end',  'second');
