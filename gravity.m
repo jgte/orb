@@ -61,6 +61,10 @@ classdef gravity < simpletimeseries
       'functional',struct('default',gravity.default_list.functional,'validation',@(i) ischar(i)),...
       'source',    struct('default',gravity.default_list.source,    'validation',@(i) ischar(i))...
     );
+    %These parameter are considered when checking if two data sets are
+    %compatible (and only these).
+    %NOTE: edit this if you add a new parameter (if relevant)
+    compatible_parameter_list={'GM','R','functional'};
 
   end
   %read only
@@ -81,6 +85,7 @@ classdef gravity < simpletimeseries
     cs
     tri
     mod
+    checksum
   end
   methods(Static)
     function out=parameters
@@ -376,12 +381,14 @@ classdef gravity < simpletimeseries
     function test(l)
       
       m=gravity.load('ggm05g.gfc.txt');
-      for i=0:3
-        for j=-i:i
-          disp(['d=',num2str(i),'; o=',num2str(j),': ',num2str(m.do(i,j))])
-        end
-      end
-      m.plot('das','functional','geoid','showlegend',true)
+      m.print
+%       for i={'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
+%         figure
+%         m.plot(i{1},'functional','geoid','itle',[m.descriptor,' - ',i{1}]);
+%       end
+      
+      a=m-m.scale(2);
+      keyboard
       return
       
       if ~exist('l','var') || isempty(l)
@@ -615,10 +622,35 @@ classdef gravity < simpletimeseries
       %assign data
       obj=obj.assign(y_now);
     end
+    %% checksum of the models
+    function out=get.checksum(obj)
+      out=obj.norm-sqrt(obj.do(0,0)^2);
+    end
+    %% print
+    function print(obj,tab,lprint)
+      if ~exist('lprint','var') || isempty(lprint)
+        lprint=3;
+      end
+      if ~exist('tab','var') || isempty(tab)
+        tab=12;
+      end
+      tri_now=obj.tri;
+      n=min(obj.lmax,lprint)+1;
+      disp(['Coefficients up to degree ',num2str(n-1),' of the first model, at ',datestr(obj.t(1))])
+      format shortg
+      disp(tri_now{1}(1:n,obj.lmax-n+2:obj.lmax+n))
+      format short
+      %parameters
+      relevant_parameters={'GM','R','functional','source','checksum'};
+      for i=1:numel(relevant_parameters)
+        obj.disp_field(relevant_parameters{i},tab);
+      end
+      %print superclass
+      print@simpletimeseries(obj,tab)
+    end
     %% time handling
-    function idx=time2idx(obj,time)
-      %find closest time idx
-      idx=find(min(abs(seconds(obj.t-time))),1,'first');
+    function out=idx(obj,t_now,varargin)
+      out=idx@simpletimeseries(obj,obj.t2x(t_now),varargin{:});
     end
     %% coefficient access
     function out=do(obj,d,o,time)
@@ -633,14 +665,25 @@ classdef gravity < simpletimeseries
       %make room for output
       out=zeros(size(d));
       %retrive cosine coefficients
-      out(C_idx)=obj.mat{obj.time2idx(time)}(d(C_idx)+1,o(C_idx)+1);
+      out( C_idx)=obj.mat{obj.idx(time)}( d( C_idx)+1,o( C_idx)+1);
       %retrieve sine coefficients
-      out(~C_idx)=obj.mat{obj.time2idx(time)}(-o(~C_idx),d(~C_idx)+1);
+      out(~C_idx)=obj.mat{obj.idx(time)}(-o(~C_idx)  ,d(~C_idx)+1);
+    end
+    function out=subsref(obj,s)
+      if numel(s)==2
+        out=obj.do(s(1),s(2));
+      else
+        out=obj.do(s(1),s(2),s(3));
+      end
     end
     %% scaling functions
+    % GM scaling
+    function s=scale_GM(obj,gm)
+      s=gm/obj.GM;
+    end
     % radius scaling
-    function s=scale_radius(obj,r)
-      s=(obj.R/r).^(0:obj.lmax);
+    function s=scale_R(obj,r)
+      s=(obj.R/r).^((0:obj.lmax)+1);
     end
     % functional scaling
     function s=scale_functional(obj,functional_new)
@@ -752,7 +795,9 @@ classdef gravity < simpletimeseries
         obj=obj.scale(obj.(['scale_',method])(s));
         %need to update metadata in some cases
         switch lower(method)
-          case 'radius'
+          case 'gm'
+            obj.GM=s;
+          case 'r'
             obj.R=s;
           case 'functional'
             obj.functional=s;
@@ -815,32 +860,79 @@ classdef gravity < simpletimeseries
     function out=cumdas(obj)
       out=cumsum(obj.das,2);
     end
+    %% multiple operands
+    function [obj1,obj2]=consolidate(obj1,obj2)
+      %match the minimum degree (truncate
+      if obj1.lmax<obj2.lmax
+        obj2.lmax=obj1.lmax;
+      else
+        obj1.lmax=obj2.lmax;
+      end
+      %match the compatible parameters 
+      parameters=gravity.compatible_parameter_list;
+      for i=1:numel(parameters)
+        p=(parameters{i});
+        if ~isequal(obj1.(p),obj2.(p))
+          obj2=obj2.scale(p,obj1.(p));
+        end 
+      end
+      %extend the time-domain of both objects to be in agreement with the each other.
+      [obj1,obj2]=consolidate@simpletimeseries(obj1,obj2);
+    end
     %% plot functions
-    function axishandle=plot(obj,method,varargin)
+    function out=plot(obj,method,varargin)
       % Parse inputs
       p=inputParser;
       p.KeepUnmatched=true;
       % optional arguments
       p.addParameter('showlegend',false,@(i)islogical(i));
       p.addParameter('functional',obj.functional,gravity.parameter_list.functional.validation);
+      p.addParameter('line'   , {},         @(i)iscell(i));
+      p.addParameter('title',   '',         @(i)ischar(i));
       % parse it
       p.parse(varargin{:});
       % enforce requested functional
       if ~strcmpi(obj.functional,p.Results.functional)
         obj=obj.scale(p.Results.functional,'functional');
       end
+      %build anotate
+      if isempty(p.Results.title)
+        out.title=obj.descriptor;
+      else
+        out.title=p.Results.title;
+      end
+
       % branch on method
       switch lower(method)
       case {'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
         v=transpose(obj.(method));
-        axishandle=semilogy(transpose(v));
-        hold on
-        title(simpledata.strclean(obj.descriptor))
+        switch lower(method)
+        case {'dmean','cumdmean'}
+          out.axishandle=semilogy(0:obj.lmax,abs(v));hold on
+        otherwise
+          out.axishandle=semilogy(0:obj.lmax,v);hold on
+        end
+        grid on
         xlabel('SH degree')
         ylabel([obj.functional,' ',obj.y_units])
         if p.Results.showlegend
           legend(datestr(obj.t))
         end
+        %title: append functional if no title specified
+        if isempty(p.Results.title)
+          switch lower(method)
+            case 'dmean',    title_str='degree mean';
+            case 'cumdmean', title_str='cumul. degree mean';
+            case 'drms',     title_str='degree RMS';
+            case 'cumdrms',  title_str='cumul. degree RMS';
+            case 'dstd',     title_str='degree STD';
+            case 'cumdstd',  title_str='cumul. degree STD';
+            case 'das',      title_str='degree amplit.';
+            case 'cumdas',   title_str='cumul. degree amplit.';
+          end
+        end
+        out.title=[out.title,' - ',title_str];
+        title(simpledata.strclean(out.title))
       otherwise
         error([mfilename,': unknonw method ''',method,'''.'])
       end
