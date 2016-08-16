@@ -217,7 +217,7 @@ classdef simpledata
       out=in;
       idx=false(size(in));
       %ignore non-positive nSigmas
-      if p.Results.nSigma>0
+      if p.Results.nSigma>0 && numel(in)>1
         % ignore NaNs
         nanidx = isnan(in(:));
         % make aux containers with the same size as input
@@ -510,7 +510,9 @@ classdef simpledata
       obj.disp_field('nr gaps',    tab,sum(~obj.mask))
       obj.disp_field('first datum',tab,sum(obj.x(1)))
       obj.disp_field('last datum', tab,sum(obj.x(end)))
-      obj.disp_field('statistics', tab,[10,obj.stats('str-nl','tab',tab)])
+      if obj.width<10
+        obj.disp_field('statistics', tab,[10,obj.stats('str-nl','tab',tab)])
+      end
     end
     function disp_field(obj,field,tab,value)
       if ~exist('value','var') || isempty(value)
@@ -655,11 +657,11 @@ classdef simpledata
     %x=[1,2,3,4,5..], mask=[T,T,F,T,T...] (x=3 being an explict gap).
     %in comparison, implicit gaps are:
     %x=[1,2,4,5..], mask=[T,T,T,T...] (x=3 being an implict gap).
-    function obj=and(obj,mask_now)
+    function obj=mask_and(obj,mask_now)
       %NOTE: this calls set.mask (and mask_update as well)
       obj.mask=obj.mask & mask_now(:);
     end
-    function obj=or(obj,mask_now)
+    function obj=mask_or(obj,mask_now)
       %NOTE: this calls set.mask (and mask_update as well)
       obj.mask=obj.mask | mask_now(:);
     end
@@ -760,26 +762,6 @@ classdef simpledata
       if ~check
         error([mfilename,': discrepancy in between length of ',annotation_name,' and of width of y'])
       end 
-    end
-    function compatible(obj1,obj2)
-      %This method checks if the objectives are referring to the same
-      %type of data, i.e. the data length is not important.
-      if (obj1.width ~= obj2.width)
-        error([mfilename,': incompatible objects: different number of columns'])
-      end
-      parameters=simpledata.compatible_parameter_list;
-      for i=1:numel(parameters)
-        % if a parameter is empty, no need to check it
-        if ( iscell(obj1.(parameters{i})) && isempty([obj1.(parameters{i}){:}]) ) || ...
-           ( ischar(obj1.(parameters{i})) && isempty( obj1.(parameters{i})    ) ) || ...
-           ( iscell(obj2.(parameters{i})) && isempty([obj2.(parameters{i}){:}]) ) || ...
-           ( ischar(obj2.(parameters{i})) && isempty( obj2.(parameters{i})    ) )
-          continue
-        end
-        if ~isequal(obj1.(parameters{i}),obj2.(parameters{i}))
-          error([mfilename,': discrepancy in parameter ',parameters{i},'.'])
-        end 
-      end
     end
     %% edit methods
     function [obj,idx_add,idx_old,x_old]=merge(obj,x_add)
@@ -971,6 +953,26 @@ classdef simpledata
     function out=isxequal(obj1,obj2)
       out=obj1.length==obj2.length && all(obj1.x==obj2.x);
     end
+    function compatible(obj1,obj2)
+      %This method checks if the objectives are referring to the same
+      %type of data, i.e. the data length is not important.
+      if (obj1.width ~= obj2.width)
+        error([mfilename,': incompatible objects: different number of columns'])
+      end
+      parameters=simpledata.compatible_parameter_list;
+      for i=1:numel(parameters)
+        % if a parameter is empty, no need to check it
+        if ( iscell(obj1.(parameters{i})) && isempty([obj1.(parameters{i}){:}]) ) || ...
+           ( ischar(obj1.(parameters{i})) && isempty( obj1.(parameters{i})    ) ) || ...
+           ( iscell(obj2.(parameters{i})) && isempty([obj2.(parameters{i}){:}]) ) || ...
+           ( ischar(obj2.(parameters{i})) && isempty( obj2.(parameters{i})    ) )
+          continue
+        end
+        if ~isequal(obj1.(parameters{i}),obj2.(parameters{i}))
+          error([mfilename,': discrepancy in parameter ',parameters{i},'.'])
+        end 
+      end
+    end
     function [obj1,obj2]=consolidate(obj1,obj2,varargin)
       %extends the x-domain of both objects to be in agreement
       %with the each other. The resulting x-domains possibly have
@@ -1013,6 +1015,18 @@ classdef simpledata
       obj=obj1.assign(y_now,'x',x_now,'mask',mask_now);
     end
     %% algebra
+    function obj=plus(obj,obj_new)
+      %consolidate data sets
+      [obj,obj_new]=obj.consolidate(obj_new);
+      %operate
+      obj.y=obj.y+obj_new.y;
+    end
+    function obj=minus(obj,obj_new)
+      %consolidate data sets
+      [obj,obj_new]=obj.consolidate(obj_new);
+      %operate
+      obj.y=obj.y-obj_new.y;
+    end
     function obj=scale(obj,scale)
       if isscalar(scale)
         obj.y=scale*obj.y;
@@ -1028,17 +1042,8 @@ classdef simpledata
     function obj=uminus(obj)
       obj=obj.scale(-1);
     end
-    function obj=plus(obj,obj_new)
-      %consolidate data sets
-      [obj,obj_new]=obj.consolidate(obj_new);
-      %operate
-      obj.y=obj.y+obj_new.y;
-    end
-    function obj=minus(obj,obj_new)
-      %consolidate data sets
-      [obj,obj_new]=obj.consolidate(obj_new);
-      %operate
-      obj.y=obj.y-obj_new.y;
+    function obj=uplus(obj)
+      obj=obj.scale(1);
     end
     function obj=times(obj,obj_new)
       if isnumeric(obj_new)
@@ -1056,10 +1061,41 @@ classdef simpledata
       %operate
       obj.y=obj.y./obj_new.y;
     end
+    function obj=and(obj,obj_new)
+      %consolidate data sets
+      [obj,obj_new]=obj.consolidate(obj_new);
+      %operate
+      obj=obj.mask_and(obj_new.mask);
+    end
+    function obj=or(obj,obj_new)
+      %consolidate data sets
+      [obj,obj_new]=obj.consolidate(obj_new);
+      %operate
+      obj=obj.mask_or(obj_new.mask);
+    end
+    function obj=not(obj)
+      %build x domain of all explicit gaps
+      x_now=obj.x(~obj.mask);
+      %build zero data matrix
+      y_now=zeros(numel(x_now),obj.width);
+      %assign to output
+      obj=obj.assign(y_now,'x',x_now);
+    end
     %% vector
-    function out=norm(obj)
-      % computes the norm of y
-      out=sqrt(sum(obj.y.^2,2));
+    function out=norm(obj,p)
+      if ~exist('p','var') || isempty(p)
+        p=2;
+      end
+      % computes the p-norm of y
+      if p==2
+        out=sqrt(sum(obj.y.^2,2));
+      elseif p==1
+        out=sum(abs(obj.y),2);
+      elseif mod(p,2)==0
+        out=sum(obj.y.^p,2).^(1/p);
+      else
+        out=sum(abs(obj.y).^p,2).^(1/p);
+      end
     end
     function out=unit(obj)
       % computes the unit vector of y
