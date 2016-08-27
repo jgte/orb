@@ -39,7 +39,7 @@ classdef simpledata
   end
   methods(Static)
     function out=valid_x(x)
-      out=isnumeric(x) && ~isempty(x) && min(size(x))==1;
+      out=isnumeric(x) && ~isempty(x) && isvector(x);
     end
     function [x,y,mask]=monotonic(x,y,mask)
       if ~issorted(x)
@@ -64,7 +64,7 @@ classdef simpledata
       out=isnumeric(y) && ~isempty(y); % && size(y,1) > size(y,2);
     end
     function out=valid_mask(mask)
-      out=islogical(mask) && ~isempty(mask) && min(size(mask))==1;
+      out=islogical(mask) && ~isempty(mask) && isvector(mask);
     end
     function out=default
       out=simpledata.default_list;
@@ -125,7 +125,7 @@ classdef simpledata
         return
       end
       %sanity
-      if (min(size(x1)) ~= 1) || (min(size(x2)) ~= 1)
+      if ~isvector(x1) || ~isvector(x2)
         error([mfilename,': inputs <x1> and <x2> must be 1D vectors.']);
       end
       if (isnumeric(x1) && any(isnan(x1))) || ...
@@ -518,7 +518,7 @@ classdef simpledata
       if ~exist('value','var') || isempty(value)
         value=obj.(field);
       end
-      disp([str.tabbed(field,tab),' : ',str.show(value)])
+      disp([str.tabbed(field,tab),' : ',str.show(transpose(value(:)))])
     end
     function out=stats(obj,mode,varargin)
       p=inputParser;
@@ -614,7 +614,7 @@ classdef simpledata
     end
     function out=idx(obj,x_now,varargin)
       % sanity
-      if min(size(x_now)) ~= 1
+      if ~isvector(x_now)
         error([mfilename,': Input x_now must be a vector.'])
       end
       if numel(x_now)>1
@@ -637,7 +637,7 @@ classdef simpledata
     end
     %% y methods
     function obj=cols(obj,columns)
-      if min(size(columns))~=1
+      if ~isvector(columns)
         error([mfilename,': input ''columns'' must be a vector'])
       end
       %update width
@@ -817,7 +817,11 @@ classdef simpledata
       %NOTICE: x_now = obj.x(idx_now)
       [obj,idx_now]=obj.merge(x_now);
       %interpolate over all gaps, use all available information
-      y_now=interp1(obj.x_masked,obj.y_masked,x_now(:),p.Results.interp1_args{:});
+      if numel(x_now)==1
+        y_now=obj.y_masked;
+      else
+        y_now=interp1(obj.x_masked,obj.y_masked,x_now(:),p.Results.interp1_args{:});
+      end
       % create mask with requested gap interpolation scheme
       if p.Results.interp_over_gaps_narrower_than <= 0
         %this interpolates over all gaps, i.e. keeps all interpolated data,
@@ -834,7 +838,7 @@ classdef simpledata
         mask_now=mask_add(idx_now);
       end
       % handle empty data
-      if sum(mask_now)<2
+      if sum(mask_now)<1
         obj=obj.assign(nan(size(obj.y)));
         return
       end
