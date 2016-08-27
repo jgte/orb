@@ -98,6 +98,34 @@ classdef simpletimeseries < simpledata
       end
       out=epoch+simpletimeseries.timescale(in);
     end
+    function presence=ispresent(parser,fields)
+      % defaults
+      if ~exist('fields','var') || isempty(fields)
+        fields={'t','x'};
+        check_for_concurrence=true;
+      else
+        check_for_concurrence=false;
+      end
+      %sanity
+      if ~iscell(fields)
+        error([mfilename,': input argument ''fields'' must be a cell array.'])
+      end
+      % look for existence
+      for i=1:numel(fields)
+        if any(strcmp(parser.Parameters,fields{i}))
+          presence.(fields{i})=~any(strcmp(parser.UsingDefaults,fields{i}));
+        else
+          presence.(fields{i})=isfield(parser.Unmatched,fields{i});
+        end
+      end
+      %this is often how this routine is called
+      if check_for_concurrence
+        %cannot have both 't' and 'x'
+        if presence.x && presence.t
+          error([mfilename,': cannot handle both inputs ''x'' and ''t''.'])
+        end
+      end
+    end
     function out=parameters
       out=fieldnames(simpletimeseries.parameter_list);
     end
@@ -570,8 +598,8 @@ classdef simpletimeseries < simpledata
     function obj=simpletimeseries(t,y,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 't'); %this can be char, double or datetime
-      p.addRequired( 'y',      @(i) simpledata.valid_y(i));
+      p.addRequired( 't', @(i)); %this can be char, double or datetime
+      p.addRequired( 'y', @(i) simpledata.valid_y(i));
       %declare parameters
       for j=1:numel(simpletimeseries.parameters)
         %shorter names
@@ -618,20 +646,15 @@ classdef simpletimeseries < simpledata
       % parse it
       p.parse(y,varargin{:});
       % simpler names
-      x_present=isfield(p.Unmatched,'x');
-      t_present=~any(strcmp(p.UsingDefaults,'t'));
-      %cannot have both 't' and 'x'
-      if x_present && t_present
-        error([mfilename,': cannot handle both inputs ''x'' and ''t''.'])
-      end
+      presence=simpletimeseries.ispresent(p);
       %if 't' is not present, then pass it on to simple data
-      if ~t_present
+      if ~presence.t
         obj=assign@simpledata(obj,y,varargin{:});
         %if there is no 'x', then this is a simple assignment of y
-        if ~x_present; return; end
+        if ~presence.x; return; end
       end
-      %if 't' is present, assign 'x'
-      if t_present
+      %if 't' is present, assign it to 'x'
+      if presence.t
         obj=assign@simpledata(obj,y,'x',simpletimeseries.time2num(p.Results.t),varargin{:});
       end
       %update epoch (needed to derive obj.t from obj.x)
