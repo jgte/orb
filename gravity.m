@@ -65,7 +65,6 @@ classdef gravity < simpletimeseries
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
     compatible_parameter_list={'GM','R','functional'};
-
   end
   %read only
   properties(SetAccess=private)
@@ -321,7 +320,7 @@ classdef gravity < simpletimeseries
           scale=ones(lmax+1,1);
       end
       %sanity
-      if min(size(scale)) ~= 1 || lmax+1 ~= numel(scale)
+      if ~isvector(scale) || lmax+1 ~= numel(scale)
         error([mfilename,': input ''scale'' has to be a vector with length lmax+1'])
       end
       %create unitary triangular matrix
@@ -369,6 +368,7 @@ classdef gravity < simpletimeseries
         error([mfilename,': cannot handle models of type ''',type,'''.'])
       end
     end
+    %% tests
     %general test for the current object
     function out=test_parameters(field,l,w)
       switch field
@@ -648,10 +648,6 @@ classdef gravity < simpletimeseries
       %print superclass
       print@simpletimeseries(obj,tab)
     end
-    %% time handling
-    function out=idx(obj,t_now,varargin)
-      out=idx@simpletimeseries(obj,obj.t2x(t_now),varargin{:});
-    end
     %% coefficient access
     function out=do(obj,d,o,time)
       if ~exist('time','var') || isempty(time)
@@ -668,13 +664,6 @@ classdef gravity < simpletimeseries
       out( C_idx)=obj.mat{obj.idx(time)}( d( C_idx)+1,o( C_idx)+1);
       %retrieve sine coefficients
       out(~C_idx)=obj.mat{obj.idx(time)}(-o(~C_idx)  ,d(~C_idx)+1);
-    end
-    function out=subsref(obj,s)
-      if numel(s)==2
-        out=obj.do(s(1),s(2));
-      else
-        out=obj.do(s(1),s(2),s(3));
-      end
     end
     %% scaling functions
     % GM scaling
