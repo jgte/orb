@@ -598,7 +598,7 @@ classdef simpletimeseries < simpledata
     function obj=simpletimeseries(t,y,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 't', @(i)); %this can be char, double or datetime
+      p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
       %declare parameters
       for j=1:numel(simpletimeseries.parameters)
