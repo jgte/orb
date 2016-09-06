@@ -1,4 +1,4 @@
-classdef grid < simpletimeseries
+classdef simplegrid < simpletimeseries
   %static
   properties(Constant)
     %default value of some internal parameters
@@ -8,9 +8,9 @@ classdef grid < simpletimeseries
       'lat_units','deg'...
     );
     parameter_list=struct(...
-      'tolerance', struct('default',grid.default_list.tolerance, 'validation',@(i) isnumeric(i) && isscalar(i)),...
-      'lon_units', struct('default',grid.default_list.lon_units, 'validation',@(i) ischar(i)),...
-      'lat_units', struct('default',grid.default_list.lat_units, 'validation',@(i) ischar(i))...
+      'tolerance', struct('default',simplegrid.default_list.tolerance, 'validation',@(i) isnumeric(i) && isscalar(i)),...
+      'lon_units', struct('default',simplegrid.default_list.lon_units, 'validation',@(i) ischar(i)),...
+      'lat_units', struct('default',simplegrid.default_list.lat_units, 'validation',@(i) ischar(i))...
     );
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -19,8 +19,8 @@ classdef grid < simpletimeseries
   end
   %read only
   properties(SetAccess=private)
-    lon
-    lat
+    loni
+    lati
   end
   %private (visible only to this object)
   properties(GetAccess=private)
@@ -28,11 +28,14 @@ classdef grid < simpletimeseries
   end
   properties(GetAccess=public,SetAccess=public)
     tolerance
+    %TODO: make members that handle units, use only one property (spatial_units)
     lon_units
     lat_units
   end
   %calculated only when asked for
   properties(Dependent)
+    lat
+    lon
     map
     vecmat
     list
@@ -46,10 +49,10 @@ classdef grid < simpletimeseries
   end
   methods(Static)
     function out=parameters
-      out=fieldnames(grid.parameter_list);
+      out=fieldnames(simplegrid.parameter_list);
     end
     function out=default
-      out=grid.default_list;
+      out=simplegrid.default_list;
     end
     %% spacing
     function out=getSpacing(lon,lat)
@@ -74,7 +77,7 @@ classdef grid < simpletimeseries
     %% vector/matrix representation
     function out=vecmat_valid(vecmat)
       try
-        grid.vecmat_check(vecmat);
+        simplegrid.vecmat_check(vecmat);
         out=true;
       catch
         out=false;
@@ -90,18 +93,18 @@ classdef grid < simpletimeseries
       if ~isfield(    vecmat,'lat'); error([mfilename,': invalid ',type,': field ''lat'' is missing.']);end
       if ~isempty(vecmat.lon) && ~isempty(vecmat.lat)
         % Calculate the spacing and limits
-        GridLimits  = grid.getLimits( vecmat.lon(:),vecmat.lat(:));
-        GridSpacing = grid.getSpacing(vecmat.lon(:),vecmat.lat(:));
+        GridLimits  = simplegrid.getLimits( vecmat.lon(:),vecmat.lat(:));
+        GridSpacing = simplegrid.getSpacing(vecmat.lon(:),vecmat.lat(:));
         % build equal-spaced lon and lat
         out=struct(...
           'lon',          GridLimits(1):GridSpacing(1):GridLimits(2),...
           'lat',transpose(GridLimits(3):GridSpacing(2):GridLimits(4))...
         );
         % sanity
-        if numel(out.lon) ~= numel(vecmat.lon) || any( (out.lon(:)-vecmat.lon(:)).^2>grid.default_list.tolerance^2 )
+        if numel(out.lon) ~= numel(vecmat.lon) || any( (out.lon(:)-vecmat.lon(:)).^2>simplegrid.default_list.tolerance^2 )
           error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.'])
         end
-        if numel(out.lat) ~= numel(vecmat.lat) || any( (out.lat(:)-vecmat.lat(:)).^2>grid.default_list.tolerance^2 )
+        if numel(out.lat) ~= numel(vecmat.lat) || any( (out.lat(:)-vecmat.lat(:)).^2>simplegrid.default_list.tolerance^2 )
           error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.'])
         end
       else
@@ -145,7 +148,7 @@ classdef grid < simpletimeseries
     %% list representation
     function out=list_valid(list)
       try
-        grid.list_check(list);
+        simplegrid.list_check(list);
         out=true;
       catch
         out=false;
@@ -161,8 +164,8 @@ classdef grid < simpletimeseries
       if ~isfield(   list,'lat'); error([mfilename,': invalid ',type,': field ''lat'' is missing.']);end
       if ~isempty(list.lon) && ~isempty(list.lat)
         % Calculate the spacing and limits
-        GridLimits  = grid.getLimits( list.lon(:),list.lat(:));
-        GridSpacing = grid.getSpacing(list.lon(:),list.lat(:));
+        GridLimits  = simplegrid.getLimits( list.lon(:),list.lat(:));
+        GridSpacing = simplegrid.getSpacing(list.lon(:),list.lat(:));
         % build equal-spaced lon and lat
         out=struct(...
           'lon', GridLimits(1):GridSpacing(1):GridLimits(2),...
@@ -171,11 +174,11 @@ classdef grid < simpletimeseries
         % get indexes
         idx.lon=nan(1,numel(list.lon));
         for i=1:numel(out.lon)
-          idx.lon( (out.lon(i)-list.lon).^2<grid.default_list.tolerance^2 )=i;
+          idx.lon( (out.lon(i)-list.lon).^2<simplegrid.default_list.tolerance^2 )=i;
         end
         idx.lat=nan(1,numel(list.lat));
         for i=1:numel(out.lat)
-          idx.lat( (out.lat(i)-list.lat).^2<grid.default_list.tolerance^2 )=i;
+          idx.lat( (out.lat(i)-list.lat).^2<simplegrid.default_list.tolerance^2 )=i;
         end
         if any(isnan(idx.lat)); error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.']);end
         if any(isnan(idx.lon)); error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.']);end
@@ -223,7 +226,7 @@ classdef grid < simpletimeseries
     %% flatlist representation
     function out=flatlist_valid(flatlist)
       try
-        grid.flatlist_check(flatlist);
+        simplegrid.flatlist_check(flatlist);
         out=true;
       catch
         out=false;
@@ -239,8 +242,8 @@ classdef grid < simpletimeseries
       if ~isfield(   flatlist,'lat'); error([mfilename,': invalid ',type,': field ''lat'' is missing.']);end
       if ~isempty(flatlist.lon) && ~isempty(flatlist.lat)
         % Calculate the spacing and limits
-        GridLimits  = grid.getLimits( flatlist.lon(:),flatlist.lat(:));
-        GridSpacing = grid.getSpacing(flatlist.lon(:),flatlist.lat(:));
+        GridLimits  = simplegrid.getLimits( flatlist.lon(:),flatlist.lat(:));
+        GridSpacing = simplegrid.getSpacing(flatlist.lon(:),flatlist.lat(:));
         % build equal-spaced lon and lat
         out=struct(...
           'lon', GridLimits(1):GridSpacing(1):GridLimits(2),...
@@ -250,18 +253,18 @@ classdef grid < simpletimeseries
         % get indexes
         idx.lon=nan(1,numel(flatlist.lon));
         for i=1:numel(out.lon)
-          idx.lon( (out.lon(i)-flatlist.lon).^2<grid.default_list.tolerance^2 )=i;
+          idx.lon( (out.lon(i)-flatlist.lon).^2<simplegrid.default_list.tolerance^2 )=i;
         end
         if any(isnan(idx.lon)); error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.']);end
         idx.lat=nan(1,numel(flatlist.lat));
         for i=1:numel(out.lat)
-          idx.lat( (out.lat(i)-flatlist.lat).^2<grid.default_list.tolerance^2 )=i;
+          idx.lat( (out.lat(i)-flatlist.lat).^2<simplegrid.default_list.tolerance^2 )=i;
         end
         if any(isnan(idx.lat)); error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.']);end
         idx.t=nan(1,numel(flatlist.t));
         fltdn=datenum(flatlist.t);
         for i=1:numel(out.t)
-          idx.t( (datenum(out.t(i))-fltdn).^2<grid.default_list.tolerance^2 )=i;
+          idx.t( (datenum(out.t(i))-fltdn).^2<simplegrid.default_list.tolerance^2 )=i;
         end
         if any(isnan(idx.t)); error([mfilename,': invalid ',type,': field ''t'' contains NaNs, debug needed.']);end
       else
@@ -308,7 +311,7 @@ classdef grid < simpletimeseries
     %% matrix representation
     function out=matrix_valid(matrix)
       try
-        grid.matrix_check(matrix);
+        simplegrid.matrix_check(matrix);
         out=true;
       catch
         out=false;
@@ -324,8 +327,8 @@ classdef grid < simpletimeseries
       if ~isfield(    matrix,'lat'); error([mfilename,': invalid ',type,': field ''lat'' is missing.']);end
       if ~isempty(matrix.lon) && ~isempty(matrix.lat)
         % Calculate the spacing and limits
-        GridLimits  = grid.getLimits( matrix.lon(:),matrix.lat(:));
-        GridSpacing = grid.getSpacing(matrix.lon(:),matrix.lat(:));
+        GridLimits  = simplegrid.getLimits( matrix.lon(:),matrix.lat(:));
+        GridSpacing = simplegrid.getSpacing(matrix.lon(:),matrix.lat(:));
         % build equal-spaced lon and lat
         out=struct(...
           'lon',          GridLimits(1):GridSpacing(1):GridLimits(2),...
@@ -334,10 +337,10 @@ classdef grid < simpletimeseries
         %build meshed lon and lat
         [lon_m,lat_m]=meshgrid(out.lon,out.lat);
         % sanity
-        if numel(lon_m) ~= numel(matrix.lon) || any( (lon_m(:)-matrix.lon(:)).^2>grid.default_list.tolerance^2 )
+        if numel(lon_m) ~= numel(matrix.lon) || any( (lon_m(:)-matrix.lon(:)).^2>simplegrid.default_list.tolerance^2 )
           error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.'])
         end
-        if numel(lat_m) ~= numel(matrix.lat) || any( (lat_m(:)-matrix.lat(:)).^2>grid.default_list.tolerance^2 )
+        if numel(lat_m) ~= numel(matrix.lat) || any( (lat_m(:)-matrix.lat(:)).^2>simplegrid.default_list.tolerance^2 )
           error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.'])
         end
       else
@@ -386,7 +389,7 @@ classdef grid < simpletimeseries
     %% vecmat and list convertions
     function [vecmat,idx]=list2vecmat(list)
       % inputs are lists of points in rows, changing with times along the columns
-      [vecmat,idx]=grid.list_check(list);
+      [vecmat,idx]=simplegrid.list_check(list);
       % save indexes
       idx.map = sub2ind([numel(vecmat.lat),numel(vecmat.lon)],idx.lat,idx.lon);
       % save t
@@ -403,7 +406,7 @@ classdef grid < simpletimeseries
     end
     function list=vecmat2list(vecmat)
       %check input and get uniform domain
-      e=grid.vecmat_check(vecmat);
+      e=simplegrid.vecmat_check(vecmat);
       % build meshed lon and lat
       [lon_m,lat_m]=meshgrid(e.lon,e.lat);
       % outputs
@@ -423,7 +426,7 @@ classdef grid < simpletimeseries
     %% list and flatlist convertions
     function flatlist=vecmat2flatlist(vecmat)
       % need list (vecmat is checked inside vecmat2list)
-      list=grid.vecmat2list(vecmat);
+      list=simplegrid.vecmat2list(vecmat);
       % build 3d meshgrids     
       [lat,t,lon]=meshgrid(vecmat.lat(:),datenum(list.t(:)),vecmat.lon(:));
       %assign outputs: collapse everything into vectors
@@ -436,7 +439,7 @@ classdef grid < simpletimeseries
     end
     function vecmat=flatlist2vecmat(flatlist)
       % inputs are lists of points in rows, including lat, lon and time dependencies
-      [vecmat,idx]=grid.flatlist_check(flatlist);
+      [vecmat,idx]=simplegrid.flatlist_check(flatlist);
       % save indexes
       idx.map = sub2ind([numel(vecmat.lat),numel(flatlist.t),numel(vecmat.lon)],idx.lat,idx.t,idx.lon);
       % assign map
@@ -457,13 +460,13 @@ classdef grid < simpletimeseries
           matrix.map = permute(  matrix.map,[2,1,3]);
       end
       % inputs are matrices of coordinates and values
-      vecmat=grid.matrix_check(matrix);
+      vecmat=simplegrid.matrix_check(matrix);
       % copy the rest
       vecmat.map = matrix.map;
       vecmat.t   = matrix.t;
     end
     function matrix=vecmat2matrix(vecmat)
-      e=grid.vecmat_check(vecmat);
+      e=simplegrid.vecmat_check(vecmat);
       % build meshed lon and lat
       [lon_m,lat_m]=meshgrid(e.lon,e.lat);
       % outputs
@@ -486,37 +489,37 @@ classdef grid < simpletimeseries
       switch lower(from)
         case 'vecmat'
           switch lower(to)
-            case 'list';     out=grid.vecmat2list(in);
-            case 'flatlist'; out=grid.vecmat2flatlist(in);
-            case 'matrix';   out=grid.vecmat2matrix(in);
+            case 'list';     out=simplegrid.vecmat2list(in);
+            case 'flatlist'; out=simplegrid.vecmat2flatlist(in);
+            case 'matrix';   out=simplegrid.vecmat2matrix(in);
           end
         case 'list'
           switch lower(to)
-            case 'vecmat';   out=                     grid.list2vecmat(in);
-            case 'flatlist'; out=grid.vecmat2flatlist(grid.list2vecmat(in));
-            case 'matrix';   out=grid.vecmat2matrix(  grid.list2vecmat(in));
+            case 'vecmat';   out=                           simplegrid.list2vecmat(in);
+            case 'flatlist'; out=simplegrid.vecmat2flatlist(simplegrid.list2vecmat(in));
+            case 'matrix';   out=simplegrid.vecmat2matrix(  simplegrid.list2vecmat(in));
           end
         case 'flatlist'
           switch lower(to)
-            case 'vecmat'; out=                   grid.flatlist2vecmat(in);
-            case 'list';   out=grid.vecmat2list(  grid.flatlist2vecmat(in));
-            case 'matrix'; out=grid.vecmat2matrix(grid.flatlist2vecmat(in));
+            case 'vecmat'; out=                         simplegrid.flatlist2vecmat(in);
+            case 'list';   out=simplegrid.vecmat2list(  simplegrid.flatlist2vecmat(in));
+            case 'matrix'; out=simplegrid.vecmat2matrix(simplegrid.flatlist2vecmat(in));
           end
         case 'matrix'
           switch lower(to)
-            case 'vecmat';   out=                     grid.matrix2vecmat(in);
-            case 'flatlist'; out=grid.vecmat2flatlist(grid.matrix2vecmat(in));
-            case 'list';     out=grid.vecmat2list(    grid.matrix2vecmat(in));
+            case 'vecmat';   out=                           simplegrid.matrix2vecmat(in);
+            case 'flatlist'; out=simplegrid.vecmat2flatlist(simplegrid.matrix2vecmat(in));
+            case 'list';     out=simplegrid.vecmat2list(    simplegrid.matrix2vecmat(in));
           end
       end
     end
     %data type validity
     function c=dtv(type,in)
       switch lower(type)
-      case 'vecmat';   c=grid.vecmat_valid(in);
-      case 'list';     c=grid.list_valid(in);
-      case 'flatlist'; c=grid.flatlist_valid(in);
-      case 'matrix';   c=grid.matrix_valid(in);
+      case 'vecmat';   c=simplegrid.vecmat_valid(in);
+      case 'list';     c=simplegrid.list_valid(in);
+      case 'flatlist'; c=simplegrid.flatlist_valid(in);
+      case 'matrix';   c=simplegrid.matrix_valid(in);
       otherwise
         error([mfilename,': unknown data type ''',type,'''.'])
       end
@@ -524,10 +527,10 @@ classdef grid < simpletimeseries
     %data type check
     function dtcheck(type,in)
       switch lower(type)
-      case 'vecmat';grid.vecmat_check(in);
-      case 'list';  grid.list_check(in);
-      case 'flatlist';  grid.flatlist_check(in);
-      case 'matrix';grid.matrix_check(in);
+      case 'vecmat';   simplegrid.vecmat_check(in);
+      case 'list';     simplegrid.list_check(in);
+      case 'flatlist'; simplegrid.flatlist_check(in);
+      case 'matrix';   simplegrid.matrix_check(in);
       otherwise
         error([mfilename,': unknown data type ''',type,'''.'])
       end
@@ -535,10 +538,10 @@ classdef grid < simpletimeseries
     %data type length
     function l=dtl(type,in)
       switch lower(type)
-      case 'vecmat';l=grid.vecmat_length(in);
-      case 'list';  l=grid.list_length(in);
-      case 'flatlist';  l=grid.flatlist_length(in);
-      case 'matrix';l=grid.mat_length(in);
+      case 'vecmat';   l=simplegrid.vecmat_length(in);
+      case 'list';     l=simplegrid.list_length(in);
+      case 'flatlist'; l=simplegrid.flatlist_length(in);
+      case 'matrix';   l=simplegrid.mat_length(in);
       otherwise
         error([mfilename,': unknown data type ''',type,'''.'])
       end
@@ -570,19 +573,19 @@ classdef grid < simpletimeseries
         'map',map...
       );
       % determine format of inputs
-      if grid.vecmat_valid(si)
-        fmt='vecmat';
-      elseif grid.list_valid(si)
+      if simplegrid.list_valid(si)
         fmt='list';
-      elseif grid.flatlist_valid(si)
+      elseif simplegrid.vecmat_valid(si)
+        fmt='vecmat';
+      elseif simplegrid.flatlist_valid(si)
         fmt='flatlist';
-      elseif grid.matrix_valid(si)
+      elseif simplegrid.matrix_valid(si)
         fmt='matrix';
       else
         error([mfilename,': cannot handle the format of inputs'])
       end
       % convert to requested type
-      s=grid.dtc(fmt,type,si);
+      s=simplegrid.dtc(fmt,type,si);
     end
     %% constructors
     function obj=unit(n_lon,n_lat,varargin)
@@ -591,10 +594,11 @@ classdef grid < simpletimeseries
       p.addRequired( 'n_lat',  @(i) isscalar(i) && isnumeric(i));
       p.addParameter('scale',1,@(i) isscalar(i) && isnumeric(i));
       p.addParameter('bias', 0,@(i) isscalar(i) && isnumeric(i));
+      p.addParameter('t',datetime('now'),@(i) isdatetime(i));
       p.parse(n_lon,n_lat,varargin{:});
       %initialize with unitary grid
-      obj=grid(...
-        datetime('now'),...
+      obj=simplegrid(...
+        p.Results.t,...
         ones(p.Results.n_lat,p.Results.n_lon)*p.Results.scale+p.Results.bias...
       );
     end
@@ -605,10 +609,11 @@ classdef grid < simpletimeseries
       p.addRequired( 'n_lat',  @(i) isscalar(i) && isnumeric(i));
       p.addParameter('scale',1,@(i) isscalar(i) && isnumeric(i));
       p.addParameter('bias', 0,@(i) isscalar(i) && isnumeric(i));
+      p.addParameter('t',datetime('now'),@(i) isdatetime(i));
       p.parse(n_lon,n_lat,varargin{:});
       %initialize with random grid
-      obj=grid(...
-        datetime('now'),...
+      obj=simplegrid(...
+        p.Results.t,...
         randn(p.Results.n_lat,p.Results.n_lon)*p.Results.scale+p.Results.bias...
       );
     end
@@ -618,12 +623,13 @@ classdef grid < simpletimeseries
       p.addRequired( 'n_lat',  @(i) isscalar(i) && isnumeric(i));
       p.addParameter('scale',1,@(i) isscalar(i) && isnumeric(i));
       p.addParameter('bias', 0,@(i) isscalar(i) && isnumeric(i));
+      p.addParameter('t',datetime('now'),@(i) isdatetime(i));
       p.parse(n_lon,n_lat,varargin{:});
       %initialize grid with sum of lon and lat in degrees
-      [lon_map,lat_map]=meshgrid(grid.lon_default(p.Results.n_lon),grid.lat_default(p.Results.n_lat));
+      [lon_map,lat_map]=meshgrid(simplegrid.lon_default(p.Results.n_lon),simplegrid.lat_default(p.Results.n_lat));
       %initialize with grid
-      obj=grid(...
-        datetime('now'),...
+      obj=simplegrid(...
+        p.Results.t,...
         lon_map+lat_map*p.Results.scale+p.Results.bias...
       );
     end
@@ -640,70 +646,75 @@ classdef grid < simpletimeseries
         out=simpledata.test_parameters(field,l,w);
       end
     end
-    function test(l)
-      
+    function test(method,l)
+      if ~exist('method','var') || isempty(method)
+        method='all';
+      end
       if ~exist('l','var') || isempty(l)
         l=[3,5,2];
       end
-      
-      dt={'vecmat','matrix','list','flatlist'};
-      a=struct(...
-        'lon',grid.lon_default(l(2)),...
-        'lat',grid.lat_default(l(1)),...
-        'map',reshape(1:prod(l),l),...
-        't',datetime(sort(datenum(round(rand(l(3),6)*60))),'ConvertFrom','datenum')...
-      );
-      dd={...
-        a,...
-        grid.vecmat2matrix(a),...
-        grid.vecmat2list(a),...
-        grid.vecmat2flatlist(a)...
-      };
-      for i=1:numel(dt)
-        for j=1:numel(dt)
-          out=grid.dtc(dt{i},dt{j},dd{i});
-          if any(any(out.map~=dd{j}.map))
-            error([mfilename,': failed data type conversion between ''',dt{i},''' and ''',dt{j},'''.'])
+      switch lower(method)
+      case 'all'
+         for i={'reps','unit','unit rms','r','gm','minus','resample','ggm05s','stats'}
+           simplegrid.test(i{1},l);
+         end
+      case 'reps'
+        dt={'vecmat','matrix','list','flatlist'};
+        a=struct(...
+          'lon',simplegrid.lon_default(l(2)),...
+          'lat',simplegrid.lat_default(l(1)),...
+          'map',reshape(1:prod(l),l),...
+          't',datetime(sort(datenum(round(rand(l(3),6)*60))),'ConvertFrom','datenum')...
+        );
+        dd={...
+          a,...
+          simplegrid.vecmat2matrix(a),...
+          simplegrid.vecmat2list(a),...
+          simplegrid.vecmat2flatlist(a)...
+        };
+        for i=1:numel(dt)
+          for j=1:numel(dt)
+            out=simplegrid.dtc(dt{i},dt{j},dd{i});
+            if any(any(out.map~=dd{j}.map))
+              error([mfilename,': failed data type conversion between ''',dt{i},''' and ''',dt{j},'''.'])
+            end
           end
         end
+      case 'resample'
+        a=simplegrid.slanted(l(1),l(2));
+        a.spatial_resample(l(1)*3,l(2)*2).imagesc(a.t)
       end
-      
-     a=grid.slanted(l(1),l(2));
-     a.spatial_resample(l(1)*3,l(2)*2).imagesc(a.t)
-      
     end
   end
   methods
     %% constructor
-    function obj=grid(t,map,varargin)
+    function obj=simplegrid(t,map,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired('t',  @(i) ischar(i) || isnumeric(i) || isdatetime(i)); %this can be char, double or datetime
-      p.addRequired('map',@(i) isnumeric(map) || iscell(map));
-      p.addParameter('lat',grid.lat_default(size(map,1)), @(i) isnumeric(i));
-      p.addParameter('lon',grid.lon_default(size(map,2)), @(i) isnumeric(i));
+      p.addRequired('map',@(i) isnumeric(i) || iscell(i));
+      p.addParameter('lat',simplegrid.lat_default(size(map,1)), @(i) isnumeric(i));
+      p.addParameter('lon',simplegrid.lon_default(size(map,2)), @(i) isnumeric(i));
       %declare parameters
-      for j=1:numel(grid.parameters)
+      for j=1:numel(simplegrid.parameters)
         %shorter names
-        pn=grid.parameters{j};
+        pn=simplegrid.parameters{j};
         %declare parameters
-        p.addParameter(pn,grid.parameter_list.(pn).default,grid.parameter_list.(pn).validation)
+        p.addParameter(pn,simplegrid.parameter_list.(pn).default,simplegrid.parameter_list.(pn).validation)
       end
       % parse it
       p.parse(t,map,varargin{:});
-      % retrieve strucutre with list
-      sl=grid.dti(t,p.Results.map,p.Results.lon,p.Results.lat,'list');
+      % retrieve structure with list
+      sl=simplegrid.dti(t,p.Results.map,p.Results.lon,p.Results.lat,'list');
       % call superclass
       obj=obj@simpletimeseries(p.Results.t,sl.map,varargin{:});
-      % convert to vecmat (to get lat/lon domains)
-      sv=grid.dtc('list','vecmat',sl);
       % save lon and lat
-      obj.lon=sv.lon;
-      obj.lat=sv.lat;
+      obj.loni=sl.lon;
+      obj.lati=sl.lat;
       % save parameters
-      for i=1:numel(grid.parameters)
+      for i=1:numel(simplegrid.parameters)
         %shorter names
-        pn=grid.parameters{i};
+        pn=simplegrid.parameters{i};
         if ~isscalar(p.Results.(pn))
           %vectors are always lines (easier to handle strings)
           obj.(pn)=transpose(p.Results.(pn)(:));
@@ -732,7 +743,7 @@ classdef grid < simpletimeseries
         error([mfilename,': cannot assign a map without either ''x'' or ''t''.'])
       end
       % If inputs p.Results.lon and p.Results.lat are empty, it's because
-      % obj.lat and obj.lon are too. This test makes sense because
+      % obj.lati and obj.loni are too. This test makes sense because
       % simpledata will call the assign method before the lon/lat fields
       % are assigned.
       if ~isempty(p.Results.lon) && ~isempty(p.Results.lat)
@@ -741,13 +752,11 @@ classdef grid < simpletimeseries
            any(strcmp(p.UsingDefaults,'lat'))
           % the format may not be properly determined, so assume map is given in list-type
         else
-          % lon/lat give in inputs, retrieve structure with list (format is determined in grid.dti)
-          sl=grid.dti(t,map,p.Results.lon,p.Results.lat,'list');
-          % convert to vecmat (to get lat/lon domains)
-          sv=grid.dtc('list','vecmat',sl);
+          % lon/lat given in inputs, retrieve structure with list (format is determined in simplegrid.dti)
+          sl=simplegrid.dti(t,map,p.Results.lon,p.Results.lat,'list');
           % save lon and lat
-          obj.lon=sv.lon;
-          obj.lat=sv.lat;
+          obj.loni=sl.lon;
+          obj.lati=sl.lat;
           % propagate map to be assigned below
           map=sl.map;
         end
@@ -762,12 +771,12 @@ classdef grid < simpletimeseries
       end
       % add width-reseting flag, if needed
       if obj.width~=size(map,2)
-        if size(map,2)==numel(obj.lat)*numel(obj.lon)
+        if size(map,2)==numel(obj.lati) %or obj.loni
           varargin{end+1}='reset_width';
           varargin{end+1}=true;
         else
-          error([mfilename,': tryng to assign a map that is not consistent with existing lon/lat domain. ',...
-            'Update those first or pass them as arguments to this member.'])
+          error([mfilename,': trying to assign a map that is not consistent with existing lon/lat domain. ',...
+            'Update that first or pass them as arguments to this member.'])
         end
       end
       % pass it upstream
@@ -777,7 +786,7 @@ classdef grid < simpletimeseries
       %call superclass
       obj=copy_metadata@simpletimeseries(obj,obj_in);
       %propagate parameters of this object
-      parameters=grid.parameters;
+      parameters=simplegrid.parameters;
       for i=1:numel(parameters)
         if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
           obj.(parameters{i})=obj_in.(parameters{i});
@@ -799,10 +808,10 @@ classdef grid < simpletimeseries
     end
     %% vecmat handling
     function sv=get.vecmat(obj)
-      sv=grid.vecmat_init(obj.t,obj.map,obj.lon,obj.lat);
+      sv=simplegrid.dtc('list','vecmat',obj.list);
     end
     function obj=set.vecmat(obj,vecmat)
-      grid.vecmat_check(vecmat);
+      simplegrid.vecmat_check(vecmat);
       obj=obj.assign(vecmat.map,...
                  't',vecmat.t,...
                'lat',vecmat.lat,...
@@ -811,10 +820,10 @@ classdef grid < simpletimeseries
     end
     %% list handling 
     function sl=get.list(obj)
-      sl=grid.dtc(obj.vecmat,'vecmat','list');
+      sl=simplegrid.list_init(obj.t,obj.y,obj.loni,obj.lati);
     end
     function obj=set.list(obj,list)
-      grid.list_check(list);
+      simplegrid.list_check(list);
       obj=obj.assign(list.map,...
                  't',list.t,...
                'lat',list.lat,...
@@ -823,10 +832,10 @@ classdef grid < simpletimeseries
     end
     %% flatlist handling 
     function sl=get.flatlist(obj)
-      sl=grid.dtc(obj.vecmat,'vecmat','flatlist');
+      sl=simplegrid.dtc('list','flatlist',obj.list);
     end
     function obj=set.flatlist(obj,flatlist)
-      grid.flatlist_check(flatlist);
+      simplegrid.flatlist_check(flatlist);
       obj=obj.assign(flatlist.map,...
                  't',flatlist.t,...
                'lat',flatlist.lat,...
@@ -835,10 +844,10 @@ classdef grid < simpletimeseries
     end
     %% matrix handling
     function sm=get.matrix(obj)
-      sm=grid.dtc('vecmat','matrix',obj.vecmat);
+      sm=simplegrid.dtc('list','matrix',obj.vecmat);
     end
     function obj=set.matrix(obj,matrix)
-      grid.matrixt_check(matrix);
+      simplegrid.matrixt_check(matrix);
       obj=obj.assign(matrix.map,...
                  't',matrix.t,...
                'lat',matrix.lat,...
@@ -847,63 +856,71 @@ classdef grid < simpletimeseries
     end
     %% map handling
     function out=get.map(obj)
-      %convert lon/lat domain (internally in vecmat) to list
-      sl=grid.vecmat2list(grid.vecmat_init(obj.t,[],obj.lon,obj.lat));
       %convert map (internally in list) to vecmat
-      sv=grid.list2vecmat(grid.vecmat_init(obj.t,obj.y,sl.lon,sl.lat));
+      sv=simplegrid.list2vecmat(simplegrid.list_init(obj.t,obj.y,obj.loni,obj.lati));
       %output
       out=sv.map;
     end
     function obj=set.map(obj,map)
-      obj.vecmat=grid.vecmat_init(obj.t,map,obj.lon,obj.lat);
+      obj.vecmat=simplegrid.vecmat_init(obj.t,map,obj.lon,obj.lat);
     end
     %% lat handling
-    function obj=lat_set(obj,lat_now)
+    function obj=set.lat(obj,lat_now)
       %trivial call
       if numel(lat_now)==numel(obj.lat) && all(lat_now==obj.lat)
         return
       end
       obj=obj.spatial_interp(obj.lon,lat_now);
     end
-    function out=lat_get(obj,type)
-      switch lower(type)
-      case 'list';  out=obj.list.lat;
-      case 'vecmat';out=obj.lat;
-      case 'matrix';out=obj.matrix.lat;
-      otherwise
+    function out=get.lat(obj)
+      if isempty(obj.lati)
+        out=[];
+      else
+        out=obj.lat_convert('vecmat');
+      end
+    end
+    function out=lat_convert(obj,type)
+      try
+        out=obj.(type).lat;
+      catch
         error([mfilename,': unknown data type ''',type,'''.'])
       end
     end
     function out=get.latSpacing(obj)
-      spacing=grid.getSpacing(obj.lon,obj.lat);
+      spacing=simplegrid.getSpacing(obj.lon,obj.lat);
       out=spacing(2);
     end
     function obj=set.latSpacing(obj,spacing)
-      obj=obj.lat_set(grid.lat_default(180/spacing));
+      obj.lat=simplegrid.lat_default(180/spacing);
     end
     %% lon handling
-    function obj=lon_set(obj,lon_now)
+    function obj=set.lon(obj,lon_now)
       %trivial call
       if numel(lon_now)==numel(obj.lon) && all(lon_now==obj.lon)
         return
       end
       obj=obj.spatial_interp(lon_now,obj.lat);
     end
-    function out=lon_get(obj,type)
-      switch lower(type)
-      case 'list';  out=obj.list.lon;
-      case 'vecmat';out=obj.lon;
-      case 'matrix';out=obj.matrix.lon;
-      otherwise
+    function out=get.lon(obj)
+      if isempty(obj.loni)
+        out=[];
+      else
+        out=obj.lon_convert('vecmat');
+      end
+    end
+    function out=lon_convert(obj,type)
+      try
+        out=obj.(type).lon;
+      catch
         error([mfilename,': unknown data type ''',type,'''.'])
       end
     end
     function out=get.lonSpacing(obj)
-      spacing=grid.getSpacing(obj.lon,obj.lat);
+      spacing=simplegrid.getSpacing(obj.lon,obj.lat);
       out=spacing(1);
     end
     function obj=set.lonSpacing(obj,spacing)
-      obj=obj.lon_set(grid.lon_default(300/spacing));
+      obj=obj.lon_set(simplegrid.lon_default(300/spacing));
     end
     %% interpolant handling
     function out=get.interpolant(obj)
@@ -932,24 +949,35 @@ classdef grid < simpletimeseries
         [lat_meshed,lon_meshed,t_meshed]=ndgrid(lat_new,lon_new,datenum(obj.t));
         map_new=I(lon_meshed,lat_meshed,t_meshed);
       end
-      %save results 
-      obj.lat=lat_new;
-      obj.lon=lon_new;
-      obj.map=map_new;
+      %save results
+      obj=obj.assign(map_new,'t',obj.t,'lat',lat_new,'lon',lon_new);
     end
     function obj=spatial_resample(obj,lon_n,lat_n)
-      obj=obj.spatial_interp(grid.lon_default(lon_n),grid.lat_default(lat_n));
+      obj=obj.spatial_interp(simplegrid.lon_default(lon_n),simplegrid.lat_default(lat_n));
     end
     function obj=center_resample(obj)
       lon_new=mean([obj.lon(1:end-1);obj.lon(2:end)]);
       lat_new=mean([obj.lat(1:end-1),obj.lat(2:end)],2);
       obj=obj.spatial_interp(lon_new,lat_new);
     end
+    %% convert to spherical harmonics
+    function out=sh(obj)
+      % make room for CS-structures
+      cs(obj.length)=struct('C',[],'S',[]);
+      % make spherical harmonic analysis of each grid
+      for i=1:obj.length;
+        [cs(i).C,cs(i).S]=mod_sh_ana(deg2rad(obj.lon),deg2rad(obj.lat),obj.map);
+      end
+      % initialize output gravity object
+      out=gravity.unit(obj.t);
+      %assign coefficients,...
+      out.cs=cs;
+    end
     %% multiple operands
     function compatible(obj1,obj2)
       %This method checks if the objectives are referring to the same
       %type of data, i.e. the data length is not important.
-      parameters=grid.compatible_parameter_list;
+      parameters=simplegrid.compatible_parameter_list;
       for i=1:numel(parameters)
         % if a parameter is empty, no need to check it
         if ( iscell(obj1.(parameters{i})) && isempty([obj1.(parameters{i}){:}]) ) || ...
@@ -967,7 +995,7 @@ classdef grid < simpletimeseries
     end
     function [obj1,obj2]=consolidate(obj1,obj2)
       %match the compatible parameters 
-      parameters=grid.compatible_parameter_list;
+      parameters=simplegrid.compatible_parameter_list;
       for i=1:numel(parameters)
         p=(parameters{i});
         if ~isequal(obj1.(p),obj2.(p))
@@ -978,14 +1006,15 @@ classdef grid < simpletimeseries
       [obj1,obj2]=consolidate@simpletimeseries(obj1,obj2);
     end
     %% plot functions
-    function out=imagesc(obj,t,varargin)
+    function out=imagesc(obj,varargin)
       p=inputParser;
+      p.addParameter('t',         obj.t(1),@(i) islogical(i));
       p.addParameter('show_coast',   false,@(i) islogical(i));
       p.addParameter('show_colorbar',false,@(i) islogical(i));
-      p.addParameter('bias', 0,@(i) isscalar(i) && isnumeric(i));
+      p.addParameter('bias',             0,@(i) isscalar(i) && isnumeric(i));
       p.parse(varargin{:});
       %interpolate at the requested time and resample to center of grid
-      obj_interp=obj.interp(t).center_resample;
+      obj_interp=obj.interp(p.Results.t).center_resample;
       %build image
       out.axis_handle=imagesc(obj_interp.lon,obj_interp.lat,obj_interp.map);hold on
       axis xy
@@ -1031,6 +1060,8 @@ classdef grid < simpletimeseries
   end
 end
 
+%% These routines are the foundation for the grid object and were developed by or in cooperation with Pedro Inácio.
+%  They remain here to acknowledge that fact.
 function out_grid = grid_constructor(varargin)
 % GRID=GRID_CONSTRUCTOR is the function that defines a grid 'object'. More
 %   specifically GRID is not a MATLAB object, but simply a structure with
@@ -1847,4 +1878,177 @@ function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapL
   if nargout == 0
       clear h
   end
+end
+
+%% Spherical Harminc analysis
+function [c_out,s_out]=mod_sh_ana(long,lat,grid,N)
+% [C,S]=MOD_SH_ANA(LONG,LAT,GRID) is the low-level spherical harmonic
+% analysis routine. It should be a self-contained script.
+%
+%   Input LONG is a horizontal vector [0:2*pi].
+%   Input LAT is a vertical vector [-pi/2:pi/2].
+%   Input GRID is a matrix with size [length(lat),length(long)]
+%   MOD_SH_ANA(LONG,LAT,GRID,N) with the optional input N sets the maximum
+%   degree of the spherical harmonic expansion.
+%
+%   Outputs C and S are the cosine and sine coefficients, organized in
+%   lower triangle matrices, with constant degree in each row and constant
+%   order in each column, sectorial coefficients are in the diagonals, zonal
+%   coefficients are in the first column of matrix C (first column of S
+%   matrix is zeros).
+%
+%   Due to matlab indexing, degree/order 0 is in position 1, i.e.
+%   degree/order N is in index N+1.
+%
+%   All angular quantities are in radians.
+
+% Created by J.Encarnacao <J.G.deTeixeiradaEncarnacao@tudelft.nl>
+
+% List of changes:
+%   P.Inacio (p.m.g.inacio@tudelft.nl), 09/2011, Added check that grid
+%       values at 0 and 2*pi latitudes are the same and use only 0 in the
+%       analysis.
+%   P.Inacio, 10/2011, Added check that grid values at latitudes Â±pi/2 must
+%       all be the same. Also added a more robust check that grids are
+%       regular taking into account a numerical error threshold.
+
+% TODO: Function doesnt seem to care which long,lat values were provided.
+%       It assumes the observations are equally distributed over the
+%       sphere. This could be a problem if, for example, one provides a grid
+%       where the latitude values are from -60 to 60 deg.
+
+  % Defaults
+  NUM_THRS = 1E-14; % Numerical errors threshold to check for regular grid.
+
+  %check dimensions
+  if size(long,1) ~= 1
+      error([mfilename,': input <long> must be a horizontal vector.'])
+  end
+  if size(lat,2) ~= 1
+      error([mfilename,': input <lat> must be a vertical vector.'])
+  end
+  %check regular grid
+  if any(diff(lat) <= 0) || any(abs(diff(lat,2)) > max(abs(lat))*NUM_THRS)
+      error([mfilename,': input <lat> must be monotonically increasing set of equally-spaced latitudes.'])
+  end
+  if any(diff(long) <= 0) || any(abs(diff(long,2)) > max(abs(long))*NUM_THRS)
+      % if long starts in pi->2pi|0->pi there is a "false" discontinuity
+      aux = ang_fix_pi(long);
+      if any(diff(aux) <= 0) || any(abs(diff(aux,2)) > max(abs(aux))*NUM_THRS)
+          error([mfilename,': input <long> must be monotonically increasing set of equally-spaced longitudes.'])
+      end
+  end
+  % check domain
+  %  if max(lat) > pi/2 || min(lat) < -pi/2
+  if max(lat)-pi/2 > 1E-14 || min(lat)+pi/2 < -1E-14
+      error([mfilename,': input <lat> does not seem to be in radians or outside legal domain [-pi/2,pi/2].'])
+  end
+  if max(long) > 2*pi || min(long) < 0
+      error([mfilename,': input <long> does not seem to be in radians or outside legal domain [0,2*pi].'])
+  end
+  % check repeated data
+  if long(end) == 2*pi && long(1) == 0
+      if any( grid(:,1) ~= grid(:,end) )
+          error([mfilename,': Invalid grid, different values for same meridian (0 and 2*pi).'])
+      else
+          % do not use the 360 longitude
+          grid(:,end) = [];
+          long(end) = [];
+      end
+  end
+  % check pole singularities
+  if lat(1) == pi/2 && any(diff(grid(1,:)) ~= 0)
+      error([mfilename,': input <lat> does has different values for the same point with lat=pi/2.'])
+  end
+  if lat(end) == -pi/2 && any(diff(grid(end,:)) ~= 0)
+      error([mfilename,': input <lat> does has different values for the same point with lat=-pi/2.'])
+  end
+  % check grid size
+  if any(size(grid) ~= [length(lat),length(long)])
+      error([mfilename,': size of input <grid> is not compatible with size of inputs <lat> or <long>.'])
+  end
+
+  % parameters
+  I = length(lat);
+  J = length(long);
+
+  %optional inputs
+  N_max = min([I-1,floor((J-1)/2)]);
+  if ~exist('N','var') || isempty(N)
+      N = N_max;
+  elseif N > N_max
+      error([mfilename,': <N> is too large. The maximum for this grid is ',num2str(N_max),'.'])
+  end
+
+  %need co-latitude
+  lat=pi/2-lat;
+
+  % determine fourier coefficients
+  a=zeros(I,N+1);
+  b=zeros(I,N+1);
+  for i=1:I
+      for m=0:N
+          j=1:J;
+          a(i,m+1) = sum(grid(i,j).*cos(m*long(j)))/J*(2-delta_kronecher(0,m));
+          b(i,m+1) = sum(grid(i,j).*sin(m*long(j)))/J*2;
+      end
+  end
+
+  % calculating Legendre polynomials, P{degree}
+  P=legendre_degree(N,lat);
+
+  % building design matrices
+  A=cell(1,N+1);
+  for m=0:N
+      for n=m:N
+          A{m+1}(:,n-m+1)=P{n+1}(m+1,:)';
+  %         disp(['m=',num2str(m),' n=',num2str(n),' n-m+1=',num2str(n-m+1),...
+  %               ' size(P{n+1})=',num2str(size(P{n+1})),...
+  %               ' size(A{m+1})=',num2str(size(A{m+1}))])
+      end
+  end
+
+  % estimate spherical harmonics
+  c=cell(1,N+1);
+  s=cell(1,N+1);
+  for m=0:N
+      Nm=A{m+1}'*A{m+1};
+      P=A{m+1}'*a(:,m+1);
+      c{m+1}=Nm\P;
+      P=A{m+1}'*b(:,m+1);
+      s{m+1}=Nm\P;
+  end
+
+  %putting into matricial form, lower triangle, same degree in lines, same order in
+  %columns, coefficients (k,k) in diagonal
+  c_out = zeros(N+1);
+  s_out = zeros(N+1);
+  for i=0:N
+      c_out(i+1:end,i+1) = c{i+1};
+      s_out(i+1:end,i+1) = s{i+1};
+  end
+
+  %NaNs and infs are set to zero
+  if any(~isfinite(c_out(:)))
+      disp([mfilename,':WARNING: found ',num2str(sum(~isfinite(c_out(:)))),' NaN of inf cosine coefficients.'])
+      c_out(~isfinite(c_out))=0;
+  end
+  if any(~isfinite(s_out(:)))
+      disp([mfilename,':WARNING: found ',num2str(sum(~isfinite(c_out(:)))),' NaN of inf sine coefficients.'])
+      s_out(~isfinite(s_out))=0;
+  end
+end
+function out = legendre_degree(N,lat)
+  if min(size(lat)) ~= 1
+      error([mfilename,': input <lat> must be a vector.'])
+  end
+  %getting legendre coefficients, per degree
+  out=cell(1,N+1);
+  for n=0:N
+     out{n+1}=legendre(n,cos(lat'),'norm')*2;
+     out{n+1}(1,:)=out{n+1}(1,:)/sqrt(2);
+  end
+end
+function out=delta_kronecher(i,j)
+  out = double(i==j);
 end
