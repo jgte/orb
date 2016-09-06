@@ -315,38 +315,47 @@ classdef gravity < simpletimeseries
       end
     end
     %% constructors
-    function obj=unit(lmax,scale)
-      if ~exist('scale','var') || isempty(scale)
-          scale=ones(lmax+1,1);
-      end
-      %sanity
-      if ~isvector(scale) || lmax+1 ~= numel(scale)
-        error([mfilename,': input ''scale'' has to be a vector with length lmax+1'])
-      end
+    function obj=unit(lmax,varargin)
+      p=inputParser;
+      p.addRequired( 'lmax',                            @(i) isscalar(i) && isnumeric(i));
+      p.addParameter('scale',           1,              @(i) isscalar(i));
+      p.addParameter('scale_per_degree',ones(lmax+1,1), @(i) isvector(i) && lmax+1 == numel(i));
+      p.addParameter('t',               datetime('now'),@(i) isdatetime(i));
+      p.parse(lmax,varargin{:});
       %create unitary triangular matrix
-      t=gravity.dtc('mat','tri',ones(lmax+1));
-      %scale along rows
-      t=scale(:)*ones(1,size(t,2)).*t;
+      u=gravity.dtc('mat','tri',ones(lmax+1));
+      %scale along degrees and considering global scale
+      u=p.Results.scale*p.Results.scale_per_degree(:)*ones(1,size(u,2)).*u;
+      %replicate by the nr of elements of t
+      u=ones(numel(p.Results.t),1)*gravity.dtc('tri','y',u);
       %initialize
-      obj=gravity(...
-        datetime('now'),...
-        gravity.dtc('tri','y',t)...
-      );
+      obj=gravity(p.Results.t,u);
     end
     % creates a unit model with per-degree amplitude equal to 1
-    function obj=unit_amplitude(lmax)
-      obj=gravity.unit(lmax,1./sqrt(2*(0:lmax)+1));
+    function obj=unit_amplitude(lmax,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('lmax', @(i) isscalar(i) && isnumeric(i));
+      p.parse(lmax,varargin{:});
+      obj=gravity.unit(lmax,'scale_per_degree',1./sqrt(2*(0:lmax)+1),varargin{:});
     end
     % creates a unit model with per-degree RMS equal to 1
-    function obj=unit_rms(lmax)
-      obj=gravity.unit(lmax,gravity.unit(lmax).drms);
+    function obj=unit_rms(lmax,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('lmax', @(i) isscalar(i) && isnumeric(i));
+      p.parse(lmax,varargin{:});
+      obj=gravity.unit(lmax,'scale_per_degree',gravity.unit(lmax).drms,varargin{:});
     end
     % Creates a random model with mean 0 and std 1 (per degree)
     function obj=unit_randn(lmax)
+      if ~exist('t','var') || isempty(t)
+        t=datetime('now');
+      end
       obj=gravity(...
         datetime('now'),...
-        gravity.dtc('mat','y',randn(lmax+1))...
-      ).scale_nopd;
+        ones(numel(t),1)*gravity.dtc('mat','y',randn(lmax+1))...
+      ).scale([],'nopd');
     end
     function [m,e]=load(filename,type,time)
       %default type
@@ -378,74 +387,99 @@ classdef gravity < simpletimeseries
         out=simpledata.test_parameters(field,l,w);
       end
     end
-    function test(l)
-      
-      m=gravity.load('ggm05g.gfc.txt');
-      m.print
-%       for i={'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
-%         figure
-%         m.plot(i{1},'functional','geoid','itle',[m.descriptor,' - ',i{1}]);
-%       end
-      
-      a=m-m.scale(2);
-      keyboard
-      return
-      
+    function test(method,l)
+      if ~exist('method','var') || isempty(method)
+        method='all';
+      end
       if ~exist('l','var') || isempty(l)
         l=4;
       end
-
       nr_coeff=(l+1)^2;
-      
-      dt={'y','mat','cs','tri','mod'};
-      y=randn(1,nr_coeff);
-      dd={...
-        y,...
-        gravity.y2mat(y),...
-        gravity.mat2cs(gravity.y2mat(y)),...
-        gravity.cs2tri(gravity.mat2cs(gravity.y2mat(y))),...
-        gravity.cs2mod(gravity.mat2cs(gravity.y2mat(y)))...
-      };
-      for i=1:numel(dt)
-        for j=1:numel(dt)
-          out=gravity.dtc(dt{i},dt{j},dd{i});
-          switch dt{j}
-          case 'cs'
-            c=any(any([out.C,out.S] ~= [dd{j}.C,dd{j}.S]));
-          otherwise
-            c=any(any(out~=dd{j}));
-          end
-          if c
-            error([mfilename,': failed data type conversion between ''',dt{i},''' and ''',dt{j},'''.'])
+      switch lower(method)
+      case 'all'
+         for i={'reps','unit','unit rms','r','gm','minus','grid','resample','ggm05s','stats'}
+           gravity.test(i{1},l);
+         end
+      case 'reps'
+        dt={'y','mat','cs','tri','mod'};
+        y=randn(1,nr_coeff);
+        dd={...
+          y,...
+          gravity.y2mat(y),...
+          gravity.mat2cs(gravity.y2mat(y)),...
+          gravity.cs2tri(gravity.mat2cs(gravity.y2mat(y))),...
+          gravity.cs2mod(gravity.mat2cs(gravity.y2mat(y)))...
+        };
+        for i=1:numel(dt)
+          for j=1:numel(dt)
+            out=gravity.dtc(dt{i},dt{j},dd{i});
+            switch dt{j}
+            case 'cs'
+              c=any(any([out.C,out.S] ~= [dd{j}.C,dd{j}.S]));
+            otherwise
+              c=any(any(out~=dd{j}));
+            end
+            if c
+              error([mfilename,': failed data type conversion between ''',dt{i},''' and ''',dt{j},'''.'])
+            end
           end
         end
-      end
-      
-      disp('--- unit amplitude')
-      a=gravity.unit_amplitude(l);
-      disp('- C')
-      disp(a.cs(1).C)
-      disp('- S')
-      disp(a.cs(1).S)
-      disp('- tri')
-      disp(a.tri{1})
-      disp('- mod')
-      disp(a.mod{1})
-      disp('- das')
-      disp(a.das)
-      
-      disp('--- unit rms')
-      a=gravity.unit_rms(l);
-      disp('- tri')
-      disp(a.tri{1})
-      disp('- drms')
-      disp(a.drms)
-
-      disp('--- change R')
-      b=a.change_R(a.R*2);
-      disp('- tri')
-      disp(b.tri{1})
-      
+      case 'unit'
+        disp('--- unit amplitude')
+        a=gravity.unit_amplitude(l);
+        disp('- C')
+        disp(a.cs(1).C)
+        disp('- S')
+        disp(a.cs(1).S)
+        disp('- tri')
+        disp(a.tri{1})
+        disp('- mod')
+        disp(a.mod{1})
+        disp('- das')
+        disp(a.das)
+      case 'unit rms'
+        disp('--- unit rms')
+        a=gravity.unit_rms(l);
+        disp('- tri')
+        disp(a.tri{1})
+        disp('- drms')
+        disp(a.drms)
+     case 'r'
+        a=gravity.unit_amplitude(l);
+        disp('- tri')
+        disp(a.tri{1})
+        disp('--- change R')
+        disp('- tri')
+        disp(a.scale(a.R*2,'R').tri{1})
+      case 'gm'
+        a=gravity.unit_amplitude(l);
+        disp('- tri')
+        disp(a.tri{1})
+        disp('--- change GM')
+        disp('- tri')
+        disp(a.scale(a.GM*2,'GM').tri{1})
+      case 'minus'
+        a=gravity.unit_amplitude(l);
+        disp('- tri')
+        disp(a.tri{1})
+        disp('--- a-a.scale(2)')
+        disp('- tri')
+        b=a-a.scale(2);
+        disp(b.tri{1})
+      case 'grid'
+        figure
+        gravity.unit_randn(100*l).grid.imagesc
+      case 'ggm05g'
+        m=gravity.load('ggm05g.gfc.txt');
+        m.print
+        m.simplegrid.imagesc
+      case 'stats'
+        m=gravity.load('ggm05g.gfc.txt');
+        for i={'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
+          figure
+          m.plot(i{1},'functional','geoid','itle',[m.descriptor,' - ',i{1}]);
+        end
+      end    
     end
   end
   methods
@@ -583,17 +617,17 @@ classdef gravity < simpletimeseries
     end
     function obj=set.tri(obj,in)
       %sanity
-      if ~isstruct(in)
+      if ~iscell(in) && ~ismatrix(in{1})
         error([mfilename,': input <in> must be a cell array of matrices.'])
       end
       if (numel(in)~=obj.length)
         error([mfilename,': cannot handle input <in> if it does not have the same number of elements as obj.length.'])
       end
       %make room for data
-      y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('tri',in)));
+      y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('tri',in{1})));
       %build data 
       for i=1:obj.length
-        y_now(i,:)=gravity.mat2y(gravity.cs2mat(gravity.tri2cs(in)));
+        y_now(i,:)=gravity.mat2y(gravity.cs2mat(gravity.tri2cs(in{i})));
       end
       %assign data
       obj=obj.assign(y_now);
@@ -607,17 +641,17 @@ classdef gravity < simpletimeseries
     end
     function obj=set.mod(obj,in)
       %sanity
-      if ~isstruct(in)
+      if ~iscell(in) && ~ismatrix(in{1})
         error([mfilename,': input <in> must be a cell array of matrices.'])
       end
       if (numel(in)~=obj.length)
         error([mfilename,': cannot handle input <in> if it does not have the same number of elements as obj.length.'])
       end
       %make room for data
-      y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('mod',in)));
+      y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('mod',in{1})));
       %build data 
       for i=1:obj.length
-        y_now(i,:)=gravity.mat2y(gravity.cs2mat(gravity.mod2cs(in)));
+        y_now(i,:)=gravity.mat2y(gravity.cs2mat(gravity.mod2cs(in{i})));
       end
       %assign data
       obj=obj.assign(y_now);
@@ -756,7 +790,7 @@ classdef gravity < simpletimeseries
       end
     end
     % scale according to number of orders in each degree
-    function s=scale_nopd(obj)
+    function s=scale_nopd(obj,~)
       s=1./obj.nopd;
     end
     % scale operation agregator
@@ -768,7 +802,7 @@ classdef gravity < simpletimeseries
           tri_now=obj.tri;
           scale_mat=s(:)*ones(size(tri_now,2),1);
           for i=1:obj.length
-            tri_now{i}=tri_now.*scale_mat;
+            tri_now{i}=tri_now{i}.*(scale_mat*ones(1,size(tri_now{i},2)));
           end
           obj.tri=tri_now;
         case {1,obj.width}
@@ -848,6 +882,29 @@ classdef gravity < simpletimeseries
     % the output matrix is arranged as <das>.
     function out=cumdas(obj)
       out=cumsum(obj.das,2);
+    end
+    %% convert to grid
+    function out=grid(obj,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter( 'Nlat', obj.lmax   , @(i) isnumeric(i) && isscalar(i));
+      p.addParameter( 'Nlon', obj.lmax*2 , @(i) isnumeric(i) && isscalar(i));
+      % parse it
+      p.parse(varargin{:});
+      %retrieve CS-representation
+      cs_now=obj.cs;
+      %initiate grid 3d-matrix
+      map=nan(p.Results.Nlat,p.Results.Nlon,obj.length);
+      %get default latitude domain
+      lat=simplegrid.lat_default(p.Results.Nlat);
+      %make synthesis on each set of coefficients
+      for i=1:obj.length
+        [lon,~,map(:,:,i)]=mod_sh_synth(cs_now(i).C,cs_now(i).S,deg2rad(lat),p.Results.Nlon);
+      end
+      %create grid structure in the form of a list
+      sl=simplegrid.dti(obj.t,map,transpose(rad2deg(lon(:))),lat(:),'list');
+      %initialize grid object
+      out=simplegrid(sl.t,sl.map,'lon',sl.lon,'lat',sl.lat);
     end
     %% multiple operands
     function [obj1,obj2]=consolidate(obj1,obj2)
@@ -1362,3 +1419,136 @@ function out = isnumstr(in)
   %now <in> must be empty (if only numerical data)
   out = isempty(in);
 end
+
+%% Spherical Harmonic synthesis
+function [long,lat,grid_out]=mod_sh_synth(c,s,lat,NLon)
+% [LONG,LAT,GRID]=MOD_SH_SYNTH(C,S) is the low-level spherical harmonic
+% synthesis routine. It should be a self-contained script. Inputs C and S
+% are the cosine and sine coefficients, organized in lower triangle
+% matrices, with constant degree in each row and constant order in each
+% column, sectorial coefficients are in the diagonals, zonal coefficients
+% are in the first column of matrix C (first column of S matrix is zeros).
+%
+%   MOD_SH_SYNTH(C,S,LAT,NLON) with the optional inputs LAT, NLON causes
+%   the synthesis to be done on the latitudes specified with vector LAT and
+%   along the #NLON equidistant number of points along the longitudes
+%   domain.
+%
+%   Output LONG is a horizontal vector [0:2*pi].
+%   Output LAT is a vertical vector [-pi/2:pi/2].
+%   Output GRID is a matrix with size [length(lat) NLon]
+%
+%   All angular quantities are in radians.
+
+% Created by J.Encarnacao <J.deTeixeiradaEncarnacao@tudelft.nl>
+% List of changes:
+%
+%   P.Inacio <p.m.g.inacio@tudelft.nl>, 10/2011, Added check for repeated
+%       meridians at 0 and 2*pi. If they both exist and have the same Also
+%       added a more robust check that grids are regular taking into
+%       account a numerical error threshold.
+%   P.Inacio <p.m.g.inacio@tudelft.nl>, 03/2012, The algorightm upon which
+%       this function relies only uses the number of points along
+%       longitude. Therefore, to avoid misinterpretations the input LONG
+%       has been replaces with the number of points along the longitude
+%       domain. Further interpolation to arbitrary sets of longitudes,
+%       regular or irregular is implemented outside this routine, in
+%       mod_synthesis.
+
+  % Defaults
+  %check dimensions
+  if any(size(c) ~= size(s))
+       error([mfilename,': inputs <c> and <s> must have the same size.'])
+  end
+  if size(c,1) ~= size(c,2)
+      error([mfilename,': inputs <c> and <s> must be square matrices'])
+  end
+
+  %calculating max resolution
+  L = size(c,1)-1;
+  N = max([1 L]);
+  % %%% OLD CODE
+  % N = max([1,min([L,360])]);
+  % %%%
+
+  %building latitude domain (if not given)
+  if ~exist('lat','var') || isempty(lat)
+      lat=linspace(-pi/2,pi/2,N)';
+  end
+  %setting default number of points along latitude
+  if ~exist('NLon','var') || isempty(NLon)
+      NLon = 2*N;
+  elseif ~isscalar(NLon) || ~isnumeric(NLon)
+      error([mfilename,': input <Nlon> must be a numeric scalar.'])
+  end
+
+  %create internal longitude domain - only used for output.
+  long=linspace(0,2*pi,NLon+1);
+  % removing duplicate zero longitude
+  long(end)=[];
+
+  %checking (possible) inputs
+  % NOTE: Requiring latitude to be vertical is a bit stupid, but it general
+  %       it allows it to be distinguished from the longitude avoiding
+  %       possible usage error.
+  if size(lat,2) ~= 1
+      error([mfilename,': input <lat> must be a vertical vector.'])
+  end
+
+  %check latitude domain
+  if max(lat) > pi/2 || min(lat) < -pi/2
+      error([mfilename,': input <lat> does not seem to be in radians or outside legal domain [-pi/2,pi/2].'])
+  end
+
+  %need co-latitude
+  clat=pi/2-lat;
+
+  % calculating Legendre polynomials, P{latitude}
+  P=legendre_latitude(L,clat);
+
+  %building the grids
+  grid_out = zeros(length(clat),NLon);
+  for i=1:length(clat)
+      %calculating Fourier coefficients
+      a=zeros(L+1,1);
+      b=zeros(L+1,1);
+      for m=0:L
+          n=m:L;
+          a(m+1) = sum(c(n+1,m+1).*P{i}(n+1,m+1));
+          b(m+1) = sum(s(n+1,m+1).*P{i}(n+1,m+1));
+      end
+
+      %FFT
+      grid_out(i,:) = real(fft(a+1i*b,NLon))';
+  end
+end
+function out = legendre_latitude(L,lat)
+  %getting legendre coefficient, per degree
+  P=legendre_degree(L,lat);
+  %building legendre coefficients, per latitude
+  out = cell(length(lat),1);
+  for i=1:length(lat)
+      out{i} = zeros(L+1,L+1);
+      for n=0:L
+          out{i}(n+1,1:n+1) = P{n+1}(:,i)';
+      end
+  end
+end
+function out = legendre_degree(L,lat)
+  if ~isvector(lat)
+      error([mfilename,': input <lat> must be a vector.'])
+  end
+  %getting legendre coefficients, per degree
+  out=cell(1,L+1);
+  for n=0:L
+      out{n+1}=legendre(n,cos(lat'),'norm')*2;
+      out{n+1}(1,:)=out{n+1}(1,:)/sqrt(2);
+  %     % P.Inacio - testing - manual normalization
+  %     m = (0:n)';
+  %     out{n+1}=legendre(n,cos(lat'));
+  %     out{n+1}=repmat(sqrt((2*n+1)*factorial(n-m)./factorial(n+m)),[1 length(lat)]).*out{n+1};
+  %     % P.Inacio - testing - no normalization
+  %     out{n+1}=legendre(n,cos(lat'),'norm')*2;
+  end
+end
+
