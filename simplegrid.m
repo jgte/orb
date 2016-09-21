@@ -799,7 +799,7 @@ classdef simplegrid < simpletimeseries
         tab=12;
       end
       %parameters
-      relevant_parameters={'lat','lat_units','lon','lon_units','tolerance'};
+      relevant_parameters={'lat_domain','lat_units','lon_domain','lon_units','tolerance'};
       for i=1:numel(relevant_parameters)
         obj.disp_field(relevant_parameters{i},tab);
       end
@@ -893,6 +893,13 @@ classdef simplegrid < simpletimeseries
     function obj=set.latSpacing(obj,spacing)
       obj.lat=simplegrid.lat_default(180/spacing);
     end
+    function out=lat_domain(obj)
+      out=['[ ',...
+        num2str(obj.lat(1)),' : ',...
+        num2str(obj.latSpacing),' : ',...
+        num2str(obj.lat(end)),...
+      ' ]'];
+    end
     %% lon handling
     function obj=set.lon(obj,lon_now)
       %trivial call
@@ -921,6 +928,13 @@ classdef simplegrid < simpletimeseries
     end
     function obj=set.lonSpacing(obj,spacing)
       obj=obj.lon_set(simplegrid.lon_default(300/spacing));
+    end
+    function out=lon_domain(obj)
+      out=['[ ',...
+        num2str(obj.lon(1)),' : ',...
+        num2str(obj.lonSpacing),' : ',...
+        num2str(obj.lon(end)),...
+      '] '];
     end
     %% interpolant handling
     function out=get.interpolant(obj)
