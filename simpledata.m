@@ -635,6 +635,14 @@ classdef simpledata
         end
       end
     end
+    function obj=at(obj,x_now,varargin)
+      i=obj.idx(x_now,varargin{:});
+      obj=obj.assign(...
+        obj.y(i,:),...
+        'x',obj.x(i,:),...
+        'mask',obj.mask(i,:)...
+      );
+    end
     %% y methods
     function obj=cols(obj,columns)
       if ~isvector(columns)
@@ -1019,17 +1027,34 @@ classdef simpledata
       obj=obj1.assign(y_now,'x',x_now,'mask',mask_now);
     end
     %% algebra
-    function obj=plus(obj,obj_new)
-      %consolidate data sets
-      [obj,obj_new]=obj.consolidate(obj_new);
+    function obj1=plus(obj1,obj2)
+      %sanity
+      compatible(obj1,obj2)
       %operate
-      obj.y=obj.y+obj_new.y;
+      if obj1.length==1
+        obj1.y=obj1.y*ones(1,obj2.length)+obj2.y;
+      elseif obj2.length==1
+        obj1.y=obj2.y*ones(1,obj2.length)+obj1.y;
+      else
+        %consolidate data sets
+        [obj1,obj2]=obj1.consolidate(obj2);
+        obj1.y=obj1.y+obj2.y;
+      end
     end
-    function obj=minus(obj,obj_new)
-      %consolidate data sets
-      [obj,obj_new]=obj.consolidate(obj_new);
+    function obj1=minus(obj1,obj2)
+      %sanity
+      compatible(obj1,obj2)
       %operate
-      obj.y=obj.y-obj_new.y;
+      if obj1.length==1
+        obj1.y=obj1.y*ones(1,obj2.length)-obj2.y;
+      elseif obj2.length==1
+        obj1.y=obj2.y*ones(1,obj2.length)-obj1.y;
+      else
+        %consolidate data sets
+        [obj1,obj2]=obj1.consolidate(obj2);
+        %operate
+        obj1.y=obj1.y-obj2.y;
+      end
     end
     function obj=scale(obj,scale)
       if isscalar(scale)
@@ -1049,21 +1074,35 @@ classdef simpledata
     function obj=uplus(obj)
       obj=obj.scale(1);
     end
-    function obj=times(obj,obj_new)
-      if isnumeric(obj_new)
-        obj=scale(obj,obj_new);
+    function obj1=times(obj1,obj2)
+      if isnumeric(obj2)
+        obj1=scale(obj1,obj2);
       else
-        %consolidate data sets
-        [obj,obj_new]=obj.consolidate(obj_new);
         %operate
-        obj.y=obj.y.*obj_new.y;
+        if obj1.length==1
+          obj1.y=obj1.y*ones(1,obj2.length).*obj2.y;
+        elseif obj2.length==1
+          obj1.y=obj2.y*ones(1,obj2.length).*obj1.y;
+        else
+          %consolidate data sets
+          [obj1,obj2]=obj1.consolidate(obj2);
+          %operate
+          obj1.y=obj1.y.*obj2.y;
+        end
       end
     end
-    function obj=rdivide(obj,obj_new)
-      %consolidate data sets
-      [obj,obj_new]=obj.consolidate(obj_new);
+    function obj1=rdivide(obj1,obj2)
       %operate
-      obj.y=obj.y./obj_new.y;
+      if obj1.length==1
+        obj1.y=obj1.y*ones(1,obj2.length)./obj2.y;
+      elseif obj2.length==1
+        obj1.y=obj2.y*ones(1,obj2.length)./obj1.y;
+      else
+        %consolidate data sets
+        [obj1,obj2]=obj1.consolidate(obj2);
+        %operate
+        obj1.y=obj1.y./obj2.y;
+      end
     end
     function obj=and(obj,obj_new)
       %consolidate data sets
