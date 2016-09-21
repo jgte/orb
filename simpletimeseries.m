@@ -786,6 +786,14 @@ classdef simpletimeseries < simpledata
     function out=idx(obj,t_now,varargin)
       out=idx@simpledata(obj,obj.t2x(t_now),varargin{:});
     end
+    function obj=at(obj,t_now,varargin)
+      i=obj.idx(t_now,varargin{:});
+      obj=obj.assign(...
+        obj.y(i,:),...
+        't',obj.t(i,:),...
+        'mask',obj.mask(i,:)...
+      );
+    end
     %% step methods
     function out=step_num(obj)
       out=simpletimeseries.timescale(obj.step);
@@ -996,10 +1004,14 @@ classdef simpletimeseries < simpledata
       ));
     end
     function out=step_lcm(obj1,obj2)
-      out=simpletimeseries.timescale(lcm(...
-        simpletimeseries.timescale(obj1.step),...
-        simpletimeseries.timescale(obj2.step)...
-      ));
+      if obj1.step==0 || obj2.step==0
+        out=1;
+      else
+        out=simpletimeseries.timescale(lcm(...
+          simpletimeseries.timescale(obj1.step),...
+          simpletimeseries.timescale(obj2.step)...
+        ));
+      end
     end
     function [obj1,obj2]=matchstep(obj1,obj2)
       %trivial call
