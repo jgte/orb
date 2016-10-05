@@ -531,6 +531,14 @@ classdef simpletimeseries < simpledata
     end
     %% import methods
     function obj=import(filename)
+      %if argument is a cell string, then load all those files
+      if iscellstr(filename)
+        obj=cell(size(filename));
+        for i=1:numel(filename)
+          obj{i}=simpletimeseries.import(filename{i});
+        end
+        return
+      end
       %if argument filename has a wild card, then load all those files
       if ~isempty(strfind(filename,'*'))
         p=fileparts(filename);
@@ -572,6 +580,73 @@ classdef simpletimeseries < simpledata
           'labels', {'x','y','z','t','xx', 'yy', 'zz', 'tt', 'xy', 'xz', 'xt','yz', 'yt','zt'},...
           'descriptor',['kinematic orbit from file ',filename]...
          );
+      case '.GraceAccCal'
+        fmt='';
+        if ~isempty(regexp(filename,'AC0[XYZ]_','once'))
+          fmt='%d-%d-%d %d %f';
+          t0_flag=false;
+          units={'m/s^2',''};
+        end
+        if ~isempty(regexp(filename,'AC0[XYZ]D','once'))
+          fmt='%d-%d-%d %d %f %f';
+          t0_flag=true;
+          units={'m/s^3','','MJD'};
+        end
+        if ~isempty(regexp(filename,'AC0[XYZ]Q','once'))
+          fmt='%d-%d-%d %d %f %f';
+          t0_flag=true;
+          units={'m/s^4','','MJD'};
+        end
+        if isempty(fmt)
+          error([mfilename,': cannot handle the GraceAccCal file ''',filename,'''.'])
+        end
+        fid=fopen(filename);
+        raw = textscan(fid,fmt,'delimiter',' ','MultipleDelimsAsOne',1);
+        fclose(fid);
+        %building time domain
+        t=datetime(double([raw{1:3}]));
+        %building data domain
+        if t0_flag
+          y=[raw{5},double(raw{4}),raw{6}];
+        else
+          y=[raw{5},double(raw{4})];
+        end
+        iter=0;
+        while any(diff(t)==0)
+          %loop inits
+          n0=numel(t);
+          iter=iter+1;
+          %need to monotonize the data
+          mask=true(size(t));
+          for i=2:numel(t)
+            %get rid of those entries with same time stamp and lower ID
+            if t(i)==t(i-1) && mask(i)
+              if y(i,2) > y(i-1,2)
+                mask(i-1)=false;
+              else
+                mask(i)=false;
+              end
+            end
+          end
+          t=t(mask);
+          y=y(mask,:);
+          disp(['At iter ',num2str(iter),', removed ',num2str(n0-numel(t),'%04d'),' duplicate time entries (',filename,').'])
+        end
+        %building label string
+        [~,label_str]=fileparts(filename);
+        label_str=str.clean(strrep(label_str,'.GraceAccCal',''),'_');
+        if t0_flag
+          label_str={label_str,[label_str,' ID'],[label_str,' t_0']};
+        else
+          label_str={label_str,[label_str,' ID']};
+        end
+        %building object
+        obj=simpletimeseries(t,y,...
+          'format','datetime',...
+          'labels',label_str,...
+          'units',units,...
+          'descriptor',filename...
+        );
       otherwise
         error([mfilename,': cannot handle files of type ''',e,'''.'])
       end
@@ -591,6 +666,20 @@ classdef simpletimeseries < simpledata
       if out(end)>stop
         out=out(1:end-1);
       end
+    end
+    function [t,y]=monotonize(t,y)
+      %trivial call
+      if all(diff(t)>0)
+        return
+      end
+      %sorting needed?
+      if any(diff(t)<0)
+        error('implementation needed')
+      end
+      %throw away duplicate epochs
+      idx=diff(t)==0;
+      t=t(~idx);
+      y=y(~idx);
     end
   end
   methods
@@ -692,6 +781,33 @@ classdef simpletimeseries < simpledata
       end
       %print superclass
       print@simpledata(obj,tab)
+    end
+    function out=stats(obj,period,overlap)
+      if ~exist('period','var') || isempty(period)
+        period=seconds(inf);
+      end
+      if ~exist('overlap','var') || isempty(overlap)
+        overlap=seconds(0);
+      end
+      %sanity
+      if ~isduration(period)
+        error([mfilename,': input ''period'' must be of class ''duration'', not ''',class(period),'''.'])
+      end
+      % separate time series into segments
+      ts=segmentedfreqseries.time_segmented(obj.t,period,overlap);
+      % make room for outputs
+      out=cell(size(ts));
+      % derive statistics for each segment
+      [~,desc]=fileparts(obj.descriptor);
+      s.msg=['deriving segment-wise statistics for ',desc]; s.n=numel(ts);
+      for i=1:numel(ts)
+        %call upstream procedure
+        out{i}=stats@simpledata(obj.trim(ts{i}(1),ts{i}(end)),'struct','outlier',false);
+        %add time domain
+        out{i}.t=mean(ts{i});
+        % inform about progress
+        s=time.progress(s,i);
+      end
     end
     %% t methods
     function x_out=t2x(obj,t_now)
@@ -882,10 +998,16 @@ classdef simpletimeseries < simpledata
     %the outlier method can be called directly
     %the medfilt method can be called directly
     function obj=median(obj,n)
+      %save current time domain and step
+      t_now=obj.t;
+%       step_now=obj.step;
       %call superclass
       obj=median@simpledata(obj,n);
       %resample (if needed, which is checked inside resample)
-      obj=obj.resample;
+      obj=obj.interp(t_now,...
+        'interp_over_gaps_narrower_than',0,...
+        'interp1_args',{'linear'}...
+      );
     end
     function obj=extend(obj,nr_epochs)
       switch class(nr_epochs)
@@ -963,6 +1085,17 @@ classdef simpletimeseries < simpledata
       %sanitize
       obj.check_st(t_new);
     end
+    function [obj_clean,obj_outlier]=despike(obj,n,nSigma)
+      %get medianed timeseries
+      obj_median=obj.median(n);
+      %compute residual to median
+      obj_res=obj-obj_median;
+      %remove outliers from residual
+      [obj_res_clean,obj_res_outlier]=obj_res.outlier(nSigma);
+      %restore median
+      obj_clean=obj_median+obj_res_clean;
+      obj_outlier=obj_median+obj_res_outlier;
+    end
     %% multiple object manipulation
     function out=istequal(obj1,obj2)
       %make sure things are up to date
@@ -1024,17 +1157,36 @@ classdef simpletimeseries < simpledata
       obj1=obj1.resample(step_now);
       obj2=obj2.resample(step_now);
     end
+    function [obj1,obj2]=matchepoch(obj1,obj2)
+      %trivial call
+      if obj1.epoch==obj2.epoch
+        return
+      end
+      %match epochs
+      obj2.epoch=obj1.epoch;
+    end
+    function [obj1,obj2]=matchtime(obj1,obj2)
+      %match step and epoch (checks for trivial call done inside)
+      [obj1,obj2]=matchstep(obj1,obj2);
+      [obj1,obj2]=matchepoch(obj1,obj2);
+    end
     function [obj,idx1,idx2]=append(obj1,obj2)
       if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
-        %need step to be the same
-        if obj1.step~=obj2.step
-          [obj1,obj2]=matchstep(obj1,obj2);
-        end
-        %match epochs
-        obj2.epoch=obj1.epoch;
+        [obj1,obj2]=matchtime(obj1,obj2);
       end
       %call upstream method
       [obj,idx1,idx2]=append@simpledata(obj1,obj2);
+    end
+    function [obj1,obj2,idx1,idx2]=merge(obj1,obj2)
+      if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
+        [obj1,obj2]=matchtime(obj1,obj2);
+      end
+      %call upstream method
+      [obj1,obj2,idx1,idx2]=merge@simpledata(obj1,obj2);
+      %sanity
+      if ~istequal(obj1,obj2)
+        error([mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])
+      end
     end
     %% plot methots
     function out=plot(obj,varargin)
@@ -1276,3 +1428,4 @@ function [doy,fraction] = date2doy(inputDate)
       fraction(:) = fracRow;
   end
 end
+
