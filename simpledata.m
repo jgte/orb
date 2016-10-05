@@ -989,7 +989,7 @@ classdef simpledata
       end
       %sanity
       if nargout>1 && any(any(y_data(obj.mask,:)+y_outliers(obj.mask,:)~=obj.y_masked))
-        disp([mfilename,':Warning: failed the consistency check: obj.y=y_data+y_outliers. Debug needed!'])
+        error([mfilename,':Warning: failed the consistency check: obj.y=y_data+y_outliers. Debug needed!'])
       end
       %propagate (mask is updated inside)
       obj=obj.assign(y_data);
