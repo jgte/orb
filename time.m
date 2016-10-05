@@ -122,7 +122,7 @@ classdef time
       end
       %finalize
       if i>=s.n
-        fprintf('%s\n',sprintf('%s',[repmat(8,1,s.l_max),s.msg,': done!                                         ']))
+        fprintf('%s\n',sprintf('%s',[repmat(8,1,s.l_max),s.msg,': done in ',time.str(s.e(end)),'                            ']))
         return
       end
       %give feedback during iterations
