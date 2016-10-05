@@ -71,6 +71,27 @@ classdef str
         out=[in,repmat(' ',1,tab-numel(in))];
       end
     end
+    function s=clean(s,mode)
+      if iscellstr(mode)
+        for i=1:numel(mode)
+        	s=str.clean(s,mode{i});
+        end
+        return
+      end
+      switch lower(mode)
+      case 'succ_blanks'
+        while ~isempty(strfind(s,'  '))
+          s=strrep(s,'  ',' ');
+        end
+        s=strtrim(s);
+      case '_'
+        s=str.clean(strrep(s,'_',' '),'succ_blanks');
+      case 'title'
+        s=strrep(s,'_','\_');
+      otherwise
+        error([mfilename,': unknown mode ''',mode,'''.'])
+      end
+    end
   end
 end
     
