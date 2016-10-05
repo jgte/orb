@@ -1021,7 +1021,7 @@ classdef gravity < simpletimeseries
           end
         end
         out.title=[out.title,' - ',title_str];
-        title(simpledata.strclean(out.title))
+        title(str.clean(out.title,'title'))
       otherwise
         error([mfilename,': unknonw method ''',method,'''.'])
       end
