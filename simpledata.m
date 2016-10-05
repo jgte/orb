@@ -72,11 +72,6 @@ classdef simpledata
     function out=parameters
       out=fieldnames(simpledata.parameter_list);
     end
-    function out=strclean(in)
-      out=strrep(in,...
-        '_','\_'...
-      );
-    end
     function out=vararginclean(in,parameters)
       out=in;
       for i=1:numel(parameters)
@@ -233,6 +228,63 @@ classdef simpledata
           out(idx(:))=p.Results.outlier_value;
         end
       end
+    end
+    function obj_list=merge_multiple(obj_list,msg)
+      %sanity
+      if ~iscell(obj_list)
+        error([mfilename,': need input ''obj_list'' to be a cell array, not a ',class(obj_list),'.'])
+      end
+      fmt='%05d/%05d';
+      n=numel(obj_list);
+      c_max=(n-1)*2;
+      c=0;
+      if ~exist('msg','var')
+        msg=['merge op: ',sprintf(fmt,c,c_max)];
+      else
+        msg=['merge op for ',msg,': ',sprintf(fmt,c,c_max)];
+      end
+      fprintf(msg)
+      %forward merge
+      for i=1:numel(obj_list)-1
+        c=c+1;
+        [obj_list{i},obj_list{i+1}]=obj_list{i}.merge(obj_list{i+1});
+        msg=sprintf(fmt,c,c_max);
+        fprintf([repmat('\b',1,numel(msg)),msg])
+      end
+      %backward merge
+      for i=numel(obj_list):-1:2
+        c=c+1;
+        [obj_list{i},obj_list{i-1}]=obj_list{i}.merge(obj_list{i-1});
+        msg=sprintf(fmt,c,c_max);
+        fprintf([repmat('\b',1,numel(msg)),msg])
+      end
+      fprintf('\n')
+    end
+    function out=isequal_multiple(obj_list,columns,msg)
+      %sanity
+      if ~iscell(obj_list)
+        error([mfilename,': need input ''obj_list'' to be a cell array, not a ',class(obj_list),'.'])
+      end
+      fmt='%05d/%05d';
+      n=numel(obj_list);
+      c_max=(n-1);
+      c=0;
+      if ~exist('msg','var')
+        msg=['isequal op: ',sprintf(fmt,c,c_max)];
+      else
+        msg=['isequal op for ',msg,': ',sprintf(fmt,c,c_max)];
+      end
+      fprintf(msg)
+      %declare type of output argument
+      out=true(numel(obj_list)-1);
+      %loop over obj list
+      for i=1:numel(obj_list)-1
+        c=c+1;
+        out(i)=obj_list{i}.isequal(obj_list{i+1},columns); 
+        msg=sprintf(fmt,c,c_max);
+        fprintf([repmat('\b',1,numel(msg)),msg])
+      end
+      fprintf('\n')
     end
     %general test for the current object
     function out=test_parameters(field,varargin)
@@ -541,56 +593,68 @@ classdef simpledata
       case 'max'
           out=max(obj.y_masked);
       case 'mean'
-          out=mean(obj.y_masked);
+          if isempty(obj.y_masked);out=[]; else
+            out=mean(obj.y_masked);
+          end
       case 'std'
-          out=std(obj.y_masked);
+          if isempty(obj.y_masked);out=[]; else
+            out=std(obj.y_masked);
+          end
       case 'rms'
-          out=rms(obj.y_masked);
+          if isempty(obj.y_masked);out=[]; else
+            out=rms(obj.y_masked);
+          end
       case 'meanabs'
-          out=mean(abs(obj.y_masked));
+          if isempty(obj.y_masked);out=[]; else
+            out=mean(abs(obj.y_masked));
+          end
       case 'stdabs'
-          out=std(abs(obj.y_masked));
+          if isempty(obj.y_masked);out=[]; else
+            out=std(abs(obj.y_masked));
+          end
       case 'rmsabs'
-          out=rms(abs(obj.y_masked));
+          if isempty(obj.y_masked);out=[]; else
+            out=rms(abs(obj.y_masked));
+          end
       case 'length'
           out=size(obj.y_masked,1);
       case 'gaps'
           out=sum(~obj.mask);
       case 'str' %one line
-          out=['min : ',num2str(obj.stats('min' ),p.Results.frmt),'; ',...
-               'max : ',num2str(obj.stats('max' ),p.Results.frmt),'; ',...
-               'mean: ',num2str(obj.stats('mean'),p.Results.frmt),'; ',...
-               'std : ',num2str(obj.stats('std' ),p.Results.frmt),'; ',...
-               'data: ',num2str(obj.stats('length'))];
+          out=['min : ',num2str(stats@simpledata(obj,'min' ),p.Results.frmt),'; ',...
+               'max : ',num2str(stats@simpledata(obj,'max' ),p.Results.frmt),'; ',...
+               'mean: ',num2str(stats@simpledata(obj,'mean'),p.Results.frmt),'; ',...
+               'std : ',num2str(stats@simpledata(obj,'std' ),p.Results.frmt),'; ',...
+               'data: ',num2str(stats@simpledata(obj,'length'))];
       case 'str-2l' %two lines
-          out=['min : ',num2str(obj.stats('min' ),p.Results.frmt),'; ',...
-               'max : ',num2str(obj.stats('max' ),p.Results.frmt),'; ',...
-               'mean: ',num2str(obj.stats('mean'),p.Results.frmt),'; ',10,...
-               'std : ',num2str(obj.stats('std' ),p.Results.frmt),'; ',...
-               'data: ',num2str(obj.stats('length'))];
+          out=['min : ',num2str(stats@simpledata(obj,'min' ),p.Results.frmt),'; ',...
+               'max : ',num2str(stats@simpledata(obj,'max' ),p.Results.frmt),'; ',...
+               'mean: ',num2str(stats@simpledata(obj,'mean'),p.Results.frmt),'; ',10,...
+               'std : ',num2str(stats@simpledata(obj,'std' ),p.Results.frmt),'; ',...
+               'data: ',num2str(stats@simpledata(obj,'length'))];
       case 'str-nl' %many lines
-          out=[str.tabbed('min',    p.Results.tab),' : ',num2str(obj.stats('min' ),p.Results.frmt),10,...
-               str.tabbed('max',    p.Results.tab),' : ',num2str(obj.stats('max' ),p.Results.frmt),10,...
-               str.tabbed('mean',   p.Results.tab),' : ',num2str(obj.stats('mean'),p.Results.frmt),10,...
-               str.tabbed('std',    p.Results.tab),' : ',num2str(obj.stats('std' ),p.Results.frmt),10,...
-               str.tabbed('rms',    p.Results.tab),' : ',num2str(obj.stats('rms' ),p.Results.frmt),10,...
-               str.tabbed('meanabs',p.Results.tab),' : ',num2str(obj.stats('mean'),p.Results.frmt),10,...
-               str.tabbed('stdabs', p.Results.tab),' : ',num2str(obj.stats('std' ),p.Results.frmt),10,...
-               str.tabbed('rmsabs', p.Results.tab),' : ',num2str(obj.stats('rms' ),p.Results.frmt),10,...
-               str.tabbed('gaps',   p.Results.tab),' : ',num2str(obj.stats('gaps')),10,...
-               str.tabbed('data',   p.Results.tab),' : ',num2str(obj.stats('length'))];
+          out=[str.tabbed('min',    p.Results.tab),' : ',num2str(stats@simpledata(obj,'min' ),p.Results.frmt),10,...
+               str.tabbed('max',    p.Results.tab),' : ',num2str(stats@simpledata(obj,'max' ),p.Results.frmt),10,...
+               str.tabbed('mean',   p.Results.tab),' : ',num2str(stats@simpledata(obj,'mean'),p.Results.frmt),10,...
+               str.tabbed('std',    p.Results.tab),' : ',num2str(stats@simpledata(obj,'std' ),p.Results.frmt),10,...
+               str.tabbed('rms',    p.Results.tab),' : ',num2str(stats@simpledata(obj,'rms' ),p.Results.frmt),10,...
+               str.tabbed('meanabs',p.Results.tab),' : ',num2str(stats@simpledata(obj,'mean'),p.Results.frmt),10,...
+               str.tabbed('stdabs', p.Results.tab),' : ',num2str(stats@simpledata(obj,'std' ),p.Results.frmt),10,...
+               str.tabbed('rmsabs', p.Results.tab),' : ',num2str(stats@simpledata(obj,'rms' ),p.Results.frmt),10,...
+               str.tabbed('gaps',   p.Results.tab),' : ',num2str(stats@simpledata(obj,'gaps')),10,...
+               str.tabbed('data',   p.Results.tab),' : ',num2str(stats@simpledata(obj,'length'))];
       case 'struct'
           out=struct(...
-              'min',    obj.stats('min'),...
-              'max',    obj.stats('max'),...
-              'mean',   obj.stats('mean'),...
-              'std',    obj.stats('std'),...
-              'rms',    obj.stats('rms'),...
-              'meanabs',obj.stats('meanabs'),...
-              'stdabs', obj.stats('stdabs'),...
-              'rmsabs', obj.stats('rmsabs'),...
-              'length', obj.stats('length'),...
-              'gaps',   obj.stats('gaps'));
+              'min',    stats@simpledata(obj,'min'),...
+              'max',    stats@simpledata(obj,'max'),...
+              'mean',   stats@simpledata(obj,'mean'),...
+              'std',    stats@simpledata(obj,'std'),...
+              'rms',    stats@simpledata(obj,'rms'),...
+              'meanabs',stats@simpledata(obj,'meanabs'),...
+              'stdabs', stats@simpledata(obj,'stdabs'),...
+              'rmsabs', stats@simpledata(obj,'rmsabs'),...
+              'length', stats@simpledata(obj,'length'),...
+              'gaps',   stats@simpledata(obj,'gaps'));
       otherwise
           error([mfilename,': unknown mode.'])
       end
@@ -643,6 +707,28 @@ classdef simpledata
         'mask',obj.mask(i,:)...
       );
     end
+    function [obj,idx_add,idx_old,x_old]=x_merge(obj,x_add)
+      %add epochs given in x_add, the corresponding y are NaN and mask are set as gaps
+      if nargout==4
+        %save x_old
+        x_old=obj.x;
+      end
+      %build extended x-domain
+      [x_total,idx_old,idx_add] = simpledata.union(obj.x,x_add);
+      %shortcut
+      if all(idx_old) && all(idx_add)
+        return
+      end
+      %build extended y and mask
+      y_total=NaN(numel(x_total),obj.width);
+      y_total(idx_old,:)=obj.y;
+      mask_total=false(size(x_total));
+      mask_total(idx_old)=obj.mask;
+      %sanitize monotonicity and propagate
+      [x_total,y_total,mask_total]=simpledata.monotonic(x_total,y_total,mask_total);
+      %propagate to obj
+      obj=obj.assign(y_total,'x',x_total,'mask',mask_total);
+    end
     %% y methods
     function obj=cols(obj,columns)
       if ~isvector(columns)
@@ -653,11 +739,20 @@ classdef simpledata
       %retrieve requested columns
       obj.y=obj.y(:,columns);
     end
-    function out=y_masked(obj,mask)
+    function out=y_masked(obj,mask,columns)
       if ~exist('mask','var') || isempty(mask)
         mask=obj.mask;
       end
-      out=obj.y(mask,:);
+      if ~exist('columns','var') || isempty(columns)
+        columns=1:obj.width;
+      end
+      if ~isvector(columns)
+        error([mfilename,': input ''columns'' must be a vector'])
+      end
+      if any(columns>obj.width)
+        error([mfilename,': requested column indeces exceed object width.'])
+      end
+      out=obj.y(mask,columns);
     end
     %% mask methods
     %NOTICE: these functions only deal with *explicit* gaps, i.e. those in
@@ -731,6 +826,12 @@ classdef simpledata
         error([mfilename,': found zero lengths inside of gaps. Debug needed!'])
       end
     end
+    function out=nr_gaps(obj)
+      out=sum(~obj.mask);
+    end
+    function out=nr_valid(obj)
+      out=sum(obj.mask);
+    end
     %% management methods
     function check_sd(obj)
       %sanitize
@@ -772,24 +873,6 @@ classdef simpledata
       end 
     end
     %% edit methods
-    function [obj,idx_add,idx_old,x_old]=merge(obj,x_add)
-      %add epochs given in x_add, the corresponding y are NaN and mask are set as gaps
-      if nargout==4
-        %save x_old
-        x_old=obj.x;
-      end
-      %build extended x-domain
-      [x_total,idx_old,idx_add] = simpledata.union(obj.x,x_add);
-      %build extended y and mask
-      y_total=NaN(numel(x_total),obj.width);
-      y_total(idx_old,:)=obj.y;
-      mask_total=false(size(x_total));
-      mask_total(idx_old)=obj.mask;
-      %sanitize monotonicity and propagate
-      [x_total,y_total,mask_total]=simpledata.monotonic(x_total,y_total,mask_total);
-      %propagate to obj
-      obj=obj.assign(y_total,'x',x_total,'mask',mask_total);
-    end
     function obj=remove(obj,rm_mask)
       %remove epochs given in rm_mask, by eliminating them from the data, 
       %not by setting them as gaps.
@@ -823,7 +906,7 @@ classdef simpledata
       p.parse(varargin{:});
       % need to add requested x-domain, so that implicit gaps can be handled
       %NOTICE: x_now = obj.x(idx_now)
-      [obj,idx_now]=obj.merge(x_now);
+      [obj,idx_now]=obj.x_merge(x_now);
       %interpolate over all gaps, use all available information
       if numel(x_now)==1
         y_now=obj.y_masked;
@@ -906,7 +989,7 @@ classdef simpledata
       end
       %sanity
       if nargout>1 && any(any(y_data(obj.mask,:)+y_outliers(obj.mask,:)~=obj.y_masked))
-        error([mfilename,': failed the consistency check: obj.y=y_data+y_outliers. Debug needed!'])
+        disp([mfilename,':Warning: failed the consistency check: obj.y=y_data+y_outliers. Debug needed!'])
       end
       %propagate (mask is updated inside)
       obj=obj.assign(y_data);
@@ -927,7 +1010,7 @@ classdef simpledata
     end
     function obj=medfilt(obj,n)
       %NOTICE: this function does not decimate the data, it simply applies
-      %matlab's medilt function to the data
+      %matlab's medfilt function to the data
       obj=obj.assign(medfilt1(obj.y,n)); %,'omitnan','truncate');
     end
     function obj=median(obj,n)
@@ -960,6 +1043,8 @@ classdef simpledata
       end
       %propagate the x-domain and data
       obj=assign(obj,y_median,'x',x_mean);
+      %update descriptor
+      obj.descriptor=['median of ',obj.descriptor];
     end
     %% multiple object manipulation
     function out=isxequal(obj1,obj2)
@@ -1025,6 +1110,35 @@ classdef simpledata
       end
       %update object
       obj=obj1.assign(y_now,'x',x_now,'mask',mask_now);
+    end
+    function [obj1,obj2,idx1,idx2]=merge(obj1,obj2)
+      %NOTICE:
+      % - idx1 contains the index of the x in obj1 that were added from obj2
+      % - idx2 contains the index of the x in obj2 that were added from obj1
+      %add as gaps in obj1 those x that are in obj2 but not in obj1
+      [obj1,idx1]=obj1.x_merge(obj2.x);
+      %add as gaps in obj2 those x that are in obj1 but not in obj2
+      [obj2,idx2]=obj2.x_merge(obj1.x);
+    end
+    function out=isequal(obj1,obj2,columns)
+      if ~exist('columns','var') || isempty(columns)
+        columns=1:obj1.width;
+      end
+      if any(columns>obj1.width) || any(columns>obj2.width)
+        error([mfilename,': requested column indeces exceed width.'])
+      end
+      %assume objects are not equal
+      out=false;
+      %check valid data length
+      if obj1.nr_valid~=obj2.nr_valid
+        return
+      end
+      %check values themselves
+      if any(any(obj1.y_masked([],columns)~=obj2.y_masked([],columns)))
+        return
+      end
+      %they are the same
+      out=true;
     end
     %% algebra
     function obj1=plus(obj1,obj2)
@@ -1257,10 +1371,10 @@ classdef simpledata
         end
       end
       %anotate
-      if ~isempty(out.title);   title(simpledata.strclean(out.title));  end
-      if ~isempty(out.xlabel); xlabel(simpledata.strclean(out.xlabel)); end
-      if ~isempty(out.ylabel); ylabel(simpledata.strclean(out.ylabel)); end
-      if ~isempty(out.legend); legend(simpledata.strclean(out.legend)); end
+      if ~isempty(out.title);   title(str.clean(out.title));  end
+      if ~isempty(out.xlabel); xlabel(str.clean(out.xlabel)); end
+      if ~isempty(out.ylabel); ylabel(str.clean(out.ylabel)); end
+      if ~isempty(out.legend); legend(str.clean(out.legend)); end
       %outputs
       if nargout == 0
         clear out
