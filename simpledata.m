@@ -286,6 +286,58 @@ classdef simpledata
       end
       fprintf('\n')
     end
+    function out=stats2(obj1,obj2,mode,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired( 'mode',             @(i) ischar(i));
+      p.addParameter('minlen', 2,        @(i) isscalar(i));
+      p.addParameter('outlier',false,    @(i) islogical(i));
+      p.addParameter('nsigma', simpledata.default.nSigma, @(i) isnumeric(i));
+      p.addParameter('struct_fields',...
+        {'cov','corrcoef'},...
+        @(i) iscellstr(i)...
+      )
+      % parse it
+      p.parse(mode,varargin{:});
+      %need compatible objects
+      compatible(obj1,obj2)
+      %remove outliers
+      if p.Results.outlier
+        obj1=obj1.outlier(p.Results.nsigma);
+        obj2=obj2.outlier(p.Results.nsigma);
+      end
+      %need the x-domain and masks to be identical
+      [obj1,obj2]=merge(obj1,obj2);
+      [obj1,obj2]=mask_match(obj1,obj2);
+      %trivial call
+      switch p.Results.mode
+      case {'cov','corrcoef'}
+        %bad things happend when deriving statistics of zero or one data points
+        if size(obj1.y_masked,1)<=max([2,p.Results.minlen]);
+          out=nan(1,obj1.width);
+          return
+        end
+      end
+      %branch on mode
+      switch p.Results.mode
+      case 'cov'
+        out=num.cov(obj1.y_masked,obj1.y_masked);
+      case 'corrcoef'
+        out=num.corrcoef(obj1.y_masked,obj2.y_masked);
+      case 'length';
+        out=size(obj1.y_masked,1)*ones(1,obj1.width); %could also be obj2
+      case 'struct'
+        for f=p.Results.struct_fields;
+          out.(f{1})=simpledata.stats2(obj1,obj2,f{1},'outlier',false);
+        end
+      otherwise
+        error([mfilename,': unknown mode.'])
+      end
+      %bug traps
+      if ~(isstruct(out) || ischar(out)) && any(isnan(out(:)))
+          error([mfilename,': detected NaN in <out>. Debug needed.'])
+      end
+    end
     %general test for the current object
     function out=test_parameters(field,varargin)
       %basic parameters
@@ -577,90 +629,90 @@ classdef simpledata
       p.KeepUnmatched=true;
       p.addRequired( 'mode',             @(i) ischar(i));
       p.addParameter('frmt',   '%-16.3g',@(i) ischar(i));
-      p.addParameter('tab',    8,       @(i) isscalar(i));
-      p.addParameter('outlier',true,     @(i) islogical(i));
+      p.addParameter('tab',    8,        @(i) isscalar(i));
+      p.addParameter('minlen', 2,        @(i) isscalar(i));
+      p.addParameter('outlier',false,    @(i) islogical(i));
       p.addParameter('nsigma', simpledata.default.nSigma, @(i) isnumeric(i));
+      p.addParameter('struct_fields',...
+        {'min','max','mean','std','rms','meanabs','stdabs','rmsabs','length','gaps'},...
+        @(i) iscellstr(i)...
+      )
       % parse it
       p.parse(mode,varargin{:});
       %remove outliers
       if p.Results.outlier
         obj=obj.outlier(p.Results.nsigma);
       end
+      %trivial call
+      switch p.Results.mode
+      case {'min','max','mean','std','rms','meanabs','stdabs','rmsabs'}
+        %bad things happend when deriving statistics of zero or one data points
+        if size(obj.y_masked,1)<max([2,p.Results.minlen]);
+          out=nan(1,obj.width);
+          return
+        end
+      end
       %branch on mode
       switch p.Results.mode
-      case 'min'
-          out=min(obj.y_masked);
-      case 'max'
-          out=max(obj.y_masked);
-      case 'mean'
-          if isempty(obj.y_masked);out=[]; else
-            out=mean(obj.y_masked);
-          end
-      case 'std'
-          if isempty(obj.y_masked);out=[]; else
-            out=std(obj.y_masked);
-          end
-      case 'rms'
-          if isempty(obj.y_masked);out=[]; else
-            out=rms(obj.y_masked);
-          end
-      case 'meanabs'
-          if isempty(obj.y_masked);out=[]; else
-            out=mean(abs(obj.y_masked));
-          end
-      case 'stdabs'
-          if isempty(obj.y_masked);out=[]; else
-            out=std(abs(obj.y_masked));
-          end
-      case 'rmsabs'
-          if isempty(obj.y_masked);out=[]; else
-            out=rms(abs(obj.y_masked));
-          end
-      case 'length'
-          out=size(obj.y_masked,1);
-      case 'gaps'
-          out=sum(~obj.mask);
-      case 'str' %one line
-          out=['min : ',num2str(stats@simpledata(obj,'min' ),p.Results.frmt),'; ',...
-               'max : ',num2str(stats@simpledata(obj,'max' ),p.Results.frmt),'; ',...
-               'mean: ',num2str(stats@simpledata(obj,'mean'),p.Results.frmt),'; ',...
-               'std : ',num2str(stats@simpledata(obj,'std' ),p.Results.frmt),'; ',...
-               'data: ',num2str(stats@simpledata(obj,'length'))];
-      case 'str-2l' %two lines
-          out=['min : ',num2str(stats@simpledata(obj,'min' ),p.Results.frmt),'; ',...
-               'max : ',num2str(stats@simpledata(obj,'max' ),p.Results.frmt),'; ',...
-               'mean: ',num2str(stats@simpledata(obj,'mean'),p.Results.frmt),'; ',10,...
-               'std : ',num2str(stats@simpledata(obj,'std' ),p.Results.frmt),'; ',...
-               'data: ',num2str(stats@simpledata(obj,'length'))];
-      case 'str-nl' %many lines
-          out=[str.tabbed('min',    p.Results.tab),' : ',num2str(stats@simpledata(obj,'min' ),p.Results.frmt),10,...
-               str.tabbed('max',    p.Results.tab),' : ',num2str(stats@simpledata(obj,'max' ),p.Results.frmt),10,...
-               str.tabbed('mean',   p.Results.tab),' : ',num2str(stats@simpledata(obj,'mean'),p.Results.frmt),10,...
-               str.tabbed('std',    p.Results.tab),' : ',num2str(stats@simpledata(obj,'std' ),p.Results.frmt),10,...
-               str.tabbed('rms',    p.Results.tab),' : ',num2str(stats@simpledata(obj,'rms' ),p.Results.frmt),10,...
-               str.tabbed('meanabs',p.Results.tab),' : ',num2str(stats@simpledata(obj,'mean'),p.Results.frmt),10,...
-               str.tabbed('stdabs', p.Results.tab),' : ',num2str(stats@simpledata(obj,'std' ),p.Results.frmt),10,...
-               str.tabbed('rmsabs', p.Results.tab),' : ',num2str(stats@simpledata(obj,'rms' ),p.Results.frmt),10,...
-               str.tabbed('gaps',   p.Results.tab),' : ',num2str(stats@simpledata(obj,'gaps')),10,...
-               str.tabbed('data',   p.Results.tab),' : ',num2str(stats@simpledata(obj,'length'))];
+      case 'min';     out=min(obj.y_masked);
+      case 'max';     out=max(obj.y_masked);
+      case 'mean';    out=mean(obj.y_masked);
+      case 'std';     out=std(obj.y_masked);
+      case 'rms';     out=rms(obj.y_masked);
+      case 'meanabs'; out=mean(abs(obj.y_masked));
+      case 'stdabs';  out=std(abs(obj.y_masked));
+      case 'rmsabs';  out=rms(abs(obj.y_masked));
+      case 'length';  out=size(obj.y_masked,1)*ones(1,obj.width);
+      case 'gaps';    out=sum(~obj.mask)*ones(1,obj.width);
+      %one line, two lines, three lines, many lines
+      case {'str','str-2l','str-3l','str-nl'} 
+        out=cell(size(p.Results.struct_fields));
+        for i=1:numel(p.Results.struct_fields);
+          out{i}=[...
+            str.tabbed(p.Results.struct_fields{i},p.Results.tab),' : ',...
+            num2str(...
+            stats@simpledata(obj,p.Results.struct_fields{i},'outlier',false),...
+            p.Results.frmt)...
+            ];
+        end
+        %concatenate all strings according to the required mode
+        switch p.Results.mode
+        case 'str'
+          out=strjoin(out,'; ');
+        case 'str-2l'
+          mid_idx=ceiling(numel(out)/2);
+          out=[...
+            strjoin(out(1:mid_idx),'; '),...
+            10,...
+            strjoin(out(mid_idx+1:end),'; ')...
+            ];
+        case 'str-3l'
+          mid_idx=ceiling(numel(out)/3);
+          out=[...
+            strjoin(out(1:mid_idx),'; '),...
+            10,...
+            strjoin(out(mid_idx+1:2*mid_idx),'; '),...
+            10,...
+            strjoin(out(2*mid_idx+1:end),'; ')...
+            ];
+        case 'str-nl'
+          out=strjoin(out,10);
+        end
       case 'struct'
-          out=struct(...
-              'min',    stats@simpledata(obj,'min'),...
-              'max',    stats@simpledata(obj,'max'),...
-              'mean',   stats@simpledata(obj,'mean'),...
-              'std',    stats@simpledata(obj,'std'),...
-              'rms',    stats@simpledata(obj,'rms'),...
-              'meanabs',stats@simpledata(obj,'meanabs'),...
-              'stdabs', stats@simpledata(obj,'stdabs'),...
-              'rmsabs', stats@simpledata(obj,'rmsabs'),...
-              'length', stats@simpledata(obj,'length'),...
-              'gaps',   stats@simpledata(obj,'gaps'));
+        for f=p.Results.struct_fields;
+          out.(f{1})=stats@simpledata(obj,f{1},'outlier',false);
+        end
       otherwise
-          error([mfilename,': unknown mode.'])
+        error([mfilename,': unknown mode.'])
       end
       %bug traps
-      if ~(isstruct(out) || ischar(out)) && any(isnan(out(:)))
-          error([mfilename,': detected NaN in <out>. Debug needed.'])
+      if isnumeric(out)
+        if any(isnan(out(:)))
+          error([mfilename,': BUG TRAP: detected NaN in <out>. Debug needed.'])
+        end
+        if size(out,2)~=obj.width
+          error([mfilename,': BUG TRAP: data width changed. Debug needed.'])
+        end
       end
     end
     %% x methods
@@ -831,6 +883,12 @@ classdef simpledata
     end
     function out=nr_valid(obj)
       out=sum(obj.mask);
+    end
+    function [obj1,obj2]=mask_match(obj1,obj2)
+      obj1=obj1.mask_and(obj2.mask);
+      obj2=obj2.mask_and(obj1.mask);
+      obj1=obj1.mask_update;
+      obj2=obj2.mask_update;
     end
     %% management methods
     function check_sd(obj)
@@ -1119,6 +1177,10 @@ classdef simpledata
       [obj1,idx1]=obj1.x_merge(obj2.x);
       %add as gaps in obj2 those x that are in obj1 but not in obj2
       [obj2,idx2]=obj2.x_merge(obj1.x);
+      %sanity on outputs
+      if obj1.length~=obj2.length || any(obj1.x~=obj2.x)
+        error([mfilename,': BUG TRAP: merge operation failed.'])
+      end
     end
     function out=isequal(obj1,obj2,columns)
       if ~exist('columns','var') || isempty(columns)
@@ -1371,10 +1433,10 @@ classdef simpledata
         end
       end
       %anotate
-      if ~isempty(out.title);   title(str.clean(out.title));  end
-      if ~isempty(out.xlabel); xlabel(str.clean(out.xlabel)); end
-      if ~isempty(out.ylabel); ylabel(str.clean(out.ylabel)); end
-      if ~isempty(out.legend); legend(str.clean(out.legend)); end
+      if ~isempty(out.title);   title(str.clean(out.title, 'title')); end
+      if ~isempty(out.xlabel); xlabel(str.clean(out.xlabel,'title')); end
+      if ~isempty(out.ylabel); ylabel(str.clean(out.ylabel,'title')); end
+      if ~isempty(out.legend); legend(str.clean(out.legend,'title')); end
       %outputs
       if nargout == 0
         clear out
