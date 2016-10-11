@@ -530,24 +530,26 @@ classdef simpletimeseries < simpledata
       end
     end
     %% import methods
-    function obj=import(filename)
+    function obj=import(filename,save_mat)
+      if ~exist('save_mat','var') || isempty(save_mat)
+        save_mat=false;
+      end
+      %if argument filename has a wild card, build a cell string with those names
+      if ~isempty(strfind(filename,'*'))
+        p=fileparts(filename);
+        file_list=dir(filename);
+        filename=cell(size(file_list));
+        for i=1:numel(file_list)
+          filename{i}=fullfile(p,file_list(i).name);
+        end
+      end
       %if argument is a cell string, then load all those files
       if iscellstr(filename)
         obj=cell(size(filename));
         for i=1:numel(filename)
-          obj{i}=simpletimeseries.import(filename{i});
-        end
-        return
-      end
-      %if argument filename has a wild card, then load all those files
-      if ~isempty(strfind(filename,'*'))
-        p=fileparts(filename);
-        file_list=dir(filename);
-        for i=1:numel(file_list)
-          file_now=fullfile(p,file_list(i).name);
-          disp([mfilename,': reading data from file ',file_now])
+          disp([mfilename,': reading data from file ',filename{i}])
           %read the data
-          obj_now=simpletimeseries.import(file_now);
+          obj_now=simpletimeseries.import(filename{i});
           %determine current day
           day_now=datetime(yyyymmdd(obj_now.t(round(obj_now.length/2))),'ConvertFrom','yyyymmdd');
           %get rid of overlaps
@@ -561,94 +563,118 @@ classdef simpletimeseries < simpledata
         end
         return
       end
-      %determine file type
-      [~,~,e]=fileparts(filename);
-      %branch on extension
-      switch e
-      case '.sigma'
-        fid=fopen(filename);
-        raw = textscan(fid,'%d %d %d %d %d %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f','delimiter',' ','MultipleDelimsAsOne',1);
-        fclose(fid);
-        %building time domain
-        t=datetime([double([raw{1:5}]),raw{6}]);
-        %building data domain
-        y=[raw{7:end}];
-        %building object
-        obj=simpletimeseries(t,y,...
-          'format','datetime',...
-          'y_units',{'m','m','m','s','m^2','m^2','m^2','s^2','m^2','m^2','ms','m^s','ms','ms'},...
-          'labels', {'x','y','z','t','xx', 'yy', 'zz', 'tt', 'xy', 'xz', 'xt','yz', 'yt','zt'},...
-          'descriptor',['kinematic orbit from file ',filename]...
-         );
-      case '.GraceAccCal'
-        fmt='';
-        if ~isempty(regexp(filename,'AC0[XYZ]_','once'))
-          fmt='%d-%d-%d %d %f';
-          t0_flag=false;
-          units={'m/s^2',''};
+      %split into parts
+      [p,f,e]=fileparts(filename);
+      %check if mat file is available
+      datafile=fullfile(p,[f,'.mat']);
+      if isempty(dir(datafile))
+        %some files have the format ID in front
+        for i={'ACC1B','SCA1B','KBR1B','GNV1B'}
+          if ~isempty(regexp(filename,i{1}','once'))
+            e=i{1};
+            break
+          end
         end
-        if ~isempty(regexp(filename,'AC0[XYZ]D','once'))
-          fmt='%d-%d-%d %d %f %f';
-          t0_flag=true;
-          units={'m/s^3','','MJD'};
-        end
-        if ~isempty(regexp(filename,'AC0[XYZ]Q','once'))
-          fmt='%d-%d-%d %d %f %f';
-          t0_flag=true;
-          units={'m/s^4','','MJD'};
-        end
-        if isempty(fmt)
-          error([mfilename,': cannot handle the GraceAccCal file ''',filename,'''.'])
-        end
-        fid=fopen(filename);
-        raw = textscan(fid,fmt,'delimiter',' ','MultipleDelimsAsOne',1);
-        fclose(fid);
-        %building time domain
-        t=datetime(double([raw{1:3}]));
-        %building data domain
-        if t0_flag
-          y=[raw{5},double(raw{4}),raw{6}];
-        else
-          y=[raw{5},double(raw{4})];
-        end
-        iter=0;
-        while any(diff(t)==0)
-          %loop inits
-          n0=numel(t);
-          iter=iter+1;
-          %need to monotonize the data
-          mask=true(size(t));
-          for i=2:numel(t)
-            %get rid of those entries with same time stamp and lower ID
-            if t(i)==t(i-1) && mask(i)
-              if y(i,2) > y(i-1,2)
-                mask(i-1)=false;
-              else
-                mask(i)=false;
+        %branch on extension
+        switch e
+        case '.sigma'
+          fid=fopen(filename);
+          raw = textscan(fid,'%d %d %d %d %d %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f','delimiter',' ','MultipleDelimsAsOne',1);
+          fclose(fid);
+          %building time domain
+          t=datetime([double([raw{1:5}]),raw{6}]);
+          %building data domain
+          y=[raw{7:end}];
+          %building object
+          obj=simpletimeseries(t,y,...
+            'format','datetime',...
+            'y_units',{'m','m','m','s','m^2','m^2','m^2','s^2','m^2','m^2','ms','m^s','ms','ms'},...
+            'labels', {'x','y','z','t','xx', 'yy', 'zz', 'tt', 'xy', 'xz', 'xt','yz', 'yt','zt'},...
+            'descriptor',['kinematic orbit from file ',filename]...
+           );
+        case '.GraceAccCal'
+          fmt='';
+          if ~isempty(regexp(filename,'AC0[XYZ]_','once'))
+            fmt='%d-%d-%d %d %f';
+            t0_flag=false;
+            units={'m/s^2',''};
+          end
+          if ~isempty(regexp(filename,'AC0[XYZ]D','once'))
+            fmt='%d-%d-%d %d %f %f';
+            t0_flag=true;
+            units={'m/s^3','','MJD'};
+          end
+          if ~isempty(regexp(filename,'AC0[XYZ]Q','once'))
+            fmt='%d-%d-%d %d %f %f';
+            t0_flag=true;
+            units={'m/s^4','','MJD'};
+          end
+          if isempty(fmt)
+            error([mfilename,': cannot handle the GraceAccCal file ''',filename,'''.'])
+          end
+          fid=fopen(filename);
+          raw = textscan(fid,fmt,'delimiter',' ','MultipleDelimsAsOne',1);
+          fclose(fid);
+          %building time domain
+          t=datetime(double([raw{1:3}]));
+          %building data domain
+          if t0_flag
+            y=[raw{5},double(raw{4}),raw{6}];
+          else
+            y=[raw{5},double(raw{4})];
+          end
+          iter=0;
+          while any(diff(t)==0)
+            %loop inits
+            n0=numel(t);
+            iter=iter+1;
+            %need to monotonize the data
+            mask=true(size(t));
+            for i=2:numel(t)
+              %get rid of those entries with same time stamp and lower ID
+              if t(i)==t(i-1) && mask(i)
+                if y(i,2) > y(i-1,2)
+                  mask(i-1)=false;
+                else
+                  mask(i)=false;
+                end
               end
             end
+            t=t(mask);
+            y=y(mask,:);
+            disp(['At iter ',num2str(iter),', removed ',num2str(n0-numel(t),'%04d'),' duplicate time entries (',filename,').'])
           end
-          t=t(mask);
-          y=y(mask,:);
-          disp(['At iter ',num2str(iter),', removed ',num2str(n0-numel(t),'%04d'),' duplicate time entries (',filename,').'])
+          %building label string
+          label_str=str.clean(filename,{'file','_'});
+          if t0_flag
+            label_str={label_str,[label_str,' ID'],[label_str,' t_0']};
+          else
+            label_str={label_str,[label_str,' ID']};
+          end
+          %building object
+          obj=simpletimeseries(t,y,...
+            'format','datetime',...
+            'labels',label_str,...
+            'units',units,...
+            'descriptor',filename...
+          );
+        case 'ACC1B'
+          error([mfilename,': implementation needed'])
+        case 'SCA1B'
+          error([mfilename,': implementation needed'])
+        case 'KBR1B'
+          error([mfilename,': implementation needed'])
+        case 'GNV1B'
+          error([mfilename,': implementation needed'])
+        otherwise
+          error([mfilename,': cannot handle files of type ''',e,'''.'])
         end
-        %building label string
-        [~,label_str]=fileparts(filename);
-        label_str=str.clean(strrep(label_str,'.GraceAccCal',''),'_');
-        if t0_flag
-          label_str={label_str,[label_str,' ID'],[label_str,' t_0']};
-        else
-          label_str={label_str,[label_str,' ID']};
+        %save mat file if requested
+        if save_mat
+          save(datafile,'obj')
         end
-        %building object
-        obj=simpletimeseries(t,y,...
-          'format','datetime',...
-          'labels',label_str,...
-          'units',units,...
-          'descriptor',filename...
-        );
-      otherwise
-        error([mfilename,': cannot handle files of type ''',e,'''.'])
+      else
+        obj=load(datafile,'obj');
       end
     end
     %% utilities
@@ -680,6 +706,70 @@ classdef simpletimeseries < simpledata
       idx=diff(t)==0;
       t=t(~idx);
       y=y(~idx);
+    end
+    function out=stats2(obj1,obj2,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('period', 30*max([obj1.step,obj2.step]), @(i) isduration(i));
+      p.addParameter('overlap',seconds(0),                    @(i) isduration(i));
+      % parse it
+      p.parse(varargin{:});
+      % call upstream method if period is infinite
+      if ~isfinite(p.Results.period)
+        out=simpledata.stats2(obj1,obj2,varargin{:});
+        return
+      end
+      % separate time series into segments
+      ts=segmentedfreqseries.time_segmented(...
+        simpledata.union(obj1.t,obj2.t),...
+        p.Results.period,...
+        p.Results.overlap...
+      );
+      % derive statistics for each segment
+      s.msg=['deriving segment-wise statistics for ',...
+        str.clean(obj1.descriptor,'file'),' and ',...
+        str.clean(obj2.descriptor,'file')...
+      ]; s.n=numel(ts);
+      for i=1:numel(ts)
+        %call upstream procedure
+        dat(i)=simpledata.stats2(...
+          obj1.trim(ts{i}(1),ts{i}(end)),...
+          obj2.trim(ts{i}(1),ts{i}(end)),...
+          'struct',varargin{:}...
+        ); %#ok<AGROW>
+        % inform about progress
+        s=time.progress(s,i);
+      end
+      % add time stamps
+      for i=1:numel(ts)
+        dat(i).t=mean(ts{i});
+      end
+      % unwrap data and build timeseries obj
+      fn=fieldnames(dat);
+      for i=1:numel(fn)
+        %skip time
+        if strcmp(fn{i},'t')
+          continue
+        end
+        %resolving units
+        units=cell(1,obj1.width);
+        for j=1:numel(units)
+          switch lower(fn{i})
+          case 'cov'
+            units{j}=[obj1.units{j},'.',obj2.units{j}];
+          case {'corrcoef','length'}
+            units{j}=' ';
+          end
+        end
+        out.(fn{i})=simpletimeseries(...
+          [dat.t],...
+          transpose(reshape([dat.(fn{i})],size(dat(1).(fn{i}),2),numel(dat))),...
+          'format','datetime',...
+          'labels',obj1.labels,...
+          'units',units,...
+          'descriptor',[fn{i},' ',str.clean(obj1.descriptor,'file'),'x',str.clean(obj2.descriptor,'file')]...
+        );
+      end
     end
   end
   methods
@@ -782,31 +872,52 @@ classdef simpletimeseries < simpledata
       %print superclass
       print@simpledata(obj,tab)
     end
-    function out=stats(obj,period,overlap)
-      if ~exist('period','var') || isempty(period)
-        period=seconds(inf);
-      end
-      if ~exist('overlap','var') || isempty(overlap)
-        overlap=seconds(0);
-      end
-      %sanity
-      if ~isduration(period)
-        error([mfilename,': input ''period'' must be of class ''duration'', not ''',class(period),'''.'])
+    function out=stats(obj,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('period', 30*obj.step, @(i) isduration(i));
+      p.addParameter('overlap',seconds(0),  @(i) isduration(i));
+      % parse it
+      p.parse(varargin{:});
+      % call upstream method if period is infinite
+      if ~isfinite(p.Results.period)
+        out=stats@simpledata(obj,'struct',varargin{:});
+        return
       end
       % separate time series into segments
-      ts=segmentedfreqseries.time_segmented(obj.t,period,overlap);
-      % make room for outputs
-      out=cell(size(ts));
+      ts=segmentedfreqseries.time_segmented(obj.t,p.Results.period,p.Results.overlap);
       % derive statistics for each segment
-      [~,desc]=fileparts(obj.descriptor);
-      s.msg=['deriving segment-wise statistics for ',desc]; s.n=numel(ts);
+      s.msg=['deriving segment-wise statistics for ',str.clean(obj.descriptor,'file')]; s.n=numel(ts);
       for i=1:numel(ts)
         %call upstream procedure
-        out{i}=stats@simpledata(obj.trim(ts{i}(1),ts{i}(end)),'struct','outlier',false);
-        %add time domain
-        out{i}.t=mean(ts{i});
+        dat(i)=stats@simpledata(obj.trim(ts{i}(1),ts{i}(end)),'struct',varargin{:}); %#ok<AGROW>
         % inform about progress
         s=time.progress(s,i);
+      end
+      % add time stamps
+      for i=1:numel(ts)
+        dat(i).t=mean(ts{i});
+      end
+      % unwrap data
+      fn=fieldnames(dat);
+      for i=1:numel(fn)
+        %skip time
+        if strcmp(fn{i},'t')
+          continue
+        end
+        %resolving units
+        switch lower(fn{i})
+          case {'min','max','mean','std','rms','meanabs','stdabs','rmsabs'}; units=obj.y_units;
+          case {'length','gaps'};                                            units=repmat({' '},1,obj.width);
+        end
+        out.(fn{i})=simpletimeseries(...
+          transpose([dat.t]),...
+          transpose(reshape([dat.(fn{i})],size(dat(1).(fn{i}),2),numel(dat))),...
+          'format','datetime',...
+          'labels',obj.labels,...
+          'units',units,...
+          'descriptor',[fn{i},' ',str.clean(obj.descriptor,'file')]...
+        );
       end
     end
     %% t methods
