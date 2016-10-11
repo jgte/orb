@@ -79,6 +79,11 @@ classdef str
         return
       end
       switch lower(mode)
+      case 'basename'
+        [~,s,e]=fileparts(s);
+        s=[s,e];
+      case 'file'
+        [~,s]=fileparts(s);
       case 'succ_blanks'
         while ~isempty(strfind(s,'  '))
           s=strrep(s,'  ',' ');
