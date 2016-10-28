@@ -530,30 +530,134 @@ classdef simpletimeseries < simpledata
       end
     end
     %% import methods
-    function obj=import(filename,save_mat)
-      if ~exist('save_mat','var') || isempty(save_mat)
-        save_mat=false;
-      end
-      %if argument filename has a wild card, build a cell string with those names
-      if ~isempty(strfind(filename,'*'))
-        p=fileparts(filename);
-        file_list=dir(filename);
-        filename=cell(size(file_list));
-        for i=1:numel(file_list)
-          filename{i}=fullfile(p,file_list(i).name);
+    function filenames=unwrap_datafiles(in,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired(  'in',       @(i) ischar(i) || iscellstr(i));
+      p.addParameter( 'start',    simpletimeseries.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
+      p.addParameter( 'stop',     simpletimeseries.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
+      p.addParameter( 'period',   days(1),                                  @(i) isscalar(i) && isduration(i));
+      p.addParameter( 'date_fmt', 'yyyy-mm-dd',                             @(i) ischar(i));
+      p.parse(in,varargin{:})
+      %loop over all inputs
+      if iscellstr(in)
+        filenames=cell(size(in));
+        for i=1:numel(in);
+          filenames{i}=unwrap_datafiles(in,varargin);
         end
+        filenames=flatten(filenames);
+        return
       end
+      %need fileparts
+      [d,f,e]=fileparts(in);
+      
+      %if argument filename has a wild card, build a cell string with those names
+      if ~isempty(strfind(in,'*'))
+        file_list=dir(in);
+        filenames=cell(size(file_list));
+        for i=1:numel(file_list)
+          filenames{i}=fullfile(d,file_list(i).name);
+        end
+        %unwrap these files again
+        filenames=unwrap_datafiles(filenames,varargin);
+        %done
+        return
+      end
+      
+      %if argument filename has a date place holder, build a cell string with those dates
+      if ~isempty(strfind(in,'DATE_PLACE_HOLDER'))
+        %sanity
+        if p.Results.start<=p.Results.stop
+          error([mfilename,': input ''start'' (',datestr(p.Results.start),...
+            ') is not after input ''stop'' (',datestr(p.Results.stop),').'])
+        end
+        date_list=simpletimeseries.list(p.Results.start,p.Results.stop,p.Results.period);
+        filenames=cell(size(date_list));
+        for i=1:numel(date_list)
+          filenames{i}=strrep(in,'DATE_PLACE_HOLDER',datestr(date_list(i),p.Results.date_fmt));
+        end
+        %unwrap these files again
+        filenames=unwrap_datafiles(filenames,varargin);
+        %done
+        return
+      end
+      
+      %if there's a .mat file along the argument filename, pass that on
+      matfile=fullfile(d,[f,'.mat']);
+      if ~isempty(dir(matfile))
+        filenames=matfile;
+        return
+      end
+      
+      %now handling compressed files: prepend tar to extension if there
+      if strcmp(f(end-3:end),'.tar')
+        e=['.tar',e];
+      end
+      %try to uncompress archives
+      try
+        switch lower(e)
+        case {'.z','.zip'}
+          arch=true;
+          filenames=unzip(in,d);
+        case {'.tgz','.tar.gz','.tar'}
+          arch=true;
+          filenames=untar(in,d);
+          %get rid of PaxHeaders
+          filenames(~cellfun(@isempty,strfind(filenames,'PaxHeaders')))=[];
+        case {'.gz','.gzip'}
+          arch=true;
+          filenames=gunzip(in,d);
+        otherwise
+          arch=false;  
+        end
+        if arch
+          disp(['Extracted archive ''',in,'''.'])
+        end
+      catch
+        %if the zip file is corrupted, assume data file is missing
+        disp(['WARNING: error extracting archive ''',in,'''.'])
+        return
+      end
+      %handle zipped files
+      if arch
+        %some sanity
+        if ~iscell(filenames)
+          error([mfilename,': expecting variable ''unzipped_filename'' to be a cellstr, not a ''',...
+            class(filenames),'''.'])
+        end
+        if numel(filenames)~=1
+          error([mfilename,': expecting zip archive ''',filenames,''' to contain one file only, not ',...
+            num2str(numel(filenames)),':',10,strjoin(filenames,'\n')])
+        end
+        %and we're done (no recursive unwrapping!)
+        return
+      end
+      
+      %if none of the conditions above were met, this is the name of a single file (return char!)
+      filenames=in;
+    end
+    function obj=import(filename,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter( 'save_mat', true,  @(i) isscalar(i) && islogical(i))
+      p.addParameter( 'cut24hrs', true,  @(i) isscalar(i) && islogical(i))
+      p.addParameter( 'del_arch', true,  @(i) isscalar(i) && islogical(i))
+      p.parse(varargin{:})
+      %unwrap wildcards and place holders (output is always a cellstr)
+      filename=simpletimeseries.unwrap_datafiles(filename,varargin{:});
       %if argument is a cell string, then load all those files
       if iscellstr(filename)
-        obj=cell(size(filename));
         for i=1:numel(filename)
           disp([mfilename,': reading data from file ',filename{i}])
-          %read the data
+          %read the data from a single file
           obj_now=simpletimeseries.import(filename{i});
-          %determine current day
-          day_now=datetime(yyyymmdd(obj_now.t(round(obj_now.length/2))),'ConvertFrom','yyyymmdd');
-          %get rid of overlaps
-          obj_now=obj_now.trim(day_now,day_now+hours(24)-obj_now.step);
+          %handle cutting data to requested periods
+          if p.Results.cut24hrs
+            %determine current day
+            day_now=datetime(yyyymmdd(obj_now.t(round(obj_now.length/2))),'ConvertFrom','yyyymmdd');
+            %get rid of overlaps
+            obj_now=obj_now.trim(day_now,day_now+hours(24)-obj_now.step);
+          end
           %append or initialize
           if i==1
             obj=obj_now;
@@ -564,117 +668,127 @@ classdef simpletimeseries < simpledata
         return
       end
       %split into parts
-      [p,f,e]=fileparts(filename);
+      [d,f,e]=fileparts(filename);
       %check if mat file is available
-      datafile=fullfile(p,[f,'.mat']);
-      if isempty(dir(datafile))
-        %some files have the format ID in front
-        for i={'ACC1B','SCA1B','KBR1B','GNV1B'}
-          if ~isempty(regexp(filename,i{1}','once'))
-            e=i{1};
-            break
-          end
+      datafile=fullfile(d,[f,'.mat']);
+      if ~isempty(dir(datafile))
+        load(datafile)
+        %sanity on the loaded data
+        if ~exist('obj','var')
+          error([mfilename,': expecting to load variables ''obj'' from file ',datafile,'.'])
         end
-        %branch on extension
-        switch e
-        case '.sigma'
-          fid=fopen(filename);
-          raw = textscan(fid,'%d %d %d %d %d %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f','delimiter',' ','MultipleDelimsAsOne',1);
-          fclose(fid);
-          %building time domain
-          t=datetime([double([raw{1:5}]),raw{6}]);
-          %building data domain
-          y=[raw{7:end}];
-          %building object
-          obj=simpletimeseries(t,y,...
-            'format','datetime',...
-            'y_units',{'m','m','m','s','m^2','m^2','m^2','s^2','m^2','m^2','ms','m^s','ms','ms'},...
-            'labels', {'x','y','z','t','xx', 'yy', 'zz', 'tt', 'xy', 'xz', 'xt','yz', 'yt','zt'},...
-            'descriptor',['kinematic orbit from file ',filename]...
-           );
-        case '.GraceAccCal'
-          fmt='';
-          if ~isempty(regexp(filename,'AC0[XYZ]_','once'))
-            fmt='%d-%d-%d %d %f';
-            t0_flag=false;
-            units={'m/s^2',''};
-          end
-          if ~isempty(regexp(filename,'AC0[XYZ]D','once'))
-            fmt='%d-%d-%d %d %f %f';
-            t0_flag=true;
-            units={'m/s^3','','MJD'};
-          end
-          if ~isempty(regexp(filename,'AC0[XYZ]Q','once'))
-            fmt='%d-%d-%d %d %f %f';
-            t0_flag=true;
-            units={'m/s^4','','MJD'};
-          end
-          if isempty(fmt)
-            error([mfilename,': cannot handle the GraceAccCal file ''',filename,'''.'])
-          end
-          fid=fopen(filename);
-          raw = textscan(fid,fmt,'delimiter',' ','MultipleDelimsAsOne',1);
-          fclose(fid);
-          %building time domain
-          t=datetime(double([raw{1:3}]));
-          %building data domain
-          if t0_flag
-            y=[raw{5},double(raw{4}),raw{6}];
-          else
-            y=[raw{5},double(raw{4})];
-          end
-          iter=0;
-          while any(diff(t)==0)
-            %loop inits
-            n0=numel(t);
-            iter=iter+1;
-            %need to monotonize the data
-            mask=true(size(t));
-            for i=2:numel(t)
-              %get rid of those entries with same time stamp and lower ID
-              if t(i)==t(i-1) && mask(i)
-                if y(i,2) > y(i-1,2)
-                  mask(i-1)=false;
-                else
-                  mask(i)=false;
-                end
+        %we're done
+        return
+      end
+      %some files have the format ID in front
+      for i={'ACC1B','SCA1B','KBR1B','GNV1B'}
+        if ~isempty(regexp(filename,i{1},'once'))
+          e=['.',i{1}];
+          break
+        end
+      end
+      %branch on extension
+      switch e
+      case '.sigma'
+        fid=fopen(filename);
+        raw = textscan(fid,'%d %d %d %d %d %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f','delimiter',' ','MultipleDelimsAsOne',1);
+        fclose(fid);
+        %building time domain
+        t=datetime([double([raw{1:5}]),raw{6}]);
+        %building data domain
+        y=[raw{7:end}];
+        %building object
+        obj=simpletimeseries(t,y,...
+          'format','datetime',...
+          'y_units',{'m','m','m','s','m^2','m^2','m^2','s^2','m^2','m^2','ms','m^s','ms','ms'},...
+          'labels', {'x','y','z','t','xx', 'yy', 'zz', 'tt', 'xy', 'xz', 'xt','yz', 'yt','zt'},...
+          'descriptor',['kinematic orbit from file ',filename]...
+         );
+      case '.GraceAccCal'
+        fmt='';
+        if ~isempty(regexp(filename,'AC0[XYZ]_','once'))
+          fmt='%d-%d-%d %d %f';
+          t0_flag=false;
+          units={'m/s^2',''};
+          labels={str.clean(filename,{'file','_'}),'Job ID'};
+        end
+        if ~isempty(regexp(filename,'AC0[XYZ]D','once'))
+          fmt='%d-%d-%d %d %f %f';
+          t0_flag=true;
+          units={'m/s^3','','MJD'};
+          labels={str.clean(filename,{'file','_'}),'Job ID','t_0'};
+        end
+        if ~isempty(regexp(filename,'AC0[XYZ]Q','once'))
+          fmt='%d-%d-%d %d %f %f';
+          t0_flag=true;
+          units={'m/s^4','','MJD'};
+          labels={str.clean(filename,{'file','_'}),'Job ID','t_0'};
+        end
+        if isempty(fmt)
+          error([mfilename,': cannot handle the GraceAccCal file ''',filename,'''.'])
+        end
+        fid=fopen(filename);
+        raw = textscan(fid,fmt,'delimiter',' ','MultipleDelimsAsOne',1);
+        fclose(fid);
+        %building time domain
+        t=datetime(double([raw{1:3}]));
+        %building data domain
+        if t0_flag
+          y=[raw{5},double(raw{4}),raw{6}];
+        else
+          y=[raw{5},double(raw{4})];
+        end
+        iter=0;
+        while any(diff(t)==0)
+          %loop inits
+          n0=numel(t);
+          iter=iter+1;
+          %need to monotonize the data
+          mask=true(size(t));
+          for i=2:numel(t)
+            %get rid of those entries with same time stamp and lower ID
+            if t(i)==t(i-1) && mask(i)
+              if y(i,2) > y(i-1,2)
+                mask(i-1)=false;
+              else
+                mask(i)=false;
               end
             end
-            t=t(mask);
-            y=y(mask,:);
-            disp(['At iter ',num2str(iter),', removed ',num2str(n0-numel(t),'%04d'),' duplicate time entries (',filename,').'])
           end
-          %building label string
-          label_str=str.clean(filename,{'file','_'});
-          if t0_flag
-            label_str={label_str,[label_str,' ID'],[label_str,' t_0']};
-          else
-            label_str={label_str,[label_str,' ID']};
+          t=t(mask);
+          y=y(mask,:);
+          disp(['At iter ',num2str(iter),', removed ',num2str(n0-numel(t),'%04d'),' duplicate time entries (',filename,').'])
+        end
+        %building object
+        obj=simpletimeseries(t,y,...
+          'format','datetime',...
+          'labels',labels,...
+          'units',units,...
+          'descriptor',filename...
+        );
+      case 'ACC1B'
+        error([mfilename,': implementation needed'])
+      case 'SCA1B'
+        error([mfilename,': implementation needed'])
+      case 'KBR1B'
+        error([mfilename,': implementation needed'])
+      case 'GNV1B'
+        error([mfilename,': implementation needed'])
+      otherwise
+        error([mfilename,': cannot handle files of type ''',e,'''.'])
+      end
+      %save mat file if requested
+      if p.Results.save_mat
+        save(datafile,'obj')
+      end
+      %delete uncompressed file if compressed file is there
+      if p.Results.del_arch
+        for i={'.z','.zip','.tgz','.gz','.tar','.gzip'}
+          if ~isempty(dir(fullfile(d,[f,i{1}])))
+            delete(filename)
+            disp(['Deleted uncompressed file ''',in,'''.'])
           end
-          %building object
-          obj=simpletimeseries(t,y,...
-            'format','datetime',...
-            'labels',label_str,...
-            'units',units,...
-            'descriptor',filename...
-          );
-        case 'ACC1B'
-          error([mfilename,': implementation needed'])
-        case 'SCA1B'
-          error([mfilename,': implementation needed'])
-        case 'KBR1B'
-          error([mfilename,': implementation needed'])
-        case 'GNV1B'
-          error([mfilename,': implementation needed'])
-        otherwise
-          error([mfilename,': cannot handle files of type ''',e,'''.'])
         end
-        %save mat file if requested
-        if save_mat
-          save(datafile,'obj')
-        end
-      else
-        obj=load(datafile,'obj');
       end
     end
     %% utilities
@@ -1540,3 +1654,15 @@ function [doy,fraction] = date2doy(inputDate)
   end
 end
 
+% https://github.com/ronw/ronw-matlab-tools/blob/master/celltools/flatten.m
+function y = flatten(x)
+  if ~iscell(x)
+    y = {x};
+  else
+    y = {};
+    for n = 1:length(x)
+      tmp = flatten(x{n});
+      y = {y{:} tmp{:}};
+    end
+  end
+end
