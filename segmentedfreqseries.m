@@ -37,9 +37,6 @@ classdef segmentedfreqseries < simplefreqseries
       if seg_overlap>=seg_length
         error([mfilename,'input ''seg_overlap'' (',num2str(seg_overlap),') must be smaller than input ''seg_length'' (',num2str(seg_length),').'])
       end
-      if any(diff(time) ~= diff(time(1:2)))
-        error([mfilename,': cannot handle time domains with missing epochs; use method ''fill'' before calling this routine.'])
-      end
       %guess the number of segments
       n=ceil((time(end)-time(1))/seg_length*2);
       %init outputs

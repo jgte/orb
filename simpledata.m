@@ -291,7 +291,7 @@ classdef simpledata
       p.KeepUnmatched=true;
       p.addRequired( 'mode',             @(i) ischar(i));
       p.addParameter('minlen', 2,        @(i) isscalar(i));
-      p.addParameter('outlier',false,    @(i) islogical(i));
+      p.addParameter('outlier',0,        @(i) isfinite(i));
       p.addParameter('nsigma', simpledata.default.nSigma, @(i) isnumeric(i));
       p.addParameter('struct_fields',...
         {'cov','corrcoef'},...
@@ -302,7 +302,7 @@ classdef simpledata
       %need compatible objects
       compatible(obj1,obj2)
       %remove outliers
-      if p.Results.outlier
+      for i=1:p.Results.outlier
         obj1=obj1.outlier(p.Results.nsigma);
         obj2=obj2.outlier(p.Results.nsigma);
       end
@@ -328,7 +328,7 @@ classdef simpledata
         out=size(obj1.y_masked,1)*ones(1,obj1.width); %could also be obj2
       case 'struct'
         for f=p.Results.struct_fields;
-          out.(f{1})=simpledata.stats2(obj1,obj2,f{1},'outlier',false);
+          out.(f{1})=simpledata.stats2(obj1,obj2,f{1},'outlier',0);
         end
       otherwise
         error([mfilename,': unknown mode.'])
@@ -631,8 +631,9 @@ classdef simpledata
       p.addParameter('frmt',   '%-16.3g',@(i) ischar(i));
       p.addParameter('tab',    8,        @(i) isscalar(i));
       p.addParameter('minlen', 2,        @(i) isscalar(i));
-      p.addParameter('outlier',false,    @(i) islogical(i));
+      p.addParameter('outlier',0,        @(i) isfinite(i));
       p.addParameter('nsigma', simpledata.default.nSigma, @(i) isnumeric(i));
+      p.addParameter('columns', 1:obj.width,@(i)isnumeric(i));
       p.addParameter('struct_fields',...
         {'min','max','mean','std','rms','meanabs','stdabs','rmsabs','length','gaps'},...
         @(i) iscellstr(i)...
@@ -640,7 +641,7 @@ classdef simpledata
       % parse it
       p.parse(mode,varargin{:});
       %remove outliers
-      if p.Results.outlier
+      for c=1:p.Results.outlier
         obj=obj.outlier(p.Results.nsigma);
       end
       %trivial call
@@ -654,16 +655,16 @@ classdef simpledata
       end
       %branch on mode
       switch p.Results.mode
-      case 'min';     out=min(obj.y_masked);
-      case 'max';     out=max(obj.y_masked);
-      case 'mean';    out=mean(obj.y_masked);
-      case 'std';     out=std(obj.y_masked);
-      case 'rms';     out=rms(obj.y_masked);
-      case 'meanabs'; out=mean(abs(obj.y_masked));
-      case 'stdabs';  out=std(abs(obj.y_masked));
-      case 'rmsabs';  out=rms(abs(obj.y_masked));
-      case 'length';  out=size(obj.y_masked,1)*ones(1,obj.width);
-      case 'gaps';    out=sum(~obj.mask)*ones(1,obj.width);
+      case 'min';     out=min(     obj.y_masked([],p.Results.columns));
+      case 'max';     out=max(     obj.y_masked([],p.Results.columns));
+      case 'mean';    out=mean(    obj.y_masked([],p.Results.columns));
+      case 'std';     out=std(     obj.y_masked([],p.Results.columns));
+      case 'rms';     out=rms(     obj.y_masked([],p.Results.columns));
+      case 'meanabs'; out=mean(abs(obj.y_masked([],p.Results.columns)));
+      case 'stdabs';  out=std( abs(obj.y_masked([],p.Results.columns)));
+      case 'rmsabs';  out=rms( abs(obj.y_masked([],p.Results.columns)));
+      case 'length';  out=size(    obj.y_masked,1)*ones(1,obj.width);
+      case 'gaps';    out=sum(    ~obj.mask)*ones(1,obj.width);
       %one line, two lines, three lines, many lines
       case {'str','str-2l','str-3l','str-nl'} 
         out=cell(size(p.Results.struct_fields));
@@ -671,9 +672,9 @@ classdef simpledata
           out{i}=[...
             str.tabbed(p.Results.struct_fields{i},p.Results.tab),' : ',...
             num2str(...
-            stats@simpledata(obj,p.Results.struct_fields{i},'outlier',false),...
+            stats@simpledata(obj,p.Results.struct_fields{i},varargin{:}),...
             p.Results.frmt)...
-            ];
+          ];
         end
         %concatenate all strings according to the required mode
         switch p.Results.mode
@@ -700,7 +701,7 @@ classdef simpledata
         end
       case 'struct'
         for f=p.Results.struct_fields;
-          out.(f{1})=stats@simpledata(obj,f{1},'outlier',false);
+          out.(f{1})=stats@simpledata(obj,f{1},varargin{:});
         end
       otherwise
         error([mfilename,': unknown mode.'])
@@ -710,7 +711,7 @@ classdef simpledata
         if any(isnan(out(:)))
           error([mfilename,': BUG TRAP: detected NaN in <out>. Debug needed.'])
         end
-        if size(out,2)~=obj.width
+        if size(out,2)~=numel(p.Results.columns)
           error([mfilename,': BUG TRAP: data width changed. Debug needed.'])
         end
       end
@@ -1169,18 +1170,40 @@ classdef simpledata
       %update object
       obj=obj1.assign(y_now,'x',x_now,'mask',mask_now);
     end
-    function [obj1,obj2,idx1,idx2]=merge(obj1,obj2)
+    function [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2)
       %NOTICE:
       % - idx1 contains the index of the x in obj1 that were added from obj2
       % - idx2 contains the index of the x in obj2 that were added from obj1
+      % - no data is propagated between objects, only the time domain is changed!
       %add as gaps in obj1 those x that are in obj2 but not in obj1
-      [obj1,idx1]=obj1.x_merge(obj2.x);
-      %add as gaps in obj2 those x that are in obj1 but not in obj2
-      [obj2,idx2]=obj2.x_merge(obj1.x);
-      %sanity on outputs
-      if obj1.length~=obj2.length || any(obj1.x~=obj2.x)
-        error([mfilename,': BUG TRAP: merge operation failed.'])
+      [obj1_out,idx2]=obj1.x_merge(obj2.x);
+      if nargout>1
+        %add as gaps in obj2 those x that are in obj1 but not in obj2
+        [obj2_out,idx1]=obj2.x_merge(obj1.x);
+        %sanity on outputs
+        if obj1_out.length~=obj2_out.length || any(obj1_out.x~=obj2_out.x)
+          error([mfilename,': BUG TRAP: merge operation failed.'])
+        end
       end
+    end
+    function obj1_out=augment(obj1,obj2)
+      %NOTICE:
+      % - obj1 receives the data from obj2, at those epochs defined in obj2
+      % - data from obj1 with epochs existing in obj2 are discarded (a report is given in case there is discrepancy in the data)
+      %need compatible data
+      obj1.compatible(obj2);
+      %merge x domain, also get idx2, which is needed to propagate data
+      [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2);
+      %count data in obj2 which has the same epochs as in obj1 but is different
+      if any(idx1==idx2) && any(any(obj1_out.y(idx1==idx2,:)~=obj2_out.y(idx1==idx2,:)))
+        disp(['WARNING: There are ',num2str(sum(obj1_out.y(idx1==idx2,:)~=obj2_out.y(idx1==idx2,:))),...
+          ' entries in obj1 that are defined at the same epochs as in obj2 but with different values; ',...
+          'these data have been discarded.'])
+      end
+      %propagate data
+      obj1_out.y(idx2,:)=obj2.y;
+      %propagate mask
+      obj1_out.mask(idx2,:)=obj2.mask;
     end
     function out=isequal(obj1,obj2,columns)
       if ~exist('columns','var') || isempty(columns)
@@ -1372,6 +1395,7 @@ classdef simpledata
       % parse it
       p.parse(varargin{:});
       % plot
+      y_plot=cell(size(p.Results.columns));
       for i=1:numel(p.Results.columns)
         % remove mean if requested
         if p.Results.zeromean
@@ -1389,17 +1413,21 @@ classdef simpledata
         if ~obj.plot_zeros
           out.mask{i}=out.mask{i} & ( obj.y(:,p.Results.columns(i)) ~= 0 );
         end
+        % get data
+        x_plot=obj.x(out.mask{i});
+        y_plot{i}=obj.y(out.mask{i},p.Results.columns(i))-out.y_mean{i};
         % plot it
         if isempty(p.Results.line)
-          out.handle{i}=plot(obj.x(out.mask{i}),obj.y(out.mask{i},p.Results.columns(i))-out.y_mean{i});hold on
+          out.handle{i}=plot(x_plot,y_plot{i});hold on
         else
-          out.handle{i}=plot(obj.x(out.mask{i}),obj.y(out.mask{i},p.Results.columns(i))-out.y_mean{i},p.Results.line{i});hold on
+          out.handle{i}=plot(x_plot,y_plot{i},p.Results.line{i});hold on
         end
       end
+      %set x axis
       if obj.length>1
         xlim([obj.x(1) obj.x(end)])
       end
-      %build anotate
+      %annotate
       if isempty(p.Results.title)
         out.title=obj.descriptor;
       else

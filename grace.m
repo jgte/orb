@@ -1,56 +1,79 @@
 classdef grace
   %static
   properties(Constant)
+    
+%         'fields',struct(...
+%           'AC0X'  ,1e-7,...
+%           'AC0Z'  ,1e-6,...
+%           'AC0Y1' ,1e-5,...
+%           'AC0Y2' ,1e-5,...
+%           'AC0Y3' ,1e-5,...
+%           'AC0Y4' ,2e-5,...
+%           'AC0Y5' ,2e-5,...
+%           'AC0Y6' ,5e-5,...
+%           'AC0Y7', 5e-5,...
+%           'AC0Y8', 5e-5,...
+%           'AC0XD', 5e-7,...
+%           'AC0ZD', 5e-6,...
+%           'AC0YD1',5e-5,...
+%           'AC0YD2',5e-5,...
+%           'AC0YD3',1e-4,...
+%           'AC0YD4',1e-4,...
+%           'AC0YD5',1e-4,...
+%           'AC0YD6',5e-3,...
+%           'AC0YD7',5e-3,...
+%           'AC0YD8',5e-4,...
+%           'AC0XQ' ,3e-7,...
+%           'AC0ZQ' ,5e-6,...
+%           'AC0YQ1',5e-3,...
+%           'AC0YQ2',5e-3,...
+%           'AC0YQ3',5e-3,...
+%           'AC0YQ4',5e-3,...
+%           'AC0YQ5',5e-3,...
+%           'AC0YQ6',5e-3,...
+%           'AC0YQ7',5e-3,...
+%           'AC0YQ8',5e-4 ...
+%         )...
+        
     %default value of some internal parameters
     default_list=struct(...
-      'calpar_csr_defs',struct(... %calpar name; plot scale; 
-        'AC0X_'     ,1e-7,...
-        'AC0Z_'     ,1e-6,...
-        'AC0Y_____1',1e-5,...
-        'AC0Y_____2',1e-5,...
-        'AC0Y_____3',1e-5,...
-        'AC0Y_____4',2e-5,...
-        'AC0Y_____5',2e-5,...
-        'AC0Y_____6',5e-5,...
-        'AC0Y_____7',5e-5,...
-        'AC0Y_____8',5e-5,...
-        'AC0XD'     ,5e-7,...
-        'AC0ZD'     ,5e-6,...
-        'AC0YD____1',5e-5,...
-        'AC0YD____2',5e-5,...
-        'AC0YD____3',1e-4,...
-        'AC0YD____4',1e-4,...
-        'AC0YD____5',1e-4,...
-        'AC0YD____6',5e-3,...
-        'AC0YD____7',5e-3,...
-        'AC0YD____8',5e-4,...
-        'AC0XQ'     ,3e-7,...
-        'AC0ZQ'     ,5e-6,...
-        'AC0YQ____1',5e-3,...
-        'AC0YQ____2',5e-3,...
-        'AC0YQ____3',5e-3,...
-        'AC0YQ____4',5e-3,...
-        'AC0YQ____5',5e-3,...
-        'AC0YQ____6',5e-3,...
-        'AC0YQ____7',5e-3,...
-        'AC0YQ____8',5e-4...
-      ) ...
+      'calpar_csr_par',struct(...
+        'levels',struct(...
+          'aak',   1,...
+          'accatt',1,...
+          'estim', 1 ...
+        ),...
+        'fields',struct(...
+          'AC0X'  ,1e-7,...
+          'AC0Z'  ,1e-6,...
+          'AC0Y1' ,1e-5,...
+          'AC0Y2' ,1e-5,...
+          'AC0Y3' ,1e-5 ...
+        )...
+      ),...
+      'plot_par',struct(...
+        'dir','plots',...
+        'prefix','',...
+        'suffix','',...
+        'xlimits',[-inf,inf],...
+        'ylimits',[-inf,inf],...
+        'size',200+[0,0,21,9]*50,...
+        'units','points',...
+        'visible','on',...
+        'fontsize',struct(...
+          'axis', 24,...
+          'title',32,...
+          'label',28),...
+        'line',struct(...
+          'width',2)...
+      )...
     );
-    plot_pars=struct(...
-      'size',200+[0,0,16,9]*65,...
-      'units','points',...
-      'visible','off',...
-      'fontsize',struct(...
-        'axis', 24,...
-        'title',32,...
-        'label',28),...
-      'line',struct(...
-        'width',2)...
-    );
+    sats={'A','B'};
     parameter_list=struct(...
-      'calpar_csr_defs',struct('default',grace.default_list.calpar_csr_defs,'validation',@(i) isstruct(i)),...
-      'start',        struct('default',datetime([0 0 31]),                'validation',@(i) isdatetime(i)),...
-      'stop',         struct('default',datetime([0 0 31]),                'validation',@(i) isdatetime(i))...
+      'calpar_csr_par', struct('default',grace.default_list.calpar_csr_par,'validation',@(i) isstruct(i)),...
+      'plot_par',       struct('default',grace.default_list.plot_par,      'validation',@(i) isstruct(i)),...
+      'start',          struct('default',datetime([0 0 31]),               'validation',@(i) isdatetime(i)),...
+      'stop',           struct('default',datetime([0 0 31]),               'validation',@(i) isdatetime(i))...
     );
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -59,30 +82,25 @@ classdef grace
   end
   %read only
   properties(SetAccess=private)
-    calpar_csr_defs
-    start
-    stop
+    datatype_list
+    calpar_csr_par
   end
   %private (visible only to this object)
   properties(GetAccess=private)
-    calpar_csr_reg
-    acc_csr_reg
+    calpar_csr
+    acc
   end
   %calculated only when asked for
   properties(Dependent)
-    calpar_csr
-    acc_csr
+    start
+    stop
+  end
+  properties
+    plot_par
   end
   methods(Static)
     function out=parameters
       out=fieldnames(grace.parameter_list);
-    end
-    function enforce_plot_pars(par,fig_handle,axis_handle)
-      set(axis_handle,'FontSize',par.fontsize.axis)
-      set(get(axis_handle,'Title'),'FontSize',par.fontsize.title);
-      set(get(axis_handle,'XLabel'),'FontSize',par.fontsize.label);
-      set(get(axis_handle,'YLabel'),'FontSize',par.fontsize.label);
-      set(fig_handle,'Position',par.size,'PaperUnits',par.units,'PaperPosition',par.size);
     end
   end
   methods
@@ -91,7 +109,7 @@ classdef grace
       p=inputParser;
       p.KeepUnmatched=true;
       p.addParameter('calpar_csr', '',@(i) ischar(i));
-      p.addParameter('acc_csr',    '',@(i) ischar(i));
+      p.addParameter('acc',        '',@(i) ischar(i));
       %declare parameters
       for j=1:numel(grace.parameters)
         %shorter names
@@ -112,110 +130,464 @@ classdef grace
           obj.(pn)=p.Results.(pn);
         end
       end
+      % reset data type list
+      obj=obj.datatype_init;
       % gather input argument names
       in=fieldnames(p.Results);
       for i=1:numel(in)
-        switch lower(in{i})
-          case 'calpar_csr'
-            obj.calpar_csr=p.Results.(in{i});
-          case 'acc_csr'
-            obj.acc_csr=p.Results.(in{i});
-          case {grace.parameters{:}}
+        %skip this datatype if empty
+        if isempty(p.Results.(in{i}))
+          continue
+        end
+        switch in{i}
+          case {'calpar_csr','acc'}
+            obj=obj.([in{i},'_init'])(p.Results.(in{i}),varargin{:});
+          case {grace.parameters{:}} %#ok<*CCAT1>
             % already done
           otherwise
             error([mfilename,': cannot handle parameter ''',in{i},'''.'])
         end
       end
     end
-    %% calpar_csr
-    function obj=set.calpar_csr(obj,storage)
-      jobID_idx=2;
-      datafile=fullfile(storage,'calpar_csr.mat');
-      if isempty(dir(datafile))
-        calpars=fieldnames(obj.calpar_csr_defs);
-        obj.calpar_csr_reg.a=cell(numel(calpars),1);
-        obj.calpar_csr_reg.b=cell(numel(calpars),1);
-        for j=1:size(calpars)
-          for sat={'A','B'}
-            f=fullfile(storage,['GRC-',sat{1},'____',calpars{j},'.GraceAccCal']);
-            tmp=simpletimeseries.import(f,'cut24hrs',false);
-            obj.calpar_csr_reg.(lower(sat{1})){j}=tmp.resample(days(1));
+    %% start/stop operations
+    function out=get.start(obj)
+      out=obj.sts('start',obj.cell_names);
+      out=min([out{:}]);
+    end
+    function out=get.stop(obj)
+      out=obj.sts('stop',obj.cell_names);
+      out=max([out{:}]);
+    end
+    function obj=set.start(obj,start)
+      %retrieve cell names
+      names=obj.cell_names;
+      %get cell array with simpletimeseries objects
+      values=obj.cell_get(names);
+      %loop over complete set of objects
+      for i=1:numel(values)
+        values{i}.start=start;
+      end
+      %back-propagate modified set of objects
+      obj=obj.cell_set(names,values);
+    end
+    function obj=set.stop(obj,stop)
+      %retrieve cell names
+      names=obj.cell_names;
+      %get cell array with simpletimeseries objects
+      values=obj.cell_get(names);
+      %loop over complete set of objects
+      for i=1:numel(values)
+        values{i}.start=stop;
+      end
+      %back-propagate modified set of objects
+      obj=obj.cell_set(names,values);
+    end
+    %% datatype operations
+    function obj=datatype_init(obj)
+      obj.datatype_list={};
+    end
+    function obj=datatype_set(obj,datatype_name,datatype_value)
+      obj.(datatype_name)=datatype_value;
+      %add this datatype to the list, if not already
+      if all(cellfun(@isempty,strfind(obj.datatype_list,datatype_name)))
+        obj.datatype_list=[obj.datatype_list,{datatype_name}];
+      end
+    end
+    function out=datatype_get(obj,datatype_name)
+      out=obj.(datatype_name);
+    end
+    function out=datatypes(obj)
+      out=obj.datatype_list;
+    end
+    %% level operations
+    function obj=level_init(obj,datatype)
+      obj=obj.datatype_set(datatype,struct([]));
+    end
+    function obj=level_set(obj,datatype,level_name,level_value)
+      datatype_value=obj.datatype_get(datatype);
+      datatype_value.(level_name)=level_value;
+      obj=obj.datatype_set(datatype,datatype_value);
+    end
+    function out=level_get(obj,datatype,level_name)
+      datatype_value=obj.datatype_get(datatype);
+      if isfield(datatype_value,level_name)
+        out=datatype_value.(level_name);
+      else
+        out=[];
+      end
+    end
+    function out=levels(obj,datatype)
+      out=fieldnames(obj.datatype_get(datatype));
+    end
+    %% field operations
+    function obj=field_init(obj,datatype,level)
+      obj=obj.level_set(datatype,level,struct([]));
+    end
+    function obj=field_set(obj,datatype,level,field_name,field_value)
+      level_value=obj.level_get(datatype,level);
+      level_value.(field_name)=field_value;
+      obj=obj.level_set(datatype,level,level_value);
+    end
+    function out=field_get(obj,datatype,level,field_name)
+      level_value=obj.level_get(datatype,level);
+      if isfield(level_value,field_name)
+        out=level_value.(field_name);
+      else
+        out=[];
+      end
+    end
+    function out=fields(obj,datatype,level)
+      out=fieldnames(obj.level_get(datatype,level));
+    end
+    %% sat operations
+    function obj=sat_init(obj,datatype,level,field)
+      obj=obj.field_set(datatype,level,field,struct([]));
+    end
+    function obj=sat_set(obj,datatype,level,field,sat_name,sat_value)
+      if all(cellfun(@isempty,strfind(grace.sats,sat_name)))
+        error([mfilename,': sat_name can only be one of: ',strjoin(grace.sats,','),', not ''',sat_name,'''.'])
+      end
+      field_value=obj.field_get(datatype,level,field);
+      field_value.(sat_name)=sat_value;
+      obj=obj.field_set(datatype,level,field,field_value);
+    end
+    function out=sat_get(obj,datatype,level,field,sat_name)
+      field_value=obj.field_get(datatype,level,field);
+      if isfield(field_value,sat_name)
+        out=field_value.(sat_name);
+      else
+        out=[];
+      end
+    end
+    %% cell array operations
+    function out=cell_names_sanity(obj,in,name,default)
+      if isempty(in)
+        %assign default values
+        out=default;
+      else
+        if ~iscellstr(in)
+          if ischar(in)
+            %if input is a string, convert it to cell
+            out={in};
+          else
+            %cannot anything other than cell strings and strings
+            error([mfilename,': input ''',name,''' must be of class ''cell'', not ''',class(in),'''.'])
+          end
+        else
+          %we want cell strings
+          out=in;
+        end
+      end
+    end
+    function names=cell_names(obj,datatype,level,field,sat)
+      %input arguments datatype, level, field and sat are either:
+      % - a cell array of strings;
+      % - a string (converted to a scalar cell array);
+      % - empty (converted to all possible values of that type of argument).
+      % This routine builds a list with all combinations of the given 
+      % datatype, level, field and sat (after converting as mentioned above).
+      if ~exist('sat',     'var'),      sat='';end
+      if ~exist('field',   'var'),    field='';end
+      if ~exist('level',   'var'),    level='';end
+      if ~exist('datatype','var'), datatype='';end
+      % some of datatype, level, field and sat do not depend on each other 
+      % (those that do are inside the for loops below)
+      datatype=obj.cell_names_sanity(datatype,'datatype',obj.datatypes);
+           sat=obj.cell_names_sanity(sat,'sat',grace.sats);
+      %make room for outputs (this is just a guess, because level and field can be empty)
+      names=cell(numel(datatype)*numel(level)*numel(field)*numel(sat),1);
+      c=0;
+      %loop over all datatypes, levels, fields and sats
+      for i=1:numel(datatype)
+        level=obj.cell_names_sanity(level,'level',obj.levels(datatype{i}));
+        for j=1:numel(level)
+          field=obj.cell_names_sanity(field,'field',obj.fields(datatype{i},level{j}));
+          for k=1:numel(field)
+            for l=1:numel(sat)
+              c=c+1;
+              names{c}=[datatype{i},level{j},field{k},sat{l}];
+            end
           end
         end
-        %ensure the time domain is the same in all calpars (in each sat)
-        obj.calpar_csr_reg.a=simpledata.merge_multiple(obj.calpar_csr_reg.a,'GRC-A calpar_csr');
-        obj.calpar_csr_reg.b=simpledata.merge_multiple(obj.calpar_csr_reg.b,'GRC-B calpar_csr');
-        %ensure job IDs are consistent
-        equal_idx=simpledata.isequal_multiple(obj.calpar_csr_reg.a,jobID_idx,'GRC-A calpar_csr');
-        if any(~equal_idx)
-          error([mfilename,': Job ID inconsistency between ',calpars{find(~equal_idx,1,'first')},...
-            ' and ',calpars{find(~equal_idx,1,'first')+1},' of GRC-A calpar_csr (possibly more).'])
+      end
+    end
+    function values=cell_get(obj,names)
+      %make room for outputs
+      values=cell(size(names));
+      %populate outputs
+      for i=1:numel(values)
+        values{i}=obj.sat_get(names{i}{:});
+      end
+    end
+    function obj=cell_set(obj,names,values)
+      %sanity
+      if numel(names) ~= numel(values)
+        error([mfilename,': number of elements of input ''values'' (',num2str(numel(values)),') ',...
+          'must be the same as the number of data types (',num2str(numel(names)),').'])
+      end
+      %propagate inputs
+      for i=1:numel(values)
+        obj=obj.sat_set(names{i}{:},values{i});
+      end
+    end
+    % Applies the function f to the cell array given by cell_get(datatype,level,field,sat) and
+    % returns the result, so it transforms (tr) the object into something else
+    function out=tr(obj,f,names,varargin)
+      %collapse requested data into cell array and operate on the cell array
+      out=f(obj.cell_get(names),varargin{:});
+    end
+    % Applies the function f to the cell array given by cell_get(datatype,level,field,sat) and
+    % saves the resulting objects back to the same set, given by cell_set(datatype,level,field,sat)
+    function obj=op(obj,f,names,varargin)
+      %operate on the requested set
+      values=obj.tr(f,names,varargin{:});
+      %sanity
+      if ~iscell(values)
+        error([mfilename,': function ',fun2str(f),' must return a cell array, not a ',class(values),'.'])
+      end
+      %propagate cell array back to object
+      obj=obj.cell_set(names,values);
+    end
+    % Retrieves the values of particular field or zero-input method from the 
+    % simpletimeseries (sts) stored at the leaves defined by the input names.
+    function out=sts(obj,sts_field,names)
+      out=cell(size(names));
+      obj_list=obj.cell_get(names);
+      for i=1:numel(out)
+        out{i}=obj_list.(sts_field);
+      end
+    end
+    %% utils
+    function enforce_plot_par(obj,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('fig_handle',  gcf,  @(i) ishandle(i));
+      p.addParameter('axis_handle', gca,  @(i) ishandle(i));
+      p.addParameter('xdate',       true, @(i) islogical(i));
+      p.addParameter('ylimits',     obj.plot_par.ylimits, @(i) numel(i)==2 && isnumeric(i));
+      p.addParameter('autoscale',   false, @(i)islogical(i) && isscalar(i));
+      p.addParameter('automean',    false, @(i)islogical(i) && isscalar(i));
+      p.addParameter('outlier',0,        @(i) isfinite(i));
+      % parse it
+      p.parse(varargin{:});
+      % sanity
+      if any(isfinite(p.Results.ylimits)) && ( p.Results.autoscale ||  p.Results.automean )
+        error([mfilename,': option ''ylimits'' and ''autoscale'' or ''automean'' do not work concurrently.'])
+      end
+      
+      % enforce fontsize and paper size
+      set(    p.Results.axis_handle,          'FontSize',obj.plot_par.fontsize.axis)
+      set(get(p.Results.axis_handle,'Title' ),'FontSize',obj.plot_par.fontsize.title);
+      set(get(p.Results.axis_handle,'XLabel'),'FontSize',obj.plot_par.fontsize.label);
+      set(get(p.Results.axis_handle,'YLabel'),'FontSize',obj.plot_par.fontsize.label);
+      set(    p.Results.fig_handle, 'Position',          obj.plot_par.size,...
+                                    'PaperUnits',        obj.plot_par.units,...
+                                    'PaperPosition',     obj.plot_par.size);
+      % enforce line properties
+      line_handles=get(p.Results.axis_handle,'Children');
+      for i=1:numel(line_handles)
+        set(line_handles(i),'LineWidth',obj.plot_par.line.width)
+      end
+      % enforce x-limits
+      v=axis(p.Results.axis_handle);
+      if p.Results.xdate
+        for i=1:2
+          if isfinite(   obj.plot_par.xlimits(i))
+            v(i)=datenum(obj.plot_par.xlimits(i));
+          end
         end
-        equal_idx=simpledata.isequal_multiple(obj.calpar_csr_reg.b,jobID_idx,'GRC-B calpar_csr');
-        if any(~equal_idx)
-          error([mfilename,': Job ID inconsistency between ',calpars{find(~equal_idx,1,'first')},...
-            ' and ',calpars{find(~equal_idx,1,'first')+1},' of GRC-B calpar_csr (possibly more).'])
+      end
+      % enforce reasonable y-limits
+      for i=1:2
+        if isfinite(p.Results.ylimits(i))
+          v(i+2)=   p.Results.ylimits(i);
+        end
+      end
+      % enforce auto-scale and/or auto-mean
+      if p.Results.automean || p.Results.autoscale
+        %gather plotted data
+        dat=cell(size(line_handles));
+        for i=1:numel(line_handles)
+          dat{i}=get(line_handles(i),'ydata');
+        end
+        dat=[dat{:}];
+        dat=dat(~isnan(dat(:)));
+        %remove outliers (if requested)
+        for c=1:p.Results.outlier
+          dat=simpledata.rm_outliers(dat);
+        end
+        dat=dat(~isnan(dat(:)));
+        %enfore data-driven mean and/or scale
+        if p.Results.automean && p.Results.autoscale
+          v(3:4)=mean(dat)+3*std(dat)*[-1,1];
+        elseif p.Results.automean
+          v(3:4)=mean(dat)+0.5*diff(v(3:4))*[-1,1];
+        elseif p.Results.autoscale
+          v(3:4)=mean(v(3:4))+3*std(dat)*[-1,1];
+        end
+        %fix non-negative data sets
+        if all(dat>=0) && v(3)<0
+          v(3)=0;
+        end
+      end
+      axis(p.Results.axis_handle,v);
+    end
+    function out=id(obj,mode,datatype,level,field,sat,suffix)
+      if ~exist('suffix','var') || isempty(suffix)
+        suffix='';
+      end
+      switch mode
+      case 'plot'
+        parts={obj.plot_par.dir,    '/';...
+               obj.plot_par.prefix, '.';...
+               datatype,            '.';...
+               level,               '.';...
+               field,               '.';...
+               sat,                 '.';...
+               suffix,              '.';...
+               obj.plot_par.suffix, '.'};
+        out=cell(numel(parts)/2,1);
+        for i=1:numel(parts)/2
+          if ~isempty(parts{i,1})
+            out{i}=parts{i,1};
+            if ~strcmp(out{i}(end),parts{i,2})
+              out{i}=[out{i},parts{i,2}];
+            end
+          else
+            out{i}='';
+          end
+        end
+        out=[strjoin(out,''),'png'];
+      case 'mat'
+        parts={obj.plot_par.dir,    '/';...
+               datatype,            '.';...
+               level,               '.';...
+               field,               '.';...
+               sat,                 '.';...
+               suffix,              '.'};
+        out=cell(numel(parts)/2,1);
+        for i=1:numel(parts)/2
+          if ~isempty(parts{i,1})
+            out{i}=parts{i,1};
+            if ~strcmp(out{i}(end),parts{i,2})
+              out{i}=[out{i},parts{i,2}];
+            end
+          else
+            out{i}='';
+          end
+        end
+        out=[strjoin(out,''),'mat'];
+      otherwise
+        error([mfilename,': cannot handle mode ',mode,'.'])
+      end
+      if isempty(dir(fileparts(out)))
+        system(['mkdir -vp ',fileparts(out)]);
+      end
+    end
+    %% calpar_csr
+    function obj=calpar_csr_init(obj,storage,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('start',    obj.start,@(i) isdatetime(i));
+      p.addParameter('stop',     obj.stop, @(i) isdatetime(i));
+      p.addParameter('datafile', fullfile(storage,'calpar_csr.mat'),@(i) ischar(i));
+      p.addParameter('jobid_col',2,@(i) isscalar(i) && isfinite(i));
+      % parse it
+      p.parse(varargin{:});
+      if isempty(dir(p.Results.datafile))
+        %get names of parameters and levels
+        fields=fieldnames(obj.calpar_csr_par.fields);
+        levels=fieldnames(obj.calpar_csr_par.levels);
+        %load data
+        for i=1:size(levels)
+          for j=1:size(fields)
+            tmp=struct('A',[],'B',[]);
+            %read data
+            for sat=grace.sats
+              f=fullfile(storage,['gr',sat{1},'.',fields{j},'.',levels{i},'.GraceAccCal']);
+              tmp.(sat{1})=simpletimeseries.import(f,'cut24hrs',false);
+            end
+            %ensure date is compatible between the satellites
+            if ~tmp.A.istequal(tmp.B)
+              [tmp.A,tmp.B]=tmp.A.merge(tmp.B);
+            end
+            %propagate data to object
+            for sat=grace.sats
+              obj=obj.sat_set('calpar_csr',levels{i},fields{j},sat{1},tmp.(sat{1}));
+            end
+          end
+        end
+        %get complete list of level,field,sat combinations
+        names=obj.cell_names('calpar_csr','','','');
+        %ensure the time domain is the same for all fields (in each sat and level)
+        obj=obj.op(@simpledata.merge_multiple,...
+          names,...
+          ['GRACE-',sat{1},' ',levels{i},' calpar_csr']...
+        );
+        %ensure job IDs are consistent for all fields (in each sat and level)
+        equal_idx=obj.tr(@simpledata.isequal_multiple,...
+          names,...
+          p.Results.jobid_col,['GRACE-',sat{1},' ',levels{i},' calpar_csr']...
+        );
+        for i=1:numel(equal_idx)
+          if any(~equal_idx{i})
+            bad_idx=find(~equal_idx{i},1,'first');
+            error([mfilename,': Job ID inconsistency between ',fields{bad_idx},...
+              ' and ',fields{bad_idx+1},' at [',strjoin(names{i},','),'] (possibly more).'])
+          end
         end
         %save data
-        s=obj.calpar_csr_reg;
-        save(datafile,'s');
+        s=obj.calpar_csr; %#ok<*NASGU>
+        save(p.Results.datafile,'s');
         clear s
       else
         %load data
-        obj.calpar_csr_reg=load(datafile,'s');
+        load(p.Results.datafile,'s');
+        levels=fieldnames(s); %#ok<NODEF>
+        for i=1:numel(levels)
+          obj.calpar_csr.(levels{i})=s.(levels{i});
+        end
       end
+      %make sure start/stop options are honoured
+      obj.start=p.Results.start;
+      obj.stop= p.Results.stop;
     end
-    function out=get.calpar_csr(obj)
-      out=obj.calpar_csr_reg;
-    end
-    %% acc_csr
-    function obj=set.acc_csr(obj,storage)
-      %trivial call
-      if isempty(storage)
-        obj.acc_csr_reg=[];
-        return
+    %% acc
+    function obj=acc_init(obj,storage,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('start',  obj.start,@(i) isdatetime(i));
+      p.addParameter('stop',   obj.stop, @(i) isdatetime(i));
+      p.addParameter('release','61',     @(i) ischar(i));
+      p.addParameter('level',  'unknown',@(i) ischar(i));
+      p.addParameter('field',  'unknown',@(i) ischar(i));
+      % parse it
+      p.parse(varargin{:});
+      % sanity
+      if isempty(p.Results.start) || isempty(p.Results.start)
+        error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
       end
-      RL='61';
-      datelist=simpletimeseries.list(obj.start,obj.stop,days(1));
+      % gather list of daily dates
+      datelist=simpletimeseries.list(p.Results.start,p.Results.stop,days(1));
       for sat={'A','B'}
         %build required file list
         filelist=cell(size(datelist));
         for i=1:numel(datelist)
-          filelist{i}=fullfile(storage,['ACC1B_',datestr(datelist{i},'yyyy-mm-dd'),'_',sat{1},'_',RL,'2.asc']);
+          filelist{i}=fullfile(storage,datestr(datelist(i),'yy'),'acc','asc',...
+            ['ACC1B_',datestr(datelist(i),'yyyy-mm-dd'),'_',sat{1},'_',p.Results.release,'.asc']...
+          );
         end
         %load the data
-        obj.acc_csr.(lower(sat{1}))=simpletimeseries.import(filelist);
-      end
-    end
-    function out=get.acc_csr(obj)
-      out=obj.acc_csr_reg;
-    end
-    %% operate dataype-wise
-    function obj=op(obj,operation,datatype,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired( 'operation',                   @(i) ischar(i));
-      p.addRequired( 'datatype',                    @(i) ischar(i));
-      % parse it
-      p.parse(operation,datatype);
-      %gather datatype names
-      dt_names=fieldnames(obj.(datatype));
-      %loop over all fields of this datatype
-      for i=1:numel(dt_names)
-        obj.(datatype).(dt_names{i}).a=obj.(datatype).(dt_names{i}).a.(p.Results.operation)(varargin{:});
-        obj.(datatype).(dt_names{i}).b=obj.(datatype).(dt_names{i}).b.(p.Results.operation)(varargin{:});
+        obj=obj.sat_set('acc',p.Results.level,p.Results.field,sat{1},...
+          simpletimeseries.import(filelist)...
+        );
       end
     end
     %% costumized operations
-    function out=calpar_csr_op(obj,opname,varargin)
+    function out=calpar_csr_op(obj,opname,level,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('plot_dir',    '.',@(i) ischar(i));
-      p.addParameter('plot_prefix', '', @(i) ischar(i));
-      p.addParameter('plot_suffix', '', @(i) ischar(i));
-      p.addParameter('plot_xlimits',[], @(i) isempty(i) || isdatetime(i));
-      p.addParameter('outlier',  false, @(i) islogical(i));
-      p.addParameter('plot_pars',  grace.plot_pars, @(i) isstruct(i));
+      p.addParameter('outlier',  0, @(i) isfinite(i));
       % parse it
       p.parse(varargin{:});
       switch lower(opname)
@@ -226,24 +598,27 @@ classdef grace
       case 'column-idx'
         out=1;
       case 'load-stats'
-        % case-specific parameters
-        stats_modes=obj.calpar_csr_op('stats-modes');
-        % loop over CSR cal pars
-        calpars=fieldnames(obj.calpar_csr_defs);
-        stats_filename=fullfile(p.Results.plot_dir,'stats.mat');
+        stats_filename=obj.id('mat','calpar_csr',level,'','','stats');
         if isempty(dir(stats_filename))
-          s=cell(size(calpars));
-          for i=1:size(calpars)
-            for sat={'a','b'};
-              if i>1 && ~obj.calpar_csr.(sat{1}){1}.istequal(obj.calpar_csr.(sat{1}){i})
-                error([mfilename,': time domain discrepancy in ',calpars{i}])
+          for sat={'A','B'};
+            %retrive data for this satellite
+            [dv,dn]=obj.cell_get('calpar_csr',level,'',sat{1});
+            % loop over CSR cal pars
+            fields=obj.fields('calpar_csr',level);
+            for i=1:size(fields)
+              %sanity
+              if ~strcmp(fields{i},dn{i})
+                error([mfilename,': discrepancy in the field names, debug needed!'])
+              end
+              if i>1 && ~dv{1}.istequal(dv{i})
+                error([mfilename,': time domain discrepancy in ',fields{i}])
               end
               %compute stats per period
-              s{i}.(sat{1})=obj.calpar_csr.(sat{1}){i}.stats(...
+              s.(fields{i}).(sat{1})=dv{i}.stats(...
                 'period',years(1)/12,...
                 'overlap',seconds(0),...
                 'outlier',p.Results.outlier,...
-                'struct_fields',stats_modes...
+                'struct_fields',obj.calpar_csr_op('stats-modes')...
               );
             end
           end
@@ -254,22 +629,22 @@ classdef grace
         %outputs
         out=s;
       case 'load-stats2'
-        % case-specific parameters
-        stats_modes=obj.calpar_csr_op('stats2-modes');
-        % loop over CSR cal pars
-        calpars=fieldnames(obj.calpar_csr_defs);
-        stats_filename=fullfile(p.Results.plot_dir,'stats2.mat');
+        stats_filename=obj.id('mat','calpar_csr',level,'','','stats2');
         if isempty(dir(stats_filename))
-          s=cell(size(calpars));
-          for i=1:size(calpars)
+          %retrive data
+          A=obj.cell_get('calpar_csr',level,'','A');
+          B=obj.cell_get('calpar_csr',level,'','B');
+          % loop over CSR cal pars
+          fields=obj.fields('calpar_csr',level);
+          for i=1:size(fields)
             %compute stats per period
-            s{i}=simpletimeseries.stats2(...
-              obj.calpar_csr.a{i},...
-              obj.calpar_csr.b{i},...
+            s.(fields{i})=simpletimeseries.stats2(...
+              A{i},...
+              B{i},...
               'period',years(1)/12,...
               'overlap',seconds(0),...
               'outlier',p.Results.outlier,...
-              'struct_fields',stats_modes...
+              'struct_fields',obj.calpar_csr_op('stats2-modes')...
             );
           end
           save(stats_filename,'s')
@@ -281,397 +656,319 @@ classdef grace
       end
     end
     %% costumized plotting routine
-    function plot(obj,datatype,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addParameter('plot_dir',    '.',@(i) ischar(i));
-      p.addParameter('plot_prefix', '', @(i) ischar(i));
-      p.addParameter('plot_suffix', '', @(i) ischar(i));
-      p.addParameter('plot_xlimits',[], @(i) isempty(i) || isdatetime(i));
-      p.addParameter('plot_pars',  grace.plot_pars, @(i) isstruct(i));
-      % parse it
-      p.parse(varargin{:});
+    function plot(obj,datatype,level,varargin)
       switch lower(datatype)
       case 'calpar_csr'
         % loop over CSR cal pars
-        calpars=fieldnames(obj.calpar_csr_defs);
-        for j=1:size(calpars)
-          calpar_clean=str.clean(calpars{j},'_');
-          filename=fullfile(p.Results.plot_dir,...
-            strrep([p.Results.plot_prefix,calpar_clean,p.Results.plot_suffix,'.png'],' ','-')...
-          );
+        fields=obj.fields(datatype,level);
+        for j=1:size(fields)
+          filename=obj.id('plot',datatype,level,fields{j},'');
           if isempty(dir(filename))
-            figure('visible',p.Results.plot_pars.visible);
-            %make sure data is compatible
-            obj.calpar_csr.a{j}.compatible(obj.calpar_csr.b{j})
+            figure('visible',obj.plot_par.visible);
+            %retrive data
+            sat=struct(...
+              'A',obj.sat_get(datatype,level,fields{j},'A'),...
+              'B',obj.sat_get(datatype,level,fields{j},'B')...
+            );
             %plot data
-            obj.calpar_csr.a{j}.plot(varargin{:},'LineWidth',p.Results.plot_pars.line.width)
-            obj.calpar_csr.b{j}.plot(varargin{:},'LineWidth',p.Results.plot_pars.line.width)
+            sat.A.plot('columns',obj.calpar_csr_op('column-idx'))
+            sat.B.plot('columns',obj.calpar_csr_op('column-idx'))
             %legend
-            legend({...
-              obj.calpar_csr.a{j}.labels{1},...
-              obj.calpar_csr.b{j}.labels{1}...
-            });
-            %fix axis (if needed/requested)
-            scale=obj.calpar_csr_defs.(calpars{j});
-            v=axis;
-            if ~isempty(p.Results.plot_xlimits)
-              v(1:2)=datenum(p.Results.plot_xlimits);
-            end
-            if any(abs(v(3:4))>scale)
-              v(3:4)=[-scale,scale];
-            end
-            axis(v)
+            legend({'GRACE-A','GRACE-B'});
+            obj.enforce_plot_par('autoscale',true,'automean',true,'outlier',3)
             grid on
-            ylabel(obj.calpar_csr.a{j}.y_units{1}) %could also be obj.calpar_csr.b{j}.y_units{1}
-            title(['GRACE Acc Cal ',calpar_clean])
-            grace.enforce_plot_pars(p.Results.plot_pars,gcf,gca)
-            saveas(gcf,filename)
-          end
-        end
-      case 'calpar_csr-count'
-        for sat={'a','b'}
-          %some shortcuts
-          obj1=obj.calpar_csr.(sat{1}){1};
-          n=numel(obj.calpar_csr.(sat{1}));
-          %collect masks from all calpars
-          m=struct(...
-            'x',true(obj1.length,3), 'x_idx',[1,   11,   21   ],...
-            'y',true(obj1.length,24),'y_idx',[3:10,13:20,23:30],...
-            'z',true(obj1.length,3), 'z_idx',[2,   12,   22   ]...
-          );
-          for i=1:n
-            if i>1 && ~obj1.istequal(obj.calpar_csr.(sat{1}){i})
-              error([mfilename,': time domain discrepancy'])
-            end
-            if any(i==m.x_idx)
-              m.x(:,(m.x_idx==i))=obj.calpar_csr.(sat{1}){i}.mask;
-            end
-            if any(i==m.y_idx)
-              m.y(:,(m.y_idx==i))=obj.calpar_csr.(sat{1}){i}.mask;
-            end
-            if any(i==m.z_idx)
-              m.z(:,(m.z_idx==i))=obj.calpar_csr.(sat{1}){i}.mask;
-            end
-          end
-          filename=fullfile(p.Results.plot_dir,strrep(...
-            [p.Results.plot_prefix,lower(datatype),'.GRACE-',upper(sat{1}),p.Results.plot_suffix,'.png'],...
-          ' ','-'));
-          if isempty(dir(filename))
-            figure('visible',p.Results.plot_pars.visible);
-            plot(datenum(obj1.t),sum(m.x,2),'x'), hold on
-            plot(datenum(obj1.t),sum(m.y,2),'o')
-            plot(datenum(obj1.t),sum(m.z,2),'+')
-            %fix axis (if requested)
-            v=axis;
-            if ~isempty(p.Results.plot_xlimits)
-              v(1:2)=datenum(p.Results.plot_xlimits);
-            end
-            axis(v)
-            legend({'x','y','z'})
-            datetick('x','yyyy-mm')
-            xlabel('time')
-            grid on
-            ylabel('nr cal pars')
-            title(['GRACE ',upper(sat{1})])
-            grace.enforce_plot_pars(p.Results.plot_pars,gcf,gca)
+            ylabel(sat.A.y_units{1}) %could also be sat.B.y_units{1}
+            title([fields{j},' ',level])
             saveas(gcf,filename)
           end
         end
       case 'calpar_csr-stats'
-        s=obj.calpar_csr_op('load-stats',varargin{:});
-        calpars=fieldnames(obj.calpar_csr_defs);
-        column_idx=obj.calpar_csr_op('column-idx');
-%         %plot number of data
-%         mode='length';
-%         for i=1:numel(calpars)
-%           calpar_clean=str.clean(calpars{i},'_');
-%           filename=fullfile(p.Results.plot_dir,...
-%             strrep([p.Results.plot_prefix,mode,'.',calpar_clean,p.Results.plot_suffix,'.png'],' ','-')...
-%           );
-%           if isempty(dir(filename))
-%             figure('visible',p.Results.plot_pars.visible);
-%             b=bar(mean([datenum(s{i}.a.t),datenum(s{i}.b.t)],2),[s{i}.a.length(:,1),s{i}.b.length(:,1)]);
-%             b(1).EdgeColor = 'red';
-%             b(1).FaceColor = 'red';
-%             b(2).EdgeColor = 'black';
-%             b(2).FaceColor = 'black';
-%             %fix axis (if requested)
-%             v=axis;
-%             if ~isempty(p.Results.plot_xlimits)
-%               v(1:2)=datenum(p.Results.plot_xlimits);
-%             end
-%             axis(v)
-%             legend('GRACE-A','GRACE-B')
-%             datetick('x','yyyy-mm')
-%             xlabel('time')
-%             grid on
-%             title(['nr cal pars/month for ',calpar_clean])
-%             grace.enforce_plot_pars(p.Results.plot_pars,gcf,gca)
-%             saveas(gcf,filename)
-%           end
-%         end
-        %plot more stats
-        for mode=obj.calpar_csr_op('stats-modes');
-          for i=1:numel(calpars)
-            calpar_clean=str.clean(calpars{i},'_');
-            filename=fullfile(p.Results.plot_dir,...
-              strrep([p.Results.plot_prefix,mode{1},'.',calpar_clean,p.Results.plot_suffix,'.png'],' ','-')...
+        s=obj.calpar_csr_op('load-stats',level,varargin{:});
+        fields=fieldnames(obj.calpar_csr_par.fields);
+        %plot number of data
+        obj.plot_par.prefix='length.bars';
+        for i=1:numel(fields)
+          filename=obj.id('plot',datatype,level,fields{i},'');
+          if isempty(dir(filename))
+            figure('visible',obj.plot_par.visible);
+            b=bar(...
+              mean([...
+                datenum(s.(fields{i}).A.length.t),...
+                datenum(s.(fields{i}).B.length.t)...
+              ],2),[...
+                s.(fields{i}).A.length.scale(0.5).y(:,1),...
+                s.(fields{i}).B.length.scale(0.5).y(:,1)...
+              ]...
             );
+            b(1).EdgeColor = 'red';
+            b(1).FaceColor = 'red';
+            b(2).EdgeColor = 'black';
+            b(2).FaceColor = 'black';
+            %plot tweaking
+            obj.enforce_plot_par
+            legend('GRACE-A','GRACE-B')
+            datetick('x','yyyy-mm')
+            xlabel('time')
+            grid on
+            title(['Monthly count of ',fields{i},' ',level])
+            saveas(gcf,filename)
+          end
+        end
+        %plot more stats
+        column_idx=obj.calpar_csr_op('column-idx');
+        for mode=obj.calpar_csr_op('stats-modes');
+          %plot the requested statistics of the data
+          obj.plot_par.prefix=mode{1};
+          for i=1:numel(fields)
+            filename=obj.id('plot',datatype,level,fields{i},'');
             if isempty(dir(filename))
               switch mode{1}
               case 'length'
-                mask=true(s{i}.a.(mode{1}).length,1);
+                continue
+                mask=true(s.(fields{i}).A.(mode{1}).length,1); %#ok<UNRCH>
+                scl=0.5;
               otherwise
-                mask=s{i}.a.length.y(:,1)>10;
-              end    
-              figure('visible',p.Results.plot_pars.visible);
-              h=s{i}.a.(mode{1}).mask_and(mask).mask_update.plot('columns',column_idx);
-              set(h.handle{1},'LineWidth',p.Results.plot_pars.line.width);
-              h=s{i}.b.(mode{1}).mask_and(mask).mask_update.plot('columns',column_idx);
-              set(h.handle{1},'LineWidth',p.Results.plot_pars.line.width);
-              %fix axis (if needed/requested)
-              scale=obj.calpar_csr_defs.(calpars{i});
-              v=axis;
-              if ~isempty(p.Results.plot_xlimits)
-                v(1:2)=datenum(p.Results.plot_xlimits);
+                mask=s.(fields{i}).A.length.y(:,1)>10;
+                scl=1;
               end
-              if any(abs(v(3:4))>scale)
-                switch mode{1}
-                case 'mean'
-                  v(3:4)=[-scale,scale];
-                case {'std','rms'}
-                  v(3:4)=[0,scale];
-                end
-              end
-              axis(v)
+              sat=struct(...
+                'A',s.(fields{i}).A.(mode{1}).mask_and(mask).mask_update,...
+                'B',s.(fields{i}).B.(mode{1}).mask_and(mask).mask_update...
+              );
+              figure('visible',obj.plot_par.visible);
+              sat.A.scale(scl).plot('columns',column_idx);
+              sat.B.scale(scl).plot('columns',column_idx);
+              %plot tweaking
+              obj.enforce_plot_par('autoscale',true,'automean',true,'outlier',1)
               legend('GRACE-A','GRACE-B')
-              ylabel(['[',s{i}.b.(mode{1}).y_units{column_idx},']'])
+              ylabel(['[',sat.A.y_units{column_idx},']'])
               grid on
-              title([mode{1},' for ',calpar_clean])
-              grace.enforce_plot_pars(p.Results.plot_pars,gcf,gca)
+              title(['monthly ',mode{1},' of ',fields{i},' ',level])
               saveas(gcf,filename)
             end
           end
         end
       case 'calpar_csr-corr'
-        s=obj.calpar_csr_op('load-stats2',varargin{:});
-        column_idx=obj.calpar_csr_op('column-idx');
+        s=obj.calpar_csr_op('load-stats2',level,varargin{:});
+        fields=fieldnames(obj.calpar_csr_par.fields);
         % loop over all required modes
-        for mode=obj.calpar_csr_op('stats2-modes',varargin{:});
-          calpars=fieldnames(obj.calpar_csr_defs);
+        for mode=obj.calpar_csr_op('stats2-modes');
+          %plot the requested statistics of the data
+          obj.plot_par.prefix=mode{1};
           % loop over CSR cal pars
-          for i=1:size(calpars)
-            calpar_clean=str.clean(calpars{i},'_');
-            filename=fullfile(p.Results.plot_dir,...
-              strrep([p.Results.plot_prefix,mode{1},'.',calpar_clean,p.Results.plot_suffix,'.png'],' ','-')...
-            );
+          for i=1:size(fields)
+            filename=obj.id('plot',datatype,level,fields{i},'');
             if isempty(dir(filename))
               switch mode{1}
               case 'length'
-                mask=true(s{i}.(mode{1}).length,1);
+                continue
+                mask=true(s.(fields{i}).(mode{1}).length,1); %#ok<UNRCH>
+                ylimits=[-Inf,Inf];
+                scl=0.5;
               otherwise
-                mask=s{i}.length.y(:,1)>=10;
+                mask=s.(fields{i}).length.y(:,1)>=10;
+                ylimits=[-1,1];
+                scl=1;
               end    
-              figure('visible',p.Results.plot_pars.visible);
-              h=s{i}.(mode{1}).mask_and(mask).mask_update.plot('columns',column_idx);
-              set(h.handle{1},'LineWidth',p.Results.plot_pars.line.width);
-              %fix axis (if needed/requested)
-              v=axis;
-              if ~isempty(p.Results.plot_xlimits)
-                v(1:2)=datenum(p.Results.plot_xlimits);
-              end
-              axis(v)
+              figure('visible',obj.plot_par.visible);
+              s.(fields{i}).(mode{1}).mask_and(mask).mask_update.scale(scl).plot(...
+                'columns',obj.calpar_csr_op('column-idx')...
+              );
+              obj.enforce_plot_par('ylimits',ylimits)
               datetick('x','yyyy-mm')
               xlabel('time')
+              ylabel('[ ]')
               grid on
-              title([mode{1},' for ',calpar_clean])
-              grace.enforce_plot_pars(p.Results.plot_pars,gcf,gca)
+              title(['monthly ',mode{1},' of ',fields{i},' ',level])
               saveas(gcf,filename)
             end
           end
         end
-      case 'calpar_csr-tables'
-        calpars=fieldnames(obj.calpar_csr_defs);
-        column_idx=obj.calpar_csr_op('column-idx');
-        tab=12;
-        %single-sat stats
-        s=obj.calpar_csr_op('load-stats',varargin{:});
-        stats_modes=obj.calpar_csr_op('stats-modes');
-        for sat={'a','b'};
-          disp(['GRACE-',upper(sat{1})])
-          for i=0:numel(calpars)
-            out=cell(1,numel(stats_modes)+1);
-            if i==0
-              calpar_clean='cal par';
-            else
-              calpar_clean=str.clean(calpars{i},'_');
-            end
-            out{1}=str.tabbed(calpar_clean,tab);
-            for j=1:numel(stats_modes);
-              if i==0
-                out{j+1}=str.tabbed(stats_modes{j},tab,true);
-              else
-                d=s{i}.(sat{1}).(stats_modes{j}).stats('period',days(inf),'outlier',true,'nsigma',3).mean;
-                out{j+1}=str.tabbed(num2str(d(column_idx),'% .3g'),tab,true);
-              end
-            end
-            disp(strjoin(out,' '))
-          end
-        end
-        %all-sat stats
-        s=obj.calpar_csr_op('load-stats2',varargin{:});
-        stats_modes=obj.calpar_csr_op('stats2-modes');
-        for i=0:numel(calpars)
-          out=cell(1,numel(stats_modes)+1);
-          if i==0
-            calpar_clean='cal par';
-          else
-            calpar_clean=str.clean(calpars{i},'_');
-          end
-          out{1}=str.tabbed(calpar_clean,tab);
-          for j=1:numel(stats_modes);
-            if i==0
-              out{j+1}=str.tabbed(stats_modes{j},tab,true);
-            else
-              d=s{i}.(stats_modes{j})(:,1).stats('period',days(inf),'outlier',true,'nsigma',3).mean;
-              out{j+1}=str.tabbed(num2str(mean(d(column_idx)),'% .3f'),tab,true);
-            end
-          end
-          disp(strjoin(out,' '))
-        end
       case 'calpar_csr-overview'
-        calpars={...
-          'AC0X_',...
-          'AC0Y_____1',...
-          'AC0Z_',...
+        fields={...
+          'AC0X',...
+          'AC0Y1',...
+          'AC0Z',...
           'AC0XD',...
-          'AC0YD____1',...
+          'AC0YD1',...
           'AC0ZD',...
           'AC0XQ',...
-          'AC0YQ____1',...
+          'AC0YQ1',...
           'AC0ZQ'...
         };
         column_idx=obj.calpar_csr_op('column-idx');
-        calpars_all=fieldnames(obj.calpar_csr_defs);
         %single-sat stats
-        s=obj.calpar_csr_op('load-stats',varargin{:});
+        s=obj.calpar_csr_op('load-stats',level,varargin{:});
         stats_modes=obj.calpar_csr_op('stats-modes');
         for j=1:numel(stats_modes);
-          filename=fullfile(p.Results.plot_dir,...
-            strrep([p.Results.plot_prefix,'overview.',stats_modes{j},p.Results.plot_suffix,'.png'],' ','-')...
-          );
+          %skip length, not so interesting in this mode
+          if strcmp(stats_modes{j},'length')
+            continue
+          end
+          obj.plot_par.prefix=stats_modes{j};
+          filename=obj.id('plot',datatype,level,'','');
           if isempty(dir(filename))
-            figure('visible',p.Results.plot_pars.visible);
+            figure('visible',obj.plot_par.visible);
             %gathering data
-            y=ones(numel(calpars),2);
-            for i=1:numel(calpars)
-              for k=1:numel(calpars_all)
-                if strcmp(calpars{i},calpars_all{k})
-                  idx=k;
-                  break
-                end
+            y=nan(numel(fields),2);
+            for i=1:numel(fields)
+              if ~isfield(s,fields{i})
+                continue
               end
-              y(i,1)=s{idx}.a.(stats_modes{j}).trim(...
-                p.Results.plot_xlimits(1),...
-                p.Results.plot_xlimits(2)...
+              y(i,1)=s.(fields{i}).A.(stats_modes{j}).trim(...
+                obj.plot_par.xlimits(1),...
+                obj.plot_par.xlimits(2)...
               ).stats(...
                 'period',days(inf),...
-                'outlier',true,...
+                'outlier',1,...
                 'nsigma',3 ...
               ).mean(column_idx);
-              y(i,2)=s{idx}.b.(stats_modes{j}).trim(...
-                p.Results.plot_xlimits(1),...
-                p.Results.plot_xlimits(2)...
+              y(i,2)=s.(fields{i}).B.(stats_modes{j}).trim(...
+                obj.plot_par.xlimits(1),...
+                obj.plot_par.xlimits(2)...
               ).stats(...
                 'period',days(inf),...
-                'outlier',true,...
+                'outlier',1,...
                 'nsigma',3 ...
               ).mean(column_idx);
             end
             pos_idx=(y>0);
             %plot negative parameters downwards
             y_now=abs(y); y_now(pos_idx)=nan;
-            b=bar(log10(y_now)); hold on
-            b(1).EdgeColor = 'red';
-            b(1).FaceColor = 'red';
-            b(2).EdgeColor = 'black';
-            b(2).FaceColor = 'black';
+            b{1}=bar(log10(y_now)); hold on
             %plot positive parameters upwards
             y_now=abs(y); y_now(~pos_idx)=nan;
-            b=bar(-log10(y_now)); hold on
-            b(1).EdgeColor = 'red';
-            b(1).FaceColor = 'red';
-            b(2).EdgeColor = 'black';
-            b(2).FaceColor = 'black';
-
-            %getting parameter names
-            x=cell(1,numel(calpars));
-            for i=1:numel(calpars)
-              x{i}=str.clean(calpars{i},'_');
+            b{2}=bar(-log10(y_now)); hold on
+            %annotating
+            obj.enforce_plot_par
+            for k=1:2
+              b{k}(1).EdgeColor = 'red';
+              b{k}(1).FaceColor = 'red';
+              b{k}(2).EdgeColor = 'black';
+              b{k}(2).FaceColor = 'black';
             end
-            legend('GRACE-A','GRACE-B')
-            set(gca,'XTick',1:numel(x))
-            set(gca,'XTickLabel',x)
+            if all(pos_idx(~isnan(y)))
+              axis([0 numel(fields)+1 0 10])
+            else
+              axis([0 numel(fields)+1 -10 10])
+            end
+            set(gca,'XTick',1:numel(fields))
+            set(gca,'XTickLabel',fields)
             set(gca,'XTickLabelRotation',45)
+            yticks=get(gca,'YTickLabel');
+            for k=1:numel(yticks)
+              ytickval=str2double(yticks{k});
+              if ytickval==0
+                yticks{k}='1';
+              elseif ytickval>0
+                yticks{k}=['y.10^{-',yticks{k},'}'];
+              elseif ytickval<0
+                yticks{k}=['-y.10^{',yticks{k},'}'];
+              end
+            end
+            set(gca,'YTickLabel',yticks);
+            legend('GRACE-A','GRACE-B')
             grid on
             title([...
-              stats_modes{j},' for ',...
-              datestr(p.Results.plot_xlimits(1)),' to ',...
-              datestr(p.Results.plot_xlimits(2))...
+              stats_modes{j},' of ',level,' for ',...
+              datestr(obj.plot_par.xlimits(1)),' to ',...
+              datestr(obj.plot_par.xlimits(2))...
             ]);
-            axis([0 numel(calpars)+1 -10 10])
-            grace.enforce_plot_pars(p.Results.plot_pars,gcf,gca)
             saveas(gcf,filename)
           end
         end
         %all-sat stats
-        s=obj.calpar_csr_op('load-stats2',varargin{:});
+        s=obj.calpar_csr_op('load-stats2',level,varargin{:});
         stats_modes=obj.calpar_csr_op('stats2-modes');
         for j=1:numel(stats_modes);
-          filename=fullfile(p.Results.plot_dir,...
-            strrep([p.Results.plot_prefix,'overview.',stats_modes{j},p.Results.plot_suffix,'.png'],' ','-')...
-          );
+          %skip length, not so interesting in this mode
+          if strcmp(stats_modes{j},'length')
+            continue
+          end
+          obj.plot_par.prefix=stats_modes{j};
+          filename=obj.id('plot',datatype,level,'','');
           if isempty(dir(filename))
-            figure('visible',p.Results.plot_pars.visible);
+            figure('visible',obj.plot_par.visible);
             %gathering data
-            y=ones(numel(calpars),1);
-            for i=1:numel(calpars)
-              for k=1:numel(calpars_all)
-                if strcmp(calpars{i},calpars_all{k})
-                  idx=k;
-                  break
-                end
+            y=nan(numel(fields),1);
+            for i=1:numel(fields)
+              if ~isfield(s,fields{i})
+                continue
               end
-              y(i,1)=s{idx}.(stats_modes{j}).trim(...
-                p.Results.plot_xlimits(1),...
-                p.Results.plot_xlimits(2)...
+              y(i,1)=s.(fields{i}).(stats_modes{j}).trim(...
+                obj.plot_par.xlimits(1),...
+                obj.plot_par.xlimits(2)...
               ).stats(...
                 'period',days(inf),...
-                'outlier',true,...
+                'outlier',1,...
                 'nsigma',3 ...
               ).mean(column_idx);
             end
-            bar(y)
-            %getting parameter names
-            x=cell(1,numel(calpars));
-            for i=1:numel(calpars)
-              x{i}=str.clean(calpars{i},'_');
-            end
-            set(gca,'XTick',1:numel(x))
-            set(gca,'XTickLabel',x)
+            bar(y,'k')
+            %annotating
+            obj.enforce_plot_par
+            set(gca,'XTick',1:numel(fields))
+            set(gca,'XTickLabel',fields)
             set(gca,'XTickLabelRotation',45)
+            axis([0 numel(fields)+1 -1 1])
             grid on
             title([...
-              stats_modes{j},' for ',...
-              datestr(p.Results.plot_xlimits(1)),' to ',...
-              datestr(p.Results.plot_xlimits(2))...
+              stats_modes{j},' of ',level,' for ',...
+              datestr(obj.plot_par.xlimits(1)),' to ',...
+              datestr(obj.plot_par.xlimits(2))...
             ]);
-            axis([0 numel(calpars)+1 -1 1])
-            grace.enforce_plot_pars(p.Results.plot_pars,gcf,gca)
             saveas(gcf,filename)
           end
-        end        
+        end  
+%       case 'calpar_csr-tables'
+%         fields=fieldnames(obj.calpar_csr_par.fields);
+%         column_idx=obj.calpar_csr_op('column-idx');
+%         tab=12;
+%         %single-sat stats
+%         s=obj.calpar_csr_op('load-stats',varargin{:});
+%         stats_modes=obj.calpar_csr_op('stats-modes');
+%         for sat={'a','b'};
+%           disp(['GRACE-',upper(sat{1})])
+%           for i=0:numel(fields)
+%             out=cell(1,numel(stats_modes)+1);
+%             if i==0
+%               calpar_clean='cal par';
+%             else
+%               calpar_clean=str.clean(fields{i},'_');
+%             end
+%             out{1}=str.tabbed(calpar_clean,tab);
+%             for j=1:numel(stats_modes);
+%               if i==0
+%                 out{j+1}=str.tabbed(stats_modes{j},tab,true);
+%               else
+%                 d=s{i}.(sat{1}).(stats_modes{j}).stats('period',days(inf),'outlier',true,'nsigma',3).mean;
+%                 out{j+1}=str.tabbed(num2str(d(column_idx),'% .3g'),tab,true);
+%               end
+%             end
+%             disp(strjoin(out,' '))
+%           end
+%         end
+%         %all-sat stats
+%         s=obj.calpar_csr_op('load-stats2',varargin{:});
+%         stats_modes=obj.calpar_csr_op('stats2-modes');
+%         for i=0:numel(fields)
+%           out=cell(1,numel(stats_modes)+1);
+%           if i==0
+%             calpar_clean='cal par';
+%           else
+%             calpar_clean=str.clean(fields{i},'_');
+%           end
+%           out{1}=str.tabbed(calpar_clean,tab);
+%           for j=1:numel(stats_modes);
+%             if i==0
+%               out{j+1}=str.tabbed(stats_modes{j},tab,true);
+%             else
+%               d=s{i}.(stats_modes{j})(:,1).stats('period',days(inf),'outlier',true,'nsigma',3).mean;
+%               out{j+1}=str.tabbed(num2str(mean(d(column_idx)),'% .3f'),tab,true);
+%             end
+%           end
+%           disp(strjoin(out,' '))
+%         end
       otherwise
         error([mfilename,': unknown data of type ''',datatype,'''.'])
       end
