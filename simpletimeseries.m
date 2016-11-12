@@ -69,6 +69,8 @@ classdef simpletimeseries < simpledata
     t
     t_formatted   %this handles the numeric/char version of t
     epoch
+    start
+    stop
   end
   %These parameters should not modify the data in any way; they should
   %only describe the data or the input/output format of it.
@@ -206,6 +208,27 @@ classdef simpletimeseries < simpledata
         end
       end
     end
+    function out=gpssec2datetime(in,zero_epoch)
+      if ~exist('zero_epoch','var')
+        zero_epoch=simpletimeseries.gps_zero_epoch;
+      end
+      out=datetime(in,...
+        'convertfrom','epochtime',...
+        'epoch',zero_epoch...
+      );
+    end
+    function utc=gps2utc(gps)
+      utc=gps;
+      for i=1:numel(simpletimeseries.leap_seconds)
+        utc=utc-seconds(utc>simpletimeseries.leap_seconds(i));
+      end
+    end
+    function gps=utc2gps(utc)
+      gps=utc;
+      for i=1:numel(simpletimeseries.leap_seconds)
+        gps=gps+seconds(gps>simpletimeseries.leap_seconds(i));
+      end
+    end
     %this function converts from many forms of date/time representations to
     %matlab's 'datetime' class.
     function [out,format_out]=ToDateTime(in,format_in,debug)
@@ -265,10 +288,9 @@ classdef simpletimeseries < simpledata
         else
           switch format_in
           case 'gpstime'
-            out=datetime(in,'convertfrom','epochtime','epoch',simpletimeseries.gps_zero_epoch);
-            for i=1:numel(simpletimeseries.leap_seconds)
-              out=out-seconds(out>simpletimeseries.leap_seconds(i));
-            end
+            out=simpletimeseries.gps2utc(...
+              simpletimeseries.gpssec2datetime(in)...
+            );
           case 'datevector'
             out=datetime(in);
           case 'gpsweeksecond'
@@ -543,7 +565,7 @@ classdef simpletimeseries < simpledata
       if iscellstr(in)
         filenames=cell(size(in));
         for i=1:numel(in);
-          filenames{i}=unwrap_datafiles(in,varargin);
+          filenames{i}=simpletimeseries.unwrap_datafiles(in{i},varargin{:});
         end
         filenames=flatten(filenames);
         return
@@ -683,11 +705,11 @@ classdef simpletimeseries < simpledata
       %some files have the format ID in front
       for i={'ACC1B','SCA1B','KBR1B','GNV1B'}
         if ~isempty(regexp(filename,i{1},'once'))
-          e=['.',i{1}];
+          e=i{1};
           break
         end
       end
-      %branch on extension
+      %branch on extension/format ID
       switch e
       case '.sigma'
         fid=fopen(filename);
@@ -706,37 +728,61 @@ classdef simpletimeseries < simpledata
          );
       case '.GraceAccCal'
         fmt='';
-        if ~isempty(regexp(filename,'AC0[XYZ]_','once'))
-          fmt='%d-%d-%d %d %f';
-          t0_flag=false;
+        if ~isempty(regexp(filename,'AC0[XYZ]\d?\.aak','once')) || ~isempty(regexp(filename,'AC0[XYZ]\d?\.accatt','once'))
+          % 2002 04 05 2002.4.4. 23.59.47.00000000 1498260002 0.2784215319157E-07
+          fmt='%d %d %d %s %s %d %f';
           units={'m/s^2',''};
-          labels={str.clean(filename,{'file','_'}),'Job ID'};
+          labels={str.clean(filename,{'file','grace','.'}),'Job ID'};
+          time_fh=@(raw) simpletimeseries.utc2gps(...
+            datetime(...
+              strcat(...
+                strrep(cellfun(@(x) [x(1:end-1),' '],raw{4},'UniformOutput',false),'.','/'),...
+                strrep(strrep(raw{5},'.00000000',''),'.',':')...
+              ),...
+            'InputFormat','yyyy/MM/dd HH:mm:ss')...
+          );
+          data_fh=@(raw) [raw{7},double(raw{6})];
         end
-        if ~isempty(regexp(filename,'AC0[XYZ]D','once'))
-          fmt='%d-%d-%d %d %f %f';
-          t0_flag=true;
-          units={'m/s^3','','MJD'};
-          labels={str.clean(filename,{'file','_'}),'Job ID','t_0'};
+        if ~isempty(regexp(filename,'AC0[XYZ][QD]\d?\.aak','once')) || ~isempty(regexp(filename,'AC0[XYZ][QD]\d?\.accatt','once'))
+          % 2002 04 05 2002.4.4. 23.59.47.00000000 1498260002  0.1389481692269E-07 52368.99985
+          fmt='%d %d %d %s %s %d %f %f';
+          units={'m/s^2','MJD days',''};
+          labels={str.clean(filename,{'file','grace','.'}),'Job ID','t_0'};
+          time_fh=@(raw) simpletimeseries.utc2gps(...
+            datetime(...
+              strcat(...
+                strrep(cellfun(@(x) [x(1:end-1),' '],raw{4},'UniformOutput',false),'.','/'),...
+                strrep(strrep(raw{5},'.00000000',''),'.',':')...
+              ),...
+            'InputFormat','yyyy/MM/dd HH:mm:ss')...
+          );
+          data_fh=@(raw) [raw{7},double(raw{6}),raw{8}];
         end
-        if ~isempty(regexp(filename,'AC0[XYZ]Q','once'))
-          fmt='%d-%d-%d %d %f %f';
-          t0_flag=true;
-          units={'m/s^4','','MJD'};
-          labels={str.clean(filename,{'file','_'}),'Job ID','t_0'};
+        if ~isempty(regexp(filename,'AC0[XYZ]\d?\.estim','once')) || ~isempty(regexp(filename,'AC0[XYZ][DQ]\d?\.estim','once'))
+          % 2002 04 05 04/05/02 52369 1 0.0 26400.0 1593715  3.774424464092000e-08 -3.585594302740665e-09 3.415865033817934e-08
+          fmt='%d %d %d %d/%d/%d %f %d %f %f %d %f %f %f';
+          units={'m/s^2','',''};
+          labels={str.clean(filename,{'file','grace','.'}),'Job ID','arc duration'};
+          time_fh=@(raw) datetime(raw{7}+raw{9}/seconds(days(1)),...
+            'ConvertFrom','modifiedjuliandate'...
+          );
+          data_fh=@(raw) [raw{14},double(raw{11}),raw{10}];
         end
+
         if isempty(fmt)
           error([mfilename,': cannot handle the GraceAccCal file ''',filename,'''.'])
         end
-        fid=fopen(filename);
+        %reading data
+        fid = fopen(filename);
         raw = textscan(fid,fmt,'delimiter',' ','MultipleDelimsAsOne',1);
         fclose(fid);
         %building time domain
-        t=datetime(double([raw{1:3}]));
+        t=time_fh(raw);
         %building data domain
-        if t0_flag
-          y=[raw{5},double(raw{4}),raw{6}];
-        else
-          y=[raw{5},double(raw{4})];
+        y=data_fh(raw);
+        %sanity
+        if numel(t)==0 || numel(y)==0
+          error([mfilename,': file ',filename,' appears to be empty.'])
         end
         iter=0;
         while any(diff(t)==0)
@@ -746,8 +792,8 @@ classdef simpletimeseries < simpledata
           %need to monotonize the data
           mask=true(size(t));
           for i=2:numel(t)
-            %get rid of those entries with same time stamp and lower ID
-            if t(i)==t(i-1) && mask(i)
+            %get rid of those entries with zero or negative time stamp delta and lower ID
+            if t(i)<=t(i-1) && mask(i)
               if y(i,2) > y(i-1,2)
                 mask(i-1)=false;
               else
@@ -766,8 +812,38 @@ classdef simpletimeseries < simpledata
           'units',units,...
           'descriptor',filename...
         );
+        %create epochs at day boundaries
+        t_days=dateshift(t(1),'start','day'):days(1):dateshift(t(end),'end','day');
+        %add day boundaries
+        obj=obj.t_merge(t_days);
+        %build fstep time domain
+        obj=obj.fstep(seconds(1));
       case 'ACC1B'
-        error([mfilename,': implementation needed'])
+        %load data
+        [raw,header]=file.textscan(filename,'%f %s %f %f %f %f %f %f %f %f %f %f');
+        %retrieve GPS time epoch
+        header_line='TIME EPOCH (GPS TIME)         : ';
+        header=strsplit(header,'\n');
+        for i=1:numel(header)
+          if strfind(header{i},header_line)
+            gps_time_epoch=strrep(header{i},header_line,'');
+            break
+          end
+        end
+        %building time domain
+        t=simpletimeseries.gps2utc(...
+          simpletimeseries.gpssec2datetime(raw(:,1),gps_time_epoch)...
+        );
+        %gather data domain
+        y=raw(:,2:4);
+        %building object
+        obj=simpletimeseries(t,y,...
+          'format','datetime',...
+          'y_units',{'m^2','m^2','m^2'},...
+          'labels', {'x','y','z'},...
+          'descriptor',strjoin(header,'\n')...
+         );
+        keyboard
       case 'SCA1B'
         error([mfilename,': implementation needed'])
       case 'KBR1B'
@@ -808,18 +884,29 @@ classdef simpletimeseries < simpledata
       end
     end
     function [t,y]=monotonize(t,y)
+      %get delta time
+      dt=diff(t(:));
       %trivial call
-      if all(diff(t)>0)
+      if all(dt>0)
         return
       end
       %sorting needed?
-      if any(diff(t)<0)
+      if any(dt<0)
         error('implementation needed')
       end
+      %get index of duplicates (last one is not duplicate by definition)
+      idx0=[(dt==0); false];
+      %get index+1 of duplicates
+      idx1=circshift(idx0,1,1);
+      %make sure the values are the same
+      for i=1:size(y,2)
+        if any(y(idx0,i)~=y(idx1,i))
+          error([mfilename,': cannot monotonize the data because column ',num2str(i),' has different data in common epochs.'])
+        end
+      end
       %throw away duplicate epochs
-      idx=diff(t)==0;
-      t=t(~idx);
-      y=y(~idx);
+      t=t(~idx0);
+      y=y(~idx0,:);
     end
     function out=stats2(obj1,obj2,varargin)
       p=inputParser;
@@ -989,13 +1076,14 @@ classdef simpletimeseries < simpledata
     function out=stats(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('period', 30*obj.step, @(i) isduration(i));
+      p.addParameter('period', 30*obj.step, @(i) isduration(i) || ~isfinite(i));
       p.addParameter('overlap',seconds(0),  @(i) isduration(i));
+      p.addParameter('mode',  'struct',     @(i) ischar(i));
       % parse it
       p.parse(varargin{:});
       % call upstream method if period is infinite
       if ~isfinite(p.Results.period)
-        out=stats@simpledata(obj,'struct',varargin{:});
+        out=stats@simpledata(obj,p.Results.mode,varargin{:});
         return
       end
       % separate time series into segments
@@ -1060,17 +1148,14 @@ classdef simpletimeseries < simpledata
         out=obj.x2t(obj.x);
       end
     end
-    function out=isfilled(obj)
-      out=obj.length==(obj.stop-obj.start+obj.step)/obj.step;
-    end
     function out=isx1zero(obj)
       %handle empty object
       if isempty(obj.x)
         out=true;
         return 
       end
-      %this function checks that if obj.x(1) is zero
-      %it also ensures that obj.epoch and obj.t(1) agree with that
+      %this function checks that:
+      %if obj.x(1) is zero, then obj.epoch and obj.t(1) are equal
       test=[obj.x(1)==0,obj.start==obj.epoch];
       %sanity
       if test(1)~=test(2)
@@ -1092,12 +1177,6 @@ classdef simpletimeseries < simpledata
       %sanity
       obj.check_st
     end
-    function out=start(obj)
-      out=obj.t(1);
-    end
-    function out=stop(obj)
-      out=obj.t(obj.length);
-    end
     function out=span(obj)
       out=obj.stop-obj.start;
     end
@@ -1106,6 +1185,10 @@ classdef simpletimeseries < simpledata
         step_now=obj.step;
       end
       out=transpose(obj.start:step_now:obj.stop);
+    end
+    function out=ishomogeneous(obj)
+      htd=obj.t_domain;
+      out=(numel(htd)==numel(obj.t)) && all(obj.t(:)==htd(:));
     end
     function obj=set.t_formatted(obj,t_now)
       [obj.t,format_now]=simpletimeseries.ToDateTime(t_now,obj.format);
@@ -1135,6 +1218,16 @@ classdef simpletimeseries < simpledata
         'mask',obj.mask(i,:)...
       );
     end
+    function [obj,idx_add,idx_old,t_old]=t_merge(obj,t_add)
+      %update epoch if needed (this is not really necessary, it just keeps x starting at zero)
+      if t_add(1)<obj.start
+        obj.epoch=t_add(1);
+      end
+      %call upstream method
+      [obj,idx_add,idx_old,x_old]=obj.x_merge(obj.t2x(t_add));
+      %convert outputs
+      t_old=obj.x2t(x_old);
+    end
     %% step methods
     function out=step_num(obj)
       out=simpletimeseries.timescale(obj.step);
@@ -1157,7 +1250,7 @@ classdef simpletimeseries < simpledata
       %shift x
       obj=obj.x_set(simpletimeseries.time2num(t_old,epoch));
       %sanity
-      if any(seconds(t_old-obj.t).^2>1e-20)
+      if any(seconds(t_old-obj.t).^2>1e-18)
         error([mfilename,': changing epoch cause the time domain to also change.'])
       end
     end
@@ -1166,6 +1259,37 @@ classdef simpletimeseries < simpledata
     end
     function obj=epoch_update(obj)
       obj.epoch=obj.t(1);
+    end
+    %% start/stop methods
+    function out=get.start(obj)
+      out=obj.t(1);
+    end
+    function out=get.stop(obj)
+      out=obj.t(obj.length);
+    end
+    function obj=set.start(obj,start)
+      if start==obj.start
+        %trivial call
+        return
+      elseif start<obj.start
+        %append a single epoch
+        obj=obj.assign([start;obj.t],[nan(1,obj.width);obj.y]);
+      else
+        %trim object
+        obj=obj.trim(start,obj.stop);
+      end
+    end
+    function obj=set.stop(obj,stop)
+      if stop==obj.stop
+        %trivial call
+        return
+      elseif stop>obj.stop
+        %append a single epoch
+        obj=obj.assign([obj.t;stop],[obj.y;nan(1,obj.width)]);
+      else
+        %trim object
+        obj=obj.trim(obj.start,stop);
+      end
     end
     %% management methods
     function check_st(obj,t_now)
@@ -1182,10 +1306,9 @@ classdef simpletimeseries < simpledata
         end
       end
     end
-    %% edit methods
-    %the add method doesn't make sense here
+    %% edit methods (overloaded with simpledata)
     %the remove method can be called directly
-    function obj=trim(obj,start,stop)      
+    function obj=trim(obj,start,stop)
       obj=trim@simpledata(obj,obj.t2x(start),obj.t2x(stop));
     end
     function obj=slice(obj,start,stop)
@@ -1234,7 +1357,12 @@ classdef simpletimeseries < simpledata
         'interp1_args',{'linear'}...
       );
     end
+    %% edit methods (specific to this class)
     function obj=extend(obj,nr_epochs)
+      %sanity
+      if ~obj.ishomogeneous
+        error([mfilename,': cannot handle non-homogeneous time domains.'])
+      end
       switch class(nr_epochs)
       case 'double'
         if nr_epochs==0
@@ -1276,10 +1404,12 @@ classdef simpletimeseries < simpledata
         error([mfilename,': cannot handle input ''nr_epochs'' of class ',class(nr_epochs),'.'])
       end
     end
-    %TODO: check if this routine is redundant
     function obj=fill(obj)
+      %NOTICE: this method is similar to resample in the sense it creates a complete time domain
+      %        but it differs since the added time entries are set as explicit gaps.
+      %TODO: handle non-homogeneous time domains
       %trivial call
-      if obj.isfilled
+      if obj.ishomogeneous
         return
       end
       %build complete time domain
@@ -1310,6 +1440,18 @@ classdef simpletimeseries < simpledata
       %sanitize
       obj.check_st(t_new);
     end
+    function obj=fstep(obj,step_prev)
+      %adds data entries that are equal to the preceeding value, but one
+      %step_prev before the following epoch (also for explicit gaps)
+      obj_new=simpletimeseries(...
+               obj.t(   2:end    )-step_prev,... %time domain is the time domain of obj shifted by step_prev
+               obj.y(   1:end-1,:),...
+        'mask',obj.mask(1:end-1),...
+        'format','datetime'...
+      );
+      %merge the two objects
+      obj=obj.augment(obj_new);
+    end
     function [obj_clean,obj_outlier]=despike(obj,n,nSigma)
       %get medianed timeseries
       obj_median=obj.median(n);
@@ -1332,7 +1474,8 @@ classdef simpletimeseries < simpledata
            obj1.step   == obj2.step   && ...
            obj1.epoch  == obj2.epoch;
     end
-    function [obj1,obj2]=consolidate(obj1,obj2)
+    %NOTICE: this function used to be called consolidade
+    function [obj1,obj2]=consolidate_lcm(obj1,obj2)
       %extends the time domain of both objects to be in agreement
       %with the each other
       compatible(obj1,obj2)
@@ -1372,6 +1515,10 @@ classdef simpletimeseries < simpledata
       end
     end
     function [obj1,obj2]=matchstep(obj1,obj2)
+      %sanity
+      if ~obj1.ishomogeneous || ~obj2.ishomogeneous
+        error([mfilename,': can only handle homogeneous time domains.'])
+      end
       %trivial call
       if obj1.step==obj2.step
         return

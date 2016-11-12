@@ -294,6 +294,7 @@ classdef orbit
     end
     %loads data from one single ASCII file, the format can be given or it
     %is discovered from the header. Also handles compressed files.
+    %TODO: most of the zip-handling functionalityhas been implemented in simpletimeseries as is probably duplicate here.
     function obj=load_ascii(filename,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -1295,7 +1296,7 @@ function [t,pos,vel,header] = read_sp3c(filename)
 % ab: a pridavam dale take rovnou vystup pro hodiny a minuty
 % ab: spatne nacteni rychlosti:       Vel=str2num(line(5:46));
 %
-% Changes by Jo?o Encarna??o (2/3/2016):
+% Changes by Joao Encarnacao (2/3/2016):
 % - removed input argument 'type' (detected automatically)
 % - replaced output arguments 'n_hod' 'n_min' 'rok' 'mesic' 'den' ( hour min year month day) with datevec 't'
 % - replaced output 'M' with outputs 't' 'pos' and 'vel'

@@ -91,10 +91,34 @@ classdef str
         s=strtrim(s);
       case '_'
         s=str.clean(strrep(s,'_',' '),'succ_blanks');
+      case '.'
+        s=str.clean(strrep(s,'.',' '),'succ_blanks');
       case 'title'
         s=strrep(s,'_','\_');
+      case 'grace'
+        sats={'A','B'};
+        names={'gr<SAT>.','gr<SAT>.','G<SAT>_','G<SAT>_'};
+        for i=1:numel(sats)
+          for j=1:numel(names)
+            part=strrep(names{j},'<SAT>',sats{i});
+            s=strrep(s,part,['GRACE-',sats{i},' ']);
+          end
+        end
       otherwise
         error([mfilename,': unknown mode ''',mode,'''.'])
+      end
+    end
+    function out=ispresent(parser,field)
+      %sanity
+      if iscell(field)
+        out=cellfun(@str.ispresent,parser,field);
+        return
+      end
+      % look for existence
+      if any(strcmp(parser.Parameters,field))
+        out=~any(strcmp(parser.UsingDefaults,field));
+      else
+        out=isfield(parser.Unmatched,field);
       end
     end
   end
