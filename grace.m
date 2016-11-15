@@ -217,7 +217,10 @@ classdef grace
       end
     end
     function out=levels(obj,datatype)
-      out=fieldnames(obj.datatype_get(datatype));
+      out=obj.datatype_get(datatype);
+      if ~isempty(out)
+        out=fieldnames(out);
+      end
     end
     %% field operations
     function obj=field_init(obj,datatype,level)
@@ -237,7 +240,10 @@ classdef grace
       end
     end
     function out=fields(obj,datatype,level)
-      out=fieldnames(obj.level_get(datatype,level));
+      out=obj.level_get(datatype,level);
+      if ~isempty(out)
+        out=fieldnames(out);
+      end
     end
     %% sat operations
     function obj=sat_init(obj,datatype,level,field)
@@ -260,7 +266,7 @@ classdef grace
       end
     end
     %% cell array operations
-    function out=cell_names_sanity(obj,in,name,default)
+    function out=cell_names_sanity(~,in,name,default)
       if isempty(in)
         %assign default values
         out=default;
@@ -270,13 +276,20 @@ classdef grace
             %if input is a string, convert it to cell
             out={in};
           else
-            %cannot anything other than cell strings and strings
+            %cannot handle anything other than cell strings and strings
             error([mfilename,': input ''',name,''' must be of class ''cell'', not ''',class(in),'''.'])
           end
         else
           %we want cell strings
           out=in;
         end
+      end
+    end
+    function out=cell_names_isvalid(obj,datatype,level,field,sat)
+      try
+        out=ischar(class(obj.(datatype).(level).(field).(sat)));
+      catch
+        out=false;
       end
     end
     function names=cell_names(obj,datatype,level,field,sat)
@@ -299,13 +312,15 @@ classdef grace
       c=0;
       %loop over all datatypes, levels, fields and sats
       for i=1:numel(datatype)
-        level=obj.cell_names_sanity(level,'level',obj.levels(datatype{i}));
-        for j=1:numel(level)
-          field=obj.cell_names_sanity(field,'field',obj.fields(datatype{i},level{j}));
-          for k=1:numel(field)
+        level_now=obj.cell_names_sanity(level,'level',obj.levels(datatype{i}));
+        for j=1:numel(level_now)
+          field_now=obj.cell_names_sanity(field,'field',obj.fields(datatype{i},level_now{j}));
+          for k=1:numel(field_now)
             for l=1:numel(sat)
-              c=c+1;
-              names{c}=[datatype{i},level{j},field{k},sat{l}];
+              if obj.cell_names_isvalid(datatype{i},level_now{j},field_now{k},sat{l})
+                c=c+1;
+                names{c}={datatype{i},level_now{j},field_now{k},sat{l}};
+              end
             end
           end
         end
@@ -354,7 +369,7 @@ classdef grace
       out=cell(size(names));
       obj_list=obj.cell_get(names);
       for i=1:numel(out)
-        out{i}=obj_list.(sts_field);
+        out{i}=obj_list{i}.(sts_field);
       end
     end
     %% utils
@@ -545,7 +560,7 @@ classdef grace
         load(p.Results.datafile,'s');
         levels=fieldnames(s); %#ok<NODEF>
         for i=1:numel(levels)
-          obj.calpar_csr.(levels{i})=s.(levels{i});
+          obj=obj.level_set('calpar_csr',levels{i},s.(levels{i}));
         end
       end
       %make sure start/stop options are honoured
@@ -582,6 +597,9 @@ classdef grace
           simpletimeseries.import(filelist)...
         );
       end
+      %make sure start/stop options are honoured
+      obj.start=p.Results.start;
+      obj.stop= p.Results.stop;
     end
     %% costumized operations
     function out=calpar_csr_op(obj,opname,level,varargin)

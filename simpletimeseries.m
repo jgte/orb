@@ -842,8 +842,7 @@ classdef simpletimeseries < simpledata
           'y_units',{'m^2','m^2','m^2'},...
           'labels', {'x','y','z'},...
           'descriptor',strjoin(header,'\n')...
-         );
-        keyboard
+         ).fill;
       case 'SCA1B'
         error([mfilename,': implementation needed'])
       case 'KBR1B'
@@ -1268,7 +1267,7 @@ classdef simpletimeseries < simpledata
       out=obj.t(obj.length);
     end
     function obj=set.start(obj,start)
-      if start==obj.start
+      if isempty(start) || start==obj.start
         %trivial call
         return
       elseif start<obj.start
