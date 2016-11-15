@@ -568,7 +568,6 @@ classdef simplefreqseries < simpletimeseries
       %reset PSD
       obj=obj.psd_init;
     end
-    
     function obj=scale(obj,scale)
       obj=scale@simpledata(obj,scale);
       obj=obj.psd_init;
