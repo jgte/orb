@@ -37,7 +37,7 @@ classdef grace
         
     %default value of some internal parameters
     default_list=struct(...
-      'calpar_csr_par',struct(...
+      'par_calpar_csr',struct(...
         'levels',struct(...
           'aak',   1,...
           'accatt',1,...
@@ -51,7 +51,7 @@ classdef grace
           'AC0Y3' ,1e-5 ...
         )...
       ),...
-      'plot_par',struct(...
+      'par_plot',struct(...
         'dir','plots',...
         'prefix','',...
         'suffix','',...
@@ -70,8 +70,8 @@ classdef grace
     );
     sats={'A','B'};
     parameter_list=struct(...
-      'calpar_csr_par', struct('default',grace.default_list.calpar_csr_par,'validation',@(i) isstruct(i)),...
-      'plot_par',       struct('default',grace.default_list.plot_par,      'validation',@(i) isstruct(i)),...
+      'par_calpar_csr', struct('default',grace.default_list.par_calpar_csr,'validation',@(i) isstruct(i)),...
+      'par_plot',       struct('default',grace.default_list.par_plot,      'validation',@(i) isstruct(i)),...
       'start',          struct('default',datetime([0 0 31]),               'validation',@(i) isdatetime(i)),...
       'stop',           struct('default',datetime([0 0 31]),               'validation',@(i) isdatetime(i))...
     );
@@ -83,20 +83,16 @@ classdef grace
   %read only
   properties(SetAccess=private)
     datatype_list
-    calpar_csr_par
+    par
+    data
   end
   %private (visible only to this object)
   properties(GetAccess=private)
-    calpar_csr
-    acc
   end
   %calculated only when asked for
   properties(Dependent)
     start
     stop
-  end
-  properties
-    plot_par
   end
   methods(Static)
     function out=parameters
@@ -119,19 +115,19 @@ classdef grace
       end
       % parse it
       p.parse(varargin{:});
+      % reset data type list
+      obj=obj.datatype_init;
       % save parameters with defaults first, they may be needed below
       for i=1:numel(grace.parameters)
         %shorter names
         pn=grace.parameters{i};
-        if ~isscalar(p.Results.(pn)) && ~iscell(p.Results.(pn))
-          %vectors are always lines (easier to handle strings)
-          obj.(pn)=transpose(p.Results.(pn)(:));
+        %parameters have a dedicated member
+        if strcmp(pn(1:4),'par_')
+          obj.par.(strrep(pn,'par_',''))=collapse(p.Results.(pn));
         else
-          obj.(pn)=p.Results.(pn);
+          obj.(pn)=collapse(p.Results.(pn));
         end
       end
-      % reset data type list
-      obj=obj.datatype_init;
       % gather input argument names
       in=fieldnames(p.Results);
       for i=1:numel(in)
@@ -184,20 +180,20 @@ classdef grace
     end
     %% datatype operations
     function obj=datatype_init(obj)
-      obj.datatype_list={};
+      obj.data=struct([]);
     end
     function obj=datatype_set(obj,datatype_name,datatype_value)
-      obj.(datatype_name)=datatype_value;
-      %add this datatype to the list, if not already
-      if all(cellfun(@isempty,strfind(obj.datatype_list,datatype_name)))
-        obj.datatype_list=[obj.datatype_list,{datatype_name}];
-      end
+      obj.data(1).(datatype_name)=datatype_value;
     end
     function out=datatype_get(obj,datatype_name)
-      out=obj.(datatype_name);
+      if isfield(obj.data,datatype_name)
+        out=obj.data.(datatype_name);
+      else
+        out=[];
+      end
     end
     function out=datatypes(obj)
-      out=obj.datatype_list;
+      out=fieldnames(obj.data);
     end
     %% level operations
     function obj=level_init(obj,datatype)
@@ -287,7 +283,7 @@ classdef grace
     end
     function out=cell_names_isvalid(obj,datatype,level,field,sat)
       try
-        out=ischar(class(obj.(datatype).(level).(field).(sat)));
+        out=ischar(class(obj.data.(datatype).(level).(field).(sat)));
       catch
         out=false;
       end
@@ -379,7 +375,7 @@ classdef grace
       p.addParameter('fig_handle',  gcf,  @(i) ishandle(i));
       p.addParameter('axis_handle', gca,  @(i) ishandle(i));
       p.addParameter('xdate',       true, @(i) islogical(i));
-      p.addParameter('ylimits',     obj.plot_par.ylimits, @(i) numel(i)==2 && isnumeric(i));
+      p.addParameter('ylimits',     obj.par.plot.ylimits, @(i) numel(i)==2 && isnumeric(i));
       p.addParameter('autoscale',   false, @(i)islogical(i) && isscalar(i));
       p.addParameter('automean',    false, @(i)islogical(i) && isscalar(i));
       p.addParameter('outlier',0,        @(i) isfinite(i));
@@ -391,24 +387,24 @@ classdef grace
       end
       
       % enforce fontsize and paper size
-      set(    p.Results.axis_handle,          'FontSize',obj.plot_par.fontsize.axis)
-      set(get(p.Results.axis_handle,'Title' ),'FontSize',obj.plot_par.fontsize.title);
-      set(get(p.Results.axis_handle,'XLabel'),'FontSize',obj.plot_par.fontsize.label);
-      set(get(p.Results.axis_handle,'YLabel'),'FontSize',obj.plot_par.fontsize.label);
-      set(    p.Results.fig_handle, 'Position',          obj.plot_par.size,...
-                                    'PaperUnits',        obj.plot_par.units,...
-                                    'PaperPosition',     obj.plot_par.size);
+      set(    p.Results.axis_handle,          'FontSize',obj.par.plot.fontsize.axis)
+      set(get(p.Results.axis_handle,'Title' ),'FontSize',obj.par.plot.fontsize.title);
+      set(get(p.Results.axis_handle,'XLabel'),'FontSize',obj.par.plot.fontsize.label);
+      set(get(p.Results.axis_handle,'YLabel'),'FontSize',obj.par.plot.fontsize.label);
+      set(    p.Results.fig_handle, 'Position',          obj.par.plot.size,...
+                                    'PaperUnits',        obj.par.plot.units,...
+                                    'PaperPosition',     obj.par.plot.size);
       % enforce line properties
       line_handles=get(p.Results.axis_handle,'Children');
       for i=1:numel(line_handles)
-        set(line_handles(i),'LineWidth',obj.plot_par.line.width)
+        set(line_handles(i),'LineWidth',obj.par.plot.line.width)
       end
       % enforce x-limits
       v=axis(p.Results.axis_handle);
       if p.Results.xdate
         for i=1:2
-          if isfinite(   obj.plot_par.xlimits(i))
-            v(i)=datenum(obj.plot_par.xlimits(i));
+          if isfinite(   obj.par.plot.xlimits(i))
+            v(i)=datenum(obj.par.plot.xlimits(i));
           end
         end
       end
@@ -453,14 +449,14 @@ classdef grace
       end
       switch mode
       case 'plot'
-        parts={obj.plot_par.dir,    '/';...
-               obj.plot_par.prefix, '.';...
+        parts={obj.par.plot.dir,    '/';...
+               obj.par.plot.prefix, '.';...
                datatype,            '.';...
                level,               '.';...
                field,               '.';...
                sat,                 '.';...
                suffix,              '.';...
-               obj.plot_par.suffix, '.'};
+               obj.par.plot.suffix, '.'};
         out=cell(numel(parts)/2,1);
         for i=1:numel(parts)/2
           if ~isempty(parts{i,1})
@@ -474,7 +470,7 @@ classdef grace
         end
         out=[strjoin(out,''),'png'];
       case 'mat'
-        parts={obj.plot_par.dir,    '/';...
+        parts={obj.par.plot.dir,    '/';...
                datatype,            '.';...
                level,               '.';...
                field,               '.';...
@@ -511,8 +507,8 @@ classdef grace
       p.parse(varargin{:});
       if isempty(dir(p.Results.datafile))
         %get names of parameters and levels
-        fields=fieldnames(obj.calpar_csr_par.fields);
-        levels=fieldnames(obj.calpar_csr_par.levels);
+        fields=fieldnames(obj.par.calpar_csr.fields);
+        levels=fieldnames(obj.par.calpar_csr.levels);
         %load data
         for i=1:size(levels)
           for j=1:size(fields)
@@ -682,7 +678,7 @@ classdef grace
         for j=1:size(fields)
           filename=obj.id('plot',datatype,level,fields{j},'');
           if isempty(dir(filename))
-            figure('visible',obj.plot_par.visible);
+            figure('visible',obj.par.plot.visible);
             %retrive data
             sat=struct(...
               'A',obj.sat_get(datatype,level,fields{j},'A'),...
@@ -702,13 +698,13 @@ classdef grace
         end
       case 'calpar_csr-stats'
         s=obj.calpar_csr_op('load-stats',level,varargin{:});
-        fields=fieldnames(obj.calpar_csr_par.fields);
+        fields=fieldnames(obj.par.calpar_csr.fields);
         %plot number of data
-        obj.plot_par.prefix='length.bars';
+        obj.par.plot.prefix='length.bars';
         for i=1:numel(fields)
           filename=obj.id('plot',datatype,level,fields{i},'');
           if isempty(dir(filename))
-            figure('visible',obj.plot_par.visible);
+            figure('visible',obj.par.plot.visible);
             b=bar(...
               mean([...
                 datenum(s.(fields{i}).A.length.t),...
@@ -736,7 +732,7 @@ classdef grace
         column_idx=obj.calpar_csr_op('column-idx');
         for mode=obj.calpar_csr_op('stats-modes');
           %plot the requested statistics of the data
-          obj.plot_par.prefix=mode{1};
+          obj.par.plot.prefix=mode{1};
           for i=1:numel(fields)
             filename=obj.id('plot',datatype,level,fields{i},'');
             if isempty(dir(filename))
@@ -753,7 +749,7 @@ classdef grace
                 'A',s.(fields{i}).A.(mode{1}).mask_and(mask).mask_update,...
                 'B',s.(fields{i}).B.(mode{1}).mask_and(mask).mask_update...
               );
-              figure('visible',obj.plot_par.visible);
+              figure('visible',obj.par.plot.visible);
               sat.A.scale(scl).plot('columns',column_idx);
               sat.B.scale(scl).plot('columns',column_idx);
               %plot tweaking
@@ -768,11 +764,11 @@ classdef grace
         end
       case 'calpar_csr-corr'
         s=obj.calpar_csr_op('load-stats2',level,varargin{:});
-        fields=fieldnames(obj.calpar_csr_par.fields);
+        fields=fieldnames(obj.par.calpar_csr.fields);
         % loop over all required modes
         for mode=obj.calpar_csr_op('stats2-modes');
           %plot the requested statistics of the data
-          obj.plot_par.prefix=mode{1};
+          obj.par.plot.prefix=mode{1};
           % loop over CSR cal pars
           for i=1:size(fields)
             filename=obj.id('plot',datatype,level,fields{i},'');
@@ -788,7 +784,7 @@ classdef grace
                 ylimits=[-1,1];
                 scl=1;
               end    
-              figure('visible',obj.plot_par.visible);
+              figure('visible',obj.par.plot.visible);
               s.(fields{i}).(mode{1}).mask_and(mask).mask_update.scale(scl).plot(...
                 'columns',obj.calpar_csr_op('column-idx')...
               );
@@ -823,10 +819,10 @@ classdef grace
           if strcmp(stats_modes{j},'length')
             continue
           end
-          obj.plot_par.prefix=stats_modes{j};
+          obj.par.plot.prefix=stats_modes{j};
           filename=obj.id('plot',datatype,level,'','');
           if isempty(dir(filename))
-            figure('visible',obj.plot_par.visible);
+            figure('visible',obj.par.plot.visible);
             %gathering data
             y=nan(numel(fields),2);
             for i=1:numel(fields)
@@ -834,16 +830,16 @@ classdef grace
                 continue
               end
               y(i,1)=s.(fields{i}).A.(stats_modes{j}).trim(...
-                obj.plot_par.xlimits(1),...
-                obj.plot_par.xlimits(2)...
+                obj.par.plot.xlimits(1),...
+                obj.par.plot.xlimits(2)...
               ).stats(...
                 'period',days(inf),...
                 'outlier',1,...
                 'nsigma',3 ...
               ).mean(column_idx);
               y(i,2)=s.(fields{i}).B.(stats_modes{j}).trim(...
-                obj.plot_par.xlimits(1),...
-                obj.plot_par.xlimits(2)...
+                obj.par.plot.xlimits(1),...
+                obj.par.plot.xlimits(2)...
               ).stats(...
                 'period',days(inf),...
                 'outlier',1,...
@@ -889,8 +885,8 @@ classdef grace
             grid on
             title([...
               stats_modes{j},' of ',level,' for ',...
-              datestr(obj.plot_par.xlimits(1)),' to ',...
-              datestr(obj.plot_par.xlimits(2))...
+              datestr(obj.par.plot.xlimits(1)),' to ',...
+              datestr(obj.par.plot.xlimits(2))...
             ]);
             saveas(gcf,filename)
           end
@@ -903,10 +899,10 @@ classdef grace
           if strcmp(stats_modes{j},'length')
             continue
           end
-          obj.plot_par.prefix=stats_modes{j};
+          obj.par.plot.prefix=stats_modes{j};
           filename=obj.id('plot',datatype,level,'','');
           if isempty(dir(filename))
-            figure('visible',obj.plot_par.visible);
+            figure('visible',obj.par.plot.visible);
             %gathering data
             y=nan(numel(fields),1);
             for i=1:numel(fields)
@@ -914,8 +910,8 @@ classdef grace
                 continue
               end
               y(i,1)=s.(fields{i}).(stats_modes{j}).trim(...
-                obj.plot_par.xlimits(1),...
-                obj.plot_par.xlimits(2)...
+                obj.par.plot.xlimits(1),...
+                obj.par.plot.xlimits(2)...
               ).stats(...
                 'period',days(inf),...
                 'outlier',1,...
@@ -932,14 +928,14 @@ classdef grace
             grid on
             title([...
               stats_modes{j},' of ',level,' for ',...
-              datestr(obj.plot_par.xlimits(1)),' to ',...
-              datestr(obj.plot_par.xlimits(2))...
+              datestr(obj.par.plot.xlimits(1)),' to ',...
+              datestr(obj.par.plot.xlimits(2))...
             ]);
             saveas(gcf,filename)
           end
         end  
 %       case 'calpar_csr-tables'
-%         fields=fieldnames(obj.calpar_csr_par.fields);
+%         fields=fieldnames(obj.par.calpar_csr.fields);
 %         column_idx=obj.calpar_csr_op('column-idx');
 %         tab=12;
 %         %single-sat stats
@@ -991,5 +987,14 @@ classdef grace
         error([mfilename,': unknown data of type ''',datatype,'''.'])
       end
     end
+  end
+end
+
+function out=collapse(in)
+  if ~isscalar(in) && ~iscell(in)
+    %vectors are always lines (easier to handle strings)
+    out=transpose(in(:));
+  else
+    out=in;
   end
 end
