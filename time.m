@@ -100,6 +100,20 @@ classdef time
       %     <do something>
       %     s=simpledata.progress(s,i);
       % end
+      % %or:
+      % s.msg='something'; s.n=n;
+      % while criteria
+      %     <do something>
+      %     criteria=<some check>
+      %     s=simpledata.progress(s);
+      % end
+      if ~exist('i','var') || isempty(i)
+        if isfield(s,'c')
+          i=s.c+1;
+        else
+          i=1;
+        end
+      end
       if ~exist('s','var') || isempty(s) || ~isfield(s,'n')
         error([mfilename,': need structure in argument ''s'' with field ''n'' (the loop total nr of iterations).']);
       end
@@ -122,7 +136,9 @@ classdef time
       end
       %finalize
       if i>=s.n
-        fprintf('%s\n',sprintf('%s',[repmat(8,1,s.l_max),s.msg,': done in ',time.str(s.e(end)),'                            ']))
+        if s.c>0
+          fprintf('%s\n',sprintf('%s',[repmat(8,1,s.l_max),s.msg,': done in ',time.str(s.e(end)),'                            ']))
+        end
         return
       end
       %give feedback during iterations
