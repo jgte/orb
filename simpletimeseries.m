@@ -1413,28 +1413,33 @@ classdef simpletimeseries < simpledata
       end
       %build complete time domain
       t_new=obj.t_domain;
-      t_now=obj.t;
+      %find out where there are gaps larger than the step size
+      gap_idx=find(diff(obj.t)>obj.step);
+      %if there are no gaps and the time series is not homogeneous, we have a problem that needs fixing
+      if isempty(gap_idx)
+        error([mfilename,': implementation needed!'])
+      end
       disp(['Need to fill in missing epochs: ',num2str(numel(t_new)-obj.length),' ('...
         num2str((numel(t_new)-obj.length)/numel(t_new)*1e2),'%).'])
-      %find out where there are gaps
-      gap_idx=find(diff(t_now)~=obj.step);
       %loop over all implicit gaps (i.e. missing epochs)
       s.msg=[mfilename,': populating missing epochs'];s.n=numel(gap_idx);
-      for i=1:numel(gap_idx)
+      while ~isempty(gap_idx)
         %create patch
-        t_patch=transpose((t_now(gap_idx(i))+obj.step):obj.step:(t_now(gap_idx(i)+1)-obj.step));
+        t_patch=transpose((obj.t(gap_idx(1))+obj.step):obj.step:(obj.t(gap_idx(1)+1)-obj.step));
         %save data with patch (it gets deleted when assigning to x)
-        y_patched=[obj.y(1:gap_idx(i),:);...
+        y_patched=[obj.y(1:gap_idx(1),:);...
                    nan(numel(t_patch),obj.width);...
-                   obj.y(gap_idx(i)+1:end,:)];
+                   obj.y(gap_idx(1)+1:end,:)];
         %create patched t
-        t_patched=[t_now(1:gap_idx(i));...
+        t_patched=[obj.t(1:gap_idx(1));...
                   t_patch;...
-                  t_now(gap_idx(i)+1:end)];
+                  obj.t(gap_idx(1)+1:end)];
         %propagate y
         obj=obj.assign(y_patched,'t',t_patched);
+        %re-discover gaps
+        gap_idx=find(diff(obj.t)>obj.step);
         %user feedback
-        s=time.progress(s,i);
+        s=time.progress(s);
       end
       %sanitize
       obj.check_st(t_new);
