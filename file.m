@@ -59,8 +59,20 @@ classdef file
       %looping over the first lines of this file, to gather info
       for i=1:max_header_len
         header{i} = fgetl(fid);
-        numeric_flag(i) = isnumstr(header{i});
-        nr_columns(i)=numel(strsplit(header{i}));
+        %error checking
+        if isempty(header{i})
+          error([mfilename,': error reading header of file ',filename,'. Error message:',10,ferror(fid)])
+        end
+        %end-of-file checking
+        if header{i}==-1
+          header{i}='';
+          numeric_flag(i) = true;
+          nr_columns(i)=0;
+          break
+        else
+          numeric_flag(i) = isnumstr(header{i});
+          nr_columns(i)=numel(strsplit(header{i}));
+        end
       end
       %checking we'e reached the part with numeric data
       if ~isnumstr(fgetl(fid))
@@ -79,7 +91,7 @@ classdef file
         end
       else
         %getting number of header lines (numeric data interleaved with header lines is treated as part of the header)
-        nlines = find(numeric_flag,1,'last');
+        nlines = find(numeric_flag,1,'first')-1;
       end
       %check if there's a header
       if isempty(nlines)
@@ -90,7 +102,7 @@ classdef file
       %close the file (if fid not given)
       if close_file, fclose(fid); end
     end
-    function [data,header] = textscan(filename,format,nlines)
+    function [data,header] = textscan(filename,format,nlines,CommentStyle)
       % [DATA,HEADER] = TEXTSCAN(FILENAME,NLINES) reads numerical data from an ASCII text
       % file with name FILENAME, ignoring header lines, which are considered so
       % if holding any form of non-numerical data.
@@ -109,6 +121,9 @@ classdef file
       % Created by J.Encarnacao <J.G.deTeixeiradaEncarnacao@tudelft.nl>
       
       %input sanity
+      if ~exist('CommentStyle','var') || isempty(CommentStyle)
+        CommentStyle = '';
+      end
       if ~exist('nlines','var') || isempty(nlines)
         nlines = -1;
       end
@@ -131,7 +146,8 @@ classdef file
       data  = textscan(fid,format,nlines,...
         'headerlines',nr_header_lines,...
         'returnonerror',0,...
-        'emptyvalue',0 ...
+        'emptyvalue',0,...
+        'CommentStyle',CommentStyle...
       );
       %need to be sure that all columns have equal length
       len = cellfun(@(i) size(i,1),data);
