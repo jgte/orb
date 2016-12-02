@@ -173,8 +173,16 @@ function outfile=nrtdm_convert(metadata,t,varargin)
   t_start=t;
   t_stop =t+days(1)-seconds(1);
 
+  %set specific time system of some satellites
+  switch metadata.product.sat
+  case {'GA','GB'}
+    timesystem='gps';
+  otherwise
+    timesystem='utc';
+  end
+  
   %build one-day-long NRTDM time arguments
-  timearg=['t=utc:',...
+  timearg=['t=',timesystem,':',...
     datestr(t_start,'yyyymmddHHMMSS'),',',...
     datestr(t_stop, 'yyyymmddHHMMSS')];
 
@@ -198,7 +206,7 @@ function outfile=nrtdm_convert(metadata,t,varargin)
         'y_units',metadata.units,...
         'labels',metadata.fields_no_units,...
         'descriptor',metadata.product.str...
-      );
+      ).fill;
       %fill extremeties if they are not there (happens a lot in Swarm data)
       if ts.t(1)>t_start
         ts=ts.extend(floor((t_start-ts.t(1))/ts.step));
@@ -236,12 +244,12 @@ function [time,values]=nrtdm_read(product,timearg,nrtdm_args,exportdata)
 
   %setup env
   if ismac
-    setenv('DYLD_LIBRARY_PATH', '/usr/local/bin:/opt/local/lib:',getenv('NRTDM'),'/ext/cdf33_0-dist/lib')
+    setenv('DYLD_LIBRARY_PATH',['/usr/local/bin:/opt/local/lib:',getenv('NRTDM'),'/ext/cdf/lib'])
   end
 
   %get data
   com=[exportdata,' ',product,' ',timearg,' ',nrtdm_args,' -noheader -nofooter -out-screen < /dev/null'];
-  if debug_now,disp(['com = ',com]),end
+  if debug_now;disp(['com = ',com]);end
 
   [status,data_str]=system(com);
   if status ~=0
