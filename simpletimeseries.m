@@ -20,7 +20,7 @@ classdef simpletimeseries < simpledata
         'yyyymmdd',...
         'gpstime',...
         'gpsweeksecond',...
-        'doy'...
+        'yeardoysec'...
       }},...
       'datetime',{{...
         'datetime'...
@@ -29,6 +29,7 @@ classdef simpletimeseries < simpledata
     parameter_list=struct(...
       'format',struct('default','modifiedjuliandate','validation',@(i) ischar(i)),...
       'units', struct('default',{{''}},              'validation',@(i) iscellstr(i)),...
+      't_tol', struct('default',1e-6,                'validation',@(i) isnumeric(i) && iscalar(i)),...
       'debug', struct('default',false,               'validation',@(i) islogical(i) && iscalar(i))...
     );
     gps_zero_epoch='1980-01-06';
@@ -77,6 +78,7 @@ classdef simpletimeseries < simpledata
   %NOTE: if you add something here, update simpletimeseries.parameter_list
   properties(GetAccess=public,SetAccess=public)
     format
+    t_tol
   end
   methods(Static)
     function out=timescale(in)
@@ -99,6 +101,9 @@ classdef simpletimeseries < simpledata
         error([mfilename,': need input ''epoch''.'])
       end
       out=epoch+simpletimeseries.timescale(in);
+    end
+    function out=istequal(t1,t2,tol)
+      out=numel(t1)==numel(t2) && ~any(seconds(t1(:)-t2(:)).^2>tol.^2);
     end
     function presence=ispresent(parser,fields)
       % defaults
@@ -217,6 +222,12 @@ classdef simpletimeseries < simpledata
         'epoch',zero_epoch...
       );
     end
+    function out=datetime2gpssec(in,zero_epoch)
+      if ~exist('zero_epoch','var')
+        zero_epoch=simpletimeseries.gps_zero_epoch;
+      end
+      out=seconds(in-datetime(zero_epoch));
+    end
     function utc=gps2utc(gps)
       utc=gps;
       for i=1:numel(simpletimeseries.leap_seconds)
@@ -294,15 +305,17 @@ classdef simpletimeseries < simpledata
           case 'datevector'
             out=datetime(in);
           case 'gpsweeksecond'
-            if size(in,2)~=2
+            cols=2;
+            if size(in,2)~=cols
               error([mfilename,': when format is ''',format_in,''', need input to have ',num2str(cols),' columns, not ',num2str(size(in,2)),'.'])
             end
             if any(floor(in(:,1))~=in(:,1))
               error([mfilename,': when format is ''',format_in,''', the first column must only contain integers.'])
             end
-            out=datetime(gps2date(in(:,1),in(:,2)));
-          case 'doy'
-            if size(in,2)~=3
+            out=datetime(time.gps2date(in(:,1),in(:,2)));
+          case 'yeardoysec'
+            cols=3;
+            if size(in,2)~=cols
               error([mfilename,': when format is ''',format_in,''', need input to have ',num2str(cols),' columns, not ',num2str(size(in,2)),'.'])
             end
             if any(floor(in(:,1))~=in(:,1))
@@ -359,16 +372,15 @@ classdef simpletimeseries < simpledata
       case 'yyyymmdd'
         out=yyyymmdd(in);
       case 'gpstime'
-        out=seconds(in-datetime(simpletimeseries.gps_zero_epoch));
-        for i=1:numel(simpletimeseries.leap_seconds)
-          out=out+(in>simpletimeseries.leap_seconds(i));
-        end
+        out=simpletimeseries.utc2gps(...
+          simpletimeseries.datetime2gpssec(in)...
+        );
       case 'gpsweeksecond'
-        [gps_week, gps_sow] = date2gps(simpletimeseries.FromDateTime(in,'datevec'));
+        [gps_week, gps_sow] = time.date2gps(simpletimeseries.FromDateTime(in,'datevec'));
         out=[gps_week,gps_sow];
-      case 'doy'
+      case 'yeardoysec'
         gps_week_sow=simpletimeseries.FromDateTime(in,'gpsweeksecond');
-        [date, doy] = gps2date(gps_week_sow(:,1),gps_week_sow(:,2));
+        [date, doy] = time.gps2date(gps_week_sow(:,1),gps_week_sow(:,2));
         out=[date(:,1),doy,date(:,4)*3600+date(:,5)*60+date(:,6)];
       otherwise
         out=char(datetime(in,'Format',format));
@@ -395,7 +407,7 @@ classdef simpletimeseries < simpledata
         case 'gpsweeksecond'
           max_gpsweeksecond=simpletimeseries.FromDateTime(max_date,i{1});
           in=[round(rand(n,1)*max_gpsweeksecond(1)),rand(n,1)*max_gpsweeksecond(2)];
-        case 'doy'
+        case 'yeardoysec'
           max_doy=simpletimeseries.FromDateTime(max_date,i{1});
           in=[round(rand(n,1)*max_doy(1)),round(rand(n,1)*max_doy(2)),rand(n,1)*max_doy(3)];
           in(in(:,2)==0,2)=1;
@@ -581,7 +593,7 @@ classdef simpletimeseries < simpledata
           filenames{i}=fullfile(d,file_list(i).name);
         end
         %unwrap these files again
-        filenames=unwrap_datafiles(filenames,varargin);
+        filenames=simpletimeseries.unwrap_datafiles(filenames,varargin{:});
         %done
         return
       end
@@ -684,7 +696,11 @@ classdef simpletimeseries < simpledata
           if i==1
             obj=obj_now;
           else
-            obj=obj.append(obj_now);
+            try
+              obj=obj.append(obj_now);
+            catch
+              obj=obj.augment(obj_now);
+            end
           end
         end
         return
@@ -703,7 +719,7 @@ classdef simpletimeseries < simpledata
         return
       end
       %some files have the format ID in front
-      for i={'ACC1B','SCA1B','KBR1B','GNV1B'}
+      for i={'ACC1B','SCA1B','KBR1B','GNV1B','grc[AB]_gps_orb_.*\.acc'}
         if ~isempty(regexp(filename,i{1},'once'))
           e=i{1};
           break
@@ -732,7 +748,7 @@ classdef simpletimeseries < simpledata
           % 2002 04 05 2002.4.4. 23.59.47.00000000 1498260002 0.2784215319157E-07
           fmt='%d %d %d %s %s %d %f';
           units={'m/s^2',''};
-          labels={str.clean(filename,{'file','grace','.'}),'Job ID'};
+          labels={str.clean(filename,{'file','grace','.'}),'Job ID','arc start'};
           time_fh=@(raw) simpletimeseries.utc2gps(...
             datetime(...
               strcat(...
@@ -741,13 +757,13 @@ classdef simpletimeseries < simpledata
               ),...
             'InputFormat','yyyy/MM/dd HH:mm:ss')...
           );
-          data_fh=@(raw) [raw{7},double(raw{6})];
+          data_fh=@(raw) [raw{7},double(raw{6}),simpletimeseries.FromDateTime(time_fh(raw),'modifiedjuliandate')];
         end
         if ~isempty(regexp(filename,'AC0[XYZ][QD]\d?\.aak','once')) || ~isempty(regexp(filename,'AC0[XYZ][QD]\d?\.accatt','once'))
           % 2002 04 05 2002.4.4. 23.59.47.00000000 1498260002  0.1389481692269E-07 52368.99985
           fmt='%d %d %d %s %s %d %f %f';
-          units={'m/s^2','MJD days',''};
-          labels={str.clean(filename,{'file','grace','.'}),'Job ID','t_0'};
+          units={'m/s^2','','MJD days'};
+          labels={str.clean(filename,{'file','grace','.'}),'Job ID','t_0','arc start'};
           time_fh=@(raw) simpletimeseries.utc2gps(...
             datetime(...
               strcat(...
@@ -756,17 +772,17 @@ classdef simpletimeseries < simpledata
               ),...
             'InputFormat','yyyy/MM/dd HH:mm:ss')...
           );
-          data_fh=@(raw) [raw{7},double(raw{6}),raw{8}];
+          data_fh=@(raw) [raw{7},double(raw{6}),raw{8},simpletimeseries.FromDateTime(time_fh(raw),'modifiedjuliandate')];
         end
         if ~isempty(regexp(filename,'AC0[XYZ]\d?\.estim','once')) || ~isempty(regexp(filename,'AC0[XYZ][DQ]\d?\.estim','once'))
           % 2002 04 05 04/05/02 52369 1 0.0 26400.0 1593715  3.774424464092000e-08 -3.585594302740665e-09 3.415865033817934e-08
           fmt='%d %d %d %d/%d/%d %f %d %f %f %d %f %f %f';
           units={'m/s^2','',''};
-          labels={str.clean(filename,{'file','grace','.'}),'Job ID','arc duration'};
+          labels={str.clean(filename,{'file','grace','.'}),'Job ID','arc duration','arc start'};
           time_fh=@(raw) datetime(raw{7}+raw{9}/seconds(days(1)),...
             'ConvertFrom','modifiedjuliandate'...
           );
-          data_fh=@(raw) [raw{14},double(raw{11}),raw{10}];
+          data_fh=@(raw) [raw{14},double(raw{11}),raw{10},raw{7}+raw{9}/seconds(days(1))];
         end
 
         if isempty(fmt)
@@ -836,13 +852,46 @@ classdef simpletimeseries < simpledata
         );
         %gather data domain
         y=raw(:,2:4);
-        %building object
-        obj=simpletimeseries(t,y,...
-          'format','datetime',...
-          'y_units',{'m^2','m^2','m^2'},...
-          'labels', {'x','y','z'},...
-          'descriptor',strjoin(header,'\n')...
-         ).fill;
+        %skip empty data files
+        if isempty(t) || isempty(y)
+          obj=[];
+        else
+          %building object
+          obj=simpletimeseries(t,y,...
+            'format','datetime',...
+            'y_units',{'m/s^2','m/s^2','m/s^2'},...
+            'labels', {'x','y','z'},...
+            'descriptor',strjoin(header,'\n')...
+           ).fill;
+        end
+      case 'grc[AB]_gps_orb_.*\.acc'
+        %load data
+        [raw,header]=file.textscan(filename,'%f %f %f %f %f %f %f %f',[],'%');
+        %retrieve GPS time epoch
+        header_line='+unitfacor ';
+        header=strsplit(header,'\n');
+        for i=1:numel(header)
+          if strfind(header{i},header_line)
+            unitfactor=str2double(strrep(header{i},header_line,''));
+            break
+          end
+        end
+        %building time domain
+        t=simpletimeseries.ToDateTime(raw(:,1:3),'yeardoysec');
+        %gather data domain
+        y=raw(:,5:7)./unitfactor;
+        %skip empty data files
+        if isempty(t) || isempty(y)
+          obj=[];
+        else
+          %building object
+          obj=simpletimeseries(t,y,...
+            'format','datetime',...
+            'y_units',{'m/s^2','m/s^2','m/s^2'},...
+            'labels', {'x','y','z'},...
+            'descriptor',strjoin(header,'\n')...
+           ).fill;
+        end
       case 'SCA1B'
         error([mfilename,': implementation needed'])
       case 'KBR1B'
@@ -1072,6 +1121,25 @@ classdef simpletimeseries < simpledata
       %print superclass
       print@simpledata(obj,tab)
     end
+    function peek(obj,idx,tab)
+      if ~exist('tab','var') || isempty(tab)
+        tab=12;
+      end
+      if ~exist('idx','var') || isempty(idx)
+        idx=[1:min([10,ceil(0.45*obj.length)]),max([obj.length-10,floor(0.55*obj.length)]):obj.length];
+      end
+      for i=1:numel(idx)
+        out=cell(1,obj.width);
+        for j=1:numel(out)
+          out{j}=str.tabbed(num2str(obj.y(idx(i),j)),tab,true);
+        end
+        disp([...
+          str.tabbed(datestr(obj.t(idx(i)),'yyyy-mm-dd HH:MM:SS'),tab,true),' ',...
+          strjoin(out),' ',...
+          str.show(obj.mask(idx(i)))...
+        ])
+      end
+    end
     function out=stats(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -1082,7 +1150,7 @@ classdef simpletimeseries < simpledata
       p.parse(varargin{:});
       % call upstream method if period is infinite
       if ~isfinite(p.Results.period)
-        out=stats@simpledata(obj,p.Results.mode,varargin{:});
+        out=stats@simpledata(obj,varargin{:});
         return
       end
       % separate time series into segments
@@ -1091,7 +1159,7 @@ classdef simpletimeseries < simpledata
       s.msg=['deriving segment-wise statistics for ',str.clean(obj.descriptor,'file')]; s.n=numel(ts);
       for i=1:numel(ts)
         %call upstream procedure
-        dat(i)=stats@simpledata(obj.trim(ts{i}(1),ts{i}(end)),'struct',varargin{:}); %#ok<AGROW>
+        dat(i)=stats@simpledata(obj.trim(ts{i}(1),ts{i}(end)),varargin{:},'mode','struct'); %#ok<AGROW>
         % inform about progress
         s=time.progress(s,i);
       end
@@ -1227,6 +1295,9 @@ classdef simpletimeseries < simpledata
       %convert outputs
       t_old=obj.x2t(x_old);
     end
+    function out=mjd(obj)
+      out=simpletimeseries.FromDateTime(obj.t,'modifiedjuliandate');
+    end
     %% step methods
     function out=step_num(obj)
       out=simpletimeseries.timescale(obj.step);
@@ -1249,7 +1320,7 @@ classdef simpletimeseries < simpledata
       %shift x
       obj=obj.x_set(simpletimeseries.time2num(t_old,epoch));
       %sanity
-      if any(seconds(t_old-obj.t).^2>1e-18)
+      if ~simpletimeseries.istequal(t_old,obj.t,obj.t_tol)
         error([mfilename,': changing epoch cause the time domain to also change.'])
       end
     end
@@ -1272,19 +1343,25 @@ classdef simpletimeseries < simpledata
         return
       elseif start<obj.start
         %append a single epoch
-        obj=obj.assign([start;obj.t],[nan(1,obj.width);obj.y]);
+        obj=obj.assign(...
+          [nan(1,obj.width);obj.y],...
+          't',[start;obj.t]...
+        );
       else
         %trim object
         obj=obj.trim(start,obj.stop);
       end
     end
     function obj=set.stop(obj,stop)
-      if stop==obj.stop
+      if isempty(stop) || stop==obj.stop
         %trivial call
         return
       elseif stop>obj.stop
         %append a single epoch
-        obj=obj.assign([obj.t;stop],[obj.y;nan(1,obj.width)]);
+        obj=obj.assign(...
+          [obj.y;nan(1,obj.width)],...
+          't',[obj.t;stop]...
+        );
       else
         %trim object
         obj=obj.trim(obj.start,stop);
@@ -1403,16 +1480,18 @@ classdef simpletimeseries < simpledata
         error([mfilename,': cannot handle input ''nr_epochs'' of class ',class(nr_epochs),'.'])
       end
     end
-    function obj=fill(obj)
+    function [obj,idx]=fill(obj)
       %NOTICE: this method is similar to resample in the sense it creates a complete time domain
       %        but it differs since the added time entries are set as explicit gaps.
       %TODO: handle non-homogeneous time domains
       %trivial call
       if obj.ishomogeneous
+        if nargout > 1, idx=true(obj.length,1);end
         return
       end
       %build complete time domain
       t_new=obj.t_domain;
+      t_old=obj.t;
       %find out where there are gaps larger than the step size
       gap_idx=find(diff(obj.t)>obj.step);
       %if there are no gaps and the time series is not homogeneous, we have a problem that needs fixing
@@ -1443,6 +1522,10 @@ classdef simpletimeseries < simpledata
       end
       %sanitize
       obj.check_st(t_new);
+      %additional output arguments
+      if nargout > 1
+        [~,idx]=simpledata.union(t_old,t_new);
+      end
     end
     function obj=fstep(obj,step_prev)
       %adds data entries that are equal to the preceeding value, but one
@@ -1468,23 +1551,59 @@ classdef simpletimeseries < simpledata
       obj_outlier=obj_median+obj_res_outlier;
     end
     %% multiple object manipulation
-    function out=istequal(obj1,obj2)
-      %make sure things are up to date
-      obj1=obj1.t_reset;
-      obj2=obj2.t_reset;
-      out= obj1.length == obj2.length && ...
-           obj1.start  == obj2.start  && ...
-           obj1.stop   == obj2.stop   && ...
-           obj1.step   == obj2.step   && ...
-           obj1.epoch  == obj2.epoch;
+    function out=isteq(obj1,obj2)
+      out=simpletimeseries.istequal(obj1.t,obj2.t,min([obj1.t_tol,obj2.t_tol]));
     end
+    %the compatible method can be called directly
+    function [obj1,obj2,idx1,idx2]=merge(obj1,obj2)
+      %add as gaps those x in obj1 that are in obj2 but not in obj1
+      %NOTICE:
+      % - idx1 contains the index of the x in obj1 that were added from obj2
+      % - idx2 contains the index of the x in obj2 that were added from obj1
+      % - no data is propagated between objects, only the time domain is changed!
+      if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
+        [obj1,obj2]=matchepoch(obj1,obj2);
+      end
+      %call upstream method
+      [obj1,obj2,idx1,idx2]=merge@simpledata(obj1,obj2);
+      %sanity
+      if ~isteq(obj1,obj2)
+        error([mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])
+      end
+    end
+    function [obj1,obj2]=interp2(obj1,obj2,varargin)
+      %extends the x-domain of both objects to be in agreement
+      %with the each other. The resulting x-domains possibly have
+      %numerous gaps, which are interpolated over (interpolation
+      %scheme and other options can be set in varargin).
+      if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
+        [obj1,obj2]=matchepoch(obj1,obj2);
+      end
+      %call upstream method
+      [obj1,obj2]=interp2@simpledata(obj1,obj2,...
+        'interp_over_gaps_narrower_than',3*min([obj1.step,obj2.step]),...
+        'interp1_args',{'linear'}...
+      );
+      %sanity
+      if ~isteq(obj1,obj2)
+        error([mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])
+      end
+    end
+    function [obj,idx1,idx2]=append(obj1,obj2)
+      if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
+        [obj1,obj2]=matchepoch(obj1,obj2);
+      end
+      %call upstream method
+      [obj,idx1,idx2]=append@simpledata(obj1,obj2);
+    end
+    %the augment method can be called directly
     %NOTICE: this function used to be called consolidade
-    function [obj1,obj2]=consolidate_lcm(obj1,obj2)
+    function [obj1,obj2]=interp2_lcm(obj1,obj2)
       %extends the time domain of both objects to be in agreement
       %with the each other
       compatible(obj1,obj2)
       %trivial call
-      if istequal(obj1,obj2)
+      if isteq(obj1,obj2)
         return
       end
       %build extended time domain, with lcm timestep, rounded to the nearest second
@@ -1546,24 +1665,7 @@ classdef simpletimeseries < simpledata
       [obj1,obj2]=matchstep(obj1,obj2);
       [obj1,obj2]=matchepoch(obj1,obj2);
     end
-    function [obj,idx1,idx2]=append(obj1,obj2)
-      if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
-        [obj1,obj2]=matchtime(obj1,obj2);
-      end
-      %call upstream method
-      [obj,idx1,idx2]=append@simpledata(obj1,obj2);
-    end
-    function [obj1,obj2,idx1,idx2]=merge(obj1,obj2)
-      if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
-        [obj1,obj2]=matchtime(obj1,obj2);
-      end
-      %call upstream method
-      [obj1,obj2,idx1,idx2]=merge@simpledata(obj1,obj2);
-      %sanity
-      if ~istequal(obj1,obj2)
-        error([mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])
-      end
-    end
+
     %% plot methots
     function out=plot(obj,varargin)
       %call superclass
@@ -1649,161 +1751,6 @@ classdef simpletimeseries < simpledata
   end
 end
 
-function [date, doy, dow] = gps2date(gps_week, gps_sow)
-  % SYNTAX:
-  %   [date, doy, dow] = gps2date(gps_week, gps_sow);
-  %
-  % INPUT:
-  %   gps_week = GPS week
-  %   gps_sow  = GPS seconds of week
-  %
-  % OUTPUT:
-  %   date = date [year month day hour min sec]
-  %   doy  = day of year
-  %   dow  = day of week
-  %
-  % DESCRIPTION:
-  %   Conversion from GPS time to calendar date and day of year (DOY).
-
-  %----------------------------------------------------------------------------------------------
-  %                           goGPS v0.4.3
-  %
-  % Copyright (C) 2009-2014 Mirko Reguzzoni, Eugenio Realini
-  %----------------------------------------------------------------------------------------------
-  %
-  %    This program is free software: you can redistribute it and/or modify
-  %    it under the terms of the GNU General Public License as published by
-  %    the Free Software Foundation, either version 3 of the License, or
-  %    (at your option) any later version.
-  %
-  %    This program is distributed in the hope that it will be useful,
-  %    but WITHOUT ANY WARRANTY; without even the implied warranty of
-  %    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  %    GNU General Public License for more details.
-  %
-  %    You should have received a copy of the GNU General Public License
-  %    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-  %----------------------------------------------------------------------------------------------
-
-  gps_start_datenum = 723186; %This is datenum([1980,1,6,0,0,0])
-
-  gps_dow = fix(gps_sow/86400);                             %day of week
-  date = datevec(gps_start_datenum + 7*gps_week + gps_dow); %calendar date up to days
-  gps_sod = gps_sow - gps_dow*86400;                        %seconds of day
-  date(:,4) = floor(gps_sod/3600);                          %hours
-  date(:,5) = floor(gps_sod/60 - date(:,4)*60);             %minutes
-  date(:,6) = gps_sod - date(:,4)*3600 - date(:,5)*60;      %seconds
-
-  %day of year (DOY)
-  if (nargout > 1)
-      doy = date2doy(datenum(date));
-      doy = floor(doy);
-  end
-
-  %day of week
-  if (nargout > 2)
-      dow = gps_dow;
-  end
-end
-
-function [gps_week, gps_sow, gps_dow] = date2gps(date)
-  % SYNTAX:
-  %   [gps_week, gps_sow, gps_dow] = date2gps(date);
-  %
-  % INPUT:
-  %   date = date [year, month, day, hour, min, sec]
-  %
-  % OUTPUT:
-  %   gps_week = GPS week
-  %   gps_sow  = GPS seconds of week
-  %   gps_dow  = GPS day of week
-  %
-  % DESCRIPTION:
-  %   Conversion from calendar date to GPS time.
-
-  %----------------------------------------------------------------------------------------------
-  %                           goGPS v0.4.3
-  %
-  % Copyright (C) 2009-2014 Mirko Reguzzoni, Eugenio Realini
-  %----------------------------------------------------------------------------------------------
-  %
-  %    This program is free software: you can redistribute it and/or modify
-  %    it under the terms of the GNU General Public License as published by
-  %    the Free Software Foundation, either version 3 of the License, or
-  %    (at your option) any later version.
-  %
-  %    This program is distributed in the hope that it will be useful,
-  %    but WITHOUT ANY WARRANTY; without even the implied warranty of
-  %    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  %    GNU General Public License for more details.
-  %
-  %    You should have received a copy of the GNU General Public License
-  %    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-  %----------------------------------------------------------------------------------------------
-
-  gps_start_datenum = 723186; %This is datenum([1980,1,6,0,0,0])
-
-  %number of days since the beginning of GPS time
-  deltat   = (datenum([date(:,1), date(:,2), date(:,3)]) - gps_start_datenum);
-
-  gps_week = floor(deltat/7);            %GPS week
-  gps_dow  = floor(deltat - gps_week*7); %GPS day of week
-  gps_sow  = (deltat - gps_week*7)*86400; 
-  gps_sow = gps_sow + date(:,4)*3600 + date(:,5)*60 + date(:,6); %GPS seconds of week
-end
-  
-function [doy,fraction] = date2doy(inputDate)
-%DATE2DOY  Converts the date to decimal day of the year.
-  %   [doy,fraction] = date2doy(inputDate)
-  %
-  %   Descriptions of Input Variables:
-  %   inputDate:  Input date as a MATLAB serial datenumber
-  %
-  %   Descriptions of Output Variables:
-  %   doy: Decimal day of the year. For instance, an output of 1.5 would 
-  %       indicate that the time is noon on January 1.
-  %   fraction: Outputs the fraction of a year that has elapsed by the input
-  %       date.
-  %
-  %   Example(s):
-  %   >> [doy,frac] = date2doy(datenum('1/25/2004'));
-  %
-  %   See also:
-
-  % Author: Anthony Kendall
-  % Contact: anthony [dot] kendall [at] gmail [dot] com
-  % Created: 2008-03-11
-  % Copyright 2008 Michigan State University.
-
-  %Want inputs in rowwise format
-  [doy,fraction] = deal(zeros(size(inputDate)));
-  inputDate = inputDate(:);
-
-  %Parse the inputDate
-  [dateVector] = datevec(inputDate);
-
-  %Set everything in the date vector to 0 except for the year
-  dateVector(:,2:end) = 0;
-  dateYearBegin = datenum(dateVector);
-
-  %Calculate the day of the year
-  doyRow = inputDate - dateYearBegin;
-
-  %Optionally, calculate the fraction of the year that has elapsed
-  flagFrac = (nargout==2);
-  if flagFrac
-      %Set the date as the end of the year
-      dateVector(:,1) = dateVector(:,1) + 1;
-      dateYearEnd = datenum(dateVector);
-      fracRow = (doyRow - 1) ./ (dateYearEnd - dateYearBegin);
-  end
-
-  %Fill appropriately-sized output array
-  doy(:) = doyRow;
-  if flagFrac
-      fraction(:) = fracRow;
-  end
-end
 
 % https://github.com/ronw/ronw-matlab-tools/blob/master/celltools/flatten.m
 function y = flatten(x)
