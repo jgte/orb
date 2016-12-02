@@ -1297,7 +1297,8 @@ classdef simpledata
         else
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2);
-          obj1.y=obj1.y+obj2.y;
+          %operate
+          obj1=obj1.assign(obj1.y+obj2.y,'mask',obj1.mask & obj2.mask);
         end
       end
     end
@@ -1318,7 +1319,7 @@ classdef simpledata
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2);
           %operate
-          obj1.y=obj1.y-obj2.y;
+          obj1=obj1.assign(obj1.y-obj2.y,'mask',obj1.mask & obj2.mask);
         end
       end
     end
@@ -1365,7 +1366,7 @@ classdef simpledata
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2);
           %operate
-          obj1.y=obj1.y.*obj2.y;
+          obj1=obj1.assign(obj1.y.*obj2.y,'mask',obj1.mask & obj2.mask);
         end
       end
     end
@@ -1383,12 +1384,10 @@ classdef simpledata
         elseif obj2.length==1
           obj1.y=obj2.y*ones(1,obj2.length)./obj1.y;
         else
-          %sanity
-          compatible(obj1,obj2,'compatible_parameters',{'x_units'})
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2);
           %operate
-          obj1.y=obj1.y./obj2.y;
+          obj1=obj1.assign(obj1.y./obj2.y,'mask',obj1.mask & obj2.mask);
         end
       end
     end
