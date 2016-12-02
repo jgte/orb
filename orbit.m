@@ -216,7 +216,7 @@ classdef orbit
         otherwise
           error([mfilenane,': unknown AIUB orbit for satellite ''',in,''', debug needed!'])
       end
-      doy=simpletimeseries.FromDateTime(start,'doy');
+      doy=simpletimeseries.FromDateTime(start,'yeardoysec');
       filename=[prefix,num2str(doy(1)-round(doy(1)/1e3)*1e3),num2str(doy(2),'%03d'),'_S20.KIN.gz'];
       dirname=fullfile(data_dir,'gswarm','aiub','orbit',num2str(year(start)));
     end
@@ -251,7 +251,7 @@ classdef orbit
         otherwise
           error([mfilenane,': unknown TU Delft orbit for satellite ''',in,''', debug needed!'])
       end
-      doy=simpletimeseries.FromDateTime(start,'doy');
+      doy=simpletimeseries.FromDateTime(start,'yeardoysec');
       filename=[prefix,'.',num2str(doy(1)-round(doy(1)/1e3)*1e3),'.',num2str(doy(2),'%03d'),'_KIPP.sigma.gz'];
       dirname=fullfile(data_dir,'gswarm','tudelft','orbit',num2str(year(start)));
     end
