@@ -47,9 +47,9 @@ classdef str
         out=in;
       elseif islogical(in)
         if in
-          out='true';
+          out='T';
         else
-          out='false';
+          out='F';
         end
       elseif isdatetime(in)
         out=datestr(in,'yyyy-mm-dd HH:MM:SS.FFF');
