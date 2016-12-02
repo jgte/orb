@@ -87,7 +87,7 @@ classdef simpledata
         end
       end
     end
-    function [x,varargout] = union(x1,x2)
+    function [x,varargout] = union(x1,x2,tol)
       %If x1 and x2 are (for example) time domains, with each entry being a time
       %value, x is the vector of entries in either <x1> or <x2>.
       %
@@ -119,6 +119,9 @@ classdef simpledata
         varargout={[],[]};
         return
       end
+      if ~exist('tol','var') || isempty(tol)
+        tol=1e-6;
+      end
       %sanity
       if ~isvector(x1) || ~isvector(x2)
         error([mfilename,': inputs <x1> and <x2> must be 1D vectors.']);
@@ -133,20 +136,22 @@ classdef simpledata
         varargout={true(size(x1)),true(size(x2))};
         return
       end
-      %get first output argument
-      x=unique([x1(:);x2(:)]);
+      %get first output argument (need to use tolerance to captures time system conversion errors)
+      xt=[x1(:);x2(:)];
+      tol=tol/max(abs(xt));
+      x=uniquetol(xt,tol);
       %maybe we're done here
       if nargout==1
         return
       end
       %get second argument
-      varargout(1)={ismember(x,x1)};
+      varargout(1)={ismembertol(x,x1,tol)};
       %maybe we're done here
       if nargout==2
         return
       end
       %get third argument
-      varargout(2)={ismember(x,x2)};
+      varargout(2)={ismembertol(x,x2,tol)};
       %now we're done for sure
       return
     end
@@ -276,20 +281,20 @@ classdef simpledata
       end
       fprintf(msg)
       %declare type of output argument
-      out=true(numel(obj_list)-1);
+      out=cell(numel(obj_list)-1,1);
       %loop over obj list
       for i=1:numel(obj_list)-1
         c=c+1;
-        out(i)=obj_list{i}.isequal(obj_list{i+1},columns); 
+        out{i}=obj_list{i}.isequal(obj_list{i+1},columns); 
         msg=sprintf(fmt,c,c_max);
         fprintf([repmat('\b',1,numel(msg)),msg])
       end
       fprintf('\n')
     end
-    function out=stats2(obj1,obj2,mode,varargin)
+    function out=stats2(obj1,obj2,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'mode',             @(i) ischar(i));
+      p.addParameter('mode',   'struct', @(i) ischar(i));
       p.addParameter('minlen', 2,        @(i) isscalar(i));
       p.addParameter('outlier',0,        @(i) isfinite(i));
       p.addParameter('nsigma', simpledata.default.nSigma, @(i) isnumeric(i));
@@ -298,7 +303,7 @@ classdef simpledata
         @(i) iscellstr(i)...
       )
       % parse it
-      p.parse(mode,varargin{:});
+      p.parse(varargin{:});
       %need compatible objects
       compatible(obj1,obj2)
       %remove outliers
@@ -328,7 +333,7 @@ classdef simpledata
         out=size(obj1.y_masked,1)*ones(1,obj1.width); %could also be obj2
       case 'struct'
         for f=p.Results.struct_fields;
-          out.(f{1})=simpledata.stats2(obj1,obj2,f{1},'outlier',0);
+          out.(f{1})=simpledata.stats2(obj1,obj2,'mode',f{1},'outlier',0);
         end
       otherwise
         error([mfilename,': unknown mode.'])
@@ -615,8 +620,9 @@ classdef simpledata
       obj.disp_field('first datum',tab,sum(obj.x(1)))
       obj.disp_field('last datum', tab,sum(obj.x(end)))
       if obj.width<10
-        obj.disp_field('statistics', tab,[10,obj.stats('str-nl','tab',tab)])
+        obj.disp_field('statistics', tab,[10,stats(obj,'mode','str-nl','tab',tab,'period',inf)])
       end
+      obj.peek
     end
     function disp_field(obj,field,tab,value)
       if ~exist('value','var') || isempty(value)
@@ -624,10 +630,29 @@ classdef simpledata
       end
       disp([str.tabbed(field,tab),' : ',str.show(transpose(value(:)))])
     end
-    function out=stats(obj,mode,varargin)
+    function peek(obj,idx,tab)
+      if ~exist('tab','var') || isempty(tab)
+        tab=12;
+      end
+      if ~exist('idx','var') || isempty(idx)
+        idx=[1:min([10,ceil(0.45*obj.length)]),max([obj.length-10,floor(0.55*obj.length)]):obj.length];
+      end
+      for i=1:numel(idx)
+        out=cell(1,obj.width);
+        for j=1:numel(out)
+          out{j}=str.tabbed(num2str(obj.y(idx(i),j)),tab,true);
+        end
+        disp([...
+          str.tabbed(num2str(obj.x(idx(i))),tab,true),' ',...
+          strjoin(out),' ',...
+          str.show(obj.mask(idx(i)))...
+        ])
+      end
+    end
+    function out=stats(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'mode',             @(i) ischar(i));
+      p.addParameter('mode',   'struct', @(i) ischar(i));
       p.addParameter('frmt',   '%-16.3g',@(i) ischar(i));
       p.addParameter('tab',    8,        @(i) isscalar(i));
       p.addParameter('minlen', 2,        @(i) isscalar(i));
@@ -639,7 +664,7 @@ classdef simpledata
         @(i) iscellstr(i)...
       )
       % parse it
-      p.parse(mode,varargin{:});
+      p.parse(varargin{:});
       %remove outliers
       for c=1:p.Results.outlier
         obj=obj.outlier(p.Results.nsigma);
@@ -672,7 +697,7 @@ classdef simpledata
           out{i}=[...
             str.tabbed(p.Results.struct_fields{i},p.Results.tab),' : ',...
             num2str(...
-            stats@simpledata(obj,p.Results.struct_fields{i},varargin{:}),...
+            stats@simpledata(obj,varargin{:},'mode',p.Results.struct_fields{i}),...
             p.Results.frmt)...
           ];
         end
@@ -697,11 +722,11 @@ classdef simpledata
             strjoin(out(2*mid_idx+1:end),'; ')...
             ];
         case 'str-nl'
-          out=strjoin(out,10);
+          out=strjoin(out,'\n');
         end
       case 'struct'
         for f=p.Results.struct_fields;
-          out.(f{1})=stats@simpledata(obj,f{1},varargin{:});
+          out.(f{1})=stats@simpledata(obj,varargin{:},'mode',f{1});
         end
       otherwise
         error([mfilename,': unknown mode.'])
@@ -790,7 +815,21 @@ classdef simpledata
       %update width
       obj.width=numel(columns);
       %retrieve requested columns
-      obj.y=obj.y(:,columns);
+      obj.y      =obj.y(:,    columns);
+      obj.labels =obj.labels( columns);
+      obj.y_units=obj.y_units(columns);
+    end
+    function obj=get_cols(obj,columns)
+      obj=obj.cols(columns);
+    end
+    function obj=set_cols(obj,columns,values)
+      y_now=obj.y;
+      if isnumeric(values)
+        y_now(:,columns)=values;
+      else
+        y_now(:,columns)=values.y;
+      end
+      obj=obj.assign(y_now);
     end
     function out=y_masked(obj,mask,columns)
       if ~exist('mask','var') || isempty(mask)
@@ -1109,44 +1148,75 @@ classdef simpledata
     function out=isxequal(obj1,obj2)
       out=obj1.length==obj2.length && all(obj1.x==obj2.x);
     end
-    function compatible(obj1,obj2)
+    function compatible(obj1,obj2,varargin)
       %This method checks if the objectives are referring to the same
       %type of data, i.e. the data length is not important.
+      % parse inputs
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('compatible_parameters',simpledata.compatible_parameter_list,@(i) iscellstr(i))
+      % parse it
+      p.parse(varargin{:});
+      %basic sanity
       if (obj1.width ~= obj2.width)
         error([mfilename,': incompatible objects: different number of columns'])
       end
-      parameters=simpledata.compatible_parameter_list;
-      for i=1:numel(parameters)
+      %shorter names
+      par=p.Results.compatible_parameters;
+      for i=1:numel(par)
         % if a parameter is empty, no need to check it
-        if ( iscell(obj1.(parameters{i})) && isempty([obj1.(parameters{i}){:}]) ) || ...
-           ( ischar(obj1.(parameters{i})) && isempty( obj1.(parameters{i})    ) ) || ...
-           ( iscell(obj2.(parameters{i})) && isempty([obj2.(parameters{i}){:}]) ) || ...
-           ( ischar(obj2.(parameters{i})) && isempty( obj2.(parameters{i})    ) )
+        if ( iscell(obj1.(par{i})) && isempty([obj1.(par{i}){:}]) ) || ...
+           ( ischar(obj1.(par{i})) && isempty( obj1.(par{i})    ) ) || ...
+           ( iscell(obj2.(par{i})) && isempty([obj2.(par{i}){:}]) ) || ...
+           ( ischar(obj2.(par{i})) && isempty( obj2.(par{i})    ) )
           continue
         end
-        if ~isequal(obj1.(parameters{i}),obj2.(parameters{i}))
-          error([mfilename,': discrepancy in parameter ',parameters{i},'.'])
+        if ~isequal(obj1.(par{i}),obj2.(par{i}))
+          error([mfilename,': discrepancy in parameter ',par{i},'.'])
         end 
       end
     end
-    function [obj1,obj2]=consolidate(obj1,obj2,varargin)
+    function [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2,varargin)
+      %add as gaps those x in obj1 that are in obj2 but not in obj1
+      %NOTICE:
+      % - idx1 contains the index of the x in obj1 that were added from obj2
+      % - idx2 contains the index of the x in obj2 that were added from obj1
+      % - no data is propagated between objects, only the time domain is changed!
+      [obj1_out,idx2]=obj1.x_merge(obj2.x);
+      if nargout>1
+        %add as gaps in obj2 those x that are in obj1 but not in obj2
+        [obj2_out,idx1]=obj2.x_merge(obj1.x);
+        %sanity on outputs
+        if obj1_out.length~=obj2_out.length || any(obj1_out.x~=obj2_out.x)
+          error([mfilename,': BUG TRAP: merge operation failed.'])
+        end
+      end
+    end
+    function [obj1,obj2]=interp2(obj1,obj2,varargin)
       %extends the x-domain of both objects to be in agreement
       %with the each other. The resulting x-domains possibly have
       %numerous gaps, which are interpolated over (interpolation
       %scheme and other options can be set in varargin).
-      compatible(obj1,obj2)
+      compatible(obj1,obj2,varargin{:})
       %trivial call
       if isxequal(obj1,obj2)
         return
       end
       %build extended x-domain
-      x_total=unique([obj1.x(:);obj2.x(:)]);
+      x_total=simpledata.union(obj1.x,obj2.x);
       %interpolate obj1 over x_total
       obj1=obj1.interp(x_total,varargin{:});
       %interpolate obj2 over x_total
       obj2=obj2.interp(x_total,varargin{:});
     end
     function [obj,idx1,idx2]=append(obj1,obj2)
+      %trivial call
+      if isempty(obj2)
+        idx1=true( obj1.length,1);
+        idx2=false(obj1.length,1);
+        obj=obj1;
+        return
+      end
       %sanity
       compatible(obj1,obj2)
       %append with awareness
@@ -1170,26 +1240,11 @@ classdef simpledata
       %update object
       obj=obj1.assign(y_now,'x',x_now,'mask',mask_now);
     end
-    function [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2)
-      %NOTICE:
-      % - idx1 contains the index of the x in obj1 that were added from obj2
-      % - idx2 contains the index of the x in obj2 that were added from obj1
-      % - no data is propagated between objects, only the time domain is changed!
-      %add as gaps in obj1 those x that are in obj2 but not in obj1
-      [obj1_out,idx2]=obj1.x_merge(obj2.x);
-      if nargout>1
-        %add as gaps in obj2 those x that are in obj1 but not in obj2
-        [obj2_out,idx1]=obj2.x_merge(obj1.x);
-        %sanity on outputs
-        if obj1_out.length~=obj2_out.length || any(obj1_out.x~=obj2_out.x)
-          error([mfilename,': BUG TRAP: merge operation failed.'])
-        end
-      end
-    end
     function obj1_out=augment(obj1,obj2)
       %NOTICE:
       % - obj1 receives the data from obj2, at those epochs defined in obj2
-      % - data from obj1 with epochs existing in obj2 are discarded (a report is given in case there is discrepancy in the data)
+      % - data from obj1 with epochs existing in obj2 are discarded (a 
+      %   report is given in case there is discrepancy in the data)
       %need compatible data
       obj1.compatible(obj2);
       %merge x domain, also get idx2, which is needed to propagate data
@@ -1227,44 +1282,64 @@ classdef simpledata
     end
     %% algebra
     function obj1=plus(obj1,obj2)
-      %sanity
-      compatible(obj1,obj2)
-      %operate
-      if obj1.length==1
-        obj1.y=obj1.y*ones(1,obj2.length)+obj2.y;
-      elseif obj2.length==1
-        obj1.y=obj2.y*ones(1,obj2.length)+obj1.y;
+      if isnumeric(obj2)
+        obj1.y=obj1.y+obj2;
+      elseif isnumeric(obj1)
+        obj1=obj1+obj2.y;
       else
-        %consolidate data sets
-        [obj1,obj2]=obj1.consolidate(obj2);
-        obj1.y=obj1.y+obj2.y;
+        %sanity
+        compatible(obj1,obj2)
+        %operate
+        if obj1.length==1
+          obj1.y=obj1.y*ones(1,obj2.length)+obj2.y;
+        elseif obj2.length==1
+          obj1.y=obj2.y*ones(1,obj2.length)+obj1.y;
+        else
+          %consolidate data sets
+          [obj1,obj2]=obj1.merge(obj2);
+          obj1.y=obj1.y+obj2.y;
+        end
       end
     end
     function obj1=minus(obj1,obj2)
-      %sanity
-      compatible(obj1,obj2)
-      %operate
-      if obj1.length==1
-        obj1.y=obj1.y*ones(1,obj2.length)-obj2.y;
-      elseif obj2.length==1
-        obj1.y=obj2.y*ones(1,obj2.length)-obj1.y;
+      if isnumeric(obj2)
+        obj1.y=obj1.y-obj2;
+      elseif isnumeric(obj1)
+        obj1=obj1-obj2.y;
       else
-        %consolidate data sets
-        [obj1,obj2]=obj1.consolidate(obj2);
+        %sanity
+        compatible(obj1,obj2)
         %operate
-        obj1.y=obj1.y-obj2.y;
+        if obj1.length==1
+          obj1.y=obj1.y*ones(1,obj2.length)-obj2.y;
+        elseif obj2.length==1
+          obj1.y=obj2.y*ones(1,obj2.length)-obj1.y;
+        else
+          %consolidate data sets
+          [obj1,obj2]=obj1.merge(obj2);
+          %operate
+          obj1.y=obj1.y-obj2.y;
+        end
       end
     end
-    function obj=scale(obj,scale)
-      if isscalar(scale)
-        obj.y=scale*obj.y;
+    function obj=scale(obj,scl)
+      if isscalar(scl)
+        obj.y=scl*obj.y;
+      elseif isvector(scl)
+        if numel(scl)==obj.width
+          for i=1:numel(scl)
+            obj.y(:,i)=obj.y(:,i)*scl(i);
+          end
+        elseif numel(scl)==obj.length
+          for i=1:obj.width
+            obj.y(:,i)=obj.y(:,i).*scl(:);
+          end
+        else
+          error([mfilename,': if input <scale> is a vector, ',...
+            'it must have the same length as either the witdh or length of <obj>.'])
+        end
       else
-        if numel(scale)~=obj.width
-          error([mfilename,': if input <scale> is a vector, it must have the same length as the witdh of <obj>.'])
-        end
-        for i=1:numel(scale)
-          obj.y(:,i)=obj.y(:,i)*scale(i);
-        end
+        obj.y=obj.y.*scl;
       end
     end
     function obj=uminus(obj)
@@ -1275,8 +1350,12 @@ classdef simpledata
     end
     function obj1=times(obj1,obj2)
       if isnumeric(obj2)
-        obj1=scale(obj1,obj2);
+        obj1=obj1.scale(obj2);
+      elseif isnumeric(obj1)
+        obj1=obj2.scale(obj1).y;
       else
+        %sanity
+        compatible(obj1,obj2,'compatible_parameters',{'x_units'})
         %operate
         if obj1.length==1
           obj1.y=obj1.y*ones(1,obj2.length).*obj2.y;
@@ -1284,34 +1363,44 @@ classdef simpledata
           obj1.y=obj2.y*ones(1,obj2.length).*obj1.y;
         else
           %consolidate data sets
-          [obj1,obj2]=obj1.consolidate(obj2);
+          [obj1,obj2]=obj1.merge(obj2);
           %operate
           obj1.y=obj1.y.*obj2.y;
         end
       end
     end
     function obj1=rdivide(obj1,obj2)
-      %operate
-      if obj1.length==1
-        obj1.y=obj1.y*ones(1,obj2.length)./obj2.y;
-      elseif obj2.length==1
-        obj1.y=obj2.y*ones(1,obj2.length)./obj1.y;
+      if isnumeric(obj2)
+        obj1=scale(obj1,1/obj2);
+      elseif isnumeric(obj1)
+        obj1=obj2.scale(1/obj1).y;
       else
-        %consolidate data sets
-        [obj1,obj2]=obj1.consolidate(obj2);
+        %sanity
+        compatible(obj1,obj2,'compatible_parameters',{'x_units'})
         %operate
-        obj1.y=obj1.y./obj2.y;
+        if obj1.length==1
+          obj1.y=obj1.y*ones(1,obj2.length)./obj2.y;
+        elseif obj2.length==1
+          obj1.y=obj2.y*ones(1,obj2.length)./obj1.y;
+        else
+          %sanity
+          compatible(obj1,obj2,'compatible_parameters',{'x_units'})
+          %consolidate data sets
+          [obj1,obj2]=obj1.merge(obj2);
+          %operate
+          obj1.y=obj1.y./obj2.y;
+        end
       end
     end
     function obj=and(obj,obj_new)
       %consolidate data sets
-      [obj,obj_new]=obj.consolidate(obj_new);
+      [obj,obj_new]=obj.merge(obj_new);
       %operate
       obj=obj.mask_and(obj_new.mask);
     end
     function obj=or(obj,obj_new)
       %consolidate data sets
-      [obj,obj_new]=obj.consolidate(obj_new);
+      [obj,obj_new]=obj.merge(obj_new);
       %operate
       obj=obj.mask_or(obj_new.mask);
     end
@@ -1344,14 +1433,18 @@ classdef simpledata
       out=obj.y./(obj.norm*ones(1,obj.width));
     end
     function obj=dot(obj,obj_new)
+      %sanity
+      compatible(obj1,obj2,'compatible_parameters',{'x_units'})
       %consolidate data sets
-      [obj,obj_new]=obj.consolidate(obj_new);
+      [obj,obj_new]=obj.merge(obj_new);
       %operate
       obj=obj.assign(sum(obj.y.*obj_new.y,2),'reset_width',true);
     end
     function obj=cross(obj,obj_new)
+      %sanity
+      compatible(obj1,obj2,'compatible_parameters',{'x_units'})
       %consolidate data sets
-      [obj,obj_new]=obj.consolidate(obj_new);
+      [obj,obj_new]=obj.merge(obj_new);
       %operate
       obj=obj.assign(cross(obj.y,obj_new.y));
     end
