@@ -66,9 +66,9 @@ classdef str
         right_justified=false;
       end
       if right_justified
-        out=[repmat(' ',1,tab-numel(in)),in];
+        out=str.just(in,tab,'right');
       else
-        out=[in,repmat(' ',1,tab-numel(in))];
+        out=str.just(in,tab,'left');
       end
     end
     function s=clean(s,mode)
@@ -120,6 +120,12 @@ classdef str
       else
         out=isfield(parser.Unmatched,field);
       end
+    end
+    function out=just(in,len,mode)
+      if ~exist('mode','var') || isempty(mode)
+        mode='center';
+      end
+      out=strjust([repmat(' ',1,len-numel(in)),in],mode);
     end
   end
 end
