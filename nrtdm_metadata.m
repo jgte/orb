@@ -120,6 +120,11 @@ classdef nrtdm_metadata
         else
           out{i}=f{i}(idx(1)+1:idx(2)-1);
         end
+        %translate '/s/s' to /s^2'
+        idx=strfind(out{i},'/s/s');
+        if ~isempty(idx)
+          out{i}=strrep(out{i},'/s/s','/s^2');
+        end
       end
     end
     function out=get.fields_no_units(obj)
