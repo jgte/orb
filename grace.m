@@ -62,6 +62,13 @@ classdef grace
           'AC0ZQ' ,5e-6...
         )...
       ),...
+      'par_acc',struct(...
+        'data_col_name',{{'X','Y','Z'}},...
+        'data_col_idx',[1 3]...
+      ),...
+      'par_data',struct(...
+        'dir','data'...
+      ),...
       'par_plot',struct(...
         'dir','plots',...
         'prefix','',...
@@ -83,6 +90,8 @@ classdef grace
     parameter_list=struct(...
       'par_modes',      struct('default',grace.default_list.par_modes,     'validation',@(i) isstruct(i)),...
       'par_calpar_csr', struct('default',grace.default_list.par_calpar_csr,'validation',@(i) isstruct(i)),...
+      'par_acc',        struct('default',grace.default_list.par_acc,      'validation',@(i) isstruct(i)),...
+      'par_data',       struct('default',grace.default_list.par_data,      'validation',@(i) isstruct(i)),...
       'par_plot',       struct('default',grace.default_list.par_plot,      'validation',@(i) isstruct(i)),...
       'start',          struct('default',datetime([0 0 31]),               'validation',@(i) isdatetime(i)),...
       'stop',           struct('default',datetime([0 0 31]),               'validation',@(i) isdatetime(i))...
@@ -452,40 +461,30 @@ classdef grace
                sat,                 '.';...
                suffix,              '.';...
                obj.par.plot.suffix, '.'};
-        out=cell(numel(parts)/2,1);
-        for i=1:numel(parts)/2
-          if ~isempty(parts{i,1})
-            out{i}=parts{i,1};
-            if ~strcmp(out{i}(end),parts{i,2})
-              out{i}=[out{i},parts{i,2}];
-            end
-          else
-            out{i}='';
-          end
-        end
-        out=[strjoin(out,''),'png'];
-      case 'mat'
-        parts={obj.par.plot.dir,    '/';...
-               datatype,            '.';...
+        ext='png';
+      case 'data'
+        parts={obj.par.data.dir,    '/';...
+               datatype,            '/';...
                level,               '.';...
                field,               '.';...
                sat,                 '.';...
                suffix,              '.'};
-        out=cell(numel(parts)/2,1);
-        for i=1:numel(parts)/2
-          if ~isempty(parts{i,1})
-            out{i}=parts{i,1};
-            if ~strcmp(out{i}(end),parts{i,2})
-              out{i}=[out{i},parts{i,2}];
-            end
-          else
-            out{i}='';
-          end
-        end
-        out=[strjoin(out,''),'mat'];
+        ext='mat';
       otherwise
         error([mfilename,': cannot handle mode ',mode,'.'])
       end
+      out=cell(numel(parts)/2,1);
+      for i=1:numel(parts)/2
+        if ~isempty(parts{i,1})
+          out{i}=parts{i,1};
+          if ~strcmp(out{i}(end),parts{i,2})
+            out{i}=[out{i},parts{i,2}];
+          end
+        else
+          out{i}='';
+        end
+      end
+      out=[strjoin(out,''),ext];
       if isempty(dir(fileparts(out)))
         system(['mkdir -vp ',fileparts(out)]);
       end
@@ -558,7 +557,7 @@ classdef grace
               end
             end
           end
-          %loop over all sat and level
+          %loop over all sat and level to check for consistent time domain and Job IDs agreement
           for i=1:size(levels)
             for sat=grace.sats
               %gather names for this sat and level
@@ -578,6 +577,84 @@ classdef grace
                   error([mfilename,': Job ID inconsistency between ',...
                     '[',strjoin(names{j  },','),'] and ',...
                     '[',strjoin(names{j+1},','),']  (possibly more).'])
+                end
+              end
+            end
+          end
+          %loop over all sats, levels and fields to:
+          % - in case of estim: ensure that there are no arcs with lenghts longer than consecutive time stamps
+          % - in case of aak and accatt: ensure that the t0 value is the same as the start of the arc
+          for sat=grace.sats
+            %loop over all required levels
+            for i=1:numel(levels)
+              switch levels{i}
+              case 'estim'
+                %this check ensures that there are no arcs with lenghts longer than consecutive time stamps
+                for j=1:numel(fields)
+                  disp(['Checking ',datatype,'-',levels{i},'-',fields{j},'-',sat{1}])
+                  %save time series into dedicated var
+                  ts_now=obj.sat_get(datatype,levels{i},fields{j},sat{1});
+                  %forget about epochs that have been artificially inserted to represent forward steps
+                  idx1=find(diff(ts_now.t)>seconds(1));
+                  %get arc lenths
+                  al=ts_now.y(idx1,3);
+                  %get consecutive time difference
+                  dt=seconds(diff(ts_now.t(idx1)));
+                  %find arcs that span over time stamps
+                  bad_idx=find(al(1:end-1)-dt>ts_now.t_tol); %no abs here!
+                  %report if any such epochs have been found
+                  if ~isempty(bad_idx)
+                    str=cell(1,min([numel(bad_idx),10]));
+                    for k=1:numel(str)
+                      idx=idx1(bad_idx(k));
+                      str{k}=[...
+                        datestr(ts_now.t(idx)),' ',...
+                        num2str(al(bad_idx(k)),'%.5d'),' ',...
+                        num2str(dt(bad_idx(k))),' ',...
+                        num2str(al(bad_idx(k))-dt(bad_idx(k)))...
+                        ];
+                    end
+                    error([mfilename,...
+                      ': found ',num2str(sum(bad_idx)),' arc lengths (2nd column) longer than ',...
+                      ' difference between consecutive time stamps (3rd column):',10,...
+                      strjoin(str,'\n')...
+                    ])
+                  end
+                end
+              case {'aak','accatt'}
+                %this check ensures that the t0 value is the same as the start of the arc
+                for j=1:numel(fields)
+                  %some fields do not have t0
+                  if ~any(fields{j}(end)=='DQ')
+                    disp(['Skipping ',datatype,'-',levels{i},'-',fields{j},'-',sat{1}])
+                    continue
+                  end
+                  disp(['Checking ',datatype,'-',levels{i},'-',fields{j},'-',sat{1}])
+                  %save time series into dedicated var
+                  ts_now=obj.sat_get(datatype,levels{i},fields{j},sat{1});
+                  %forget about epochs that have been artificially inserted to represent forward steps
+                  idx1=find(diff(ts_now.t)>seconds(1));
+                  %get t0
+                  t0=simpletimeseries.utc2gps(datetime(ts_now.y(idx1,3),'convertfrom','modifiedjuliandate'));
+                  %find arcs that have (much) t0 different than their first epoch
+                  bad_idx=find(abs(ts_now.t(idx1)-t0)>seconds(1));
+                  %report if any such epochs have been found
+                  if ~isempty(bad_idx)
+                    str=cell(1,min([numel(bad_idx),10]));
+                    for k=1:numel(str)
+                      idx=idx1(bad_idx(k));
+                      str{k}=[...
+                        datestr(ts_now.t(idx1(bad_idx(k))),'yyyy-mm-dd HH:MM:SS'),' - ',...
+                        datestr(t0(bad_idx(k)),'yyyy-mm-dd HH:MM:SS'),' = ',...
+                        char(ts_now.t(idx1(bad_idx(k)))-t0(bad_idx(k)))...
+                      ];
+                    end
+                    error([mfilename,...
+                      ': found ',num2str(numel(bad_idx)),' arc lengths (2nd column) longer than ',...
+                      ' difference between consecutive time stamps (3rd column):',10,...
+                      strjoin(str,'\n')...
+                    ])
+                  end
                 end
               end
             end
@@ -609,7 +686,7 @@ classdef grace
         end
         % gather list of daily dates
         datelist=simpletimeseries.list(p.Results.start,p.Results.stop,days(1));
-        for sat={'A','B'}
+        for sat=grace.sats
           switch [p.Results.level,'-',p.Results.field]
           case 'l1b-csr'
             %build required file list
@@ -648,9 +725,11 @@ classdef grace
       otherwise
         error([mfilename,': cannot handle datatype ''',datatype,'''.'])
       end
-      %make sure start/stop options are honoured
-      obj.start=p.Results.start;
-      obj.stop= p.Results.stop;
+      %make sure start/stop options are honoured (if non-empty)
+      if ~isempty(obj)
+        obj.start=p.Results.start;
+        obj.stop= p.Results.stop;
+      end
     end
     %% costumized operations
     function out=data_op(obj,opname,datatype,level,varargin)
@@ -663,9 +742,9 @@ classdef grace
       case 'calpar_csr'
         switch lower(opname)
         case 'load-stats'
-          stats_filename=obj.id('mat','calpar_csr',level,'','','stats');
+          stats_filename=obj.id('data','calpar_csr',level,'','','stats');
           if isempty(dir(stats_filename))
-            for sat={'A','B'};
+            for sat=grace.sats
               %retrive data for this satellite
               [dv,dn]=obj.cell_get('calpar_csr',level,'',sat{1});
               % loop over CSR cal pars
@@ -694,7 +773,7 @@ classdef grace
           %outputs
           out=s;
         case 'load-stats2'
-          stats_filename=obj.id('mat','calpar_csr',level,'','','stats2');
+          stats_filename=obj.id('data','calpar_csr',level,'','','stats2');
           if isempty(dir(stats_filename))
             %retrive data
             A=obj.cell_get('calpar_csr',level,'','A');
@@ -717,129 +796,54 @@ classdef grace
             load(stats_filename)
           end
           %outputs
-          out=s;
-        case 'time-sanity'
-          if isempty(level)
-            level={'aak','accatt','estim'};
-          elseif ~iscell(level)
-            level={level};
-          end
-          %set outputs (it never gets there is there's any failed sanity check
-          out=true;
-          %loop over all sats
-          for sat=grace.sats
-            %loop over all required levels
-            for i=1:numel(level)
-              fields=obj.fields(datatype,level{i});
-              switch level{i}
-              case 'estim'
-                %this check ensures that there are no arcs with lenghts longer than consecutive time stamps
-                for j=1:numel(fields)
-                  disp(['Checking ',datatype,'-',level{i},'-',fields{j},'-',sat{1}])
-                  %save time series into dedicated var
-                  ts_now=obj.sat_get(datatype,level{i},fields{j},sat{1});
-                  %forget about epochs that have been artificially inserted to represent forward steps
-                  idx1=find(diff(ts_now.t)>seconds(1));
-                  %get arc lenths
-                  al=ts_now.y(idx1,3);
-                  %get consecutive time difference
-                  dt=seconds(diff(ts_now.t(idx1)));
-                  %find arcs that span over time stamps
-                  bad_idx=find(al(1:end-1)-dt>ts_now.t_tol); %no abs here!
-                  %report if any such epochs have been found
-                  if ~isempty(bad_idx)
-                    str=cell(1,min([numel(bad_idx),10]));
-                    for k=1:numel(str)
-                      idx=idx1(bad_idx(k));
-                      str{k}=[...
-                        datestr(ts_now.t(idx)),' ',...
-                        num2str(al(bad_idx(k)),'%.5d'),' ',...
-                        num2str(dt(bad_idx(k))),' ',...
-                        num2str(al(bad_idx(k))-dt(bad_idx(k)))...
-                        ];
-                    end
-                    error([mfilename,...
-                      ': found ',num2str(sum(bad_idx)),' arc lengths (2nd column) longer than ',...
-                      ' difference between consecutive time stamps (3rd column):',10,...
-                      strjoin(str,'\n')...
-                    ])
-                  end
-                end
-              case {'aak','accatt'}
-                %this check ensures that the t0 value is the same as the start of the arc
-                for j=1:numel(fields)
-                  %some fields do not have t0
-                  if ~any(fields{j}(end)=='DQ')
-                    disp(['Skipping ',datatype,'-',level{i},'-',fields{j},'-',sat{1}])
-                    continue
-                  end
-                  disp(['Checking ',datatype,'-',level{i},'-',fields{j},'-',sat{1}])
-                  %save time series into dedicated var
-                  ts_now=obj.sat_get(datatype,level{i},fields{j},sat{1});
-                  %forget about epochs that have been artificially inserted to represent forward steps
-                  idx1=find(diff(ts_now.t)>seconds(1));
-                  %get t0
-                  t0=simpletimeseries.utc2gps(datetime(ts_now.y(idx1,3),'convertfrom','modifiedjuliandate'));
-                  %find arcs that have (muhc) t0 different than their first epoch
-                  bad_idx=find(abs(ts_now.t(idx1)-t0)>seconds(1));
-                  %report if any such epochs have been found
-                  if ~isempty(bad_idx)
-                    str=cell(1,min([numel(bad_idx),10]));
-                    for k=1:numel(str)
-                      idx=idx1(bad_idx(k));
-                      str{k}=[...
-                        datestr(ts_now.t(idx1(bad_idx(k)))),' ',...
-                        datestr(t0(bad_idx(k))),' ',...
-                        char(seconds(ts_now.t(idx1(bad_idx(k))-t0(bad_idx(k)))))...
-                      ];
-                    end
-                    error([mfilename,...
-                      ': found ',num2str(sum(bad_idx)),' arc lengths (2nd column) longer than ',...
-                      ' difference between consecutive time stamps (3rd column):',10,...
-                      strjoin(str,'\n')...
-                    ])
-                  end
-                end
-              end
-            end
-          end
+          out=s;          
         case 'calmod'
           dci=obj.par.calpar_csr.data_col_idx;
           coord=obj.par.calpar_csr.coord;
           for sat=grace.sats
             %gather quantities
             acc  =obj.sat_get('acc','l1b','csr',sat{1});
-            %init models container
-            calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coord)));
-            for i=1:numel(coord)
-              %skip Y coordinate for now
-              if coord{i}=='Y',continue,end
-              %build nice structure with the relevant calibration parameters
-              cal=struct(...
-                'ac0' ,obj.sat_get(datatype,level,['AC0',coord{i}    ],sat{1}).interp(acc.t),...
-                'ac0d',obj.sat_get(datatype,level,['AC0',coord{i},'D'],sat{1}).interp(acc.t),...
-                'ac0q',obj.sat_get(datatype,level,['AC0',coord{i},'Q'],sat{1}).interp(acc.t)...
+            if ~isa(acc,'simpletimeseries')
+              %patch nan calibration model
+              calmod=simpletimeseries(...
+                [obj.start;obj.stop],...
+                nan(2,numel(obj.par.acc.data_col_name))...
               );
-              %sanity
-              if any([isempty(acc),isempty(cal.ac0),isempty(cal.ac0d),isempty(cal.ac0q)])
-                error([mfilename,': not all data is available to perform this operation.'])
+            else
+              %init models container
+              calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coord))).copy_metadata(acc);
+              calmod.descriptor=['calibration model ',level,' GRACE-',upper(sat{1})];
+              disp(['Computing the ',calmod.descriptor])
+              for i=1:numel(coord)
+                %skip Y coordinate for now
+                if coord{i}=='Y',continue,end
+                %build nice structure with the relevant calibration parameters
+                cal=struct(...
+                  'ac0' ,obj.sat_get(datatype,level,['AC0',coord{i}    ],sat{1}).interp(acc.t),...
+                  'ac0d',obj.sat_get(datatype,level,['AC0',coord{i},'D'],sat{1}).interp(acc.t),...
+                  'ac0q',obj.sat_get(datatype,level,['AC0',coord{i},'Q'],sat{1}).interp(acc.t)...
+                );
+                %sanity
+                if any([isempty(acc),isempty(cal.ac0),isempty(cal.ac0d),isempty(cal.ac0q)])
+                  error([mfilename,': not all data is available to perform this operation.'])
+                end
+                %retrieve time domain (it is the same for all cal pars)
+                fields=fieldnames(cal);
+                for l=1:numel(fields)
+                  t.(fields{l})=days(acc.t-simpletimeseries.ToDateTime(cal.(fields{l}).y(:,end),'modifiedjuliandate'));
+                end
+                %paranoid sanity check
+                good_idx=~isnan(t.ac0);
+                if any(t.ac0(good_idx)~=t.ac0d(good_idx)) || any(t.ac0(good_idx)~=t.ac0q(good_idx))
+                  error([mfilename,': calibration time domain inconsistent between parameters, debug needed!'])
+                end
+                %build calibration model
+                calmod=calmod.set_cols(i,...
+                  cal.ac0.cols(dci)+...
+                  cal.ac0d.cols(dci).times(t.ac0d)+...
+                  cal.ac0q.cols(dci).times(t.ac0q.^2)...
+                );
               end
-              %retrieve time domain (it is the same for all cal pars)
-              fields=fieldnames(cal);
-              for l=1:numel(fields)
-                t.(fields{l})=days(acc.t-simpletimeseries.ToDateTime(cal.(fields{l}).y(:,end),'modifiedjuliandate'));
-              end
-              %paranoid sanity check
-              good_idx=~isnan(t.ac0);
-              if any(t.ac0(good_idx)~=t.ac0d(good_idx)) || any(t.ac0(good_idx)~=t.ac0q(good_idx))
-                error([mfilename,': calibration time domain inconsistent between parameters, debug needed!'])
-              end
-              %build calibration model
-              calmod=calmod.set_cols(i,...
-                cal.ac0.cols(dci)+...
-                cal.ac0d.cols(dci).times(t.ac0d)+...
-                cal.ac0q.cols(dci).times(t.ac0q.^2)...
-              );
             end
             %save it
             obj=obj.sat_set('acc','calmod',level,sat{1},calmod);
@@ -852,7 +856,58 @@ classdef grace
       case 'acc'
         switch lower(opname)
         case 'load-stats'
-          error([mfilename,': implementation needed.'])
+          %compute residuals relative to the available models
+          models=obj.fields('acc','mod');
+          for m=1:numel(models)
+            filenames=simpletimeseries.unwrap_datafiles(...
+              obj.id('data','accres_csr',level,models{m},'DATE_PLACE_HOLDER','stats'),...
+              'start',obj.start,...
+              'stop' ,obj.stop,...
+              'only_existing',false...
+            );
+            for i=1:numel(filenames)
+              if isempty(dir(filenames{i}))
+                for sat=grace.sats
+                  %get the l1b acc data
+                  l1bcsr=obj.sat_get('acc','l1b','csr',sat{1});
+                  %get the calibration model
+                  calmod=obj.sat_get('acc','calmod',level,sat{1});
+                  %get the modeled acc
+                  accmod=obj.sat_get('acc','mod',models{m},sat{1});
+                  if any([...
+                    ~isa(l1bcsr,'simpletimeseries'),...
+                    ~isa(calmod,'simpletimeseries'),...
+                    ~isa(accmod,'simpletimeseries')...
+                  ])
+                    %patch nan residuals
+                    accres=simpletimeseries(...
+                      [obj.start;obj.stop],...
+                      nan(2,numel(obj.par.acc.data_col_name))...
+                    );
+                  else
+                    %calibrate the accelerometer
+                    acccal=l1bcsr+calmod;
+                    %compute residual
+                    accres=acccal-accmod;
+                  end
+                  %save descriptor
+                  accres.descriptor=str.clean(filenames{i},{'file','.'});
+                  %compute stats per period
+                  s.(sat{1})=accres.stats(...
+                    'period',days(1),...
+                    'overlap',seconds(0),...
+                    'outlier',p.Results.outlier,...
+                    'struct_fields',obj.par.modes.stats...
+                  );
+                end
+                save(filenames{i},'s')
+              else
+                load(filenames{i})
+              end
+            end
+            %save this data to output var
+            out.(models{m})=s;
+          end
         case 'load-stats2'
           error([mfilename,': implementation needed.'])
         otherwise
@@ -1109,7 +1164,7 @@ classdef grace
                   'period',days(inf),...
                   'outlier',1,...
                   'nsigma',3 ...
-                ).mean(data_col_idx);
+                ).mean(obj.par.(datatype).data_col_idx);
               end
               bar(y,'k')
               %annotating
@@ -1133,7 +1188,7 @@ classdef grace
 %             %single-sat stats
 %             s=obj.data_op('load-stats',datatype,level,varargin{:});
 %             stats_modes=obj.par.modes.stats;
-%             for sat={'a','b'};
+%             for sat=grace.sats
 %               disp(['GRACE-',upper(sat{1})])
 %               for i=0:numel(fields)
 %                 out=cell(1,numel(stats_modes)+1);
@@ -1181,6 +1236,47 @@ classdef grace
       case 'acc'
         switch lower(plotname)
         case ''
+        case 'stats'
+          s=obj.data_op('load-stats',datatype,level,varargin{:});
+          models=fieldnames(s.(level));
+          stats=obj.par.modes.stats;
+          for sat=grace.sats
+            for s=1:numel(stats)
+              for i=1:numel(obj.par.(datatype).data_col_idx)
+                data_col_idx=obj.par.(datatype).data_col_idx(i);
+                data_col_name=obj.par.acc.data_col_names{data_col_idx};
+                filename=obj.id('plot',datatype,level,[stats{s},'-',data_col_name],sat{1});
+                if isempty(dir(filename))
+                  figure('visible',obj.par.plot.visible);
+                  legend_str=cell(1,numel(models));
+                  for m=1:numel(models)
+                    %get current stats timeseries
+                    ts=s.(level).(models{m}).(sat{1}).(stats{s});
+                    %only show stats when there is enough data
+                    switch stats{1}
+                    case 'length'
+                      mask=true(ts.length,1);
+                      scl=0.5;
+                    otherwise
+                      mask=s.(level).(models{m}).(sat{1}).length.y(:,1)>10;
+                      scl=1;
+                    end
+                    %plot it
+                    h=ts.mask_and(mask).mask_update.scale(scl).plot('columns',data_col_idx);
+                    legend_str{m}=[models{m},' \mu=',h.y_mean{data_col_idx}];
+                  end
+                  %plot tweaking
+                  obj.enforce_plot_par('autoscale',true,'automean',true)
+                  legend(legend_str)
+                  ylabel(['[',ts.y_units{data_col_idx},']'])
+                  grid on
+                  title(['daily ',stats{1},' of ',level,'-calib. acc. residuals along ',data_col_name,...
+                    'for GRACE-',sat{1}])
+                  saveas(gcf,filename)
+                end
+              end
+            end
+          end
         otherwise
           error([mfilename,': cannot handle plotname ''',plotname,''' for datatype ''',datatype,'''.'])
         end
