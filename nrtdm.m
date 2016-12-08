@@ -99,6 +99,8 @@ classdef nrtdm
         else
           %save converted matlab data file
           obj=obj.add_file(file);
+          %user feedback
+          disp([mfilename,':   reading data from file ',file])
           %load data
           daily{i}=load(file);
         end
@@ -117,11 +119,16 @@ classdef nrtdm
       end
       %sanity
       if init_flag
-        error([mfilename,':nrtdm'],['could not find any valid data for ',obj.metadata.product.str,...
+        disp([mfilename,':nrtdm: could not find any valid data for ',obj.metadata.product.str,...
           ' from ',datestr(obj.start),' to ',datestr(obj.stop),'.'])
+        obj.ts=simpletimeseries(...
+          [obj.start;obj.stop],...
+          nan(2,obj.metadata.dimension)...
+        );
+      else
+        %trim to selected start/stop times and fill in time domain
+        obj.ts=obj.ts.trim(obj.start,obj.stop).fill;
       end
-      %trim to selected start/stop times and fill in time domain
-      obj.ts=obj.ts.trim(obj.start,obj.stop).fill;
     end
     function obj=add_file(obj,file)
       if isempty(obj.file_list)
@@ -173,12 +180,12 @@ function outfile=nrtdm_convert(metadata,t,varargin)
   t_start=t;
   t_stop =t+days(1)-seconds(1);
 
-  %set specific time system of some satellites
-  switch metadata.product.sat
-  case {'GA','GB'}
-    timesystem='gps';
-  otherwise
-    timesystem='utc';
+  %set time system as defined in the metadata
+  for tsys=simpletimeseries.valid_timesystems
+    if ~isempty(strfind(lower(metadata.entries.epoch),lower(tsys{1})))
+      timesystem=lower(tsys{1});
+      break
+    end
   end
   
   %build one-day-long NRTDM time arguments
@@ -205,14 +212,15 @@ function outfile=nrtdm_convert(metadata,t,varargin)
       ts=simpletimeseries(time,values,...
         'y_units',metadata.units,...
         'labels',metadata.fields_no_units,...
+        'timesystem',timesystem,...
         'descriptor',metadata.product.str...
       ).fill;
       %fill extremeties if they are not there (happens a lot in Swarm data)
       if ts.t(1)>t_start
-        ts=ts.extend(floor((t_start-ts.t(1))/ts.step));
+        ts=ts.extend(t_start).epoch_update;
       end
       if ts.t(end)<t_stop
-        ts=ts.extend(floor((t_stop-ts.t(end))/ts.step));
+        ts=ts.extend(t_stop);
       end
       %fill gaps
       ts=ts.fill; %#ok<NASGU>
