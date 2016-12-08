@@ -1006,9 +1006,12 @@ classdef simpledata
       %NOTICE: x_now = obj.x(idx_now)
       [obj,idx_now]=obj.x_merge(x_now);
       %interpolate over all gaps, use all available information
-      if numel(x_now)==1
-        y_now=obj.y_masked;
-      else
+      switch numel(obj.x_masked)
+      case 0
+        y_now=nan(numel(x_now),obj.width);
+      case 1
+        y_now=ones(numel(x_now),1)*obj.y_masked;
+      otherwise
         y_now=interp1(obj.x_masked,obj.y_masked,x_now(:),p.Results.interp1_args{:});
       end
       % create mask with requested gap interpolation scheme
@@ -1149,7 +1152,7 @@ classdef simpledata
       out=obj1.length==obj2.length && all(obj1.x==obj2.x);
     end
     function compatible(obj1,obj2,varargin)
-      %This method checks if the objectives are referring to the same
+      %This method checks if the objects are referring to the same
       %type of data, i.e. the data length is not important.
       % parse inputs
       p=inputParser;
@@ -1158,6 +1161,9 @@ classdef simpledata
       % parse it
       p.parse(varargin{:});
       %basic sanity
+      if ~strcmp(class(obj1),class(obj2))
+        error([mfilename,': incompatible objects: different classes'])
+      end
       if (obj1.width ~= obj2.width)
         error([mfilename,': incompatible objects: different number of columns'])
       end
