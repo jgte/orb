@@ -27,12 +27,16 @@ classdef simpletimeseries < simpledata
       }}...
     );
     parameter_list=struct(...
-      'format',struct('default','modifiedjuliandate','validation',@(i) ischar(i)),...
-      'units', struct('default',{{''}},              'validation',@(i) iscellstr(i)),...
-      't_tol', struct('default',1e-6,                'validation',@(i) isnumeric(i) && iscalar(i)),...
-      'debug', struct('default',false,               'validation',@(i) islogical(i) && iscalar(i))...
+      'format',    struct('default','modifiedjuliandate','validation',@(i) ischar(i)),...
+      'units',     struct('default',{{''}},              'validation',@(i) iscellstr(i)),...
+      't_tol',     struct('default',1e-6,                'validation',@(i) isnumeric(i) && iscalar(i)),...
+      'timesystem',struct('default','utc',               'validation',@(i) ischar(i)),...
+      'debug',     struct('default',false,               'validation',@(i) islogical(i) && iscalar(i))...
     );
-    gps_zero_epoch='1980-01-06';
+    %These parameter are considered when checking if two data sets are
+    %compatible (and only these).
+    %NOTE: edit this if you add a new parameter (if relevant)
+    compatible_parameter_list={'timesystem'};
   end
   properties(Constant)
     % table of leap seconds since 6 Jan 1980:
@@ -55,11 +59,14 @@ classdef simpletimeseries < simpledata
       datetime('2012-07-01'),... 2012  Jul.   1  - 1s 
       datetime('2015-07-01')...  2015  Jul.   1  - 1s 
     ];
+    valid_timesystems={'utc','gps'};
+    gps_zero_epoch='1980-01-06';
   end
   %read only
   properties(SetAccess=private)
     step
     debug
+    timesystem
   end
   %private (visible only to this object)
   properties(GetAccess=private)
@@ -72,6 +79,7 @@ classdef simpletimeseries < simpledata
     epoch
     start
     stop
+    tsys
   end
   %These parameters should not modify the data in any way; they should
   %only describe the data or the input/output format of it.
@@ -89,6 +97,14 @@ classdef simpletimeseries < simpledata
     end
     function out=valid_epoch(in)
       out=isdatetime(in) && isscalar(in);
+    end
+    function out=valid_timesystem(in)
+      switch lower(in)
+      case simpletimeseries.valid_timesystems
+        out=true;
+      otherwise
+        out=false;
+      end
     end
     function out=time2num(in,epoch)
       if ~exist('epoch','var') || isempty(epoch)
@@ -139,13 +155,14 @@ classdef simpletimeseries < simpledata
     function out=timestep(in,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'in',              @(i) isdatetime(i));
-      p.addParameter('nsigma',    4,    @(i) isnumeric(i)  &&  isscalar(i));
-      p.addParameter('max_iter',  10,   @(i) isnumeric(i)  &&  isscalar(i));
-      p.addParameter('sigma_iter',2,    @(i) isnumeric(i)  &&  isscalar(i));
-      p.addParameter('sigma_crit',1e-9, @(i) isnumeric(i)  &&  isscalar(i));
-      p.addParameter('curr_iter', 0,    @(i) isnumeric(i)  &&  isscalar(i));
-      p.addParameter('disp_flag', false,@(i) islogical(i));
+      p.addRequired( 'in',                @(i) isdatetime(i));
+      p.addParameter('nsigma',    4,      @(i) isnumeric(i)  &&  isscalar(i));
+      p.addParameter('max_iter',  10,     @(i) isnumeric(i)  &&  isscalar(i));
+      p.addParameter('sigma_iter',2,      @(i) isnumeric(i)  &&  isscalar(i));
+      p.addParameter('sigma_crit',1e-9,   @(i) isnumeric(i)  &&  isscalar(i));
+      p.addParameter('max_mean_ratio',1e3,@(i) isnumeric(i)  &&  isscalar(i));
+      p.addParameter('curr_iter', 0,      @(i) isnumeric(i)  &&  isscalar(i));
+      p.addParameter('disp_flag', false,  @(i) islogical(i));
       % parse it
       p.parse(in,varargin{:});
       %handle singularities
@@ -158,10 +175,22 @@ classdef simpletimeseries < simpledata
       end
       %get numeric diff of time
       tdiff=simpletimeseries.timescale(diff(in));
+      %large jumps produce erroneous results, so get rid of those first
+      while std(tdiff)~=0 && max(tdiff)/mean(tdiff)>p.Results.max_mean_ratio
+        %send feedback
+        if p.Results.disp_flag
+          disp([mfilename,': removing large gaps, since max(delta t) is ',num2str(max(diff(tdiff))),...
+            ' and is ',num2str(max(diff(tdiff))/mean(diff(tdiff))),' times larger than mean(delta).'])
+        end
+        tdiff=simpledata.rm_outliers(tdiff,varargin{:});
+        %remove nans
+        tdiff=tdiff(~isnan(tdiff));
+      end
       %get diff of time domain without jumps
       outdiff=simpledata.rm_outliers(tdiff,varargin{:});
       %get rid of nans
       outdiff=outdiff(~isnan(outdiff));
+      %check if there are still lots of gaps in the data
       if std(outdiff)>p.Results.sigma_crit*mean(outdiff) && p.Results.curr_iter < p.Results.max_iter
         %reduce sigma
         nsigma_new=p.Results.nsigma/p.Results.sigma_iter;
@@ -567,11 +596,12 @@ classdef simpletimeseries < simpledata
     function filenames=unwrap_datafiles(in,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired(  'in',       @(i) ischar(i) || iscellstr(i));
-      p.addParameter( 'start',    simpletimeseries.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
-      p.addParameter( 'stop',     simpletimeseries.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
-      p.addParameter( 'period',   days(1),                                  @(i) isscalar(i) && isduration(i));
-      p.addParameter( 'date_fmt', 'yyyy-mm-dd',                             @(i) ischar(i));
+      p.addRequired(  'in',                                                    @(i) ischar(i) || iscellstr(i));
+      p.addParameter( 'start',       simpletimeseries.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
+      p.addParameter( 'stop',        simpletimeseries.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
+      p.addParameter( 'period',      days(1),                                  @(i) isscalar(i) && isduration(i));
+      p.addParameter( 'date_fmt',    'yyyy-mm-dd',                             @(i) ischar(i));
+      p.addParameter( 'only_existing',true,                                    @(i) islogical(i));
       p.parse(in,varargin{:})
       %loop over all inputs
       if iscellstr(in)
@@ -580,6 +610,8 @@ classdef simpletimeseries < simpledata
           filenames{i}=simpletimeseries.unwrap_datafiles(in{i},varargin{:});
         end
         filenames=flatten(filenames);
+        %remove empty entries
+        filenames=filenames(~cellfun('isempty',filenames));
         return
       end
       %need fileparts
@@ -601,7 +633,7 @@ classdef simpletimeseries < simpledata
       %if argument filename has a date place holder, build a cell string with those dates
       if ~isempty(strfind(in,'DATE_PLACE_HOLDER'))
         %sanity
-        if p.Results.start<=p.Results.stop
+        if p.Results.start>=p.Results.stop
           error([mfilename,': input ''start'' (',datestr(p.Results.start),...
             ') is not after input ''stop'' (',datestr(p.Results.stop),').'])
         end
@@ -611,7 +643,7 @@ classdef simpletimeseries < simpledata
           filenames{i}=strrep(in,'DATE_PLACE_HOLDER',datestr(date_list(i),p.Results.date_fmt));
         end
         %unwrap these files again
-        filenames=unwrap_datafiles(filenames,varargin);
+        filenames=simpletimeseries.unwrap_datafiles(filenames,varargin{:});
         %done
         return
       end
@@ -668,7 +700,11 @@ classdef simpletimeseries < simpledata
       end
       
       %if none of the conditions above were met, this is the name of a single file (return char!)
-      filenames=in;
+      if isempty(dir(in)) && p.Results.only_existing
+        filenames='';
+      else
+        filenames=in;
+      end
     end
     function obj=import(filename,varargin)
       p=inputParser;
@@ -685,6 +721,10 @@ classdef simpletimeseries < simpledata
           disp([mfilename,': reading data from file ',filename{i}])
           %read the data from a single file
           obj_now=simpletimeseries.import(filename{i});
+          %skip if empty
+          if isempty(obj_now)
+            continue
+          end
           %handle cutting data to requested periods
           if p.Results.cut24hrs
             %determine current day
@@ -693,7 +733,7 @@ classdef simpletimeseries < simpledata
             obj_now=obj_now.trim(day_now,day_now+hours(24)-obj_now.step);
           end
           %append or initialize
-          if i==1
+          if ~exist('obj','var')
             obj=obj_now;
           else
             try
@@ -702,6 +742,10 @@ classdef simpletimeseries < simpledata
               obj=obj.augment(obj_now);
             end
           end
+        end
+        %in case there are no files, 'filename' will be empty and the loop will be skipped
+        if ~exist('obj','var')
+          obj=[];
         end
         return
       end
@@ -740,6 +784,7 @@ classdef simpletimeseries < simpledata
           'format','datetime',...
           'y_units',{'m','m','m','s','m^2','m^2','m^2','s^2','m^2','m^2','ms','m^s','ms','ms'},...
           'labels', {'x','y','z','t','xx', 'yy', 'zz', 'tt', 'xy', 'xz', 'xt','yz', 'yt','zt'},...
+          'timesystem','utc',...
           'descriptor',['kinematic orbit from file ',filename]...
          );
       case '.GraceAccCal'
@@ -754,10 +799,11 @@ classdef simpletimeseries < simpledata
               strcat(...
                 strrep(cellfun(@(x) [x(1:end-1),' '],raw{4},'UniformOutput',false),'.','/'),...
                 strrep(strrep(raw{5},'.00000000',''),'.',':')...
-              ),...
-            'InputFormat','yyyy/MM/dd HH:mm:ss')...
+              ),'InputFormat','yyyy/MM/dd HH:mm:ss'...
+            )...
           );
           data_fh=@(raw) [raw{7},double(raw{6}),simpletimeseries.FromDateTime(time_fh(raw),'modifiedjuliandate')];
+          timesystem='gps';
         end
         if ~isempty(regexp(filename,'AC0[XYZ][QD]\d?\.aak','once')) || ~isempty(regexp(filename,'AC0[XYZ][QD]\d?\.accatt','once'))
           % 2002 04 05 2002.4.4. 23.59.47.00000000 1498260002  0.1389481692269E-07 52368.99985
@@ -769,10 +815,11 @@ classdef simpletimeseries < simpledata
               strcat(...
                 strrep(cellfun(@(x) [x(1:end-1),' '],raw{4},'UniformOutput',false),'.','/'),...
                 strrep(strrep(raw{5},'.00000000',''),'.',':')...
-              ),...
-            'InputFormat','yyyy/MM/dd HH:mm:ss')...
+              ),'InputFormat','yyyy/MM/dd HH:mm:ss'...
+            )...
           );
           data_fh=@(raw) [raw{7},double(raw{6}),raw{8},simpletimeseries.FromDateTime(time_fh(raw),'modifiedjuliandate')];
+          timesystem='gps';
         end
         if ~isempty(regexp(filename,'AC0[XYZ]\d?\.estim','once')) || ~isempty(regexp(filename,'AC0[XYZ][DQ]\d?\.estim','once'))
           % 2002 04 05 04/05/02 52369 1 0.0 26400.0 1593715  3.774424464092000e-08 -3.585594302740665e-09 3.415865033817934e-08
@@ -783,6 +830,7 @@ classdef simpletimeseries < simpledata
             'ConvertFrom','modifiedjuliandate'...
           );
           data_fh=@(raw) [raw{14},double(raw{11}),raw{10},raw{7}+raw{9}/seconds(days(1))];
+          timesystem='gps';
         end
 
         if isempty(fmt)
@@ -805,7 +853,7 @@ classdef simpletimeseries < simpledata
           %loop inits
           n0=numel(t);
           iter=iter+1;
-          %need to monotonize the data
+          %need to remove duplicate entries with different job IDs
           mask=true(size(t));
           for i=2:numel(t)
             %get rid of those entries with zero or negative time stamp delta and lower ID
@@ -821,11 +869,18 @@ classdef simpletimeseries < simpledata
           y=y(mask,:);
           disp(['At iter ',num2str(iter),', removed ',num2str(n0-numel(t),'%04d'),' duplicate time entries (',filename,').'])
         end
+        %need to monotonize the data (sometimes the entries are ordered according to arc number and not chronologically)
+        if any(diff(t)<0)
+          [t,i]=sort(t);
+          y=y(i,:);
+          disp(['Sorted ',num2str(sum(i~=transpose(1:numel(i))),'%04d'),' time entries (',filename,').'])
+        end
         %building object
         obj=simpletimeseries(t,y,...
           'format','datetime',...
           'labels',labels,...
           'units',units,...
+          'timesystem',timesystem,...
           'descriptor',filename...
         );
         %create epochs at day boundaries
@@ -847,9 +902,7 @@ classdef simpletimeseries < simpledata
           end
         end
         %building time domain
-        t=simpletimeseries.gps2utc(...
-          simpletimeseries.gpssec2datetime(raw(:,1),gps_time_epoch)...
-        );
+        t=simpletimeseries.gpssec2datetime(raw(:,1),gps_time_epoch);
         %gather data domain
         y=raw(:,2:4);
         %skip empty data files
@@ -861,6 +914,7 @@ classdef simpletimeseries < simpledata
             'format','datetime',...
             'y_units',{'m/s^2','m/s^2','m/s^2'},...
             'labels', {'x','y','z'},...
+            'timesystem','gps',...
             'descriptor',strjoin(header,'\n')...
            ).fill;
         end
@@ -889,6 +943,7 @@ classdef simpletimeseries < simpledata
             'format','datetime',...
             'y_units',{'m/s^2','m/s^2','m/s^2'},...
             'labels', {'x','y','z'},...
+            'timesystem','gps',...
             'descriptor',strjoin(header,'\n')...
            ).fill;
         end
@@ -1015,6 +1070,7 @@ classdef simpletimeseries < simpledata
           transpose(reshape([dat.(fn{i})],size(dat(1).(fn{i}),2),numel(dat))),...
           'format','datetime',...
           'labels',obj1.labels,...
+          'timesystem',obj1.timesystem,...
           'units',units,...
           'descriptor',[fn{i},' ',str.clean(obj1.descriptor,'file'),'x',str.clean(obj2.descriptor,'file')]...
         );
@@ -1083,7 +1139,7 @@ classdef simpletimeseries < simpledata
       end
       %if 't' is present, assign it to 'x'
       if presence.t
-        obj=assign@simpledata(obj,y,'x',simpletimeseries.time2num(p.Results.t),varargin{:});
+        obj=assign@simpledata(obj,y,'x',obj.t2x(p.Results.t),varargin{:});
       end
       %update epoch (needed to derive obj.t from obj.x)
       if ~isempty(p.Results.epoch)
@@ -1114,7 +1170,7 @@ classdef simpletimeseries < simpledata
         tab=12;
       end
       %parameters
-      relevant_parameters={'step','format','epoch','start','stop'};
+      relevant_parameters={'step','format','epoch','start','stop','timesystem'};
       for i=1:numel(relevant_parameters)
         obj.disp_field(relevant_parameters{i},tab);
       end
@@ -1184,6 +1240,7 @@ classdef simpletimeseries < simpledata
           transpose(reshape([dat.(fn{i})],size(dat(1).(fn{i}),2),numel(dat))),...
           'format','datetime',...
           'labels',obj.labels,...
+          'timesystem',obj.timesystem,...
           'units',units,...
           'descriptor',[fn{i},' ',str.clean(obj.descriptor,'file')]...
         );
@@ -1367,6 +1424,17 @@ classdef simpletimeseries < simpledata
         obj=obj.trim(obj.start,stop);
       end
     end
+    %% tsys methods
+    function out=get.tsys(obj)
+      out=obj.timesystem;
+    end
+    function obj=set.tsys(obj,in)
+      if ~simpletimeseries.valid_timesystem(in)
+        error([mfilename,': need a valid time system, i.e. one of ',strjoin(simpletimeseries.valid_timesystems,', '),'.'])
+      end
+      obj.t=simpletimeseries.([obj.timesystem,'2',in])(obj.t);
+      obj.timesystem=in;
+    end
     %% management methods
     function check_st(obj,t_now)
       %check consistency in the values of obj.start and obj.epoch
@@ -1475,7 +1543,7 @@ classdef simpletimeseries < simpledata
             'or smaller than than obj.start (',datestr(obj.start),').'...
           ]);
         end
-        obj=extend(obj,(t_now-t_ref)/obj.step);
+        obj=extend(obj,floor((t_now-t_ref)/obj.step));
       otherwise
         error([mfilename,': cannot handle input ''nr_epochs'' of class ',class(nr_epochs),'.'])
       end
@@ -1492,6 +1560,10 @@ classdef simpletimeseries < simpledata
       %build complete time domain
       t_new=obj.t_domain;
       t_old=obj.t;
+      % sanity
+      if numel(t_new) < numel(t_old)
+        error([mfilename,': complete time domain has less entries than current time domain. Debug needed!'])
+      end
       %find out where there are gaps larger than the step size
       gap_idx=find(diff(obj.t)>obj.step);
       %if there are no gaps and the time series is not homogeneous, we have a problem that needs fixing
@@ -1501,7 +1573,8 @@ classdef simpletimeseries < simpledata
       disp(['Need to fill in missing epochs: ',num2str(numel(t_new)-obj.length),' ('...
         num2str((numel(t_new)-obj.length)/numel(t_new)*1e2),'%).'])
       %loop over all implicit gaps (i.e. missing epochs)
-      s.msg=[mfilename,': populating missing epochs'];s.n=numel(gap_idx);
+      s.msg=[mfilename,': populating missing epochs (',datestr(obj.start),' to ',datestr(obj.stop),')',...
+        ' of ',obj.descriptor];s.n=numel(gap_idx);
       while ~isempty(gap_idx)
         %create patch
         t_patch=transpose((obj.t(gap_idx(1))+obj.step):obj.step:(obj.t(gap_idx(1)+1)-obj.step));
@@ -1534,7 +1607,8 @@ classdef simpletimeseries < simpledata
                obj.t(   2:end    )-step_prev,... %time domain is the time domain of obj shifted by step_prev
                obj.y(   1:end-1,:),...
         'mask',obj.mask(1:end-1),...
-        'format','datetime'...
+        'format','datetime',...
+        'timesystem',obj.timesystem...
       );
       %merge the two objects
       obj=obj.augment(obj_new);
@@ -1554,7 +1628,24 @@ classdef simpletimeseries < simpledata
     function out=isteq(obj1,obj2)
       out=simpletimeseries.istequal(obj1.t,obj2.t,min([obj1.t_tol,obj2.t_tol]));
     end
-    %the compatible method can be called directly
+    function compatible(obj1,obj2,varargin)
+      %call mother routine
+      compatible@simpledata(obj1,obj2,varargin{:});
+      %shorter names
+      par=simpletimeseries.compatible_parameter_list;
+      for i=1:numel(par)
+        % if a parameter is empty, no need to check it
+        if ( iscell(obj1.(par{i})) && isempty([obj1.(par{i}){:}]) ) || ...
+           ( ischar(obj1.(par{i})) && isempty( obj1.(par{i})    ) ) || ...
+           ( iscell(obj2.(par{i})) && isempty([obj2.(par{i}){:}]) ) || ...
+           ( ischar(obj2.(par{i})) && isempty( obj2.(par{i})    ) )
+          continue
+        end
+        if ~isequal(obj1.(par{i}),obj2.(par{i}))
+          error([mfilename,': discrepancy in parameter ',par{i},'.'])
+        end 
+      end
+    end
     function [obj1,obj2,idx1,idx2]=merge(obj1,obj2)
       %add as gaps those x in obj1 that are in obj2 but not in obj1
       %NOTICE:
@@ -1665,7 +1756,6 @@ classdef simpletimeseries < simpledata
       [obj1,obj2]=matchstep(obj1,obj2);
       [obj1,obj2]=matchepoch(obj1,obj2);
     end
-
     %% plot methots
     function out=plot(obj,varargin)
       %call superclass
@@ -1692,7 +1782,7 @@ classdef simpletimeseries < simpledata
       default_header=[...
 '# Column 1:    Date (yyyy-mm-dd)',10,...
 '# Column 2:    Time (hh:mm:ss.sss)',10,...
-'# Column 3:    Time system (UTC)',10,...
+'# Column 3:    Time system (',obj.timesystem,')',10,...
 '# Column 4:    Modified Julian Day (including fraction of day)',10];
       p=inputParser;
       p.KeepUnmatched=true;
