@@ -118,8 +118,30 @@ classdef simpletimeseries < simpledata
       end
       out=epoch+simpletimeseries.timescale(in);
     end
-    function out=istequal(t1,t2,tol)
-      out=numel(t1)==numel(t2) && ~any(seconds(t1(:)-t2(:)).^2>tol.^2);
+    function out=ist(mode,t1,t2,tol)
+      switch mode
+      case {'=','==','equal'}
+        if numel(t1)==numel(t2) 
+          out=seconds(t1(:)-t2(:)).^2<tol.^2;
+        else
+          out=false;
+        end
+        return
+      case {'<','less','smaller'}
+        out=t1<t2;
+        out(simpletimeseries.ist('==',t1,t2,tol))=false;
+      case {'<=','lessorequal'}
+        out=t1<t2;
+        out(simpletimeseries.ist('==',t1,t2,tol))=true;
+      case {'>','more','larger'}
+        out=t1>t2;
+        out(simpletimeseries.ist('==',t1,t2,tol))=false;
+      case {'>=','moreorequal','largerorequal'}
+        out=t1>t2;
+        out(simpletimeseries.ist('==',t1,t2,tol))=true;
+      otherwise
+        error([mfilename,': unknown mode ''',mode,'''.'])
+      end
     end
     function presence=ispresent(parser,fields)
       % defaults
@@ -1377,7 +1399,7 @@ classdef simpletimeseries < simpledata
       %shift x
       obj=obj.x_set(simpletimeseries.time2num(t_old,epoch));
       %sanity
-      if ~simpletimeseries.istequal(t_old,obj.t,obj.t_tol)
+      if any(~simpletimeseries.ist('==',t_old,obj.t,obj.t_tol))
         error([mfilename,': changing epoch cause the time domain to also change.'])
       end
     end
@@ -1413,7 +1435,7 @@ classdef simpletimeseries < simpledata
       if isempty(stop) || stop==obj.stop
         %trivial call
         return
-      elseif stop>obj.stop
+      elseif simpletimeseries.ist('>',stop,obj.stop,obj.t_tol)
         %append a single epoch
         obj=obj.assign(...
           [obj.y;nan(1,obj.width)],...
@@ -1445,7 +1467,7 @@ classdef simpletimeseries < simpledata
       end
       if exist('t_now','var') && ~isempty(t_now)
         %check for consistency in the time domain
-        if numel(obj.t) ~= numel(t_now) || any(seconds(obj.t - t_now(:)).^2>1e-18)
+        if any(~simpletimeseries.ist('==',obj.t,t_now,obj.t_tol))
           error([mfilename,': the time domain is not consistent with input ''t_now''.'])
         end
       end
@@ -1626,7 +1648,7 @@ classdef simpletimeseries < simpledata
     end
     %% multiple object manipulation
     function out=isteq(obj1,obj2)
-      out=simpletimeseries.istequal(obj1.t,obj2.t,min([obj1.t_tol,obj2.t_tol]));
+      out=~any(~simpletimeseries.ist('==',obj1.t,obj2.t,min([obj1.t_tol,obj2.t_tol])));
     end
     function compatible(obj1,obj2,varargin)
       %call mother routine
