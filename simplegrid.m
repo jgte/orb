@@ -3,19 +3,17 @@ classdef simplegrid < simpletimeseries
   properties(Constant)
     %default value of some internal parameters
     default_list=struct(...
-      'tolerance',1e-8,...
-      'lon_units','deg',...
-      'lat_units','deg'...
+      'sp_tol',   1e-8,...
+      'sp_units','deg'...
     );
     parameter_list=struct(...
-      'tolerance', struct('default',simplegrid.default_list.tolerance, 'validation',@(i) isnumeric(i) && isscalar(i)),...
-      'lon_units', struct('default',simplegrid.default_list.lon_units, 'validation',@(i) ischar(i)),...
-      'lat_units', struct('default',simplegrid.default_list.lat_units, 'validation',@(i) ischar(i))...
+      'sp_tol',   struct('default',simplegrid.default_list.sp_tol,  'validation',@(i) isnumeric(i) && isscalar(i)),...
+      'sp_units', struct('default',simplegrid.default_list.sp_units,'validation',@(i) ischar(i))...
     );
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
-    compatible_parameter_list={'lon_units','lat_units'};
+    compatible_parameter_list={'sp_units'};
   end
   %read only
   properties(SetAccess=private)
@@ -24,13 +22,10 @@ classdef simplegrid < simpletimeseries
   end
   %private (visible only to this object)
   properties(GetAccess=private)
-    
   end
   properties(GetAccess=public,SetAccess=public)
-    tolerance
-    %TODO: make members that handle units, use only one property (spatial_units)
-    lon_units
-    lat_units
+    sp_tol
+    sp_units
   end
   %calculated only when asked for
   properties(Dependent)
@@ -101,10 +96,10 @@ classdef simplegrid < simpletimeseries
           'lat',transpose(GridLimits(3):GridSpacing(2):GridLimits(4))...
         );
         % sanity
-        if numel(out.lon) ~= numel(vecmat.lon) || any( (out.lon(:)-vecmat.lon(:)).^2>simplegrid.default_list.tolerance^2 )
+        if numel(out.lon) ~= numel(vecmat.lon) || any( (out.lon(:)-vecmat.lon(:)).^2>simplegrid.default_list.sp_tol^2 )
           error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.'])
         end
-        if numel(out.lat) ~= numel(vecmat.lat) || any( (out.lat(:)-vecmat.lat(:)).^2>simplegrid.default_list.tolerance^2 )
+        if numel(out.lat) ~= numel(vecmat.lat) || any( (out.lat(:)-vecmat.lat(:)).^2>simplegrid.default_list.sp_tol^2 )
           error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.'])
         end
       else
@@ -174,11 +169,11 @@ classdef simplegrid < simpletimeseries
         % get indexes
         idx.lon=nan(1,numel(list.lon));
         for i=1:numel(out.lon)
-          idx.lon( (out.lon(i)-list.lon).^2<simplegrid.default_list.tolerance^2 )=i;
+          idx.lon( (out.lon(i)-list.lon).^2<simplegrid.default_list.sp_tol^2 )=i;
         end
         idx.lat=nan(1,numel(list.lat));
         for i=1:numel(out.lat)
-          idx.lat( (out.lat(i)-list.lat).^2<simplegrid.default_list.tolerance^2 )=i;
+          idx.lat( (out.lat(i)-list.lat).^2<simplegrid.default_list.sp_tol^2 )=i;
         end
         if any(isnan(idx.lat)); error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.']);end
         if any(isnan(idx.lon)); error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.']);end
@@ -253,18 +248,18 @@ classdef simplegrid < simpletimeseries
         % get indexes
         idx.lon=nan(1,numel(flatlist.lon));
         for i=1:numel(out.lon)
-          idx.lon( (out.lon(i)-flatlist.lon).^2<simplegrid.default_list.tolerance^2 )=i;
+          idx.lon( (out.lon(i)-flatlist.lon).^2<simplegrid.default_list.sp_tol^2 )=i;
         end
         if any(isnan(idx.lon)); error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.']);end
         idx.lat=nan(1,numel(flatlist.lat));
         for i=1:numel(out.lat)
-          idx.lat( (out.lat(i)-flatlist.lat).^2<simplegrid.default_list.tolerance^2 )=i;
+          idx.lat( (out.lat(i)-flatlist.lat).^2<simplegrid.default_list.sp_tol^2 )=i;
         end
         if any(isnan(idx.lat)); error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.']);end
         idx.t=nan(1,numel(flatlist.t));
         fltdn=datenum(flatlist.t);
         for i=1:numel(out.t)
-          idx.t( (datenum(out.t(i))-fltdn).^2<simplegrid.default_list.tolerance^2 )=i;
+          idx.t( (datenum(out.t(i))-fltdn).^2<simplegrid.default_list.sp_tol^2 )=i;
         end
         if any(isnan(idx.t)); error([mfilename,': invalid ',type,': field ''t'' contains NaNs, debug needed.']);end
       else
@@ -337,10 +332,10 @@ classdef simplegrid < simpletimeseries
         %build meshed lon and lat
         [lon_m,lat_m]=meshgrid(out.lon,out.lat);
         % sanity
-        if numel(lon_m) ~= numel(matrix.lon) || any( (lon_m(:)-matrix.lon(:)).^2>simplegrid.default_list.tolerance^2 )
+        if numel(lon_m) ~= numel(matrix.lon) || any( (lon_m(:)-matrix.lon(:)).^2>simplegrid.default_list.sp_tol^2 )
           error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.'])
         end
-        if numel(lat_m) ~= numel(matrix.lat) || any( (lat_m(:)-matrix.lat(:)).^2>simplegrid.default_list.tolerance^2 )
+        if numel(lat_m) ~= numel(matrix.lat) || any( (lat_m(:)-matrix.lat(:)).^2>simplegrid.default_list.sp_tol^2 )
           error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.'])
         end
       else
@@ -599,7 +594,7 @@ classdef simplegrid < simpletimeseries
       %initialize with unitary grid
       obj=simplegrid(...
         p.Results.t,...
-        ones(p.Results.n_lat,p.Results.n_lon)*p.Results.scale+p.Results.bias...
+        ones(p.Results.n_lat,p.Results.n_lon,numel(p.Results.t))*p.Results.scale+p.Results.bias...
       );
     end
     % Creates a random model with mean 0 and std 1
@@ -614,7 +609,7 @@ classdef simplegrid < simpletimeseries
       %initialize with random grid
       obj=simplegrid(...
         p.Results.t,...
-        randn(p.Results.n_lat,p.Results.n_lon)*p.Results.scale+p.Results.bias...
+        randn(p.Results.n_lat,p.Results.n_lon,numel(p.Results.t))*p.Results.scale+p.Results.bias...
       );
     end
     function obj=slanted(n_lon,n_lat,varargin)
@@ -630,7 +625,7 @@ classdef simplegrid < simpletimeseries
       %initialize with grid
       obj=simplegrid(...
         p.Results.t,...
-        lon_map+lat_map*p.Results.scale+p.Results.bias...
+        repmat(lon_map+lat_map*p.Results.scale+p.Results.bias,1,1,numel(p.Results.t))...
       );
     end
 %     function out=load(filename)
@@ -651,11 +646,11 @@ classdef simplegrid < simpletimeseries
         method='all';
       end
       if ~exist('l','var') || isempty(l)
-        l=[3,5,2];
+        l=[5,7,2];
       end
       switch lower(method)
       case 'all'
-         for i={'reps','unit','unit rms','r','gm','minus','resample','ggm05s','stats'}
+         for i={'reps','plus','minus','times','rdivide','print','resample','ggm05s','stats'}
            simplegrid.test(i{1},l);
          end
       case 'reps'
@@ -680,9 +675,51 @@ classdef simplegrid < simpletimeseries
             end
           end
         end
+      case 'print'
+        simplegrid.slanted(l(1),l(2)).print
       case 'resample'
         a=simplegrid.slanted(l(1),l(2));
-        a.spatial_resample(l(1)*3,l(2)*2).imagesc(a.t)
+        figure
+        subplot(1,2,1)
+        a.imagesc('t',a.t);
+        title('original')
+        subplot(1,2,2)
+        a.spatial_resample(l(1)*3,l(2)*2).imagesc('t',a.t);
+        title('resampled')
+      case {'plus','minus','times','rdivide'}
+        a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(l(3)));
+        b=simplegrid.unit(      l(1),l(2),'t',a.t,'scale',2);
+        switch lower(method)
+          case 'plus'
+            c=a+b;
+          case 'minus'
+            c=a-b;
+          case 'times'
+            c=a.*b;
+          case 'rdivide'
+            c=a./b;
+        end
+        disp('a:')
+        disp(a.map)
+        disp('b:')
+        disp(b.map)
+        disp(['a ',lower(method),' b:'])
+        disp(c.map)
+      case 'area'
+        a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(l(3)));
+        disp('original')
+        a.prettymap(a.t(1))
+        disp('area')
+        a.area.prettymap(a.t(1))
+      case 'crop'
+        a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(l(3)));
+        disp('original')
+        a.prettymap(a.t(1))
+        disp('cropped')
+        a.lat=transpose(-45:15:60);
+        a.lon=45:45:270;
+        a.prettymap(a.t(1))
+      
       end
     end
   end
@@ -739,6 +776,8 @@ classdef simplegrid < simpletimeseries
         t=p.Results.t;
       elseif presence.x
         t=p.Unmatched.x;
+      elseif ~isempty(obj.t)
+        t=obj.t;
       else
         error([mfilename,': cannot assign a map without either ''x'' or ''t''.'])
       end
@@ -763,7 +802,7 @@ classdef simplegrid < simpletimeseries
       else
         %sanity
         if ~ismatrix(map)
-          error([mfilename,': if lon/lat are empty, can only deal with list-type maps.'])
+          error([mfilename,': if lon/lat are empty, can only deal with matrix-type maps.'])
         end
         if numel(t) ~= size(map,1)
           error([mfilename,': input ''t'' or ''x'' must have the same nr of row as ''map''.'])
@@ -799,12 +838,40 @@ classdef simplegrid < simpletimeseries
         tab=12;
       end
       %parameters
-      relevant_parameters={'lat_domain','lat_units','lon_domain','lon_units','tolerance'};
+      relevant_parameters={'lat_domain','lon_domain','sp_units','sp_tol'};
       for i=1:numel(relevant_parameters)
         obj.disp_field(relevant_parameters{i},tab);
       end
       %print superclass
       print@simpletimeseries(obj,tab)
+    end
+    function prettymap(obj,t)
+      out=nan(obj.lat_length+1,obj.lon_length+1);
+      out(1,2:end)=obj.lon;
+      out(2:end,1)=obj.lat;
+      out(2:end,2:end)=obj.interp(t).map;
+      disp(out)
+    end
+    %% (spatial) units convertion
+    function obj=convert(obj,units,scale)
+      switch lower(units)
+      case {'rad','radians'}
+        switch obj.sp_units
+        case 'deg'; scale=deg2rad(1);
+        case 'rad'; scale=1;
+        end
+      case {'deg','degrees'}
+        switch obj.sp_units
+        case 'deg'; scale=1;
+        case 'rad'; scale=rad2deg(1);
+        end
+      end
+      %trivial all
+      if scale==1,return,end
+      %scale maps
+      obj=obj.scale(scale);
+      %update units
+      obj.sp_units=units;
     end
     %% vecmat handling
     function sv=get.vecmat(obj)
@@ -900,6 +967,9 @@ classdef simplegrid < simpletimeseries
         num2str(obj.lat(end)),...
       ' ]'];
     end
+    function out=lat_length(obj)
+      out=numel(obj.lat);
+    end
     %% lon handling
     function obj=set.lon(obj,lon_now)
       %trivial call
@@ -936,6 +1006,9 @@ classdef simplegrid < simpletimeseries
         num2str(obj.lon(end)),...
       '] '];
     end
+    function out=lon_length(obj)
+      out=numel(obj.lon);
+    end
     %% interpolant handling
     function out=get.interpolant(obj)
       [lat_meshed,lon_meshed,t_meshed]=ndgrid(obj.lat,obj.lon,datenum(obj.t));
@@ -961,7 +1034,7 @@ classdef simplegrid < simpletimeseries
         map_new=I(lat_meshed,lon_meshed);
       else
         [lat_meshed,lon_meshed,t_meshed]=ndgrid(lat_new,lon_new,datenum(obj.t));
-        map_new=I(lon_meshed,lat_meshed,t_meshed);
+        map_new=I(lat_meshed,lon_meshed,t_meshed);
       end
       %save results
       obj=obj.assign(map_new,'t',obj.t,'lat',lat_new,'lon',lon_new);
@@ -973,6 +1046,13 @@ classdef simplegrid < simpletimeseries
       lon_new=mean([obj.lon(1:end-1);obj.lon(2:end)]);
       lat_new=mean([obj.lat(1:end-1),obj.lat(2:end)],2);
       obj=obj.spatial_interp(lon_new,lat_new);
+    end
+    %utilities
+    function obj=area(obj)
+      lon_new=mean([obj.lon(1:end-1);obj.lon(2:end)]);
+      lat_new=mean([obj.lat(1:end-1),obj.lat(2:end)],2);
+      %save results
+      obj=obj.assign(repmat(diff(obj.lat)*diff(obj.lon),1,1,numel(obj.t)),'t',obj.t,'lat',lat_new,'lon',lon_new);
     end
     %% convert to spherical harmonics
     function out=sh(obj)
@@ -988,24 +1068,23 @@ classdef simplegrid < simpletimeseries
       out.cs=cs;
     end
     %% multiple operands
-    function compatible(obj1,obj2)
-      %This method checks if the objectives are referring to the same
-      %type of data, i.e. the data length is not important.
-      parameters=simplegrid.compatible_parameter_list;
-      for i=1:numel(parameters)
+    function compatible(obj1,obj2,varargin)
+      %call mother routine
+      compatible@simpledata(obj1,obj2,varargin{:});
+      %shorter names
+      par=simplegrid.compatible_parameter_list;
+      for i=1:numel(par)
         % if a parameter is empty, no need to check it
-        if ( iscell(obj1.(parameters{i})) && isempty([obj1.(parameters{i}){:}]) ) || ...
-           ( ischar(obj1.(parameters{i})) && isempty( obj1.(parameters{i})    ) ) || ...
-           ( iscell(obj2.(parameters{i})) && isempty([obj2.(parameters{i}){:}]) ) || ...
-           ( ischar(obj2.(parameters{i})) && isempty( obj2.(parameters{i})    ) )
+        if ( iscell(obj1.(par{i})) && isempty([obj1.(par{i}){:}]) ) || ...
+           ( ischar(obj1.(par{i})) && isempty( obj1.(par{i})    ) ) || ...
+           ( iscell(obj2.(par{i})) && isempty([obj2.(par{i}){:}]) ) || ...
+           ( ischar(obj2.(par{i})) && isempty( obj2.(par{i})    ) )
           continue
         end
-        if ~isequal(obj1.(parameters{i}),obj2.(parameters{i}))
-          error([mfilename,': discrepancy in parameter ',parameters{i},'.'])
+        if ~isequal(obj1.(par{i}),obj2.(par{i}))
+          error([mfilename,': discrepancy in parameter ',par{i},'.'])
         end 
       end
-      %call mother routine
-      compatible@simpledata(obj1,obj2);
     end
     function [obj1,obj2]=consolidate(obj1,obj2)
       %match the compatible parameters 
@@ -1022,7 +1101,7 @@ classdef simplegrid < simpletimeseries
     %% plot functions
     function out=imagesc(obj,varargin)
       p=inputParser;
-      p.addParameter('t',         obj.t(1),@(i) islogical(i));
+      p.addParameter('t',         obj.t(1),@(i) simpletimeseries.valid_t(i));
       p.addParameter('show_coast',   false,@(i) islogical(i));
       p.addParameter('show_colorbar',false,@(i) islogical(i));
       p.addParameter('bias',             0,@(i) isscalar(i) && isnumeric(i));
@@ -1035,8 +1114,8 @@ classdef simplegrid < simpletimeseries
       %invert y-axis
       set(gca,'YDir','reverse');
       %labels
-      xlabel(['lon [',obj.lon_units,']'])
-      ylabel(['lat [',obj.lat_units,']'])
+      xlabel(['lon [',obj.sp_units,']'])
+      ylabel(['lat [',obj.sp_units,']'])
       %ploting coastline
       if p.Results.show_coast
         out.coast_handle=obj.coast;
@@ -1045,7 +1124,6 @@ classdef simplegrid < simpletimeseries
       if p.Results.show_colorbar
         out.colorbar_handle=colorbar;
       end
-      
     end
     function h=coast(obj,varargin)
       p=inputParser;
