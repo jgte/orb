@@ -1130,8 +1130,7 @@ classdef simpletimeseries < simpledata
       for i=1:numel(simpletimeseries.parameters)
         %shorter names
         pn=simpletimeseries.parameters{i};
-        %parameter 'units' has already been handled when calling simpledata
-        %constructor, so skip it
+        %parameter 'units' has already been handled when calling simpledata constructor, so skip it
         if strcmp(pn,'units')
           continue
         end
@@ -1198,25 +1197,6 @@ classdef simpletimeseries < simpledata
       end
       %print superclass
       print@simpledata(obj,tab)
-    end
-    function peek(obj,idx,tab)
-      if ~exist('tab','var') || isempty(tab)
-        tab=12;
-      end
-      if ~exist('idx','var') || isempty(idx)
-        idx=[1:min([10,ceil(0.45*obj.length)]),max([obj.length-10,floor(0.55*obj.length)]):obj.length];
-      end
-      for i=1:numel(idx)
-        out=cell(1,obj.width);
-        for j=1:numel(out)
-          out{j}=str.tabbed(num2str(obj.y(idx(i),j)),tab,true);
-        end
-        disp([...
-          str.tabbed(datestr(obj.t(idx(i)),'yyyy-mm-dd HH:MM:SS'),tab,true),' ',...
-          strjoin(out),' ',...
-          str.show(obj.mask(idx(i)))...
-        ])
-      end
     end
     function out=stats(obj,varargin)
       p=inputParser;
