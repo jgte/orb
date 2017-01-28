@@ -241,57 +241,43 @@ classdef simpledata
       if ~iscell(obj_list)
         error([mfilename,': need input ''obj_list'' to be a cell array, not a ',class(obj_list),'.'])
       end
-      fmt='%05d/%05d';
-      n=numel(obj_list);
-      c_max=(n-1)*2;
-      c=0;
-      if ~exist('msg','var')
-        msg=['merge op: ',sprintf(fmt,c,c_max)];
+      % save timing info
+      if ~exist('msg','var') || isempty(msg)
+        s.msg='merge   op';
       else
-        msg=['merge op for ',msg,': ',sprintf(fmt,c,c_max)];
+        s.msg=['merge   op for ',msg];
       end
-      fprintf(msg)
+      s.n=2*(numel(obj_list)-1); c=0;
       %forward merge
       for i=1:numel(obj_list)-1
-        c=c+1;
         [obj_list{i},obj_list{i+1}]=obj_list{i}.merge(obj_list{i+1});
-        msg=sprintf(fmt,c,c_max);
-        fprintf([repmat('\b',1,numel(msg)),msg])
+        c=c+1;s=time.progress(s,c);
       end
       %backward merge
       for i=numel(obj_list):-1:2
-        c=c+1;
         [obj_list{i},obj_list{i-1}]=obj_list{i}.merge(obj_list{i-1});
-        msg=sprintf(fmt,c,c_max);
-        fprintf([repmat('\b',1,numel(msg)),msg])
+        c=c+1;s=time.progress(s,c);
       end
-      fprintf('\n')
     end
     function out=isequal_multiple(obj_list,columns,msg)
       %sanity
       if ~iscell(obj_list)
         error([mfilename,': need input ''obj_list'' to be a cell array, not a ',class(obj_list),'.'])
       end
-      fmt='%05d/%05d';
-      n=numel(obj_list);
-      c_max=(n-1);
-      c=0;
-      if ~exist('msg','var')
-        msg=['isequal op: ',sprintf(fmt,c,c_max)];
+      % save timing info
+      if ~exist('msg','var') || isempty(msg)
+        s.msg='isequal op';
       else
-        msg=['isequal op for ',msg,': ',sprintf(fmt,c,c_max)];
+        s.msg=['isequal op for ',msg];
       end
-      fprintf(msg)
+      s.n=numel(obj_list)-1; c=0;
       %declare type of output argument
       out=cell(numel(obj_list)-1,1);
       %loop over obj list
       for i=1:numel(obj_list)-1
-        c=c+1;
         out{i}=obj_list{i}.isequal(obj_list{i+1},columns); 
-        msg=sprintf(fmt,c,c_max);
-        fprintf([repmat('\b',1,numel(msg)),msg])
+        c=c+1;s=time.progress(s,c);
       end
-      fprintf('\n')
     end
     function out=stats2(obj1,obj2,varargin)
       p=inputParser;
@@ -637,6 +623,9 @@ classdef simpledata
         tab=12;
       end
       if ~exist('idx','var') || isempty(idx)
+        if isempty(obj.peeklength)
+          obj.peeklength=simpledata.parameter_list.peeklength.default;
+        end
         idx=[...
           1:min([           obj.peeklength,  round(0.5*obj.length)  ]),...
             max([obj.length-obj.peeklength+1,round(0.5*obj.length)+1]):obj.length...
@@ -1194,11 +1183,11 @@ classdef simpledata
       end
     end
     function [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2,varargin)
-      %add as gaps those x in obj1 that are in obj2 but not in obj1
       %NOTICE:
       % - idx1 contains the index of the x in obj1 that were added from obj2
       % - idx2 contains the index of the x in obj2 that were added from obj1
       % - no data is propagated between objects, only the time domain is changed!
+      %add as gaps in obj2 those x that are in obj1 but not in obj2
       [obj1_out,idx2]=obj1.x_merge(obj2.x);
       if nargout>1
         %add as gaps in obj2 those x that are in obj1 but not in obj2
