@@ -4,7 +4,7 @@ classdef simplegrid < simpletimeseries
     %default value of some internal parameters
     default_list=struct(...
       'sp_tol',   1e-8,...
-      'sp_units','deg'...
+      'sp_units','deg'... %TODO: need to convert non-deg units at input/output (internally deg are expected)
     );
     parameter_list=struct(...
       'sp_tol',   struct('default',simplegrid.default_list.sp_tol,  'validation',@(i) isnumeric(i) && isscalar(i)),...
@@ -69,8 +69,8 @@ classdef simplegrid < simpletimeseries
     function out=lat_default(n)
       out=transpose(linspace(-90,90,n));
     end
-    %% vector/matrix representation
-    function out=vecmat_valid(vecmat)
+    %% vector/matrix representation (lat, lon and t are vectors, map is a 3D matrix with time changing along the right-most dim)
+    function     out=vecmat_valid(vecmat)
       try
         simplegrid.vecmat_check(vecmat);
         out=true;
@@ -78,7 +78,7 @@ classdef simplegrid < simpletimeseries
         out=false;
       end
     end
-    function out=vecmat_check(vecmat)
+    function     out=vecmat_check(vecmat)
       %easier names
       type='vectmat'; 
       %need structure
@@ -134,14 +134,14 @@ classdef simplegrid < simpletimeseries
           numel(     vecmat.t  )~=...
           size(      vecmat.map,3); error([mfilename,': invalid ',type,': field ''t'' has different nr of elements than pages of ''map''.']);end %#ok<ALIGN>
     end
-    function out=vecmat_size(vecmat)
+    function     out=vecmat_size(vecmat)
       out=size(vecmat.map);
     end
     function vectmat=vecmat_init(t,map,lon,lat)
       vectmat=struct('t',t,'lon',lon,'lat',lat,'map',map);
     end
-    %% list representation
-    function out=list_valid(list)
+    %% list representation (lat, lon and t are vectors, map is a 2D matrix, with time changing along the rows)
+    function       out=list_valid(list)
       try
         simplegrid.list_check(list);
         out=true;
@@ -193,7 +193,7 @@ classdef simplegrid < simpletimeseries
         if ~isnumeric(list.lon);   error([mfilename,': invalid ',type,': field ''lon'' is not numeric.']);end
         if ~isempty(  list.map) && ...
             numel(    list.lon) ~= ...
-            size(     list.map,2); error([mfilename,': invalid ',type,': field ''lon'' has different elements than rows of ''map''.']);end %#ok<ALIGN>
+            size(     list.map,2); error([mfilename,': invalid ',type,': field ''lon'' has different elements than columns of ''map''.']);end %#ok<ALIGN>
       end
       %lat
       if ~isempty(    list.lat)
@@ -201,7 +201,7 @@ classdef simplegrid < simpletimeseries
         if ~isnumeric(list.lat);   error([mfilename,': invalid ',type,': field ''lat'' is not numeric.']);end
         if ~isempty(  list.map) && ...
             numel(    list.lat) ~= ...
-            size(     list.map,2); error([mfilename,': invalid ',type,': field ''lat'' has different sizes than rows of ''map''.']);end %#ok<ALIGN>
+            size(     list.map,2); error([mfilename,': invalid ',type,': field ''lat'' has different sizes than columns of ''map''.']);end %#ok<ALIGN>
       end
       %t
       if ~isfield(   list,'t');   error([mfilename,': invalid ',type,': field ''t'' is missing.']);end
@@ -210,16 +210,16 @@ classdef simplegrid < simpletimeseries
          ~isnumeric( list.t  );   error([mfilename,': invalid ',type,': field ''t'' is not datetime or numeric.']);end
       if ~isempty(   list.map) && ...
           numel(     list.t)   ~= ...
-          size(      list.map,1); error([mfilename,': invalid ',type,': field ''t'' has different nr of elements than pages of ''map''.']);end %#ok<ALIGN>
+          size(      list.map,1); error([mfilename,': invalid ',type,': field ''t'' has different nr of elements than rows of ''map''.']);end %#ok<ALIGN>
     end
-    function out=list_size(list)
+    function       out=list_size(list)
       out = [ numel(unique(list.lon(:))) numel(unique(list.lat(:))) numel(list.t) ];
     end
-    function list=list_init(t,map,lon,lat)
+    function      list=list_init(t,map,lon,lat)
       list=struct('t',t,'lon',lon,'lat',lat,'map',map);
     end
-    %% flatlist representation
-    function out=flatlist_valid(flatlist)
+    %% flatlist representation (lat, lon, t and map are vectors, all have the same length)
+    function       out=flatlist_valid(flatlist)
       try
         simplegrid.flatlist_check(flatlist);
         out=true;
@@ -227,7 +227,7 @@ classdef simplegrid < simpletimeseries
         out=false;
       end
     end
-    function [out,idx]=flatlist_check(flatlist)
+    function [out,idx]=flatlist_check(flatlist) 
       %easier names
       type='flatlist';
       %need structure
@@ -297,14 +297,14 @@ classdef simplegrid < simpletimeseries
           numel(     flatlist.t)   ~= ...
           numel(     flatlist.map);   error([mfilename,': invalid ',type,': field ''t'' has different length than ''map''.']);end %#ok<ALIGN>
     end
-    function out=flatlist_size(list)
+    function       out=flatlist_size(list)
       out = [ numel(unique(list.lon(:))) numel(unique(list.lat(:))) numel(unique(list.t)) ];
     end
-    function list=flatlist_init(t,map,lon,lat)
+    function      list=flatlist_init(t,map,lon,lat)
       list=struct('t',t,'lon',lon,'lat',lat,'map',map);
     end
-    %% matrix representation
-    function out=matrix_valid(matrix)
+    %% matrix representation (lat and lon are 2D matrices, map is a 3D matrix with time changing along the right-most dim)
+    function    out=matrix_valid(matrix)
       try
         simplegrid.matrix_check(matrix);
         out=true;
@@ -312,7 +312,7 @@ classdef simplegrid < simpletimeseries
         out=false;
       end
     end
-    function out=matrix_check(matrix)
+    function    out=matrix_check(matrix)
       %easier names
       type='matrix';
       %need structure
@@ -375,7 +375,7 @@ classdef simplegrid < simpletimeseries
           size(      matrix.map,3) %#ok<ALIGN>
                                     error([mfilename,': invalid ',type,': field ''t'' has different nr of elements than pages of ''map''.']);end
     end
-    function out=matrix_size(matrix)
+    function    out=matrix_size(matrix)
       out=size(matrix.map);
     end
     function matrix=matrix_init(t,map,lon,lat)
@@ -533,10 +533,10 @@ classdef simplegrid < simpletimeseries
     %data type length
     function l=dtl(type,in)
       switch lower(type)
-      case 'vecmat';   l=simplegrid.vecmat_length(in);
-      case 'list';     l=simplegrid.list_length(in);
-      case 'flatlist'; l=simplegrid.flatlist_length(in);
-      case 'matrix';   l=simplegrid.mat_length(in);
+      case 'vecmat';   l=simplegrid.vecmat_size(in);
+      case 'list';     l=simplegrid.list_size(in);
+      case 'flatlist'; l=simplegrid.flatlist_size(in);
+      case 'matrix';   l=simplegrid.mat_size(in);
       otherwise
         error([mfilename,': unknown data type ''',type,'''.'])
       end
@@ -554,8 +554,8 @@ classdef simplegrid < simpletimeseries
       %3d array with maps on each page
       elseif isnumeric(map) && size(map,3) == numel(t)
         %do nothing, already in expected format
-      %2d array with maps on each row 
-      elseif isnumeric(map) && size(map,2) == numel(t)
+      %2d array with maps on each row
+      elseif isnumeric(map) && size(map,1) == numel(t)
         %do nothing, this will be handled later
       else
         error([mfilename,': error in sizes of inputs ''t'' and ''map''.'])
@@ -705,12 +705,12 @@ classdef simplegrid < simpletimeseries
         disp(b.map)
         disp(['a ',lower(method),' b:'])
         disp(c.map)
-      case 'area'
-        a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(l(3)));
+      case {'area','height','volume'}
+        a=simplegrid.unit(l(1),l(2),'t',time.rand(l(3)));
         disp('original')
         a.prettymap(a.t(1))
-        disp('area')
-        a.area.prettymap(a.t(1))
+        disp(method)
+        a.(method).prettymap(a.t(1))
       case 'crop'
         a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(l(3)));
         disp('original')
@@ -719,7 +719,28 @@ classdef simplegrid < simpletimeseries
         a.lat=transpose(-45:15:60);
         a.lon=45:45:270;
         a.prettymap(a.t(1))
-      
+      case 'interp2'
+        a=simplegrid.unit(l(1),  l(2),  't',datetime('now')+days(  1:1:2),'scale',0.5);
+        b=simplegrid.unit(l(1)-1,l(2)-1,'t',datetime('now')+days(0.5:1:2),'scale',2);
+        disp('originals:a')
+        a.prettymap
+        disp('originals:b')
+        b.prettymap
+        [a,b]=interp2(a,b);
+        disp('interpolated:a')
+        a.prettymap
+        disp('interpolated:b')
+        b.prettymap
+      case {'min','max','mean','std','rms','meanabs','stdabs','rmsabs','length','gaps'}
+        a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(l(3)));
+        m=a.map;
+        m(1,1,:)=0;
+        m(round(l(1)/2),round(l(2)/3),:)=1;
+        a.map=m;
+        disp('original')
+        a.prettymap
+        disp(method)
+        a.stats('mode',method,'period',inf).prettymap
       end
     end
   end
@@ -744,7 +765,8 @@ classdef simplegrid < simpletimeseries
       % retrieve structure with list
       sl=simplegrid.dti(t,p.Results.map,p.Results.lon,p.Results.lat,'list');
       % call superclass
-      obj=obj@simpletimeseries(p.Results.t,sl.map,varargin{:});
+      vararginnow=simpledata.vararginclean(varargin,{'lat','lon'});
+      obj=obj@simpletimeseries(p.Results.t,sl.map,'lon',sl.lon,'lat',sl.lat,vararginnow{:});
       % save lon and lat
       obj.loni=sl.lon;
       obj.lati=sl.lat;
@@ -832,7 +854,7 @@ classdef simplegrid < simpletimeseries
         end
       end
     end
-    %% print
+    %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
         tab=12;
@@ -846,11 +868,48 @@ classdef simplegrid < simpletimeseries
       print@simpletimeseries(obj,tab)
     end
     function prettymap(obj,t)
+      if ~exist('t','var') || isempty(t)
+        t=obj.t;
+      end
       out=nan(obj.lat_length+1,obj.lon_length+1);
       out(1,2:end)=obj.lon;
       out(2:end,1)=obj.lat;
-      out(2:end,2:end)=obj.interp(t).map;
-      disp(out)
+      for i=1:numel(t)
+        out(1,1)=i;
+        out(2:end,2:end)=obj.interp(t(i)).map;
+        disp(t(i))
+        disp(out)
+      end
+    end
+    function out=stats(obj,varargin)
+      %call upstream method
+      s=stats@simpletimeseries(obj,varargin{:});
+      %retrieve domains
+      lat_now=obj.lat;
+      lon_now=obj.lon;
+      %branch on the type of output
+      switch class(s)
+      case 'double'
+        %create new object
+        out=simplegrid(...
+          mean(obj.t),...
+          reshape(s,numel(lat_now),numel(lon_now)),...
+          'lat',lat_now,...
+          'lon',lon_now...
+        );
+      case 'simpletimeseries'
+        %translate new object
+        out=simplegrid(...
+          s.t,...
+          reshape(s.y,numel(lat_now),numel(lon_now),s.t),...
+          'lat',lat_now,...
+          'lon',lon_now...
+        );
+      case 'struct'
+        error([mfilename,': cannot handle retrive multiple stats in the form a structure.'])
+      otherwise
+        error([mfilename,': cannot handle stats when upstream method returns class ',class(s),'.'])
+      end
     end
     %% (spatial) units convertion
     function obj=convert(obj,units,scale)
@@ -1009,6 +1068,13 @@ classdef simplegrid < simpletimeseries
     function out=lon_length(obj)
       out=numel(obj.lon);
     end
+    %% spatial domain
+    function out=sp_limits(obj)
+      out=simplegrid.getLimits(obj.lon,obj.lat);
+    end
+    function out=sp_spacing(obj)
+      out=simplegrid.getSpacing(obj.lon,obj.lat);
+    end
     %% interpolant handling
     function out=get.interpolant(obj)
       [lat_meshed,lon_meshed,t_meshed]=ndgrid(obj.lat,obj.lon,datenum(obj.t));
@@ -1047,12 +1113,32 @@ classdef simplegrid < simpletimeseries
       lat_new=mean([obj.lat(1:end-1),obj.lat(2:end)],2);
       obj=obj.spatial_interp(lon_new,lat_new);
     end
-    %utilities
+    %% utilities
     function obj=area(obj)
       lon_new=mean([obj.lon(1:end-1);obj.lon(2:end)]);
       lat_new=mean([obj.lat(1:end-1),obj.lat(2:end)],2);
       %save results
       obj=obj.assign(repmat(diff(obj.lat)*diff(obj.lon),1,1,numel(obj.t)),'t',obj.t,'lat',lat_new,'lon',lon_new);
+    end
+    function obj=height(obj)
+      lon_new=mean([obj.lon(1:end-1);obj.lon(2:end)]);
+      lat_new=mean([obj.lat(1:end-1),obj.lat(2:end)],2);
+      m=obj.map;
+      %save results
+      obj=obj.assign(...
+        (...
+          m(1:end-1,1:end-1,:)+...
+          m(2:end  ,1:end-1,:)+...
+          m(1:end-1,2:end  ,:)+...
+          m(2:end  ,2:end  ,:)...
+        )*0.25,...
+        't',obj.t,...
+        'lat',lat_new,...
+        'lon',lon_new...
+        );
+    end
+    function obj=volume(obj)
+      obj=obj.area.*obj.height;
     end
     %% convert to spherical harmonics
     function out=sh(obj)
@@ -1086,18 +1172,37 @@ classdef simplegrid < simpletimeseries
         end 
       end
     end
-    function [obj1,obj2]=consolidate(obj1,obj2)
-      %match the compatible parameters 
-      parameters=simplegrid.compatible_parameter_list;
-      for i=1:numel(parameters)
-        p=(parameters{i});
-        if ~isequal(obj1.(p),obj2.(p))
-          obj2=obj2.scale(p,obj1.(p));
-        end 
-      end
-      %extend the time-domain of both objects to be in agreement with the each other.
-      [obj1,obj2]=consolidate@simpletimeseries(obj1,obj2);
+    %the merge method can be called irectly
+    function [lon,lat]=sp_domain_lcm(obj1,obj2)
+      %get parameters
+      lim1=obj1.sp_limits;
+      spa1=obj1.sp_spacing;
+      lim2=obj2.sp_limits;
+      spa2=obj2.sp_spacing;
+      %build longitude domain
+      lon=(...
+        min([lim1(1),lim2(1)]):...
+        gcd( spa1(1),spa2(1) ):...
+        max([lim1(2),lim2(2)])...
+      );
+      %build latitude domain
+      lat=transpose(...
+        min([lim1(3),lim2(3)]):...
+        gcd( spa1(2),spa2(2) ):...
+        max([lim1(4),lim2(4)])...
+      );
     end
+    function [obj1,obj2]=interp2(obj1,obj2,varargin)
+      %get common spatial domain
+      [lon_new,lat_new]=sp_domain_lcm(obj1,obj2);
+      %interpolate in the spatial domain
+      obj1=obj1.spatial_interp(lon_new,lat_new);
+      obj2=obj2.spatial_interp(lon_new,lat_new);
+      %interpolate in the time domain
+      [obj1,obj2]=interp2@simpletimeseries(obj1,obj2);
+    end
+    %the append method can be called directly (only acts in the time domain)
+
     %% plot functions
     function out=imagesc(obj,varargin)
       p=inputParser;
