@@ -25,7 +25,6 @@ classdef nrtdm
   end
   %calculated only when asked fo
   properties(Dependent)
-    day_list
   end
 
   methods(Static)
@@ -81,15 +80,12 @@ classdef nrtdm
       %load data
       obj=obj.load(varargin{:});
     end
-    function out=get.day_list(obj)
-      [y,m,d] = ymd(obj.start:obj.stop);
-      out=datetime(y,m,d);
-    end
     function obj=load(obj,varargin)
       %make room for daily data
-      daily=cell(size(obj.day_list));
+      day_list=time.day_list(obj.start,obj.stop);
+      daily=cell(size(day_list));
       i=0;
-      for t=obj.day_list
+      for t=day_list
         %convert data (faster loading afterwards, skips if already available)
         file=nrtdm_convert(obj.metadata,t,varargin{:});
         i=i+1;
