@@ -127,6 +127,17 @@ classdef str
       end
       out=strjust([repmat(' ',1,len-numel(in)),in],mode);
     end
+    function out=th(i)
+      switch i
+      case 1
+        out='1st';
+      case 2
+        out='2nd';
+      case 3
+        out='3rd';
+      otherwise
+        out=[num2str(i),'th'];
+      end
+    end
   end
 end
-    
