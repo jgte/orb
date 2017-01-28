@@ -1,4 +1,4 @@
-classdef grace
+classdef datastorage
   %static
   properties(Constant)
     
@@ -37,10 +37,6 @@ classdef grace
         
     %default value of some internal parameters
     default_list=struct(...
-      'par_modes',struct(...
-        'stats',{{'mean','std','rms','length'}},...
-        'stats2',{{'corrcoef','length'}}...
-      ),...
       'par_calpar_csr',struct(...
         'longtermbias',struct(...
           'A',fullfile('input','bsA2003'),...
@@ -77,7 +73,7 @@ classdef grace
         'ylimits',[-inf,inf],...
         'size',200+[0,0,21,9]*50,...
         'units','points',...
-        'visible','off',...
+        'visible','on',...
         'fontsize',struct(...
           'axis', 24,...
           'title',32,...
@@ -86,7 +82,7 @@ classdef grace
           'width',2)...
       )...
     );
-    sats={'A','B'};
+%     sats={'A','B'};
     parameter_list=struct(...
       'par_modes',      struct('default',grace.default_list.par_modes,     'validation',@(i) isstruct(i)),...
       'par_calpar_csr', struct('default',grace.default_list.par_calpar_csr,'validation',@(i) isstruct(i)),...
@@ -103,6 +99,7 @@ classdef grace
   end
   %read only
   properties(SetAccess=private)
+    category
     par
     data
   end
@@ -121,7 +118,7 @@ classdef grace
   end
   methods
     %% constructor
-    function obj=grace(varargin)
+    function obj=datastorage(varargin)
       p=inputParser;
       p.KeepUnmatched=true;
       %declare parameters
@@ -148,38 +145,20 @@ classdef grace
       end
       % data is added to this initialized object with the 'init' method (see below)
     end
-    %% start/stop operations
-    function out=get.start(obj)
-      out=obj.sts('start',obj.cell_names);
-      out=min([out{:}]);
-    end
-    function out=get.stop(obj)
-      out=obj.sts('stop',obj.cell_names);
-      out=max([out{:}]);
-    end
-    function obj=set.start(obj,start)
-      %retrieve cell names
-      names=obj.cell_names;
-      %get cell array with simpletimeseries objects
-      values=obj.cell_get(names);
-      %loop over complete set of objects
-      for i=1:numel(values)
-        values{i}.start=start;
+    %% dataname handling
+    function out=fix(obj,dataname)
+      % The object dataname includes the 'category' field, which is common to each
+      % datastorage instance. When calling the datatype_*/level_*/field_*/sat_* members
+      % (either directly or through data_*/vector_* members), the output of 
+      % dataname.cells_clean needs to be stripped of the 'category'. 
+      if ~strcmp(dataname.category,obj.category)
+        error([mfilename,...
+          ': requesting a product of category ''',dataname.category,''', ',...
+          'while this object is of category ''',obj.category,'''.'...
+        ]);
       end
-      %back-propagate modified set of objects
-      obj=obj.cell_set(names,values);
-    end
-    function obj=set.stop(obj,stop)
-      %retrieve cell names
-      names=obj.cell_names;
-      %get cell array with simpletimeseries objects
-      values=obj.cell_get(names);
-      %loop over complete set of objects
-      for i=1:numel(values)
-        values{i}.stop=stop;
-      end
-      %back-propagate modified set of objects
-      obj=obj.cell_set(names,values);
+      out=dataname.cells_clean;
+      out=out(2:end);
     end
     %% datatype operations
     function obj=datatype_init(obj)
@@ -195,7 +174,7 @@ classdef grace
         out=[];
       end
     end
-    function out=datatypes(obj)
+    function out=datatype_list(obj)
       out=fieldnames(obj.data);
     end
     %% level operations
@@ -215,7 +194,7 @@ classdef grace
         out=[];
       end
     end
-    function out=levels(obj,datatype)
+    function out=level_list(obj,datatype)
       out=obj.datatype_get(datatype);
       if ~isempty(out)
         out=fieldnames(out);
@@ -238,7 +217,7 @@ classdef grace
         out=[];
       end
     end
-    function out=fields(obj,datatype,level)
+    function out=field_list(obj,datatype,level)
       out=obj.level_get(datatype,level);
       if ~isempty(out)
         out=fieldnames(out);
@@ -249,9 +228,6 @@ classdef grace
       obj=obj.field_set(datatype,level,field,struct([]));
     end
     function obj=sat_set(obj,datatype,level,field,sat_name,sat_value)
-      if all(cellfun(@isempty,strfind(grace.sats,sat_name)))
-        error([mfilename,': sat_name can only be one of: ',strjoin(grace.sats,','),', not ''',sat_name,'''.'])
-      end
       field_value=obj.field_get(datatype,level,field);
       field_value.(sat_name)=sat_value;
       obj=obj.field_set(datatype,level,field,field_value);
@@ -264,8 +240,41 @@ classdef grace
         out=[];
       end
     end
+    function out=sat_list(obj,datatype,level,field)
+      out=obj.field_get(datatype,level,field);
+      if ~isempty(out)
+        out=fieldnames(out);
+      end
+    end
+    %% generalized datanames operations
+    function out=data_function(~,function_name,dataname)
+      if ~isa(dataname,'datanames')
+        error([mfilename,': input ''names'' must be of class ''datanames'', not a ',class(dataname),'.'])
+      end
+      if strcmp(function_name,'list')
+        out=[dataname.leaf_type(1),'_',function_name];
+      else
+        out=[dataname.leaf_type,'_',function_name];
+      end
+    end  
+    function obj=data_init(obj,dataname)
+      dnf=obj.fix(dataname);
+      obj=obj.(obj.data_function('init',dataname))(dnf{:});
+    end
+    function obj=data_set(obj,dataname,value)
+      dnf=obj.fix(dataname);
+      obj=obj.(obj.data_function('set',dataname))(dnf{:},value);
+    end
+    function out=data_get(obj,dataname)
+      dnf=obj.fix(dataname);
+      out=obj.(obj.data_function('get',dataname))(dnf{:});
+    end
+    function out=data_list(obj,dataname)
+      dnf=obj.fix(dataname);
+      out=obj.(obj.data_function('list',dataname))(dnf{:});
+    end
     %% cell array operations
-    function out=cell_names_sanity(~,in,name,default)
+    function out=vector_names_sanity(~,in,name,default)
       if isempty(in)
         %assign default values
         out=default;
@@ -284,14 +293,14 @@ classdef grace
         end
       end
     end
-    function out=cell_names_isvalid(obj,datatype,level,field,sat)
+    function out=vector_names_isvalid(obj,datatype,level,field,sat)
       try
         out=ischar(class(obj.data.(datatype).(level).(field).(sat)));
       catch
         out=false;
       end
     end
-    function names=cell_names(obj,datatype,level,field,sat)
+    function dataname_list=vector_names(obj,datatype,level,field,sat)
       %input arguments datatype, level, field and sat are either:
       % - a cell array of strings;
       % - a string (converted to a scalar cell array);
@@ -302,73 +311,231 @@ classdef grace
       if ~exist('field',   'var'),    field='';end
       if ~exist('level',   'var'),    level='';end
       if ~exist('datatype','var'), datatype='';end
-      % some of datatype, level, field and sat do not depend on each other 
-      % (those that do are inside the for loops below)
-      datatype=obj.cell_names_sanity(datatype,'datatype',obj.datatypes);
-           sat=obj.cell_names_sanity(sat,'sat',grace.sats);
-      %make room for outputs (this is just a guess, because level and field can be empty)
-      names=cell(numel(datatype)*numel(level)*numel(field)*numel(sat),1);
-      c=0;
-      %loop over all datatypes, levels, fields and sats
-      for i=1:numel(datatype)
-        level_now=obj.cell_names_sanity(level,'level',obj.levels(datatype{i}));
-        for j=1:numel(level_now)
-          field_now=obj.cell_names_sanity(field,'field',obj.fields(datatype{i},level_now{j}));
-          for k=1:numel(field_now)
-            for l=1:numel(sat)
-              if obj.cell_names_isvalid(datatype{i},level_now{j},field_now{k},sat{l})
-                c=c+1;
-                names{c}={datatype{i},level_now{j},field_now{k},sat{l}};
+      %if there's only one input, it may of datanames class, which is a compact way
+      %to represent the inputs datatype,level,field,sat.
+      if isa(datatype,'datanames')
+        %recursive call
+        dnf=obj.fix(datatype);
+        dataname_list=obj.vector_names(dnf{:});
+      else
+        % datatype is root, so it does not depend on any other 
+        datatype=obj.vector_names_sanity(datatype,'datatype',obj.datatype_list);
+        %make room for outputs (this is just a guess, because level and field can be empty)
+        dataname_list=cell(numel(datatype)*numel(level)*numel(field)*numel(sat),1);
+        c=0;
+        %loop over all datatypes, levels, fields and sats
+        for i=1:numel(datatype)
+          level_now=obj.vector_names_sanity(level,'level',obj.level_list(datatype{i}));
+          for j=1:numel(level_now)
+            field_now=obj.vector_names_sanity(field,'field',obj.field_list(datatype{i},level_now{j}));
+            for k=1:numel(field_now)
+              sat_now=obj.vector_names_sanity(sat,'sat',obj.sat_list(datatype{i},level_now{j},field_now{k}));
+              for l=1:numel(sat_now)
+                if obj.vector_names_isvalid(datatype{i},level_now{j},field_now{k},sat_now{l})
+                  c=c+1;
+                  dataname_list{c}=datanames({obj.category,datatype{i},level_now{j},field_now{k},sat_now{l}});
+                end
               end
             end
           end
         end
+        %remove empty cells
+        dataname_list=dataname_list(cellfun(@(i)(~isempty(i)),dataname_list));
       end
     end
-    function values=cell_get(obj,names)
+    function values=vector_get(obj,dataname_list)
       %make room for outputs
-      values=cell(size(names));
+      values=cell(size(dataname_list));
       %populate outputs
       for i=1:numel(values)
-        values{i}=obj.sat_get(names{i}{:});
+        values{i}=obj.data_get(dataname_list{i});
       end
     end
-    function obj=cell_set(obj,names,values)
+    function obj=vector_set(obj,dataname_list,values)
       %sanity
-      if numel(names) ~= numel(values)
+      if numel(dataname_list) ~= numel(values)
         error([mfilename,': number of elements of input ''values'' (',num2str(numel(values)),') ',...
-          'must be the same as the number of data types (',num2str(numel(names)),').'])
+          'must be the same as in ''dataname_list'' (',num2str(numel(dataname_list)),').'])
       end
       %propagate inputs
       for i=1:numel(values)
-        obj=obj.sat_set(names{i}{:},values{i});
+        obj=obj.data_set(dataname_list{i},values{i});
       end
     end
-    % Applies the function f to the cell array given by cell_get(datatype,level,field,sat) and
-    % returns the result, so it transforms (tr) the object into something else
-    function out=tr(obj,f,names,varargin)
+    % Applies the function f to the cell array given by vector_get(dataname_list) and
+    % returns the result, so it transforms (tr) a list of objects into something else
+    function out=vector_tr(obj,f,dataname_list,varargin)
       %collapse requested data into cell array and operate on the cell array
-      out=f(obj.cell_get(names),varargin{:});
+      out=f(obj.vector_get(dataname_list),varargin{:});
     end
-    % Applies the function f to the cell array given by cell_get(datatype,level,field,sat) and
-    % saves the resulting objects back to the same set, given by cell_set(datatype,level,field,sat)
-    function obj=op(obj,f,names,varargin)
+    % Applies the function f to the cell array given by vector_get(dataname_list) and
+    % saves the resulting objects back to the same set, using vector_set(dataname_list,...)
+    function obj=vector_op(obj,f,dataname_list,varargin)
       %operate on the requested set
-      values=obj.tr(f,names,varargin{:});
+      values=obj.vector_tr(f,dataname_list,varargin{:});
       %sanity
       if ~iscell(values)
         error([mfilename,': function ',fun2str(f),' must return a cell array, not a ',class(values),'.'])
       end
       %propagate cell array back to object
-      obj=obj.cell_set(names,values);
+      obj=obj.vector_set(dataname_list,values);
     end
     % Retrieves the values of particular field or zero-input method from the 
     % simpletimeseries (sts) stored at the leaves defined by the input names.
-    function out=sts(obj,sts_field,names)
-      out=cell(size(names));
-      obj_list=obj.cell_get(names);
+    function out=vector_sts(obj,sts_field,dataname_list)
+      out=cell(size(dataname_list));
+      obj_list=obj.vector_get(dataname_list);
       for i=1:numel(out)
         out{i}=obj_list{i}.(sts_field);
+      end
+    end
+    %% start/stop operations
+    function out=get.start(obj)
+      out=obj.vector_sts('start',obj.vector_names);
+      out=min([out{:}]);
+    end
+    function out=get.stop(obj)
+      out=obj.vector_sts('stop',obj.vector_names);
+      out=max([out{:}]);
+    end
+    function obj=set.start(obj,start)
+      %retrieve cell names
+      names=obj.vector_names;
+      %get cell array with simpletimeseries objects
+      values=obj.vector_get(names);
+      %loop over complete set of objects
+      for i=1:numel(values)
+        values{i}.start=start;
+      end
+      %back-propagate modified set of objects
+      obj=obj.vector_set(names,values);
+    end
+    function obj=set.stop(obj,stop)
+      %retrieve cell names
+      names=obj.vector_names;
+      %get cell array with simpletimeseries objects
+      values=obj.vector_get(names);
+      %loop over complete set of objects
+      for i=1:numel(values)
+        values{i}.stop=stop;
+      end
+      %back-propagate modified set of objects
+      obj=obj.vector_set(names,values);
+    end
+    %% metadata interface
+    function obj=mdset(obj,dataname,varargin)
+      obj.par.(dataname.name_clean)=dataproduct(dataname,varargin{:});
+    end
+    function md=mdget(obj,dataname)
+      md=[];delta=0;
+      while isempty(md) && delta<4
+        dataname_now=dataname.trunk_name_clean(delta);
+        if isfield(obj.par,dataname_now)
+          md=obj.par.(dataname_now);
+        else
+          delta=delta+1;
+        end
+      end
+      if isempty(md)
+        error([mfilename,': cannot find the metadata of product ',dataname.name,' or any of its trunk elements.'])
+      end
+    end
+    %% datatype initialization
+    function obj=init(obj,dataname,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('dataname',@(i) ischar(i) || isa(i,'datanames'));      
+      % parse it
+      p.parse(dataname,varargin{:});
+      % convert to object
+      dataname=datanames(dataname);
+      % save the cateogry, if not done already
+      if isempty(obj.category)
+        obj.category=dataname.category;
+      else
+        if ~strcmp(obj.category,dataname.category)
+          error([...
+            mfilename,': current object is already attributed to category ''',obj.category,...
+            ''', cannot change it to category ''',dataname.category,'''.'...
+          ])
+        end
+      end
+      % load the metadata for this product
+      obj=obj.mdset(dataname,varargin{:});
+      % make sure all data sources are loaded
+      obj=obj.init_sources(dataname);
+      % invoke init method
+      ih=str2func(obj.mdget(dataname).mdget('method'));
+      obj=ih(obj,dataname);
+      
+     
+%       % branch according to datatype
+%       switch datatype
+%       case 'acc'
+%         %NOTICE: the following parameters are relevant to this datatype:
+%         % - start
+%         % - stop
+%         % - release
+%         % - level
+%         % - field
+%         %Everything else is ignored quietly.
+% 
+%         % sanity
+%         if isempty(p.Results.start) || isempty(p.Results.stop)
+%           error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
+%         end
+%         % gather list of daily dates
+%         datelist=time.day_list(p.Results.start,p.Results.stop);
+%         for s=1:numel(grace.sats)
+%           switch [p.Results.level,'-',p.Results.field]
+%           case 'l1b-csr'
+%             %build required file list
+%             filelist=cell(size(datelist));
+%             for i=1:numel(datelist)
+%               filelist{i}=fullfile(storage,datestr(datelist(i),'yy'),'acc','asc',...
+%                 ['ACC1B_',datestr(datelist(i),'yyyy-mm-dd'),'_',grace.sats{s},'_',p.Results.release,'.asc']...
+%               );
+%             end
+%             %load and save the data
+%             obj=obj.sat_set('acc',p.Results.level,p.Results.field,grace.sats{s},...
+%               simpletimeseries.import(filelist,'cut24hrs',false)...
+%             );
+%           case 'mod-nrtdm'
+%             %load the data
+%             tmp=nrtdm(['G',grace.sats{s},'_Panels/Aero'],p.Results.start,p.Results.stop,'data_dir',storage);
+%             %save the data
+%             obj=obj.sat_set('acc',p.Results.level,p.Results.field,grace.sats{s},...
+%               tmp.ts...
+%             );
+%           case 'mod-csr'
+%             %build required file list
+%             filelist=cell(size(datelist));
+%             for i=1:numel(datelist)
+%               filelist{i}=fullfile(storage,datestr(datelist(i),'yy'),datestr(datelist(i),'mm'),'gps_orb_l',...
+%                 ['grc',grace.sats{s},'_gps_orb_',datestr(datelist(i),'yyyy-mm-dd'),...
+%                 '_RL',p.Results.release,'_GPSRL62_RL05.*.acc']...
+%               );
+%             end
+%             %load and save the data
+%             obj=obj.sat_set('acc',p.Results.level,p.Results.field,grace.sats{s},...
+%               simpletimeseries.import(filelist,'cut24hrs',false)...
+%             );
+%           end
+%         end
+%       otherwise
+%         error([mfilename,': cannot handle datatype ''',datatype,'''.'])
+%       end
+%       %make sure start/stop options are honoured (if non-empty)
+%       if ~isempty(obj)
+%         obj.start=p.Results.start;
+%         obj.stop= p.Results.stop;
+%       end
+    end
+    function obj=init_sources(obj,dataname)
+      %loop over all source data
+      for i=1:obj.mdget(dataname).nr_sources
+        %load this source
+        obj=obj.init(obj.mdget(dataname).sources(i));
       end
     end
     %% utils
@@ -432,10 +599,6 @@ classdef grace
         end
         dat=[dat{:}];
         dat=dat(~isnan(dat(:)));
-        %if there's not data, bail out
-        if isempty(dat)
-          return
-        end
         %remove outliers (if requested)
         for c=1:p.Results.outlier
           dat=simpledata.rm_outliers(dat);
@@ -501,259 +664,121 @@ classdef grace
         system(['mkdir -vp ',fileparts(out)]);
       end
     end
-    %% datatype initialization
-    function obj=init(obj,datatype,storage,varargin)
+    %% generalized plotting
+    function h=plot(obj,dataname,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('start',    obj.start,@(i) isdatetime(i));
-      p.addParameter('stop',     obj.stop, @(i) isdatetime(i));
-      p.addParameter('datafile', fullfile(storage,[datatype,'.mat']),@(i) ischar(i));
-      p.addParameter('jobid_col',2,       @(i) isscalar(i) && isfinite(i));
-      p.addParameter('release', '61',     @(i) ischar(i));
-      p.addParameter('level',   'unknown',@(i) ischar(i));
-      p.addParameter('field',   'unknown',@(i) ischar(i));
+      p.addRequired( 'dataname',@(i) ischar(i) || isa(i,'datanames') || iscell(i));
+      p.addParameter('justplot',false,@(i) islogical(i));
+      p.addParameter('plot_together','',@(i) islogical(i));
+      p.addParameter('legend',{},@(i) iscell(i));
+      p.addParameter('ylabel',{},@(i) iscell(i));
       % parse it
-      p.parse(varargin{:});
-      % branch according to datatype
-      switch datatype
-      case 'calpar_csr'
-        %NOTICE: the following parameters are relevant to this datatype:
-        % - datafile
-        % - jobid_col
-        %Everything else is ignored quietly.
-        
-        %check if data is already in matlab format
-        if isempty(dir(p.Results.datafile))
-          %get names of parameters and levels
-          fields=fieldnames(obj.par.calpar_csr.fields);
-          levels=fieldnames(obj.par.calpar_csr.levels);
-          %need to get long-term biases
-          for s=1:numel(grace.sats)
-            ltb.(grace.sats{s})=flipud(transpose(...
-              dlmread(['/Users/teixeira/data/csr/corral-tacc/input/bs',grace.sats{s},'2003'])...
-            ));
-          end
-          %load data
-          for i=1:numel(levels)
-            for j=1:numel(fields)
-              tmp=struct('A',[],'B',[]);
-              %read data
-              for s=1:numel(grace.sats)
-                f=fullfile(storage,['gr',grace.sats{s},'.',fields{j},'.',levels{i},'.GraceAccCal']);
-                tmp.(grace.sats{s})=simpletimeseries.import(f,'cut24hrs',false);
-                %enforce the long-term biases
-                switch fields{j}
-                case 'AC0X'
-                  lbt_idx=2;
-                case {'AC0Y1','AC0Y2','AC0Y3','AC0Y4','AC0Y5','AC0Y6','AC0Y7','AC0Y8'}
-                  lbt_idx=3;
-                case 'AC0Z'
-                  lbt_idx=4;
-                otherwise
-                  lbt_idx=0;
-                end
-                if lbt_idx>0
-                  t=tmp.(grace.sats{s}).mjd-ltb.(grace.sats{s})(2,1);
-                  tmp.(grace.sats{s})=tmp.(grace.sats{s}).assign(...
-                    [tmp.(grace.sats{s}).y(:,1)+polyval(ltb.(grace.sats{s})(:,lbt_idx),t),tmp.(grace.sats{s}).y(:,2:end)]...
-                  );
-                end
-              end
-              %ensure date is compatible between the satellites
-              if ~tmp.A.isteq(tmp.B)
-                [tmp.A,tmp.B]=tmp.A.merge(tmp.B);
-              end
-              %propagate data to object
-              for s=1:numel(grace.sats)
-                obj=obj.sat_set('calpar_csr',levels{i},fields{j},grace.sats{s},tmp.(grace.sats{s}));
-              end
-            end
-          end
-          %loop over all sat and level to check for consistent time domain and Job IDs agreement
-          for i=1:numel(levels)
-            for s=1:numel(grace.sats)
-              %gather names for this sat and level
-              names=obj.cell_names('calpar_csr',levels{i},'',grace.sats{s});
-              %ensure the time domain is the same for all fields (in each sat and level)
-              obj=obj.op(@simpledata.merge_multiple,...
-                names,...
-                ['GRACE-',grace.sats{s},' ',levels{i},' calpar_csr']...
-              );
-              %ensure job IDs are consistent for all fields (in each sat and level)
-              equal_idx=obj.tr(@simpledata.isequal_multiple,...
-                names,...
-                p.Results.jobid_col,['GRACE-',grace.sats{s},' ',levels{i},' calpar_csr']...
-              );
-              for j=1:numel(equal_idx)
-                if ~equal_idx{j}
-                  error([mfilename,': Job ID inconsistency between ',...
-                    '[',strjoin(names{j  },','),'] and ',...
-                    '[',strjoin(names{j+1},','),']  (possibly more).'])
-                end
-              end
-            end
-          end
-          %loop over all sats, levels and fields to:
-          % - in case of estim: ensure that there are no arcs with lenghts longer than consecutive time stamps
-          % - in case of aak and accatt: ensure that the t0 value is the same as the start of the arc
-          for s=1:numel(grace.sats)
-            %loop over all required levels
-            for i=1:numel(levels)
-              switch levels{i}
-              case 'estim'
-                %this check ensures that there are no arcs with lenghts longer than consecutive time stamps
-                for j=1:numel(fields)
-                  disp(['Checking ',datatype,'-',levels{i},'-',fields{j},'-',grace.sats{s}])
-                  %save time series into dedicated var
-                  ts_now=obj.sat_get(datatype,levels{i},fields{j},grace.sats{s});
-                  %forget about epochs that have been artificially inserted to represent forward steps
-                  idx1=find(diff(ts_now.t)>seconds(1));
-                  %get arc lenths
-                  al=ts_now.y(idx1,3);
-                  %get consecutive time difference
-                  dt=seconds(diff(ts_now.t(idx1)));
-                  %find arcs that span over time stamps
-                  bad_idx=find(al(1:end-1)-dt>ts_now.t_tol); %no abs here!
-                  %report if any such epochs have been found
-                  if ~isempty(bad_idx)
-                    str=cell(1,min([numel(bad_idx),10])+1);
-                    str{1}='idx: arc init time; arc length; succ time diff; delta arc len (should be zero)';
-                    for k=1:numel(str)-1
-                      idx=idx1(bad_idx(k));
-                      str{k+1}=[...
-                        num2str(idx1(bad_idx(k))),': ',...
-                        datestr(ts_now.t(idx)),'; ',...
-                        num2str(al(bad_idx(k)),'%.5d'),'; ',...
-                        num2str(dt(bad_idx(k))),' ',...
-                        num2str(al(bad_idx(k))-dt(bad_idx(k)))...
-                      ];
-                    end
-                    disp([....
-                      ': found ',num2str(numel(bad_idx)),' arc lengths (3rd column) longer than ',...
-                      ' difference between consecutive time stamps (4th column):',10,...
-                      strjoin(str,'\n'),10,...
-                      'These data have been discarded!'
-                    ])
-                    mask=ts_now.mask;
-                    mask(idx1(bad_idx))=false;
-                    obj=obj.sat_set(datatype,levels{i},fields{j},grace.sats{s},ts_now.mask_and(mask).mask_update);
-                  end
-                end
-              case {'aak','accatt'}
-                %this check ensures that the t0 value is the same as the start of the arc
-                for j=1:numel(fields)
-                  %some fields do not have t0
-                  if ~any(fields{j}(end)=='DQ')
-                    disp(['Skipping ',datatype,'-',levels{i},'-',fields{j},'-',grace.sats{s}])
-                    continue
-                  end
-                  disp(['Checking ',datatype,'-',levels{i},'-',fields{j},'-',grace.sats{s}])
-                  %save time series into dedicated var
-                  ts_now=obj.sat_get(datatype,levels{i},fields{j},grace.sats{s});
-                  %forget about epochs that have been artificially inserted to represent forward steps
-                  idx1=find(diff(ts_now.t)>seconds(1));
-                  %get t0
-                  t0=simpletimeseries.utc2gps(datetime(ts_now.y(idx1,3),'convertfrom','modifiedjuliandate'));
-                  %find arcs that have (much) t0 different than their first epoch
-                  bad_idx=find(abs(ts_now.t(idx1)-t0)>seconds(1) & ts_now.mask(idx1));
-                  %report if any such epochs have been found
-                  if ~isempty(bad_idx)
-                    str=cell(1,min([numel(bad_idx),10])+1);
-                    str{1}='idx: arc init time - MJD = delta time (should be zero)';
-                    for k=1:numel(str)-1
-                      idx=idx1(bad_idx(k));
-                      str{k+1}=[...
-                        num2str(idx1(bad_idx(k))),': ',...
-                        datestr(ts_now.t(idx1(bad_idx(k))),'yyyy-mm-dd HH:MM:SS'),' - ',...
-                        datestr(t0(bad_idx(k)),'yyyy-mm-dd HH:MM:SS'),' = ',...
-                        char(ts_now.t(idx1(bad_idx(k)))-t0(bad_idx(k)))...
-                      ];
-                    end
-                    disp([...
-                      'found ',num2str(numel(bad_idx)),' arc init time (2nd column) different than the',...
-                      ' MJD reported in the data (3rd column):',10,...
-                      strjoin(str,'\n'),10,...
-                      'These data have been discarded!'
-                    ])
-                    mask=ts_now.mask;
-                    mask(idx1(bad_idx))=false;
-                    obj=obj.sat_set(datatype,levels{i},fields{j},grace.sats{s},ts_now.mask_and(mask).mask_update);
-                  end
-                end
-              end
-            end
-          end
-          %save data
-          s=obj.datatype_get('calpar_csr'); %#ok<*NASGU>
-          save(p.Results.datafile,'s');
-          clear s
+      p.parse(dataname,varargin{:});
+      %handle input dataname
+      if iscell(dataname)
+        %check that data was already externally resolved into a cell string of datanames
+        if any(cellfun(@(i)(~isa(i,'datanames')),dataname))
+          error([mfilename,': can only handle input ''dataname'' as a cell array if all entries are of class ''datanames''.'])
+        end
+        %propagate
+        dataname_list=dataname;
+      else
+        % loop over all data in lower levels (in case this isn't already the lowest level)
+        dataname_list=vector_names(obj,datanames(dataname));
+      end
+      % recursive call multiple plots
+      if numel(dataname_list)>1
+        h=cell(size(dataname_list));
+        for i=1:numel(dataname_list)
+          h{i}=obj.plot(dataname_list{i},varargin{:});
+        end
+        return
+      elseif p.Results.justplot
+        % retrieve the requested data
+        d=obj.data_get(dataname_list{1});
+        %checking data class
+        switch class(d)
+        case 'simpletimeseries'
+          data_idx=cell2mat(obj.mdget(dataname_list{1}).mdget('plot_columns'));
+          h=d.plot(...
+            'columns', data_idx,...
+            'zeromean',obj.mdget(dataname_list{1}).mdget('plot_zeromean')...
+          );
+          h.y_units=d.y_units{data_idx};
+        otherwise
+          error([mfilename,': cannot plot data of class ',class(d),'; implementation needed!'])
+        end
+      else
+        %save the single entry in dataname
+        dataname_now=dataname_list{1};
+        %get which data is plotted together
+        if ~any(strcmp(p.UsingDefaults,'plot_together'))
+          plot_together=p.Results.plot_together;
+        elseif obj.mdget(dataname_now).ismd_field('plot_together')
+          plot_together=obj.mdget(dataname_now).mdget('plot_together');
         else
-          %load data
-          load(p.Results.datafile,'s');
-          levels=fieldnames(s); %#ok<NODEF>
-          for i=1:numel(levels)
-            obj=obj.level_set('calpar_csr',levels{i},s.(levels{i}));
-          end
+          plot_together='';
         end
-      case 'acc'
-        %NOTICE: the following parameters are relevant to this datatype:
-        % - start
-        % - stop
-        % - release
-        % - level
-        % - field
-        %Everything else is ignored quietly.
-
-        % sanity
-        if isempty(p.Results.start) || isempty(p.Results.stop)
-          error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
-        end
-        % gather list of daily dates
-        datelist=time.day_list(p.Results.start,p.Results.stop);
-        for s=1:numel(grace.sats)
-          switch [p.Results.level,'-',p.Results.field]
-          case 'l1b-csr'
-            %build required file list
-            filelist=cell(size(datelist));
-            for i=1:numel(datelist)
-              filelist{i}=fullfile(storage,datestr(datelist(i),'yy'),'acc','asc',...
-                ['ACC1B_',datestr(datelist(i),'yyyy-mm-dd'),'_',grace.sats{s},'_',p.Results.release,'.asc']...
+        %plot filename arguments
+        fileargs=[...
+          obj.mdget(dataname_now).file_args('plot'),{...
+          'start',obj.start,...
+          'stop',obj.stop,...
+          'timestamp',true,...
+          'remove_part',plot_together...
+        }];
+        % check if plot is already there
+        if ~dataname_now.isfile(fileargs{:})
+          %retrive data names to be plotted here
+          dataname_list_to_plot=obj.vector_names(dataname_now.edit(plot_together,''));
+          %recursive call, just for plotting
+          h=obj.plot(dataname_list_to_plot,varargin{:},'justplot',true);
+          %enforce plot preferences
+          obj.mdget(dataname).enforce_plot
+          %add legend
+          if ~isempty(p.Results.legend)
+            %some sanity
+            if numel(p.Results.legend) ~= numel(dataname_list_to_plot)
+              error([mfilename,':BUG TRAP: input legend size is not in agreemend with number of plotted lines.'])
+            end
+            legend_str=p.Results.legend;
+          else
+            legend_str=datanames.unique(dataname_list_to_plot);
+            for i=1:numel(legend_str)
+              %define default prefix and suffic
+              prefix='';
+              suffix='';
+              %define sufix
+              if obj.mdget(dataname_now).mdget('plot_zeromean')
+                data_idx=cell2mat(obj.mdget(dataname_now).mdget('plot_columns'));
+                suffix=num2str(h{i}.y_mean{data_idx});
+              end
+              %build legend
+%               legend_str{i}=dataname_list_to_plot{i}.legend(prefix,suffix);
+              legend_str{i}=str.clean(...
+                strjoin([{prefix},legend_str{i},{suffix}],' '),...
+                {'title','succ_blanks'}...
               );
             end
-            %load and save the data
-            obj=obj.sat_set('acc',p.Results.level,p.Results.field,grace.sats{s},...
-              simpletimeseries.import(filelist,'cut24hrs',false)...
-            );
-          case 'mod-nrtdm'
-            %load the data
-            tmp=nrtdm(['G',grace.sats{s},'_Panels/Aero'],p.Results.start,p.Results.stop,'data_dir',storage);
-            %save the data
-            obj=obj.sat_set('acc',p.Results.level,p.Results.field,grace.sats{s},...
-              tmp.ts...
-            );
-          case 'mod-csr'
-            %build required file list
-            filelist=cell(size(datelist));
-            for i=1:numel(datelist)
-              filelist{i}=fullfile(storage,datestr(datelist(i),'yy'),datestr(datelist(i),'mm'),'gps_orb_l',...
-                ['grc',grace.sats{s},'_gps_orb_',datestr(datelist(i),'yyyy-mm-dd'),...
-                '_RL',p.Results.release,'_GPSRL62_RL05.*.acc']...
-              );
+          end
+          set(legend(legend_str),'fontname','courier')
+          %add title
+          title(strrep(strjoin(datanames.common(dataname_list_to_plot),' '),'_','\_'))
+          %fix y-axis label
+          if ~isempty(p.Results.ylabel)
+            ylabel(p.Results.ylabel)
+          else
+            for i=2:numel(h)
+              if ~strcmp(h{1}.y_units,h{i}.y_units)
+                error([mfilename,':BUG TRAP: y-units are not consistent in all plotted lines.'])
+              end
             end
-            %load and save the data
-            obj=obj.sat_set('acc',p.Results.level,p.Results.field,grace.sats{s},...
-              simpletimeseries.import(filelist,'cut24hrs',false)...
-            );
+            ylabel(['[',h{1}.y_units,']'])
           end
         end
-      otherwise
-        error([mfilename,': cannot handle datatype ''',datatype,'''.'])
       end
-      %make sure start/stop options are honoured (if non-empty)
-      if ~isempty(obj)
-        obj.start=p.Results.start;
-        obj.stop= p.Results.stop;
-      end
+      
     end
     %% costumized operations
     function out=data_op(obj,opname,datatype,level,varargin)
@@ -765,62 +790,6 @@ classdef grace
       switch lower(datatype)
       case 'calpar_csr'
         switch lower(opname)
-        case 'load-stats'
-          stats_filename=obj.id('data','calpar_csr',level,'','','stats');
-          if isempty(dir(stats_filename))
-            for s=1:numel(grace.sats)
-              %retrive data for this satellite
-              [dv,dn]=obj.cell_get('calpar_csr',level,'',grace.sats{s});
-              % loop over CSR cal pars
-              fields=obj.fields('calpar_csr',level);
-              for i=1:numel(fields)
-                %sanity
-                if ~strcmp(fields{i},dn{i})
-                  error([mfilename,': discrepancy in the field names, debug needed!'])
-                end
-                if i>1 && ~dv{1}.isteq(dv{i})
-                  error([mfilename,': time domain discrepancy in ',fields{i}])
-                end
-                %compute stats per period
-                stats.(fields{i}).(grace.sats{s})=dv{i}.stats(...
-                  'period',years(1)/12,...
-                  'overlap',seconds(0),...
-                  'outlier',p.Results.outlier,...
-                  'struct_fields',obj.par.modes.stats...
-                );
-              end
-            end
-            save(stats_filename,'stats')
-          else
-            load(stats_filename)
-          end
-          %outputs
-          out=stats;
-        case 'load-stats2'
-          stats_filename=obj.id('data','calpar_csr',level,'','','stats2');
-          if isempty(dir(stats_filename))
-            %retrive data
-            A=obj.cell_get('calpar_csr',level,'','A');
-            B=obj.cell_get('calpar_csr',level,'','B');
-            % loop over CSR cal pars
-            fields=obj.fields('calpar_csr',level);
-            for i=1:numel(fields)
-              %compute stats per period
-              stats.(fields{i})=simpletimeseries.stats2(...
-                A{i},...
-                B{i},...
-                'period',years(1)/12,...
-                'overlap',seconds(0),...
-                'outlier',p.Results.outlier,...
-                'struct_fields',obj.par.modes.stats2...
-              );
-            end
-            save(stats_filename,'stats')
-          else
-            load(stats_filename)
-          end
-          %outputs
-          out=stats;
         case 'calmod'
           dci=obj.par.calpar_csr.data_col_idx;
           coord=obj.par.calpar_csr.coord;
@@ -881,7 +850,7 @@ classdef grace
         switch lower(opname)
         case 'load-stats'
           %compute residuals relative to the available models
-          models=obj.fields('acc','mod');
+          models=obj.field_list('acc','mod');
           for m=1:numel(models)
             filenames=simpletimeseries.unwrap_datafiles(...
               obj.id('data','accres_csr',level,models{m},'DATE_PLACE_HOLDER','stats'),...
@@ -942,13 +911,13 @@ classdef grace
       end
     end
     %% costumized plotting routine
-    function plot(obj,plotname,datatype,level,varargin)
+    function oldplot(obj,plotname,datatype,level,varargin)
       switch lower(datatype)
       case 'calpar_csr'
         switch lower(plotname)
         case ''
           % loop over CSR cal pars
-          fields=obj.fields(datatype,level);
+          fields=obj.field_list(datatype,level);
           for j=1:numel(fields)
             filename=obj.id('plot',datatype,level,fields{j},'');
             if isempty(dir(filename))
@@ -1271,6 +1240,7 @@ classdef grace
               ts={...
                 obj.data.(datatype).l1b.csr.(       grace.sats{s}),...
                 obj.data.(datatype).calmod.(level).(grace.sats{s}),...
+                obj.data.(datatype).mod.csr.(       grace.sats{s}),...
                 obj.data.(datatype).mod.nrtdm.(     grace.sats{s})...
               };
               idx=0;
@@ -1282,28 +1252,28 @@ classdef grace
                 y_units=ts{1}.y_units{data_col_idx};
               end
               idx=idx+1;
+              if isa(ts{3},'simpletimeseries')
+                calib=ts{1}+ts{2};
+                h=calib.plot('columns',data_col_idx,'zeromean',true);
+                legend_str{idx}=['Calibrated  ',num2str(h.y_mean{1})];
+              end
+              idx=idx+1;
               if isa(ts{2},'simpletimeseries')
                 h=ts{2}.plot('columns',data_col_idx,'zeromean',true);
                 legend_str{idx}=['Calib. Mod. ',num2str(h.y_mean{1})];
                 y_units=ts{2}.y_units{data_col_idx};
               end
               idx=idx+1;
-              if isa(ts{1},'simpletimeseries') && isa(ts{2},'simpletimeseries')
-                calib=ts{1}+ts{2};
-                h=calib.plot('columns',data_col_idx,'zeromean',true);
-                legend_str{idx}=['Calibrated  ',num2str(h.y_mean{1})];
-              end
-%               idx=idx+1;
-%               if isa(ts{3},'simpletimeseries')
-%                 h=ts{3}.plot('columns',data_col_idx,'zeromean',true);
-%                 legend_str{idx}=['CSR Mod.    ',num2str(h.y_mean{1})];
-%                 y_units=ts{3}.y_units{data_col_idx};
-%               end
-              idx=idx+1;
               if isa(ts{3},'simpletimeseries')
                 h=ts{3}.plot('columns',data_col_idx,'zeromean',true);
-                legend_str{idx}=['NRLMSISE-00 ',num2str(h.y_mean{1})];
+                legend_str{idx}=['CSR Mod.    ',num2str(h.y_mean{1})];
                 y_units=ts{3}.y_units{data_col_idx};
+              end
+              idx=idx+1;
+              if isa(ts{4},'simpletimeseries')
+                h=ts{4}.plot('columns',data_col_idx,'zeromean',true);
+                legend_str{idx}=['NRLMSISE-00 ',num2str(h.y_mean{1})];
+                y_units=ts{4}.y_units{data_col_idx};
               end
               if all(cellfun(@isempty,legend_str))
                 disp(['No data to plot ',filename])
@@ -1371,6 +1341,8 @@ classdef grace
     end
   end
 end
+
+
 
 function out=collapse(in)
   if ~isscalar(in) && ~iscell(in)
