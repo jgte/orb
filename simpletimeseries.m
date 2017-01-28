@@ -1061,7 +1061,7 @@ classdef simpletimeseries < simpledata
         dat(i)=simpledata.stats2(...
           obj1.trim(ts{i}(1),ts{i}(end)),...
           obj2.trim(ts{i}(1),ts{i}(end)),...
-          'struct',varargin{:}...
+          'mode','struct',varargin{:}...
         ); %#ok<AGROW>
         % inform about progress
         s=time.progress(s,i);
@@ -1649,7 +1649,7 @@ classdef simpletimeseries < simpledata
       end
     end
     function [obj1,obj2,idx1,idx2]=merge(obj1,obj2)
-      %add as gaps those x in obj1 that are in obj2 but not in obj1
+      %add as gaps the t in obj1 that are in obj2 but not in obj1 (and vice-versa)
       %NOTICE:
       % - idx1 contains the index of the x in obj1 that were added from obj2
       % - idx2 contains the index of the x in obj2 that were added from obj1
@@ -1665,18 +1665,23 @@ classdef simpletimeseries < simpledata
       end
     end
     function [obj1,obj2]=interp2(obj1,obj2,varargin)
-      %extends the x-domain of both objects to be in agreement
-      %with the each other. The resulting x-domains possibly have
+      %extends the t-domain of both objects to be in agreement
+      %with the each other. The resulting t-domains possibly have
       %numerous gaps, which are interpolated over (interpolation
       %scheme and other options can be set in varargin).
+      %handle default optional arguments
+      if ~exist('varargin','var') || isempty(varargin)
+        varargin={...
+          'interp_over_gaps_narrower_than',3*min([obj1.step,obj2.step]),...
+          'interp1_args',{'linear'}...
+        };
+      end
+      %need to match the epoch
       if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
         [obj1,obj2]=matchepoch(obj1,obj2);
       end
       %call upstream method
-      [obj1,obj2]=interp2@simpledata(obj1,obj2,...
-        'interp_over_gaps_narrower_than',3*min([obj1.step,obj2.step]),...
-        'interp1_args',{'linear'}...
-      );
+      [obj1,obj2]=interp2@simpledata(obj1,obj2,varargin{:});
       %sanity
       if ~isteq(obj1,obj2)
         error([mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])
