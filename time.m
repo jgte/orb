@@ -137,7 +137,11 @@ classdef time
       %finalize
       if i>=s.n
         if s.c>0
-          fprintf('%s\n',sprintf('%s',[repmat(8,1,s.l_max),s.msg,': done in ',time.str(s.e(end)),'                            ']))
+          fprintf('%s\n',sprintf('%s',[...
+            repmat(8,1,s.l_max),s.msg,': ',...
+            num2str(i,'%03d'),' iter done in ',time.str(s.e(end)),...
+            '                            '...
+          ]))
         end
         return
       end
@@ -319,6 +323,33 @@ classdef time
         rand(n,1)*31,...
         rand(n,3)*60 ...
       ]))),'ConvertFrom','datenum')+years(2000);
+    end
+    function out=day_list(start,stop)
+      p=inputParser;
+      p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
+      p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
+      p.parse(start,stop)
+      round_start=dateshift(start,'start','day');
+        round_end=dateshift(stop, 'start','day');
+      out=round_start:days(1):round_end;
+    end
+    function out=month_list(start,stop)
+      p=inputParser;
+      p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
+      p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
+      p.parse(start,stop)
+      round_start=dateshift(start,'start','month');
+        round_end=dateshift(stop, 'start','month');
+      out=round_start:months(1):round_end;
+    end
+    function out=year_list(start,stop)
+      p=inputParser;
+      p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
+      p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
+      p.parse(start,stop)
+      round_start=dateshift(start,'start','year');
+        round_end=dateshift(stop, 'start','year');
+      out=round_start:years(1):round_end;
     end
   end
 end
