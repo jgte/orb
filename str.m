@@ -139,5 +139,13 @@ classdef str
         out=[num2str(i),'th'];
       end
     end
+    function sizetrap(var1,var2)
+      if numel(var1)~=numel(var2)
+        throwAsCaller(MException([mfilename,':SizeTrap'],...
+          'size of variable ''',inputname(1),''' (',num2str(numel(var1)),') different than ',...
+          'size of variable ''',inputname(2),''' (',num2str(numel(var2)),'). This is ilegal.'...
+        ))
+      end
+    end
   end
 end
