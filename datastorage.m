@@ -35,6 +35,13 @@ classdef datastorage
 %           'AC0YQ8',5e-4 ...
 %         )...
         
+    parts={...
+      'type',...
+      'level',...
+      'field',...
+      'sat'...
+    };
+
     %default value of some internal parameters
     default_list=struct(...
       'par_calpar_csr',struct(...
@@ -157,7 +164,7 @@ classdef datastorage
           'while this object is of category ''',obj.category,'''.'...
         ]);
       end
-      out=dataname.cells_clean;
+      out=dataname.cells;
       out=out(2:end);
     end
     %% datatype operations
@@ -686,6 +693,10 @@ classdef datastorage
       else
         % loop over all data in lower levels (in case this isn't already the lowest level)
         dataname_list=vector_names(obj,datanames(dataname));
+        % sanity
+        if numel(dataname_list)==0
+          error([mfilename,': cannot find any data with dataname ',dataname,'.'])
+        end
       end
       % recursive call multiple plots
       if numel(dataname_list)>1
@@ -701,8 +712,15 @@ classdef datastorage
         switch class(d)
         case 'simpletimeseries'
           data_idx=cell2mat(obj.mdget(dataname_list{1}).mdget('plot_columns'));
+          if ~isfinite(data_idx) || data_idx<1
+            error([...
+              mfilename,': value of parameter ''plot_columns'' invalid or undefined in ',...
+              dataname_list{1}.name,'.'...
+            ])
+          end
           h=d.plot(...
             'columns', data_idx,...
+            'outlier', obj.mdget(dataname_list{1}).mdget('plot_outlier'),...
             'zeromean',obj.mdget(dataname_list{1}).mdget('plot_zeromean')...
           );
           h.y_units=d.y_units{data_idx};
@@ -721,50 +739,83 @@ classdef datastorage
           plot_together='';
         end
         %plot filename arguments
-        fileargs=[...
-          obj.mdget(dataname_now).file_args('plot'),{...
+        filename_args=[obj.mdget(dataname_now).file_args('plot'),{...
           'start',obj.start,...
           'stop',obj.stop,...
           'timestamp',true,...
           'remove_part',plot_together...
         }];
+        %plot filename
+        filename=dataname_now.file(filename_args{:});
         % check if plot is already there
-        if ~dataname_now.isfile(fileargs{:})
+        if isempty(dir(filename))
+          figure('visible',obj.mdget(dataname_now).mdget('plot_visible'));
           %retrive data names to be plotted here
+          %NOTICE: this will cause plots to appear multiple times if they are not saved
           dataname_list_to_plot=obj.vector_names(dataname_now.edit(plot_together,''));
           %recursive call, just for plotting
           h=obj.plot(dataname_list_to_plot,varargin{:},'justplot',true);
+          % paranoid sanity
+          str.sizetrap(h,dataname_list_to_plot)
           %enforce plot preferences
           obj.mdget(dataname).enforce_plot
-          %add legend
-          if ~isempty(p.Results.legend)
-            %some sanity
-            if numel(p.Results.legend) ~= numel(dataname_list_to_plot)
-              error([mfilename,':BUG TRAP: input legend size is not in agreemend with number of plotted lines.'])
-            end
-            legend_str=p.Results.legend;
-          else
-            legend_str=datanames.unique(dataname_list_to_plot);
-            for i=1:numel(legend_str)
-              %define default prefix and suffic
-              prefix='';
-              suffix='';
-              %define sufix
-              if obj.mdget(dataname_now).mdget('plot_zeromean')
-                data_idx=cell2mat(obj.mdget(dataname_now).mdget('plot_columns'));
-                suffix=num2str(h{i}.y_mean{data_idx});
+          %add prefixes, if there
+          for i=1:numel(datastorage.parts)
+            %only add prefix to title if:
+            % - 'plot_label_prefix_<part>' is defined (otherwise cannot know which prefix to add)
+            if obj.mdget(dataname_now).ismd_field(['plot_label_prefix_',datastorage.parts{i}])
+              %loop over all plotted datanames
+              for j=1:numel(dataname_list_to_plot)
+                old_part_value=dataname_list_to_plot{j}.(datastorage.parts{i});
+                new_part_value=[...
+                  obj.mdget(dataname_now).mdget(['plot_label_prefix_',datastorage.parts{i}]),...
+                  old_part_value...
+                ];
+                dataname_list_to_plot{j}=dataname_list_to_plot{j}.edit(...
+                  datastorage.parts{i},...  %part name
+                  new_part_value...         %part value
+                );
               end
-              %build legend
-%               legend_str{i}=dataname_list_to_plot{i}.legend(prefix,suffix);
-              legend_str{i}=str.clean(...
-                strjoin([{prefix},legend_str{i},{suffix}],' '),...
-                {'title','succ_blanks'}...
-              );
             end
           end
-          set(legend(legend_str),'fontname','courier')
-          %add title
-          title(strrep(strjoin(datanames.common(dataname_list_to_plot),' '),'_','\_'))
+          %add legend if there are multiple lines
+          if numel(h)>1
+            if ~isempty(p.Results.legend)
+              %some sanity
+              str.sizetrap(h,p.Results.legend)
+              %propagate
+              legend_str=p.Results.legend;
+            else
+              %build legend strings from unique parts in datanames to plot
+              legend_str=datanames.unique(dataname_list_to_plot);
+              % paranoid sanity
+              str.sizetrap(h,legend_str)
+              %loop over all legend entries
+              for i=1:numel(legend_str)
+                %define default suffix
+                suffix='';
+                %define sufix
+                if obj.mdget(dataname_now).mdget('plot_zeromean')
+                  data_idx=cell2mat(obj.mdget(dataname_now).mdget('plot_columns'));
+                  suffix=num2str(h{i}.y_mean{data_idx});
+                end
+                %build legends
+                legend_str{i}=str.clean(...
+                  strjoin([legend_str{i},{suffix}],' '),...
+                  {'title','succ_blanks'}...
+                );
+              end
+            end
+            set(legend(legend_str),'fontname','courier')
+          else
+            h={h};
+          end
+          %get title parts
+          title_str=datanames.common(dataname_list_to_plot);
+          %suppress some parts, if requested
+          title_str=setdiff(title_str,obj.mdget(dataname_now).mdget('plot_title_suppress'),'stable');
+          %clean up the tile and put it there
+          title(str.clean(strjoin(title_str,' '),'_'))
           %fix y-axis label
           if ~isempty(p.Results.ylabel)
             ylabel(p.Results.ylabel)
@@ -776,9 +827,128 @@ classdef datastorage
             end
             ylabel(['[',h{1}.y_units,']'])
           end
+          grid on
+          %save this plot
+          saveas(gcf,filename)
+        else
+          h=[];
         end
       end
-      
+    end
+    %% generalized operations
+    function obj=stats(obj,dataname)
+      %retrieve products info
+      product=obj.mdget(dataname);
+      sourcep=obj.mdget(product.sources(1));
+      %paranoid sanity
+      if product.nr_sources>1
+        error([mfilename,': number of sources in product ',dataname,...
+          ' is expected to be 1, not ',num2str(product.nr_sources),'.'])
+      end
+      %check if data is already there
+      if ~product.isfile('data')
+        %get names of parameters and levels
+        levels=sourcep.mdget('levels');
+        fields=sourcep.mdget('fields');
+        sats  =sourcep.mdget('sats');
+        %loop over all data
+        for i=1:numel(levels)
+          for j=1:numel(fields)
+            for s=1:numel(sats)
+              %retrive data for this satellite
+              d=obj.sat_get(sourcep.dataname.type,levels{i},fields{j},sats{s});
+              %compute stats
+              stats_data=d.stats(...
+                'period',product.mdget('period'),...
+                'overlap',product.mdget('overlap'),...
+                'outlier',product.mdget('outlier'),...
+                'struct_fields',product.mdget('stats')...
+              );
+              %loop over all requested stats
+              stats_fields=fieldnames(stats_data);
+              for si=1:numel(stats_fields)
+                %build implicit 'sat' names
+                sat_name=[sats{s},'_',stats_fields{si}];
+                %save stats in implicit 'sat' names
+                obj=obj.sat_set(...
+                  product.dataname.type,levels{i},fields{j},sat_name,...
+                  stats_data.(stats_fields{si})...
+                ); 
+              end
+            end
+          end
+        end
+        %save data
+        s=obj.datatype_get(product.dataname.type); %#ok<*NASGU>
+        save(char(product.file('data')),'s');
+        clear s
+      else
+        %load data
+        load(char(product.file('data')),'s');
+        levels=fieldnames(s); %#ok<NODEF>
+        for i=1:numel(levels)
+          obj=obj.level_set(product.dataname.type,levels{i},s.(levels{i}));
+        end
+      end
+    end
+    function obj=corr(obj,dataname)
+      %retrieve products info
+      product=obj.mdget(dataname);
+      sourcep=obj.mdget(product.sources(1));
+      %paranoid sanity
+      if product.nr_sources>1
+        error([mfilename,': number of sources in product ',dataname,...
+          ' is expected to be 1, not ',num2str(product.nr_sources),'.'])
+      end
+      %check if data is already there
+      if ~product.isfile('data')
+        %get names of parameters and levels
+        levels=sourcep.mdget('levels');
+        fields=sourcep.mdget('fields');
+        sats  =sourcep.mdget('sats');
+        %loop over all data
+        for i=1:numel(levels)
+          for j=1:numel(fields)
+            %retrive data for both satellites
+            sats=obj.field_get(sourcep.dataname.type,levels{i},fields{j});
+            %get sat namees
+            satnames=fieldnames(sats);
+            %can only deal with two sats at the moment
+            if numel(fieldnames(sats))~=2
+              error([mfilename,': can only deal with two sats at the moment. Implementation needed!'])
+            end
+            %compute stats
+            stats_data=simpletimeseries.stats2(...
+              sats.(satnames{1}),...
+              sats.(satnames{2}),...
+              'period',product.mdget('period'),...
+              'overlap',product.mdget('overlap'),...
+              'outlier',product.mdget('outlier'),...
+              'struct_fields',product.mdget('stats')...
+            );
+            %loop over all requested stats
+            stats_fields=fieldnames(stats_data);
+            for si=1:numel(stats_fields)
+              %save stats in 'sat' names given by the requested stats name
+              obj=obj.sat_set(...
+                product.dataname.type,levels{i},fields{j},stats_fields{si},...
+                stats_data.(stats_fields{si})...
+              ); 
+            end
+          end
+        end
+        %save data
+        s=obj.datatype_get(product.dataname.type); %#ok<*NASGU>
+        save(char(product.file('data')),'s');
+        clear s
+      else
+        %load data
+        load(char(product.file('data')),'s');
+        levels=fieldnames(s); %#ok<NODEF>
+        for i=1:numel(levels)
+          obj=obj.level_set(product.dataname.type,levels{i},s.(levels{i}));
+        end
+      end
     end
     %% costumized operations
     function out=data_op(obj,opname,datatype,level,varargin)
