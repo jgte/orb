@@ -23,6 +23,8 @@ classdef datanames
     name
     cells
     length
+    leaf_length
+    trunk_length
   end
   methods(Static)
     function array(in)
@@ -112,6 +114,9 @@ classdef datanames
       %enforce cleaning cells
       out=out(~cellfun(@isempty,out));
     end
+    function out=get.length(obj)
+      out=numel(obj.cells_clean);
+    end
     function obj=set.cells(obj,in)
       %sanity
       if ~iscellstr(in) || numel(in)<2
@@ -126,10 +131,6 @@ classdef datanames
       if numel(in)>=4; obj.field=in{4}; end
       if numel(in)>=5; obj.sat=  in{5}; end
     end
-    %% length operations
-    function out=get.length(obj)
-      out=sum(~cellfun(@isempty,obj.cells));
-    end
     %% leaf operations: returns the single outter most category, type, level, field or sat (down by delta)
     function out=leaf(obj,delta)
       if ~exist('delta','var') || isempty(delta)
@@ -137,6 +138,25 @@ classdef datanames
       end
       out=obj.cells;
       out=out(obj.length-delta);
+    end
+    function out=leaf_clean(obj)
+      %NOTICE: this is similar to obj.cells_clean but the empty cells are only removed
+      %        from the outtermost category, type, level, field or sat, up to the 
+      %        *outtermost* non-empty cell.
+      in=obj.cells;
+      %outputs
+      out=in;
+      %trim empty cells, starting from the outtermost
+      for i=numel(in):-1:1
+        if isempty(in{i})
+          out=in(1:i-1);
+        else
+          return
+        end
+      end
+    end
+    function out=get.leaf_length(obj)
+      out=numel(obj.leaf_clean);
     end
     function out=leaf_type(obj,delta)
       if ~exist('delta','var') || isempty(delta)
@@ -155,13 +175,32 @@ classdef datanames
         ])
       end
     end
-    %% trunk operations: returns all up to the outter most category, type, level, field or sat (down by delta)
+    %% trunk operations: returns all up to the outtermost non-empty category, type, level, field or sat (down by delta)
     function out=trunk(obj,delta)
       if ~exist('delta','var') || isempty(delta)
         delta=0;
       end
-      out=obj.cells_clean;
+      out=obj.trunk_clean;
       out=out(1:obj.length-delta);
+    end
+    function out=trunk_clean(obj)
+      %NOTICE: this is similar to obj.cells_clean but the empty cells are only removed
+      %        from the outtermost category, type, level, field or sat, up to the 
+      %        *innermost* non-empty cell.
+      in=obj.cells;
+      %outputs
+      out=cell(0);
+      %trim empty cells, starting from the outtermost
+      for i=1:numel(in)
+        if ~isempty(in{i})
+          out=in(1:i);
+        else
+          return
+        end
+      end
+    end
+    function out=get.trunk_length(obj)
+      out=numel(obj.trunk_clean);
     end
     function out=trunk_name(obj,delta)
       out=datanames.build_name(obj.trunk(delta));
