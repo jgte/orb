@@ -6,7 +6,7 @@ classdef dataproduct
           'plot_dir',fullfile(dataproduct.scriptdir,    'plot'),...
           'data_dir',fullfile(dataproduct.scriptdir,    'data'),...
       'metadata',struct(...
-        'plot_columns',{1},...
+        'plot_columns',{{-1}},...
         'plot_prefix','',...
         'plot_suffix','',...
         'plot_xdate',true,...
@@ -18,6 +18,7 @@ classdef dataproduct
         'plot_fontsize_axis', 24,...
         'plot_fontsize_title',32,...
         'plot_fontsize_label',28,...
+        'plot_title_suppress',{{}},...
         'plot_line_width',2,...
         'plot_autoscale',false,... %y-scale is derived from the data (in dataproduct.enforce_plot)
         'plot_automean',false,...  %middle-point of y axis is derived from the data (in dataproduct.enforce_plot)
@@ -255,8 +256,21 @@ classdef dataproduct
       end
     end
     %% metadata parsing
-    function out=mdget(obj,metadatafieldname)
-      obj.md_field_check(metadatafieldname)
+    function out=mdget(obj,metadatafieldname,varargin)
+      p=inputParser;
+      p.addRequired( 'metadatafieldname',            @(i) ischar(i));
+      p.addParameter('return_empty_if_missing',false,@(i) islogical(i));
+      % parse it
+      p.parse(metadatafieldname,varargin{:});
+      % check for existence (unless return_empty_if_missing)
+      if ~p.Results.return_empty_if_missing
+        obj.md_field_check(metadatafieldname)
+      else
+        if ~obj.ismd_field(metadatafieldname)
+          out='';
+          return
+        end
+      end
       in=obj.metadata.(metadatafieldname);
       switch class(in)
       case {'double','logical'}
@@ -355,7 +369,7 @@ classdef dataproduct
         end
       end
       % enforce auto-scale and/or auto-mean
-      if p.Results.automean || p.Results.autoscale
+      if p.Results.automean || p.Results.autoscale || p.Results.outlier>0
         %gather plotted data
         dat=cell(size(line_handles));
         for i=1:numel(line_handles)
@@ -363,7 +377,7 @@ classdef dataproduct
         end
         dat=[dat{:}];
         dat=dat(~isnan(dat(:)));
-        %remove outliers (if requested)
+        %remove outliers before computing axis limits (if requested)
         for c=1:p.Results.outlier
           dat=simpledata.rm_outliers(dat);
         end
