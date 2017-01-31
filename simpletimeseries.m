@@ -1770,8 +1770,10 @@ classdef simpletimeseries < simpledata
       %using internal Matlab representation for dates
       lines_now=get(gca,'children');
       for i=1:numel(lines_now)
-        if numel(lines_now(i).XData) == obj.length
-          lines_now(i).XData=datenum(obj.t);
+        for j=1:numel(out.handle)
+          if out.handle{j}==lines_now(i)
+            lines_now(i).XData=datenum(obj.t(out.mask{i}));
+          end
         end
       end
       set(gca,'XTick',datenum(obj.t));
