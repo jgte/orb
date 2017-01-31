@@ -1397,6 +1397,7 @@ classdef simpledata
         end
       end
     end
+    
     function obj=and(obj,obj_new)
       %consolidate data sets
       [obj,obj_new]=obj.merge(obj_new);
@@ -1489,23 +1490,33 @@ classdef simpledata
       p.addParameter('columns', 1:obj.width,@(i)isnumeric(i));
       p.addParameter('line'   , {},         @(i)iscell(i));
       p.addParameter('zeromean',false,      @(i)islogical(i) && isscalar(i));
+      p.addParameter('outlier', 0,          @(i)isfinite(i) && isscalar(i));
       p.addParameter('title',   '',         @(i)ischar(i));
       % parse it
       p.parse(varargin{:});
       % plot
       y_plot=cell(size(p.Results.columns));
       for i=1:numel(p.Results.columns)
-        % remove mean if requested
-        if p.Results.zeromean
-          out.y_mean{i}=mean(obj.y(obj.mask,p.Results.columns(i)));
-        else
-          out.y_mean{i}=0;
-        end
+        % get data
+        y_plot{i}=obj.y(:,p.Results.columns(i));
         % maybe use a mask
         if p.Results.masked
           out.mask{i}=obj.mask;
         else
           out.mask{i}=true(size(obj.mask));
+        end
+        % remove outliers if requested
+        if p.Results.outlier>1
+          for c=1:p.Results.outlier
+             [y_plot{i},outlier_idx]=simpledata.rm_outliers(y_plot{i});
+             out.mask{i}(outlier_idx)=false;
+          end
+        end
+        % remove mean if requested
+        if p.Results.zeromean
+          out.y_mean{i}=mean(y_plot{i}(~isnan(y_plot{i})));
+        else
+          out.y_mean{i}=0;
         end
         % do not plot zeros if defined like that
         if ~obj.plot_zeros
