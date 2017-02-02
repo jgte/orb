@@ -470,79 +470,52 @@ classdef datastorage
       % load the metadata for this product
       obj=obj.mdset(dataname,varargin{:});
       % make sure all data sources are loaded
-      obj=obj.init_sources(dataname);
+      obj=obj.init_sources(dataname,varargin{:});
       % invoke init method
       ih=str2func(obj.mdget(dataname).mdget('method'));
-      obj=ih(obj,dataname);
-      
-     
-%       % branch according to datatype
-%       switch datatype
-%       case 'acc'
-%         %NOTICE: the following parameters are relevant to this datatype:
-%         % - start
-%         % - stop
-%         % - release
-%         % - level
-%         % - field
-%         %Everything else is ignored quietly.
-% 
-%         % sanity
-%         if isempty(p.Results.start) || isempty(p.Results.stop)
-%           error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
-%         end
-%         % gather list of daily dates
-%         datelist=time.day_list(p.Results.start,p.Results.stop);
-%         for s=1:numel(grace.sats)
-%           switch [p.Results.level,'-',p.Results.field]
-%           case 'l1b-csr'
-%             %build required file list
-%             filelist=cell(size(datelist));
-%             for i=1:numel(datelist)
-%               filelist{i}=fullfile(storage,datestr(datelist(i),'yy'),'acc','asc',...
-%                 ['ACC1B_',datestr(datelist(i),'yyyy-mm-dd'),'_',grace.sats{s},'_',p.Results.release,'.asc']...
-%               );
-%             end
-%             %load and save the data
-%             obj=obj.sat_set('acc',p.Results.level,p.Results.field,grace.sats{s},...
-%               simpletimeseries.import(filelist,'cut24hrs',false)...
-%             );
-%           case 'mod-nrtdm'
-%             %load the data
-%             tmp=nrtdm(['G',grace.sats{s},'_Panels/Aero'],p.Results.start,p.Results.stop,'data_dir',storage);
-%             %save the data
-%             obj=obj.sat_set('acc',p.Results.level,p.Results.field,grace.sats{s},...
-%               tmp.ts...
-%             );
-%           case 'mod-csr'
-%             %build required file list
-%             filelist=cell(size(datelist));
-%             for i=1:numel(datelist)
-%               filelist{i}=fullfile(storage,datestr(datelist(i),'yy'),datestr(datelist(i),'mm'),'gps_orb_l',...
-%                 ['grc',grace.sats{s},'_gps_orb_',datestr(datelist(i),'yyyy-mm-dd'),...
-%                 '_RL',p.Results.release,'_GPSRL62_RL05.*.acc']...
-%               );
-%             end
-%             %load and save the data
-%             obj=obj.sat_set('acc',p.Results.level,p.Results.field,grace.sats{s},...
-%               simpletimeseries.import(filelist,'cut24hrs',false)...
-%             );
-%           end
-%         end
-%       otherwise
-%         error([mfilename,': cannot handle datatype ''',datatype,'''.'])
-%       end
-%       %make sure start/stop options are honoured (if non-empty)
-%       if ~isempty(obj)
-%         obj.start=p.Results.start;
-%         obj.stop= p.Results.stop;
-%       end
+      obj=ih(obj,dataname,varargin{:});
     end
-    function obj=init_sources(obj,dataname)
+    function obj=init_sources(obj,dataname,varargin)
       %loop over all source data
       for i=1:obj.mdget(dataname).nr_sources
         %load this source
-        obj=obj.init(obj.mdget(dataname).sources(i));
+        obj=obj.init(obj.mdget(dataname).sources(i),varargin{:});
+      end
+    end
+    function obj=init_nrtdm(obj,dataname,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('dataname',@(i) ischar(i) || isa(i,'datanames'));
+      p.addParameter('start', [], @(i) isdatetime(i)  &&  isscalar(i));
+      p.addParameter('stop',  [], @(i) isdatetime(i)  &&  isscalar(i));
+      % parse it
+      p.parse(dataname,varargin{:});
+      % sanity
+      if isempty(p.Results.start) || isempty(p.Results.stop)
+        error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
+      end
+      %retrieve product info
+      product=obj.mdget(dataname);
+      %retrieve relevant parameters
+      sats         =product.mdget('sats'); 
+      indir        =product.mdget('nrtdm_data_dir');
+      nrtdm_sats   =product.mdget('nrtdm_sats'); 
+      nrtdm_product=product.mdget('nrtdm_product');
+      %sanity
+      str.sizetrap(sats,nrtdm_sats)
+      %loop over the satellites
+      for s=1:numel(sats)
+        %load the data
+        tmp=nrtdm([nrtdm_sats{s},'_',nrtdm_product],p.Results.start,p.Results.stop,'data_dir',indir);
+        %get the data
+        obj=obj.sat_set(dataname.type,dataname.level,dataname.field,sats{s},...
+          tmp.ts...
+        );
+      end
+      %make sure start/stop options are honoured (if non-empty)
+      if ~isempty(obj)
+        obj.start=p.Results.start;
+        obj.stop= p.Results.stop;
       end
     end
     %% utils
@@ -675,11 +648,15 @@ classdef datastorage
     function h=plot(obj,dataname,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'dataname',@(i) ischar(i) || isa(i,'datanames') || iscell(i));
-      p.addParameter('justplot',false,@(i) islogical(i));
-      p.addParameter('plot_together','',@(i) islogical(i));
-      p.addParameter('legend',{},@(i) iscell(i));
-      p.addParameter('ylabel',{},@(i) iscell(i));
+      p.addRequired( 'dataname',                   @(i) ischar(i) || isa(i,'datanames') || iscell(i));
+      p.addParameter('justplot',             false,@(i) islogical(i));
+      p.addParameter('plot_together',           '',@(i) islogical(i));
+      p.addParameter('legend',                  {},@(i) iscell(i));
+      p.addParameter('ylabel',                  {},@(i) iscell(i));
+      p.addParameter('data_idx',                [],@(i) isfinite(i) && isscalar(i));
+      p.addParameter('plot_file_suffix',        '',@(i) ischar(i));
+      p.addParameter('ignore_plot_columns_together',false,@(i) islogical(i));
+      p.addParameter('title_suffix',            '',@(i) ischar(i));
       % parse it
       p.parse(dataname,varargin{:});
       %handle input dataname
@@ -711,8 +688,12 @@ classdef datastorage
         %checking data class
         switch class(d)
         case 'simpletimeseries'
-          data_idx=cell2mat(obj.mdget(dataname_list{1}).mdget('plot_columns'));
-          if ~isfinite(data_idx) || data_idx<1
+          if isempty(p.Results.data_idx)
+            data_idx=cell2mat(obj.mdget(dataname_list{1}).mdget('plot_columns'));
+          else
+            data_idx=p.Results.data_idx;
+          end
+          if any(~isfinite(data_idx)) || any(data_idx<1)
             error([...
               mfilename,': value of parameter ''plot_columns'' invalid or undefined in ',...
               dataname_list{1}.name,'.'...
@@ -726,6 +707,31 @@ classdef datastorage
           h.y_units=d.y_units{data_idx};
         otherwise
           error([mfilename,': cannot plot data of class ',class(d),'; implementation needed!'])
+        end
+      elseif ~obj.mdget(dataname_list{1}).mdget('plot_columns_together') && ...
+             ~p.Results.ignore_plot_columns_together
+        %if columns are not to be plotted together, need to expand the calls to obj.plot to include each column
+        plot_columns=obj.mdget(dataname_list{1}).mdget('plot_columns');
+        col_names   =obj.mdget(dataname_list{1}).mdget('plot_column_names');
+        %make room for handles
+        h=cell(1,numel(plot_columns)*numel(dataname_list));
+        c=0;
+        %loop over all data columns to plot
+        for i=1:numel(plot_columns)
+          %buid plot file suffix for the plots of this data column
+          suffix_now=col_names{plot_columns{i}};
+          if ~isempty(p.Results.plot_file_suffix);suffix_now=strjoin({suffix_now,p.Results.plot_file_suffix},'.');end
+          %loop over all different data to plot
+          for j=1:numel(dataname_list)
+            c=c+1;
+            h{c}=obj.plot(dataname_list(j),...
+              varargin{:},...
+              'plot_file_suffix',suffix_now,...
+              'ignore_plot_columns_together',true,...
+              'title_suffix',suffix_now,...
+              'data_idx',plot_columns{i}...
+            );
+          end
         end
       else
         %save the single entry in dataname
@@ -743,7 +749,8 @@ classdef datastorage
           'start',obj.start,...
           'stop',obj.stop,...
           'timestamp',true,...
-          'remove_part',plot_together...
+          'remove_part',plot_together,...
+          'suffix',p.Results.plot_file_suffix...
         }];
         %plot filename
         filename=dataname_now.file(filename_args{:});
@@ -758,7 +765,7 @@ classdef datastorage
           % paranoid sanity
           str.sizetrap(h,dataname_list_to_plot)
           %enforce plot preferences
-          obj.mdget(dataname).enforce_plot
+          obj.mdget(dataname_now).enforce_plot
           %add prefixes, if there
           for i=1:numel(datastorage.parts)
             %only add prefix to title if:
@@ -786,24 +793,32 @@ classdef datastorage
               %propagate
               legend_str=p.Results.legend;
             else
-              %build legend strings from unique parts in datanames to plot
-              legend_str=datanames.unique(dataname_list_to_plot);
+              %get unique parts in datanames 
+              prefixes=datanames.unique(dataname_list_to_plot);
               % paranoid sanity
-              str.sizetrap(h,legend_str)
+              str.sizetrap(h,prefixes)
+              %get how many lines have been plotted
+              n=0;
+              for j=1:numel(h)
+                n=n+numel(h{j}.legend);
+              end
+              %make room for legend strings
+              legend_str=cell(1,n);
               %loop over all legend entries
-              for i=1:numel(legend_str)
-                %define default suffix
-                suffix='';
-                %define sufix
-                if obj.mdget(dataname_now).mdget('plot_zeromean')
-                  data_idx=cell2mat(obj.mdget(dataname_now).mdget('plot_columns'));
-                  suffix=num2str(h{i}.y_mean{data_idx});
+              c=0;
+              for j=1:numel(h)
+                for k=1:numel(h{j}.y_mean)
+                  %define sufix
+                  if obj.mdget(dataname_now).mdget('plot_zeromean')
+                    suffix=num2str(h{j}.y_mean{k});
+                  end
+                  %build legend stirngs
+                  c=c+1;
+                  legend_str{c}=str.clean(...
+                    strjoin({prefixes{j},suffix},' '),...
+                    {'title','succ_blanks'}...
+                  );
                 end
-                %build legends
-                legend_str{i}=str.clean(...
-                  strjoin([legend_str{i},{suffix}],' '),...
-                  {'title','succ_blanks'}...
-                );
               end
             end
             set(legend(legend_str),'fontname','courier')
@@ -815,7 +830,7 @@ classdef datastorage
           %suppress some parts, if requested
           title_str=setdiff(title_str,obj.mdget(dataname_now).mdget('plot_title_suppress'),'stable');
           %clean up the tile and put it there
-          title(str.clean(strjoin(title_str,' '),'_'))
+          title(str.clean(strjoin([title_str,{p.Results.title_suffix}],' '),'_'))
           %fix y-axis label
           if ~isempty(p.Results.ylabel)
             ylabel(p.Results.ylabel)
@@ -841,7 +856,7 @@ classdef datastorage
       product=obj.mdget(dataname);
       sourcep=obj.mdget(product.sources(1));
       %paranoid sanity
-      if product.nr_sources>1
+      if product.nr_sources~=1
         error([mfilename,': number of sources in product ',dataname,...
           ' is expected to be 1, not ',num2str(product.nr_sources),'.'])
       end
@@ -859,9 +874,9 @@ classdef datastorage
               d=obj.sat_get(sourcep.dataname.type,levels{i},fields{j},sats{s});
               %compute stats
               stats_data=d.stats(...
-                'period',product.mdget('period'),...
-                'overlap',product.mdget('overlap'),...
-                'outlier',product.mdget('outlier'),...
+                'period',product.mdget('stats_period'),...
+                'overlap',product.mdget('stats_overlap'),...
+                'outlier',product.mdget('stats_outlier'),...
                 'struct_fields',product.mdget('stats')...
               );
               %loop over all requested stats
@@ -896,7 +911,7 @@ classdef datastorage
       product=obj.mdget(dataname);
       sourcep=obj.mdget(product.sources(1));
       %paranoid sanity
-      if product.nr_sources>1
+      if product.nr_sources~=1
         error([mfilename,': number of sources in product ',dataname,...
           ' is expected to be 1, not ',num2str(product.nr_sources),'.'])
       end
