@@ -1,6 +1,6 @@
-classdef calpar_csr
+classdef csr
   methods(Static)
-    function obj=import(obj,dataname)
+    function obj=import_calpar(obj,dataname,varargin)
       %retrieve product info
       product=obj.mdget(dataname);
       %check if data is already in matlab format
@@ -176,6 +176,159 @@ classdef calpar_csr
         for i=1:numel(levels)
           obj=obj.level_set(product.dataname.type,levels{i},s.(levels{i}));
         end
+      end
+    end
+    function obj=compute_calmod(obj,dataname,varargin)
+      %retrieve products info
+      product=obj.mdget(dataname);
+      %paranoid sanity
+      if product.nr_sources~=2
+        error([mfilename,': number of sources in product ',dataname,...
+          ' is expected to be 2, not ',num2str(product.nr_sources),'.'])
+      end
+      %get sources
+      calparp=obj.mdget(product.sources(1));
+      l1baccp=obj.mdget(product.sources(2));
+      %retrieve relevant parameters
+      levels    =calparp.mdget('levels');
+      sats      =calparp.mdget('sats');
+      param_col =calparp.mdget('param_col');
+      coords     =calparp.mdget('coords');
+      for s=1:numel(sats)
+        %gather quantities
+        acc=obj.sat_get(l1baccp.dataname.type,l1baccp.dataname.level,l1baccp.dataname.field,sats{s});
+        if ~isa(acc,'simpletimeseries')
+          %patch nan calibration model
+          calmod=simpletimeseries(...
+            [obj.start;obj.stop],...
+            nan(2,numel(obj.par.acc.data_col_name))...
+          );
+        else
+          %loop over all 
+          for l=1:numel(levels)
+            %init models container
+            calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coords))).copy_metadata(acc);
+            calmod.descriptor=['calibration model ',levels{l},' GRACE-',upper(sats{s})];
+            disp(['Computing the ',calmod.descriptor])
+            for i=1:numel(coords)
+              %skip Y coordinate for now
+              if coords{i}=='Y',continue,end
+              %build nice structure with the relevant calibration parameters
+              cal=struct(...
+                'ac0' ,obj.sat_get(calparp.dataname.type,levels{l},['AC0',coords{i}    ],sats{s}).interp(acc.t),...
+                'ac0d',obj.sat_get(calparp.dataname.type,levels{l},['AC0',coords{i},'D'],sats{s}).interp(acc.t),...
+                'ac0q',obj.sat_get(calparp.dataname.type,levels{l},['AC0',coords{i},'Q'],sats{s}).interp(acc.t)...
+              );
+              %sanity
+              if any([isempty(acc),isempty(cal.ac0),isempty(cal.ac0d),isempty(cal.ac0q)])
+                error([mfilename,': not all data is available to perform this operation.'])
+              end
+              %retrieve time domain (it is the same for all cal pars)
+              fields=fieldnames(cal);
+              for f=1:numel(fields)
+                t.(fields{f})=days(acc.t-simpletimeseries.ToDateTime(cal.(fields{f}).y(:,end),'modifiedjuliandate'));
+              end
+              %paranoid sanity check
+              good_idx=~isnan(t.ac0);
+              if any(t.ac0(good_idx)~=t.ac0d(good_idx)) || any(t.ac0(good_idx)~=t.ac0q(good_idx))
+                error([mfilename,': calibration time domain inconsistent between parameters, debug needed!'])
+              end
+              %build calibration model
+              calmod=calmod.set_cols(i,...
+                cal.ac0.cols( param_col)+...
+                cal.ac0d.cols(param_col).times(t.ac0d)+...
+                cal.ac0q.cols(param_col).times(t.ac0q.^2)...
+              );
+            end
+          end
+        end
+        %propagate it
+        obj=obj.sat_set(dataname.type,dataname.level,levels{l},sats{s},calmod);
+      end
+    end
+    function obj=import_acc_l1b(obj,dataname,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('dataname',@(i) ischar(i) || isa(i,'datanames'));
+      p.addParameter('start', [], @(i) isdatetime(i)  &&  isscalar(i));
+      p.addParameter('stop',  [], @(i) isdatetime(i)  &&  isscalar(i));
+      % parse it
+      p.parse(dataname,varargin{:});
+      % sanity
+      if isempty(p.Results.start) || isempty(p.Results.stop)
+        error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
+      end
+      %retrieve product info
+      product=obj.mdget(dataname);
+      %retrieve relevant parameters
+      sats =product.mdget('sats');
+      indir=product.mdget('import_dir');
+      version=product.mdget('version');
+      %gather list of daily data files
+      [~,timestamplist]=product.file('data',varargin{:});
+      %loop over the satellites
+      for s=1:numel(sats)
+        infile=cell(size(timestamplist));
+        %loop over all dates
+        for i=1:numel(timestamplist)
+          %build input data filename
+          infile{i}=fullfile(indir,datestr(timestamplist(i),'yy'),'acc','asc',...
+            ['ACC1B_',datestr(timestamplist(i),'yyyy-mm-dd'),'_',sats{s},'_',version,'.asc']...
+          );
+        end
+        %load (and save the data in mat format, as handled by simpletimeseries.import)
+        obj=obj.sat_set(dataname.type,dataname.level,dataname.field,sats{s},...
+          simpletimeseries.import(infile,'cut24hrs',false)...
+        );
+      end
+      %make sure start/stop options are honoured (if non-empty)
+      if ~isempty(obj)
+        obj.start=p.Results.start;
+        obj.stop= p.Results.stop;
+      end
+    end
+    function obj=import_acc_mod(obj,dataname,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('dataname',@(i) ischar(i) || isa(i,'datanames'));
+      p.addParameter('start', [], @(i) isdatetime(i)  &&  isscalar(i));
+      p.addParameter('stop',  [], @(i) isdatetime(i)  &&  isscalar(i));
+      % parse it
+      p.parse(dataname,varargin{:});
+      % sanity
+      if isempty(p.Results.start) || isempty(p.Results.stop)
+        error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
+      end
+      %retrieve product info
+      product=obj.mdget(dataname);
+      %retrieve relevant parameters
+      sats =product.mdget('sats');
+      indir=product.mdget('import_dir');
+      acc_version =product.mdget('acc_version' );
+      gps_version =product.mdget('gps_version' );
+      grav_version=product.mdget('grav_version');
+      %gather list of daily data files
+      [~,timestamplist]=product.file('data',varargin{:});
+      %loop over the satellites
+      for s=1:numel(sats)
+        infile=cell(size(timestamplist));
+        %loop over all dates
+        for i=1:numel(timestamplist)
+          %build input data filename
+          infile{i}=fullfile(indir,datestr(timestamplist(i),'yy'),datestr(timestamplist(i),'mm'),'gps_orb_l',...
+            ['grc',sats{s},'_gps_orb_',datestr(timestamplist(i),'yyyy-mm-dd'),...
+            '_RL',acc_version,'_GPSRL',gps_version,'_RL',grav_version,'.*.acc']...
+          );
+        end
+        %load (and save the data in mat format, as handled by simpletimeseries.import)
+        obj=obj.sat_set(dataname.type,dataname.level,dataname.field,sats{s},...
+          simpletimeseries.import(infile,'cut24hrs',true)...
+        );
+      end
+      %make sure start/stop options are honoured (if non-empty)
+      if ~isempty(obj)
+        obj.start=p.Results.start;
+        obj.stop= p.Results.stop;
       end
     end
   end
