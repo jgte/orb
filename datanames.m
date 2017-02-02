@@ -221,12 +221,17 @@ classdef datanames
       p.addParameter('keeptsplaceholder', false,   @(i) islogical(i));
       p.addParameter('ensure_dir',        true,    @(i) islogical(i));
       p.addParameter('remove_part',       '',      @(i) ischar(i))
+      p.addParameter('prefix',            '',      @(i) ischar(i))
+      p.addParameter('suffix',            '',      @(i) ischar(i))
       % parse it
       p.parse(varargin{:});
       %get data file/path parts (and remove the specified filename part, N.B.: empty parts are handled in obj.edit)
       dataparts=obj.edit(p.Results.remove_part,'').cells_clean;
       %propagate to filename
       filename=dataparts;
+      %add prefix and suffix (is non-empty)
+      if ~isempty(p.Results.prefix); filename=[{p.Results.prefix},filename]; end
+      if ~isempty(p.Results.suffix); filename=[filename,{p.Results.suffix}]; end
       %add time stamp placeholder
       filename{end+1}='<TIMESTAMP>';
       %add extension
