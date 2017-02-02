@@ -7,6 +7,7 @@ classdef dataproduct
           'data_dir',fullfile(dataproduct.scriptdir,    'data'),...
       'metadata',struct(...
         'plot_columns',{{-1}},...
+        'plot_columns_together',true,...
         'plot_prefix','',...
         'plot_suffix','',...
         'plot_xdate',true,...
@@ -141,11 +142,13 @@ classdef dataproduct
       switch lower(mode)
       case 'data'
         out={...
+          'use_storage_period',true,...
           'dir',obj.data_dir,...
           'ext','mat'...
         };
       case 'plot'
         out={...
+          'use_storage_period',false,...
           'dir',obj.plot_dir,...
           'ext','png'...
         };
@@ -153,7 +156,7 @@ classdef dataproduct
         error([mfilename,': cannot handle mode ''',mode,'''.'])
       end
     end
-    function out=file(obj,mode,varargin)
+    function [out,timestamplist]=file(obj,mode,varargin)
       %NOTICE: this procedure ALWAYS returns cell arrays!
       p=inputParser;
       p.KeepUnmatched=true;
@@ -172,24 +175,27 @@ classdef dataproduct
       if p.Results.use_storage_period
         switch lower(obj.mdget('storage_period'))
         case {'day','daily'}
-          timestamp_list=time.day_list(p.Results.start,p.Results.stop);
+          timestamplist=time.day_list(p.Results.start,p.Results.stop);
           timestamp_fmt='yyyymmdd';
         case {'month','monthly'}
-          timestamp_list=time.month_list(p.Results.start,p.Results.stop);
+          timestamplist=time.month_list(p.Results.start,p.Results.stop);
           timestamp_fmt='yyyymm';
         case {'year','yearly'}
-          timestamp_list=time.year_list(p.Results.start,p.Results.stop);
+          timestamplist=time.year_list(p.Results.start,p.Results.stop);
           timestamp_fmt='yyyy';
         case {'infinite','global'}
           out={strrep(filename,'.<TIMESTAMP>','')};
+          timestamplist=[];
           return
+        case {'none','direct'}
+          error([mfilename,': product ',obj.metadata.name,' is not to be saved in a file, so it is ilegal to call this procedure.'])
         otherwise
           error([mfilename,': cannot handle metadata key ''storage_period'' with value ''',obj.mdget('storage_period'),'''.'])
         end
         %build list of files
-        out=cell(size(timestamp_list));
-        for i=1:numel(timestamp_list)
-          out{i}=strrep(filename,'<TIMESTAMP>',datestr(timestamp_list(i),timestamp_fmt));
+        out=cell(size(timestamplist));
+        for i=1:numel(timestamplist)
+          out{i}=strrep(filename,'<TIMESTAMP>',datestr(timestamplist(i),timestamp_fmt));
         end
       else
         out={filename};
