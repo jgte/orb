@@ -1772,7 +1772,7 @@ classdef simpletimeseries < simpledata
       for i=1:numel(lines_now)
         for j=1:numel(out.handle)
           if out.handle{j}==lines_now(i)
-            lines_now(i).XData=datenum(obj.t(out.mask{i}));
+            lines_now(i).XData=datenum(obj.x2t(lines_now(i).XData));
           end
         end
       end
