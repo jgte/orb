@@ -678,16 +678,22 @@ classdef simpledata
           return
         end
       end
+      % type conversions
+      if iscell(p.Results.columns)
+        columns=cell2mat(p.Results.columns);
+      else
+        columns=p.Results.columns;
+      end
       %branch on mode
       switch p.Results.mode
-      case 'min';     out=min(     obj.y_masked([],p.Results.columns));
-      case 'max';     out=max(     obj.y_masked([],p.Results.columns));
-      case 'mean';    out=mean(    obj.y_masked([],p.Results.columns));
-      case 'std';     out=std(     obj.y_masked([],p.Results.columns));
-      case 'rms';     out=rms(     obj.y_masked([],p.Results.columns));
-      case 'meanabs'; out=mean(abs(obj.y_masked([],p.Results.columns)));
-      case 'stdabs';  out=std( abs(obj.y_masked([],p.Results.columns)));
-      case 'rmsabs';  out=rms( abs(obj.y_masked([],p.Results.columns)));
+      case 'min';     out=min(     obj.y_masked([],columns));
+      case 'max';     out=max(     obj.y_masked([],columns));
+      case 'mean';    out=mean(    obj.y_masked([],columns));
+      case 'std';     out=std(     obj.y_masked([],columns));
+      case 'rms';     out=rms(     obj.y_masked([],columns));
+      case 'meanabs'; out=mean(abs(obj.y_masked([],columns)));
+      case 'stdabs';  out=std( abs(obj.y_masked([],columns)));
+      case 'rmsabs';  out=rms( abs(obj.y_masked([],columns)));
       case 'length';  out=size(    obj.y_masked,1)*ones(1,obj.width);
       case 'gaps';    out=sum(    ~obj.mask)*ones(1,obj.width);
       %one line, two lines, three lines, many lines
@@ -736,7 +742,7 @@ classdef simpledata
         if any(isnan(out(:)))
           error([mfilename,': BUG TRAP: detected NaN in <out>. Debug needed.'])
         end
-        if size(out,2)~=numel(p.Results.columns)
+        if size(out,2)~=numel(columns)
           error([mfilename,': BUG TRAP: data width changed. Debug needed.'])
         end
       end
@@ -1487,18 +1493,24 @@ classdef simpledata
       p.KeepUnmatched=true;
       % optional arguments
       p.addParameter('masked',  false,      @(i)islogical(i) && isscalar(i));
-      p.addParameter('columns', 1:obj.width,@(i)isnumeric(i));
+      p.addParameter('columns', 1:obj.width,@(i)isnumeric(i) || iscell(i));
       p.addParameter('line'   , {},         @(i)iscell(i));
       p.addParameter('zeromean',false,      @(i)islogical(i) && isscalar(i));
       p.addParameter('outlier', 0,          @(i)isfinite(i) && isscalar(i));
       p.addParameter('title',   '',         @(i)ischar(i));
       % parse it
       p.parse(varargin{:});
+      % type conversions
+      if iscell(p.Results.columns)
+        columns=cell2mat(p.Results.columns);
+      else
+        columns=p.Results.columns;
+      end
       % plot
-      y_plot=cell(size(p.Results.columns));
-      for i=1:numel(p.Results.columns)
+      y_plot=cell(size(columns));
+      for i=1:numel(columns)
         % get data
-        y_plot{i}=obj.y(:,p.Results.columns(i));
+        y_plot{i}=obj.y(:,columns(i));
         % maybe use a mask
         if p.Results.masked
           out.mask{i}=obj.mask;
@@ -1520,11 +1532,11 @@ classdef simpledata
         end
         % do not plot zeros if defined like that
         if ~obj.plot_zeros
-          out.mask{i}=out.mask{i} & ( obj.y(:,p.Results.columns(i)) ~= 0 );
+          out.mask{i}=out.mask{i} & ( obj.y(:,columns(i)) ~= 0 );
         end
         % get data
         x_plot=obj.x(out.mask{i});
-        y_plot{i}=obj.y(out.mask{i},p.Results.columns(i))-out.y_mean{i};
+        y_plot{i}=obj.y(out.mask{i},columns(i))-out.y_mean{i};
         % plot it
         if isempty(p.Results.line)
           out.handle{i}=plot(x_plot,y_plot{i});hold on
@@ -1544,27 +1556,27 @@ classdef simpledata
       end
       out.xlabel=['[',obj.x_units,']'];
       if numel(out.handle)==1
-        out.ylabel=[obj.labels{p.Results.columns},' [',obj.y_units{p.Results.columns},']'];
+        out.ylabel=[obj.labels{columns},' [',obj.y_units{columns},']'];
         if p.Results.zeromean
           out.ylabel=[out.ylabel,' ',num2str(out.y_mean{1})];
         end
         out.legend={};
       else
         same_units=true;
-        for i=2:numel(p.Results.columns)
-          if ~strcmp(obj.y_units{p.Results.columns(1)},obj.y_units{p.Results.columns(i)})
+        for i=2:numel(columns)
+          if ~strcmp(obj.y_units{columns(1)},obj.y_units{columns(i)})
             same_units=false;
           end
         end
         if same_units
-          out.ylabel=['[',obj.y_units{p.Results.columns(1)},']'];
-          out.legend=obj.labels(p.Results.columns);
+          out.ylabel=['[',obj.y_units{columns(1)},']'];
+          out.legend=obj.labels(columns);
         else
           out.ylabel='';
-          out.legend=strcat(obj.labels(p.Results.columns),' [',obj.y_units(p.Results.columns),']');
+          out.legend=strcat(obj.labels(columns),' [',obj.y_units(columns),']');
         end
         if p.Results.zeromean
-          for i=1:numel(p.Results.columns)
+          for i=1:numel(columns)
             out.legend{i}=[out.legend{i},' ',num2str(out.y_mean{i})];
           end
         end
