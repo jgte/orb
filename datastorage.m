@@ -486,8 +486,8 @@ classdef datastorage
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired('dataname',@(i) ischar(i) || isa(i,'datanames'));
-      p.addParameter('start', [], @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('stop',  [], @(i) isdatetime(i)  &&  isscalar(i));
+      p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
+      p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
       % parse it
       p.parse(dataname,varargin{:});
       % sanity
@@ -518,162 +518,59 @@ classdef datastorage
         obj.stop= p.Results.stop;
       end
     end
-    %% utils
-    function enforce_plot_par(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addParameter('fig_handle',  gcf,  @(i) ishandle(i));
-      p.addParameter('axis_handle', gca,  @(i) ishandle(i));
-      p.addParameter('xdate',       true, @(i) islogical(i));
-      p.addParameter('ylimits',     obj.par.plot.ylimits, @(i) numel(i)==2 && isnumeric(i));
-      p.addParameter('autoscale',   false, @(i)islogical(i) && isscalar(i));
-      p.addParameter('automean',    false, @(i)islogical(i) && isscalar(i));
-      p.addParameter('outlier',0,        @(i) isfinite(i));
-      % parse it
-      p.parse(varargin{:});
-      % sanity
-      if any(isfinite(p.Results.ylimits)) && ( p.Results.autoscale ||  p.Results.automean )
-        error([mfilename,': option ''ylimits'' and ''autoscale'' or ''automean'' do not work concurrently.'])
-      end
-      
-      % enforce fontsize and paper size
-      set(    p.Results.axis_handle,          'FontSize',obj.par.plot.fontsize.axis)
-      set(get(p.Results.axis_handle,'Title' ),'FontSize',obj.par.plot.fontsize.title);
-      set(get(p.Results.axis_handle,'XLabel'),'FontSize',obj.par.plot.fontsize.label);
-      set(get(p.Results.axis_handle,'YLabel'),'FontSize',obj.par.plot.fontsize.label);
-      set(    p.Results.fig_handle, 'Position',          obj.par.plot.size,...
-                                    'PaperUnits',        obj.par.plot.units,...
-                                    'PaperPosition',     obj.par.plot.size);
-      % enforce line properties
-      line_handles=get(p.Results.axis_handle,'Children');
-      for i=1:numel(line_handles)
-        set(line_handles(i),'LineWidth',obj.par.plot.line.width)
-      end
-      % enforce x-limits
-      v=axis(p.Results.axis_handle);
-      if p.Results.xdate
-        for i=1:2
-          if isfinite(   obj.par.plot.xlimits(i))
-            v(i)=datenum(obj.par.plot.xlimits(i));
-          end
-        end
-        if ~strcmp(datestr(v(1),'yyyymmdd'),datestr(v(2),'yyyymmdd')) && ...
-            (~strcmp(datestr(v(2),'HHMMSS'),'000000') || v(2)-v(1)>1)
-          xlabel([datestr(v(1),'yyyy-mm-dd'),' to ',datestr(v(2),'yyyy-mm-dd')])
-        else
-          xlabel(datestr(v(1)))
-        end
-      end
-      % enforce reasonable y-limits
-      for i=1:2
-        if isfinite(p.Results.ylimits(i))
-          v(i+2)=   p.Results.ylimits(i);
-        end
-      end
-      % enforce auto-scale and/or auto-mean
-      if p.Results.automean || p.Results.autoscale
-        %gather plotted data
-        dat=cell(size(line_handles));
-        for i=1:numel(line_handles)
-          dat{i}=get(line_handles(i),'ydata');
-        end
-        dat=[dat{:}];
-        dat=dat(~isnan(dat(:)));
-        %remove outliers (if requested)
-        for c=1:p.Results.outlier
-          dat=simpledata.rm_outliers(dat);
-        end
-        dat=dat(~isnan(dat(:)));
-        %enfore data-driven mean and/or scale
-        if p.Results.automean && p.Results.autoscale
-          v(3:4)=mean(dat)+4*std(dat)*[-1,1];
-        elseif p.Results.automean
-          v(3:4)=mean(dat)+0.5*diff(v(3:4))*[-1,1];
-        elseif p.Results.autoscale
-          v(3:4)=mean(v(3:4))+4*std(dat)*[-1,1];
-        end
-        %fix non-negative data sets
-        if all(dat>=0) && v(3)<0
-          v(3)=0;
-        end
-      end
-      axis(p.Results.axis_handle,v);
-    end
-    function out=id(obj,mode,datatype,level,field,sat,suffix)
-    %Produces unique identifiers, useful for plot/data/... file names
-      if ~exist('suffix','var') || isempty(suffix)
-        suffix='';
-      end
-      switch mode
-      case 'plot'
-        parts={obj.par.plot.dir,    '/';...
-               datatype,            '/';...
-               level,               '/';...
-               obj.par.plot.prefix, '.';...
-               datatype,            '.';...
-               level,               '.';...
-               field,               '.';...
-               sat,                 '.';...
-               suffix,              '.';...
-               obj.par.plot.suffix, '.'};
-        ext='png';
-      case 'data'
-        parts={obj.par.data.dir,    '/';...
-               datatype,            '/';...
-               level,               '.';...
-               field,               '.';...
-               sat,                 '.';...
-               suffix,              '.'};
-        ext='mat';
-      otherwise
-        error([mfilename,': cannot handle mode ',mode,'.'])
-      end
-      out=cell(numel(parts)/2,1);
-      for i=1:numel(parts)/2
-        if ~isempty(parts{i,1})
-          out{i}=parts{i,1};
-          if ~strcmp(out{i}(end),parts{i,2})
-            out{i}=[out{i},parts{i,2}];
-          end
-        else
-          out{i}='';
-        end
-      end
-      out=[strjoin(out,''),ext];
-      if isempty(dir(fileparts(out)))
-        system(['mkdir -vp ',fileparts(out)]);
-      end
-    end
     %% generalized plotting
-    function h=plot(obj,dataname,varargin)
+    function h=justplot(obj,dn,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'dataname',                   @(i) ischar(i) || isa(i,'datanames') || iscell(i));
-      p.addParameter('justplot',             false,@(i) islogical(i));
-      p.addParameter('plot_together',           '',@(i) islogical(i));
-      p.addParameter('legend',                  {},@(i) iscell(i));
-      p.addParameter('ylabel',                  {},@(i) iscell(i));
-      p.addParameter('data_idx',                [],@(i) isfinite(i) && isscalar(i));
-      p.addParameter('plot_file_suffix',        '',@(i) ischar(i));
-      p.addParameter('ignore_plot_columns_together',false,@(i) islogical(i));
-      p.addParameter('title_suffix',            '',@(i) ischar(i));
-      % parse it
-      p.parse(dataname,varargin{:});
-      %handle input dataname
-      if iscell(dataname)
-        %check that data was already externally resolved into a cell string of datanames
-        if any(cellfun(@(i)(~isa(i,'datanames')),dataname))
-          error([mfilename,': can only handle input ''dataname'' as a cell array if all entries are of class ''datanames''.'])
+      %parse optional parameters as defined in the metadata
+      p=obj.mdget(dn).plot_args(p,varargin{:});
+      %sanity on non-optional parameters
+      if ~isa(dn,'datanames') && ~isscalar(dn)
+        error([mfilename,': can only handle input ''dn'' as scalars of class ''datanames'', not ''',class(in),'''.'])
+      end
+      %retrieve the requested data
+      d=obj.data_get(dn);
+      %checking data class
+      switch class(d)
+      case 'simpletimeseries'
+        h=d.plot(...
+          'columns', p.Results.plot_columns,...
+          'outlier', p.Results.plot_outlier,...
+          'zeromean',p.Results.plot_zeromean...
+        );
+        %save units
+        h.y_units=d.y_units{p.Results.plot_columns{1}};
+        for i=2:numel(p.Results.plot_columns)
+          if ~strcmp(h.y_units,d.y_units(p.Results.plot_columns{i}))
+            error([mfilename,':BUG TRAP: y-units are not consistent in all plotted lines.'])
+          end
         end
+      otherwise
+        error([mfilename,': cannot plot data of class ',class(d),'; implementation needed!'])
+      end
+    end
+    function h=plot(obj,dataname,varargin)
+      %sanity on non-optional parameters
+      if ~isa(dataname,'datanames') && ~ischar(dataname) && ~iscell(dataname)
+        error([mfilename,': can not handle input ''dataname'' of class ''',class(dataname),'''.'])
+      end
+      %handle input dataname
+      switch class(dataname)
+      case 'cell'
         %propagate
         dataname_list=dataname;
-      else
+      case 'datanames'        
+        %propagate
+        dataname_list={dataname};
+      case 'char'
         % loop over all data in lower levels (in case this isn't already the lowest level)
         dataname_list=vector_names(obj,datanames(dataname));
         % sanity
         if numel(dataname_list)==0
           error([mfilename,': cannot find any data with dataname ',dataname,'.'])
         end
+      otherwise
+        error([mfilename,': can not handle input ''dataname'' of class ''',class(dataname),'''.'])
       end
       % recursive call multiple plots
       if numel(dataname_list)>1
@@ -682,86 +579,65 @@ classdef datastorage
           h{i}=obj.plot(dataname_list{i},varargin{:});
         end
         return
-      elseif p.Results.justplot
-        % retrieve the requested data
-        d=obj.data_get(dataname_list{1});
-        %checking data class
-        switch class(d)
-        case 'simpletimeseries'
-          if isempty(p.Results.data_idx)
-            data_idx=cell2mat(obj.mdget(dataname_list{1}).mdget('plot_columns'));
-          else
-            data_idx=p.Results.data_idx;
-          end
-          if any(~isfinite(data_idx)) || any(data_idx<1)
-            error([...
-              mfilename,': value of parameter ''plot_columns'' invalid or undefined in ',...
-              dataname_list{1}.name,'.'...
-            ])
-          end
-          h=d.plot(...
-            'columns', data_idx,...
-            'outlier', obj.mdget(dataname_list{1}).mdget('plot_outlier'),...
-            'zeromean',obj.mdget(dataname_list{1}).mdget('plot_zeromean')...
-          );
-          h.y_units=d.y_units{data_idx};
-        otherwise
-          error([mfilename,': cannot plot data of class ',class(d),'; implementation needed!'])
-        end
-      elseif ~obj.mdget(dataname_list{1}).mdget('plot_columns_together') && ...
-             ~p.Results.ignore_plot_columns_together
-        %if columns are not to be plotted together, need to expand the calls to obj.plot to include each column
-        plot_columns=obj.mdget(dataname_list{1}).mdget('plot_columns');
-        col_names   =obj.mdget(dataname_list{1}).mdget('plot_column_names');
+      end
+      %save the single entry in dataname
+      dataname_now=dataname_list{1};
+      %parse inputs
+      p=inputParser;
+      p.KeepUnmatched=true;
+      %parse optional parameters as defined in the metadata
+      p=obj.mdget(dataname).plot_args(p,varargin{:});
+      %if columns are not to be plotted together, need to expand the calls to obj.plot to include each column
+      if ~p.Results.plot_columns_together
+        %retrieve plot columns indexes and names
+        plot_columns=p.Results.plot_columns;
+        col_names   =p.Results.plot_column_names;
         %make room for handles
-        h=cell(1,numel(plot_columns)*numel(dataname_list));
-        c=0;
+        h=cell(1,numel(plot_columns));
         %loop over all data columns to plot
         for i=1:numel(plot_columns)
-          %buid plot file suffix for the plots of this data column
-          suffix_now=col_names{plot_columns{i}};
-          if ~isempty(p.Results.plot_file_suffix);suffix_now=strjoin({suffix_now,p.Results.plot_file_suffix},'.');end
-          %loop over all different data to plot
-          for j=1:numel(dataname_list)
-            c=c+1;
-            h{c}=obj.plot(dataname_list(j),...
-              varargin{:},...
-              'plot_file_suffix',suffix_now,...
-              'ignore_plot_columns_together',true,...
-              'title_suffix',suffix_now,...
-              'data_idx',plot_columns{i}...
-            );
+          %buid suffixes for the plots of this data column
+          if ~isempty(p.Results.plot_file_suffix)
+            file_suffix=[col_names(plot_columns{i}),{p.Results.plot_file_suffix}];
+          else
+            file_suffix=col_names(plot_columns{i});
           end
+          if ~isempty(p.Results.plot_title_suffix)
+            title_suffix=[col_names(plot_columns{i}),{p.Results.plot_title_suffix}];
+          else
+            title_suffix=col_names(plot_columns{i});
+          end
+          h{i}=obj.plot(dataname_now,...
+            varargin{:},...
+            'plot_file_suffix', strjoin(file_suffix, '.'),...
+            'plot_title_suffix',strjoin(title_suffix,' '),...
+            'plot_columns_together',true,...
+            'plot_columns',plot_columns(i)...
+          );
         end
       else
-        %save the single entry in dataname
-        dataname_now=dataname_list{1};
-        %get which data is plotted together
-        if ~any(strcmp(p.UsingDefaults,'plot_together'))
-          plot_together=p.Results.plot_together;
-        elseif obj.mdget(dataname_now).ismd_field('plot_together')
-          plot_together=obj.mdget(dataname_now).mdget('plot_together');
-        else
-          plot_together='';
-        end
         %plot filename arguments
         filename_args=[obj.mdget(dataname_now).file_args('plot'),{...
           'start',obj.start,...
           'stop',obj.stop,...
           'timestamp',true,...
-          'remove_part',plot_together,...
+          'remove_part',p.Results.plot_together,...
+          'prefix',p.Results.plot_file_prefix...
           'suffix',p.Results.plot_file_suffix...
         }];
         %plot filename
         filename=dataname_now.file(filename_args{:});
         % check if plot is already there
         if isempty(dir(filename))
-          figure('visible',obj.mdget(dataname_now).mdget('plot_visible'));
+          figure('visible',p.Results.plot_visible);
           %retrive data names to be plotted here
           %NOTICE: this will cause plots to appear multiple times if they are not saved
-          dataname_list_to_plot=obj.vector_names(dataname_now.edit(plot_together,''));
-          %recursive call, just for plotting
-          h=obj.plot(dataname_list_to_plot,varargin{:},'justplot',true);
+          dataname_list_to_plot=obj.vector_names(dataname_now.edit(p.Results.plot_together,''));
+          h=cell(size(dataname_list_to_plot));
+          %loop over all data to plot
+          for i=1:numel(dataname_list_to_plot)
+            h{i}=obj.justplot(dataname_list_to_plot{i},varargin{:});
+          end
           % paranoid sanity
           str.sizetrap(h,dataname_list_to_plot)
           %enforce plot preferences
@@ -770,12 +646,12 @@ classdef datastorage
           for i=1:numel(datastorage.parts)
             %only add prefix to title if:
             % - 'plot_label_prefix_<part>' is defined (otherwise cannot know which prefix to add)
-            if obj.mdget(dataname_now).ismd_field(['plot_label_prefix_',datastorage.parts{i}])
+            if ~isempty(p.Results.(['plot_label_prefix_',datastorage.parts{i}]))
               %loop over all plotted datanames
               for j=1:numel(dataname_list_to_plot)
                 old_part_value=dataname_list_to_plot{j}.(datastorage.parts{i});
                 new_part_value=[...
-                  obj.mdget(dataname_now).mdget(['plot_label_prefix_',datastorage.parts{i}]),...
+                  p.Results.(['plot_label_prefix_',datastorage.parts{i}]),...
                   old_part_value...
                 ];
                 dataname_list_to_plot{j}=dataname_list_to_plot{j}.edit(...
@@ -787,11 +663,11 @@ classdef datastorage
           end
           %add legend if there are multiple lines
           if numel(h)>1
-            if ~isempty(p.Results.legend)
+            if ~isempty(p.Results.plot_legend)
               %some sanity
-              str.sizetrap(h,p.Results.legend)
+              str.sizetrap(h,p.Results.plot_legend)
               %propagate
-              legend_str=p.Results.legend;
+              legend_str=p.Results.plot_legend;
             else
               %get unique parts in datanames 
               prefixes=datanames.unique(dataname_list_to_plot);
@@ -809,7 +685,7 @@ classdef datastorage
               for j=1:numel(h)
                 for k=1:numel(h{j}.y_mean)
                   %define sufix
-                  if obj.mdget(dataname_now).mdget('plot_zeromean')
+                  if p.Results.plot_zeromean
                     suffix=num2str(h{j}.y_mean{k});
                   end
                   %build legend stirngs
@@ -822,18 +698,16 @@ classdef datastorage
               end
             end
             set(legend(legend_str),'fontname','courier')
-          else
-            h={h};
           end
           %get title parts
           title_str=datanames.common(dataname_list_to_plot);
           %suppress some parts, if requested
-          title_str=setdiff(title_str,obj.mdget(dataname_now).mdget('plot_title_suppress'),'stable');
+          title_str=setdiff(title_str,p.Results.plot_title_suppress,'stable');
           %clean up the tile and put it there
-          title(str.clean(strjoin([title_str,{p.Results.title_suffix}],' '),'_'))
+          title(str.clean(strjoin([title_str,{p.Results.plot_title_suffix}],' '),'_'))
           %fix y-axis label
-          if ~isempty(p.Results.ylabel)
-            ylabel(p.Results.ylabel)
+          if ~isempty(p.Results.plot_ylabel)
+            ylabel(p.Results.plot_ylabel)
           else
             for i=2:numel(h)
               if ~strcmp(h{1}.y_units,h{i}.y_units)
@@ -849,6 +723,29 @@ classdef datastorage
           h=[];
         end
       end
+    end
+    function h=plot_mult(obj,dataname_list,plot_columns,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      %parse optional parameters as defined in the metadata
+      p=obj.mdget(dn).plot_args(p,varargin{:});
+      %sanity on non-optional parameters
+      if ~iscell(dataname_list)
+        error([mfilename,': can not handle input ''dataname'' of class ''',class(dataname_list),''', only cell.'])
+      end
+      if ~isnumeric(plot_columns) && ~isfinite(plot_columns)
+        error([mfilename,': can not handle input ''data_indexes'' of class ''',class(plot_columns),''' or non-finite.'])
+      end
+      %make room for outputs
+      h=cell(size(dataname_list));
+      %loop over all datanames
+      for i=1:numel(dataname_list)
+        h{i}=obj.justplot(dataname_list{i},varargin{:},...
+          'plot_columns_together',true,...
+          'plot_columns',plot_columns(i)...
+        );
+      end
+      keyboard
     end
     %% generalized operations
     function obj=stats(obj,dataname)
@@ -973,64 +870,7 @@ classdef datastorage
       % parse it
       p.parse(varargin{:});
       switch lower(datatype)
-      case 'calpar_csr'
-        switch lower(opname)
-        case 'calmod'
-          dci=obj.par.calpar_csr.data_col_idx;
-          coord=obj.par.calpar_csr.coord;
-          for s=1:numel(grace.sats)
-            %gather quantities
-            acc  =obj.sat_get('acc','l1b','csr',grace.sats{s});
-            if ~isa(acc,'simpletimeseries')
-              %patch nan calibration model
-              calmod=simpletimeseries(...
-                [obj.start;obj.stop],...
-                nan(2,numel(obj.par.acc.data_col_name))...
-              );
-            else
-              %init models container
-              calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coord))).copy_metadata(acc);
-              calmod.descriptor=['calibration model ',level,' GRACE-',upper(grace.sats{s})];
-              disp(['Computing the ',calmod.descriptor])
-              for i=1:numel(coord)
-                %skip Y coordinate for now
-                if coord{i}=='Y',continue,end
-                %build nice structure with the relevant calibration parameters
-                cal=struct(...
-                  'ac0' ,obj.sat_get(datatype,level,['AC0',coord{i}    ],grace.sats{s}).interp(acc.t),...
-                  'ac0d',obj.sat_get(datatype,level,['AC0',coord{i},'D'],grace.sats{s}).interp(acc.t),...
-                  'ac0q',obj.sat_get(datatype,level,['AC0',coord{i},'Q'],grace.sats{s}).interp(acc.t)...
-                );
-                %sanity
-                if any([isempty(acc),isempty(cal.ac0),isempty(cal.ac0d),isempty(cal.ac0q)])
-                  error([mfilename,': not all data is available to perform this operation.'])
-                end
-                %retrieve time domain (it is the same for all cal pars)
-                fields=fieldnames(cal);
-                for l=1:numel(fields)
-                  t.(fields{l})=days(acc.t-simpletimeseries.ToDateTime(cal.(fields{l}).y(:,end),'modifiedjuliandate'));
-                end
-                %paranoid sanity check
-                good_idx=~isnan(t.ac0);
-                if any(t.ac0(good_idx)~=t.ac0d(good_idx)) || any(t.ac0(good_idx)~=t.ac0q(good_idx))
-                  error([mfilename,': calibration time domain inconsistent between parameters, debug needed!'])
-                end
-                %build calibration model
-                calmod=calmod.set_cols(i,...
-                  cal.ac0.cols(dci)+...
-                  cal.ac0d.cols(dci).times(t.ac0d)+...
-                  cal.ac0q.cols(dci).times(t.ac0q.^2)...
-                );
-              end
-            end
-            %save it
-            obj=obj.sat_set('acc','calmod',level,grace.sats{s},calmod);
-          end
-          %outputs
-          out=obj;
-        otherwise
-          error([mfilename,': cannot handle operation ''',opname,''' for datatype ''',datatype,'''.'])
-        end
+
       case 'acc'
         switch lower(opname)
         case 'load-stats'
