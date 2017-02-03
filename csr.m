@@ -250,8 +250,8 @@ classdef csr
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired('dataname',@(i) ischar(i) || isa(i,'datanames'));
-      p.addParameter('start', [], @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('stop',  [], @(i) isdatetime(i)  &&  isscalar(i));
+      p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
+      p.addParameter('stop',  obj.start, @(i) isdatetime(i)  &&  isscalar(i));
       % parse it
       p.parse(dataname,varargin{:});
       % sanity
@@ -265,7 +265,10 @@ classdef csr
       indir=product.mdget('import_dir');
       version=product.mdget('version');
       %gather list of daily data files
-      [~,timestamplist]=product.file('data',varargin{:});
+      [~,timestamplist]=product.file('data',varargin{:},...
+        'start',p.Results.start,...
+        'stop', p.Results.stop...
+      );
       %loop over the satellites
       for s=1:numel(sats)
         infile=cell(size(timestamplist));
@@ -291,8 +294,8 @@ classdef csr
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired('dataname',@(i) ischar(i) || isa(i,'datanames'));
-      p.addParameter('start', [], @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('stop',  [], @(i) isdatetime(i)  &&  isscalar(i));
+      p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
+      p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
       % parse it
       p.parse(dataname,varargin{:});
       % sanity
@@ -308,7 +311,10 @@ classdef csr
       gps_version =product.mdget('gps_version' );
       grav_version=product.mdget('grav_version');
       %gather list of daily data files
-      [~,timestamplist]=product.file('data',varargin{:});
+      [~,timestamplist]=product.file('data',varargin{:},...
+        'start',p.Results.start,...
+        'stop', p.Results.stop...
+      );
       %loop over the satellites
       for s=1:numel(sats)
         infile=cell(size(timestamplist));
