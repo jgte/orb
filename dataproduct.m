@@ -7,9 +7,17 @@ classdef dataproduct
           'data_dir',fullfile(dataproduct.scriptdir,    'data'),...
       'metadata',struct(...
         'plot_columns',{{-1}},...
+        'plot_column_names',{{}},...
         'plot_columns_together',true,...
-        'plot_prefix','',...
-        'plot_suffix','',...
+        'plot_together','',...
+        'plot_file_prefix','',...
+        'plot_file_suffix','',...
+        'plot_legend',{{}},...
+        'plot_ylabel','',...
+        'plot_label_prefix_sat','',...
+        'plot_label_prefix_field','',...
+        'plot_label_prefix_level','',...
+        'plot_label_prefix_type','',...
         'plot_xdate',true,...
         'plot_xlimits',[-inf,inf],...
         'plot_ylimits',[-inf,inf],...
@@ -20,6 +28,7 @@ classdef dataproduct
         'plot_fontsize_title',32,...
         'plot_fontsize_label',28,...
         'plot_title_suppress',{{}},...
+        'plot_title_suffix','',...
         'plot_line_width',2,...
         'plot_autoscale',false,... %y-scale is derived from the data (in dataproduct.enforce_plot)
         'plot_automean',false,...  %middle-point of y axis is derived from the data (in dataproduct.enforce_plot)
@@ -314,11 +323,7 @@ classdef dataproduct
       source_name=datanames(obj.metadata.sources{idx});
     end
     %% plot customization
-    function enforce_plot(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addParameter('fig_handle',  gcf,  @(i) ishandle(i));
-      p.addParameter('axis_handle', gca,  @(i) ishandle(i));
+    function p=plot_args(obj,p,varargin)
       %get plot parameters already defined in the metadata
       mdf=fieldnames(obj.metadata);
       %loop over all of them
@@ -329,36 +334,44 @@ classdef dataproduct
         end
         %declare this plot parameter as optional argument to this function
         p.addParameter(...
-          strrep(mdf{i},'plot_',''),...
+          mdf{i},...
           obj.metadata.(mdf{i}),...
-          @(i) iscell(i) || ischar(i) || isdouble(i) || islogical(i)... %pretty generic validation needed to let anything in
+          @(i) iscell(i) || ischar(i) || isnumeric(i) || islogical(i)... %pretty generic validation needed to let anything in
         )
       end
-      % parse it
+      % parse arguments
       p.parse(varargin{:});
+    end
+    function enforce_plot(obj,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('fig_handle',  gcf,  @(i) ishandle(i));
+      p.addParameter('axis_handle', gca,  @(i) ishandle(i));
+      %get plot parameters already defined in the metadata and parse them
+      p=obj.plot_args(p,varargin{:});
       % sanity
-      if any(isfinite(p.Results.ylimits)) && ( p.Results.autoscale ||  p.Results.automean )
+      if any(isfinite(p.Results.plot_ylimits)) && ( p.Results.plot_autoscale ||  p.Results.plot_automean )
         error([mfilename,': option ''ylimits'' and ''autoscale'' or ''automean'' do not work concurrently.'])
       end
       % enforce fontsize and paper size
-      set(    p.Results.axis_handle,          'FontSize',p.Results.fontsize_axis)
-      set(get(p.Results.axis_handle,'Title' ),'FontSize',p.Results.fontsize_title);
-      set(get(p.Results.axis_handle,'XLabel'),'FontSize',p.Results.fontsize_label);
-      set(get(p.Results.axis_handle,'YLabel'),'FontSize',p.Results.fontsize_label);
-      set(    p.Results.fig_handle, 'Position',          p.Results.size,...
-                                    'PaperUnits',        p.Results.units,...
-                                    'PaperPosition',     p.Results.size);
+      set(    p.Results.axis_handle,          'FontSize',p.Results.plot_fontsize_axis)
+      set(get(p.Results.axis_handle,'Title' ),'FontSize',p.Results.plot_fontsize_title);
+      set(get(p.Results.axis_handle,'XLabel'),'FontSize',p.Results.plot_fontsize_label);
+      set(get(p.Results.axis_handle,'YLabel'),'FontSize',p.Results.plot_fontsize_label);
+      set(    p.Results.fig_handle, 'Position',          p.Results.plot_size,...
+                                    'PaperUnits',        p.Results.plot_units,...
+                                    'PaperPosition',     p.Results.plot_size);
       % enforce line properties
       line_handles=get(p.Results.axis_handle,'Children');
       for i=1:numel(line_handles)
-        set(line_handles(i),'LineWidth',p.Results.line_width)
+        set(line_handles(i),'LineWidth',p.Results.plot_line_width)
       end
       % enforce x-limits
       v=axis(p.Results.axis_handle);
-      if p.Results.xdate
+      if p.Results.plot_xdate
         for i=1:2
-          if isfinite(   p.Results.xlimits(i))
-            v(i)=datenum(p.Results.xlimits(i));
+          if isfinite(   p.Results.plot_xlimits(i))
+            v(i)=datenum(p.Results.plot_xlimits(i));
           end
         end
         if ~strcmp(datestr(v(1),'yyyymmdd'),datestr(v(2),'yyyymmdd')) && ...
@@ -370,12 +383,12 @@ classdef dataproduct
       end
       % enforce reasonable y-limits
       for i=1:2
-        if isfinite(p.Results.ylimits(i))
-          v(i+2)=   p.Results.ylimits(i);
+        if isfinite(p.Results.plot_ylimits(i))
+          v(i+2)=   p.Results.plot_ylimits(i);
         end
       end
       % enforce auto-scale and/or auto-mean
-      if p.Results.automean || p.Results.autoscale || p.Results.outlier>0
+      if p.Results.plot_automean || p.Results.plot_autoscale || p.Results.plot_outlier>0
         %gather plotted data
         dat=cell(size(line_handles));
         for i=1:numel(line_handles)
@@ -384,16 +397,16 @@ classdef dataproduct
         dat=[dat{:}];
         dat=dat(~isnan(dat(:)));
         %remove outliers before computing axis limits (if requested)
-        for c=1:p.Results.outlier
+        for c=1:p.Results.plot_outlier
           dat=simpledata.rm_outliers(dat);
         end
         dat=dat(~isnan(dat(:)));
         %enfore data-driven mean and/or scale
-        if p.Results.automean && p.Results.autoscale
+        if p.Results.plot_automean && p.Results.plot_autoscale
           v(3:4)=mean(dat)+4*std(dat)*[-1,1];
-        elseif p.Results.automean
+        elseif p.Results.plot_automean
           v(3:4)=mean(dat)+0.5*diff(v(3:4))*[-1,1];
-        elseif p.Results.autoscale
+        elseif p.Results.plot_autoscale
           v(3:4)=mean(v(3:4))+4*std(dat)*[-1,1];
         end
         %fix non-negative data sets
