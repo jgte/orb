@@ -1,6 +1,10 @@
 classdef csr
   methods(Static)
     function obj=import_calpar(obj,dataname,varargin)
+      % parse mandatory arguments
+      p=inputParser;
+      p.addRequired('dataname', @(i) isa(i,'datanames'));
+      p.parse(dataname);
       %retrieve product info
       product=obj.mdget(dataname);
       %check if data is already in matlab format
@@ -179,6 +183,10 @@ classdef csr
       end
     end
     function obj=compute_calmod(obj,dataname,varargin)
+      % parse mandatory arguments
+      p=inputParser;
+      p.addRequired('dataname', @(i) isa(i,'datanames'));
+      p.parse(dataname);
       %retrieve products info
       product=obj.mdget(dataname);
       %paranoid sanity
@@ -249,9 +257,9 @@ classdef csr
     function obj=import_acc_l1b(obj,dataname,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired('dataname',@(i) ischar(i) || isa(i,'datanames'));
+      p.addRequired('dataname',@(i) isa(i,'datanames'));
       p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('stop',  obj.start, @(i) isdatetime(i)  &&  isscalar(i));
+      p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
       % parse it
       p.parse(dataname,varargin{:});
       % sanity
@@ -293,7 +301,7 @@ classdef csr
     function obj=import_acc_mod(obj,dataname,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired('dataname',@(i) ischar(i) || isa(i,'datanames'));
+      p.addRequired('dataname',@(i) isa(i,'datanames'));
       p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
       % parse it
