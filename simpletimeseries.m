@@ -1859,7 +1859,7 @@ function y = flatten(x)
     y = {};
     for n = 1:length(x)
       tmp = flatten(x{n});
-      y = {y{:} tmp{:}};
+      y = [y(:);tmp(:)];
     end
   end
 end
