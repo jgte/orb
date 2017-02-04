@@ -52,7 +52,7 @@ classdef datanames
       com=datanames.common(datanames_array);
       out=cell(size(datanames_array));
       for i=1:numel(datanames_array)
-        out(i)=setdiff(datanames_array{i}.cells,com,'stable');
+        out{i}=setdiff(datanames_array{i}.cells,com,'stable');
       end
     end
   end
