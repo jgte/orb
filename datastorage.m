@@ -2,39 +2,6 @@ classdef datastorage
   %static
   properties(Constant)
     
-%         'fields',struct(...
-%           'AC0X'  ,1e-7,...
-%           'AC0Z'  ,1e-6,...
-%           'AC0Y1' ,1e-5,...
-%           'AC0Y2' ,1e-5,...
-%           'AC0Y3' ,1e-5,...
-%           'AC0Y4' ,2e-5,...
-%           'AC0Y5' ,2e-5,...
-%           'AC0Y6' ,5e-5,...
-%           'AC0Y7', 5e-5,...
-%           'AC0Y8', 5e-5,...
-%           'AC0XD', 5e-7,...
-%           'AC0ZD', 5e-6,...
-%           'AC0YD1',5e-5,...
-%           'AC0YD2',5e-5,...
-%           'AC0YD3',1e-4,...
-%           'AC0YD4',1e-4,...
-%           'AC0YD5',1e-4,...
-%           'AC0YD6',5e-3,...
-%           'AC0YD7',5e-3,...
-%           'AC0YD8',5e-4,...
-%           'AC0XQ' ,3e-7,...
-%           'AC0ZQ' ,5e-6,...
-%           'AC0YQ1',5e-3,...
-%           'AC0YQ2',5e-3,...
-%           'AC0YQ3',5e-3,...
-%           'AC0YQ4',5e-3,...
-%           'AC0YQ5',5e-3,...
-%           'AC0YQ6',5e-3,...
-%           'AC0YQ7',5e-3,...
-%           'AC0YQ8',5e-4 ...
-%         )...
-        
     parts={...
       'type',...
       'level',...
@@ -42,67 +9,13 @@ classdef datastorage
       'sat'...
     };
 
-    %default value of some internal parameters
-    default_list=struct(...
-      'par_calpar_csr',struct(...
-        'longtermbias',struct(...
-          'A',fullfile('input','bsA2003'),...
-          'B',fullfile('input','bsB2003')...
-        ),...
-        'coord',{{'X','Y','Z'}},...
-        'data_col_idx',1,...
-        'levels',struct(...
-          'aak',   1,...
-          'accatt',1,...
-          'estim', 1 ...
-        ),...
-        'fields',struct(...
-          'AC0X'  ,1e-7,...
-          'AC0XD', 5e-7,...
-          'AC0XQ' ,3e-7,...
-          'AC0Z'  ,1e-6,...
-          'AC0ZD', 5e-6,...
-          'AC0ZQ' ,5e-6...
-        )...
-      ),...
-      'par_acc',struct(...
-        'data_col_name',{{'X','Y','Z'}},...
-        'data_col_idx',[1 3]...
-      ),...
-      'par_data',struct(...
-        'dir','data'...
-      ),...
-      'par_plot',struct(...
-        'dir','plots',...
-        'prefix','',...
-        'suffix','',...
-        'xlimits',[-inf,inf],...
-        'ylimits',[-inf,inf],...
-        'size',200+[0,0,21,9]*50,...
-        'units','points',...
-        'visible','on',...
-        'fontsize',struct(...
-          'axis', 24,...
-          'title',32,...
-          'label',28),...
-        'line',struct(...
-          'width',2)...
-      )...
-    );
-%     sats={'A','B'};
+%     %default value of some internal parameters
+%     default_list=struct(...
+%     );
     parameter_list=struct(...
-      'par_modes',      struct('default',grace.default_list.par_modes,     'validation',@(i) isstruct(i)),...
-      'par_calpar_csr', struct('default',grace.default_list.par_calpar_csr,'validation',@(i) isstruct(i)),...
-      'par_acc',        struct('default',grace.default_list.par_acc,       'validation',@(i) isstruct(i)),...
-      'par_data',       struct('default',grace.default_list.par_data,      'validation',@(i) isstruct(i)),...
-      'par_plot',       struct('default',grace.default_list.par_plot,      'validation',@(i) isstruct(i)),...
       'start',          struct('default',datetime([0 0 31]),               'validation',@(i) isdatetime(i)),...
       'stop',           struct('default',datetime([0 0 31]),               'validation',@(i) isdatetime(i))...
     );
-    %These parameter are considered when checking if two data sets are
-    %compatible (and only these).
-    %NOTE: edit this if you add a new parameter (if relevant)
-    compatible_parameter_list={};
   end
   %read only
   properties(SetAccess=private)
@@ -112,6 +25,8 @@ classdef datastorage
   end
   %private (visible only to this object)
   properties(GetAccess=private)
+    starti
+    stopi
   end
   %calculated only when asked for
   properties(Dependent)
@@ -120,35 +35,28 @@ classdef datastorage
   end
   methods(Static)
     function out=parameters
-      out=fieldnames(grace.parameter_list);
+      out=fieldnames(datastorage.parameter_list);
     end
   end
   methods
     %% constructor
     function obj=datastorage(varargin)
+      %parameter names
+      pn=datastorage.parameters;
       p=inputParser;
       p.KeepUnmatched=true;
       %declare parameters
-      for j=1:numel(grace.parameters)
-        %shorter names
-        pn=grace.parameters{j};
+      for i=1:numel(pn)
         %declare parameters
-        p.addParameter(pn,grace.parameter_list.(pn).default,grace.parameter_list.(pn).validation)
+        p.addParameter(pn{i},datastorage.parameter_list.(pn{i}).default,datastorage.parameter_list.(pn{i}).validation)
       end
       % parse it
       p.parse(varargin{:});
       % reset data type list
       obj=obj.datatype_init;
       % save parameters with defaults first, they may be needed below
-      for i=1:numel(grace.parameters)
-        %shorter names
-        pn=grace.parameters{i};
-        %parameters have a dedicated member
-        if strcmp(pn(1:4),'par_')
-          obj.par.(pn(5:end))=collapse(p.Results.(pn));
-        else
-          obj.(pn)=collapse(p.Results.(pn));
-        end
+      for i=1:numel(pn)
+        obj.(pn{i})=collapse(p.Results.(pn{i}));
       end
       % data is added to this initialized object with the 'init' method (see below)
     end
@@ -158,7 +66,7 @@ classdef datastorage
       % datastorage instance. When calling the datatype_*/level_*/field_*/sat_* members
       % (either directly or through data_*/vector_* members), the output of 
       % dataname.cells_clean needs to be stripped of the 'category'. 
-      if ~strcmp(dataname.category,obj.category)
+      if ~isempty(obj.category) && ~strcmp(dataname.category,obj.category)
         error([mfilename,...
           ': requesting a product of category ''',dataname.category,''', ',...
           'while this object is of category ''',obj.category,'''.'...
@@ -399,35 +307,53 @@ classdef datastorage
     %% start/stop operations
     function out=get.start(obj)
       out=obj.vector_sts('start',obj.vector_names);
-      out=min([out{:}]);
+      if isempty(out)
+        out=obj.starti;
+      else
+        out=min([out{:}]);
+      end
     end
     function out=get.stop(obj)
       out=obj.vector_sts('stop',obj.vector_names);
-      out=max([out{:}]);
+      if isempty(out)
+        out=obj.stopi;
+      else
+        out=max([out{:}]);
+      end
     end
     function obj=set.start(obj,start)
       %retrieve cell names
       names=obj.vector_names;
-      %get cell array with simpletimeseries objects
-      values=obj.vector_get(names);
-      %loop over complete set of objects
-      for i=1:numel(values)
-        values{i}.start=start;
+      %pick internal start time if no data has been loaded yet
+      if isempty(names)
+        obj.starti=start;
+      else
+        %get cell array with simpletimeseries objects
+        values=obj.vector_get(names);
+        %loop over complete set of objects
+        for i=1:numel(values)
+          values{i}.start=start;
+        end
+        %back-propagate modified set of objects
+        obj=obj.vector_set(names,values);
       end
-      %back-propagate modified set of objects
-      obj=obj.vector_set(names,values);
     end
     function obj=set.stop(obj,stop)
       %retrieve cell names
       names=obj.vector_names;
-      %get cell array with simpletimeseries objects
-      values=obj.vector_get(names);
-      %loop over complete set of objects
-      for i=1:numel(values)
-        values{i}.stop=stop;
+      %pick internal start time if no data has been loaded yet
+      if isempty(names)
+        obj.stopi=stop;
+      else
+        %get cell array with simpletimeseries objects
+        values=obj.vector_get(names);
+        %loop over complete set of objects
+        for i=1:numel(values)
+          values{i}.stop=stop;
+        end
+        %back-propagate modified set of objects
+        obj=obj.vector_set(names,values);
       end
-      %back-propagate modified set of objects
-      obj=obj.vector_set(names,values);
     end
     %% metadata interface
     function obj=mdset(obj,dataname,varargin)
@@ -447,15 +373,55 @@ classdef datastorage
         error([mfilename,': cannot find the metadata of product ',dataname.name,' or any of its trunk elements.'])
       end
     end
-    %% datatype initialization
-    function obj=init(obj,dataname,varargin)
+    %% dataname type factory
+    % NOTICE: this function always returns a cell of datanames, unless 'need_scalar' is true
+    function out=dataname_factory(obj,in,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired('dataname',@(i) ischar(i) || isa(i,'datanames'));      
+      p.addParameter('need_scalar',false, @(i) islogical(i) && isscalar(i));
       % parse it
-      p.parse(dataname,varargin{:});
+      p.parse(varargin{:});
+      %handle input dataname
+      switch class(in)
+      case 'cell'
+        %vectorise
+        out=cell(size(in));
+        for i=1:numel(out)
+          out{i}=obj.dataname_factory(in{i},varargin{:});
+        end
+        %flatten cell array
+        out=flatten(out);
+      case 'datanames'        
+        %propagate
+        out={in};
+      case 'char'
+        % loop over all data in lower levels (in case this isn't already the lowest level)
+        out=obj.vector_names(datanames(in));
+        % sanity
+        if numel(out)==0
+          out={datanames(in)};
+        end
+      otherwise
+        error([mfilename,': can not handle input ''dataname'' of class ''',class(in),'''.'])
+      end
+      %paranoid sanity
+      if ~iscell(out)
+        error([mfilename,': expecting variable ''out'' to be a cell, not of class ''',class(out),'''. Debug needed!'])
+      end
+      %handle scalar requests
+      if p.Results.need_scalar
+        if numel(out)==1
+          out=out{1};
+        else
+          error([mfilename,': requesting scalar output but variable ''out'' has length ''',num2str(numel(out)),...
+            '''. Debug needed!'])
+        end
+      end
+    end
+    %% datatype initialization
+    function obj=init(obj,dataname,varargin)
       % convert to object
-      dataname=datanames(dataname);
+      dataname=obj.dataname_factory(dataname,'need_scalar',true);
       % save the cateogry, if not done already
       if isempty(obj.category)
         obj.category=dataname.category;
@@ -476,6 +442,11 @@ classdef datastorage
       obj=ih(obj,dataname,varargin{:});
     end
     function obj=init_sources(obj,dataname,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('dataname',          @(i) isa(i,'datanames'));
+      % parse it
+      p.parse(dataname,varargin{:});
       %loop over all source data
       for i=1:obj.mdget(dataname).nr_sources
         %load this source
@@ -485,7 +456,7 @@ classdef datastorage
     function obj=init_nrtdm(obj,dataname,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired('dataname',@(i) ischar(i) || isa(i,'datanames'));
+      p.addRequired('dataname',          @(i) isa(i,'datanames'));
       p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
       % parse it
@@ -518,18 +489,20 @@ classdef datastorage
         obj.stop= p.Results.stop;
       end
     end
-    %% generalized plotting
-    function h=justplot(obj,dn,varargin)
+    %% plot utils
+    function h=justplot(obj,dataname,varargin)
+      %parse mandatory args
+      dataname=obj.dataname_factory(dataname,'need_scalar',true);
+      %parse optional parameters as defined in the metadata
       p=inputParser;
       p.KeepUnmatched=true;
-      %parse optional parameters as defined in the metadata
-      p=obj.mdget(dn).plot_args(p,varargin{:});
+      p=obj.mdget(dataname).plot_args(p,varargin{:});
       %sanity on non-optional parameters
-      if ~isa(dn,'datanames') && ~isscalar(dn)
+      if ~isa(dataname,'datanames') && ~isscalar(dataname)
         error([mfilename,': can only handle input ''dn'' as scalars of class ''datanames'', not ''',class(in),'''.'])
       end
       %retrieve the requested data
-      d=obj.data_get(dn);
+      d=obj.data_get(dataname);
       %checking data class
       switch class(d)
       case 'simpletimeseries'
@@ -549,29 +522,154 @@ classdef datastorage
         error([mfilename,': cannot plot data of class ',class(d),'; implementation needed!'])
       end
     end
-    function h=plot(obj,dataname,varargin)
-      %sanity on non-optional parameters
-      if ~isa(dataname,'datanames') && ~ischar(dataname) && ~iscell(dataname)
-        error([mfilename,': can not handle input ''dataname'' of class ''',class(dataname),'''.'])
+    function plot_legend(obj,h,dataname_list_to_plot,varargin)
+      %parse mandatory args
+      if ~iscell(h)
+        error([mfilename,': can only handle input ''h'' as cell, not of class ',class(d),'.'])
       end
-      %handle input dataname
-      switch class(dataname)
-      case 'cell'
-        %propagate
-        dataname_list=dataname;
-      case 'datanames'        
-        %propagate
-        dataname_list={dataname};
-      case 'char'
-        % loop over all data in lower levels (in case this isn't already the lowest level)
-        dataname_list=vector_names(obj,datanames(dataname));
-        % sanity
-        if numel(dataname_list)==0
-          error([mfilename,': cannot find any data with dataname ',dataname,'.'])
+      dataname_list_to_plot=obj.dataname_factory(dataname_list_to_plot);
+      %add legend if there are multiple lines
+      if numel(h)>1
+        %parse inputs
+        p=inputParser;
+        p.KeepUnmatched=true;
+        %parse optional parameters as defined in the metadata
+        p=obj.mdget(dataname_list_to_plot{1}).plot_args(p,varargin{:});
+        %add the legend given as input, if there
+        if ~isempty(p.Results.plot_legend)
+          %some sanity
+          str.sizetrap(h,p.Results.plot_legend)
+          %propagate
+          legend_str=p.Results.plot_legend;
+        else
+          %get unique parts in datanames 
+          prefixes=datanames.unique(dataname_list_to_plot);
+          % paranoid sanity
+          str.sizetrap(h,prefixes)
+          %get how many lines have been plotted
+          n=0;
+          for j=1:numel(h)
+            n=n+numel(h{j}.legend);
+          end
+          %make room for legend strings
+          legend_str=cell(1,n);
+          %loop over all legend entries
+          c=0;
+          for j=1:numel(h)
+            for k=1:numel(h{j}.y_mean)
+              %define sufix
+              if p.Results.plot_zeromean
+                suffix=num2str(h{j}.y_mean{k});
+              end
+              %build legend stirngs
+              c=c+1;
+              legend_str{c}=str.clean(...
+                strjoin([prefixes{j},{suffix}],' '),...
+                {'title','succ_blanks'}...
+              );
+            end
+          end
         end
-      otherwise
-        error([mfilename,': can not handle input ''dataname'' of class ''',class(dataname),'''.'])
+        %put the legend in the current plot
+        set(legend(legend_str),'fontname','courier')
       end
+    end
+    function plot_title(obj,dataname_list_to_plot,varargin)
+      %parse mandatory args
+      dataname_list_to_plot=obj.dataname_factory(dataname_list_to_plot);
+      %parse inputs
+      p=inputParser;
+      p.KeepUnmatched=true;
+      %parse optional parameters as defined in the metadata
+      p=obj.mdget(dataname_list_to_plot{1}).plot_args(p,varargin{:});
+      %add the title given as input, if there
+      if ~isempty(p.Results.plot_title)
+        title_str=p.Results.plot_title;
+      else
+        %get title parts
+        title_str=datanames.common(dataname_list_to_plot);
+        %suppress some parts, if requested
+        title_str=setdiff(title_str,p.Results.plot_title_suppress,'stable');
+        %clean up the tile and put it there
+        title_str=strjoin([title_str,{p.Results.plot_title_suffix}],' ');
+      end
+      %put the title in the current plot
+      title(str.clean(title_str,'_'))
+      %grid, if requested
+      if p.Results.plot_grid;grid on;end
+    end
+    function plot_ylabel(obj,h,dataname_list_to_plot,varargin)
+      %parse mandatory args
+      if ~iscell(h)
+        error([mfilename,': can only handle input ''h'' as cell, not of class ',class(d),'.'])
+      end
+      dataname_list_to_plot=obj.dataname_factory(dataname_list_to_plot);
+      %parse inputs
+      p=inputParser;
+      p.KeepUnmatched=true;
+      %parse optional parameters as defined in the metadata
+      p=obj.mdget(dataname_list_to_plot{1}).plot_args(p,varargin{:});
+      %add the y-label given as input, if there
+      if ~isempty(p.Results.plot_ylabel)
+        ylabel_str=p.Results.plot_ylabel;
+      else
+        %check the labels of all lines are compatible
+        for i=2:numel(h)
+          if ~strcmp(h{1}.y_units,h{i}.y_units)
+            error([mfilename,':BUG TRAP: y-units are not consistent in all plotted lines.'])
+          end
+        end
+        %fix y-axis label
+        ylabel_str=['[',h{1}.y_units,']'];
+      end
+      %put the ylabel in the current plot
+      ylabel(ylabel_str)
+    end
+    function dataname_list_to_plot=plot_label_prefix(obj,dataname_list_to_plot,varargin)
+      %parse mandatory args
+      dataname_list_to_plot=obj.dataname_factory(dataname_list_to_plot);
+      %parse inputs
+      p=inputParser;
+      p.KeepUnmatched=true;
+      %parse optional parameters as defined in the metadata
+      p=obj.mdget(dataname_list_to_plot{1}).plot_args(p,varargin{:});
+      %add prefixes, if there
+      for i=1:numel(datastorage.parts)
+        %only add prefix to title if:
+        % - 'plot_label_prefix_<part>' is defined (otherwise cannot know which prefix to add)
+        if ~isempty(p.Results.(['plot_label_prefix_',datastorage.parts{i}]))
+          %loop over all plotted datanames
+          for j=1:numel(dataname_list_to_plot)
+            old_part_value=dataname_list_to_plot{j}.(datastorage.parts{i});
+            new_part_value=[...
+              p.Results.(['plot_label_prefix_',datastorage.parts{i}]),...
+              old_part_value...
+            ];
+            dataname_list_to_plot{j}=dataname_list_to_plot{j}.edit(...
+              datastorage.parts{i},...  %part name
+              new_part_value...         %part value
+            );
+          end
+        end
+      end
+    end
+    function plot_annotate(obj,h,dataname_list_to_plot,varargin)
+      %NOTICE: argument parsing done in plot_label_prefix, plot_legend, plot_title and plot_ylabel
+      % paranoid sanity
+      str.sizetrap(h,dataname_list_to_plot)
+      %process plot label prefixes
+      dataname_list_to_plot=obj.plot_label_prefix(dataname_list_to_plot,varargin{:});
+      %plot legend (only if needed)
+      obj.plot_legend(h,dataname_list_to_plot,varargin{:})
+      %plot title
+      obj.plot_title(dataname_list_to_plot,varargin{:})
+      %plot y-label
+      obj.plot_ylabel(h,dataname_list_to_plot,varargin{:})
+    end
+    %% generalized plotting
+    function h=plot(obj,dataname,varargin)
+      %parse mandatory args
+      dataname_list=obj.dataname_factory(dataname);
       % recursive call multiple plots
       if numel(dataname_list)>1
         h=cell(size(dataname_list));
@@ -586,7 +684,7 @@ classdef datastorage
       p=inputParser;
       p.KeepUnmatched=true;
       %parse optional parameters as defined in the metadata
-      p=obj.mdget(dataname).plot_args(p,varargin{:});
+      p=obj.mdget(dataname_now).plot_args(p,varargin{:});
       %if columns are not to be plotted together, need to expand the calls to obj.plot to include each column
       if ~p.Results.plot_columns_together
         %retrieve plot columns indexes and names
@@ -638,85 +736,10 @@ classdef datastorage
           for i=1:numel(dataname_list_to_plot)
             h{i}=obj.justplot(dataname_list_to_plot{i},varargin{:});
           end
-          % paranoid sanity
-          str.sizetrap(h,dataname_list_to_plot)
           %enforce plot preferences
           obj.mdget(dataname_now).enforce_plot
-          %add prefixes, if there
-          for i=1:numel(datastorage.parts)
-            %only add prefix to title if:
-            % - 'plot_label_prefix_<part>' is defined (otherwise cannot know which prefix to add)
-            if ~isempty(p.Results.(['plot_label_prefix_',datastorage.parts{i}]))
-              %loop over all plotted datanames
-              for j=1:numel(dataname_list_to_plot)
-                old_part_value=dataname_list_to_plot{j}.(datastorage.parts{i});
-                new_part_value=[...
-                  p.Results.(['plot_label_prefix_',datastorage.parts{i}]),...
-                  old_part_value...
-                ];
-                dataname_list_to_plot{j}=dataname_list_to_plot{j}.edit(...
-                  datastorage.parts{i},...  %part name
-                  new_part_value...         %part value
-                );
-              end
-            end
-          end
-          %add legend if there are multiple lines
-          if numel(h)>1
-            if ~isempty(p.Results.plot_legend)
-              %some sanity
-              str.sizetrap(h,p.Results.plot_legend)
-              %propagate
-              legend_str=p.Results.plot_legend;
-            else
-              %get unique parts in datanames 
-              prefixes=datanames.unique(dataname_list_to_plot);
-              % paranoid sanity
-              str.sizetrap(h,prefixes)
-              %get how many lines have been plotted
-              n=0;
-              for j=1:numel(h)
-                n=n+numel(h{j}.legend);
-              end
-              %make room for legend strings
-              legend_str=cell(1,n);
-              %loop over all legend entries
-              c=0;
-              for j=1:numel(h)
-                for k=1:numel(h{j}.y_mean)
-                  %define sufix
-                  if p.Results.plot_zeromean
-                    suffix=num2str(h{j}.y_mean{k});
-                  end
-                  %build legend stirngs
-                  c=c+1;
-                  legend_str{c}=str.clean(...
-                    strjoin({prefixes{j},suffix},' '),...
-                    {'title','succ_blanks'}...
-                  );
-                end
-              end
-            end
-            set(legend(legend_str),'fontname','courier')
-          end
-          %get title parts
-          title_str=datanames.common(dataname_list_to_plot);
-          %suppress some parts, if requested
-          title_str=setdiff(title_str,p.Results.plot_title_suppress,'stable');
-          %clean up the tile and put it there
-          title(str.clean(strjoin([title_str,{p.Results.plot_title_suffix}],' '),'_'))
-          %fix y-axis label
-          if ~isempty(p.Results.plot_ylabel)
-            ylabel(p.Results.plot_ylabel)
-          else
-            for i=2:numel(h)
-              if ~strcmp(h{1}.y_units,h{i}.y_units)
-                error([mfilename,':BUG TRAP: y-units are not consistent in all plotted lines.'])
-              end
-            end
-            ylabel(['[',h{1}.y_units,']'])
-          end
-          grid on
+          %annotate plot
+          obj.plot_annotate(h,dataname_list_to_plot,varargin{:})
           %save this plot
           saveas(gcf,filename)
         else
@@ -725,17 +748,29 @@ classdef datastorage
       end
     end
     function h=plot_mult(obj,dataname_list,plot_columns,varargin)
+      %parse mandatory args
+      dataname_list=obj.dataname_factory(dataname_list);
+      if isnumeric(plot_columns)
+        plot_columns=num2cell(plot_columns);
+      elseif ~iscell(plot_columns)
+        error([mfilename,': can only handle input ''plot_columns'' that is cell, not of class ''',...
+          class(plot_columns),'''.'])
+      end
+      %expand scalar plot_columns
+      if isscalar(plot_columns)
+        plot_columns=num2cell(plot_columns{1}*ones(1,numel(dataname_list)));
+      elseif numel(plot_columns) ~= numel(dataname_list)
+        tmp=cell(size(dataname_list));
+        for i=1:numel(tmp)
+          tmp{i}=[plot_columns{:}];
+        end
+        plot_columns=tmp;
+      end
+      %parse optional
       p=inputParser;
       p.KeepUnmatched=true;
-      %parse optional parameters as defined in the metadata
-      p=obj.mdget(dn).plot_args(p,varargin{:});
-      %sanity on non-optional parameters
-      if ~iscell(dataname_list)
-        error([mfilename,': can not handle input ''dataname'' of class ''',class(dataname_list),''', only cell.'])
-      end
-      if ~isnumeric(plot_columns) && ~isfinite(plot_columns)
-        error([mfilename,': can not handle input ''data_indexes'' of class ''',class(plot_columns),''' or non-finite.'])
-      end
+      %parse optional parameters as defined in the first metadata
+      p=obj.mdget(dataname_list{1}).plot_args(p,varargin{:});
       %make room for outputs
       h=cell(size(dataname_list));
       %loop over all datanames
@@ -745,10 +780,17 @@ classdef datastorage
           'plot_columns',plot_columns(i)...
         );
       end
-      keyboard
+      %enforce plot preferences (using the metadata of the first dataname)
+      obj.mdget(dataname_list{1}).enforce_plot
+      %annotate plot
+      obj.plot_annotate(h,dataname_list,varargin{:})
     end
     %% generalized operations
-    function obj=stats(obj,dataname)
+    function obj=stats(obj,dataname,varargin)
+      % parse mandatory arguments
+      p=inputParser;
+      p.addRequired('dataname', @(i) isa(i,'datanames'));
+      p.parse(dataname);
       %retrieve products info
       product=obj.mdget(dataname);
       sourcep=obj.mdget(product.sources(1));
@@ -803,7 +845,11 @@ classdef datastorage
         end
       end
     end
-    function obj=corr(obj,dataname)
+    function obj=corr(obj,dataname,varargin)
+      % parse mandatory arguments
+      p=inputParser;
+      p.addRequired('dataname', @(i) isa(i,'datanames'));
+      p.parse(dataname);
       %retrieve products info
       product=obj.mdget(dataname);
       sourcep=obj.mdget(product.sources(1));
@@ -1367,7 +1413,18 @@ classdef datastorage
   end
 end
 
-
+% https://github.com/ronw/ronw-matlab-tools/blob/master/celltools/flatten.m
+function y = flatten(x)
+  if ~iscell(x)
+    y = {x};
+  else
+    y = {};
+    for n = 1:length(x)
+      tmp = flatten(x{n});
+      y = [y(:);tmp(:)];
+    end
+  end
+end
 
 function out=collapse(in)
   if ~isscalar(in) && ~iscell(in)
