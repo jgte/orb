@@ -1,0 +1,18 @@
+import_dir: <getenv('HOME')>/data/csr/GraceAccCal
+method: csr.import_calpar
+fields: [AC0X, AC0XD, AC0XQ, AC0Z, AC0ZD, AC0ZQ]
+coords: [X,Y,Z]
+levels: [aak,accatt,estim]
+sats: [A,B]
+bias_files: [<getenv('HOME')>/data/csr/corral-tacc/input/bsA2003,<getenv('HOME')>/data/csr/corral-tacc/input/bsB2003]
+jobid_col: 2
+param_col: 1
+storage_period: global
+plot_columns: [1]
+plot_together: sat
+plot_autoscale: true
+plot_automean: true
+plot_outlier: 3
+plot_zeromean: true
+plot_label_prefix_sat: GRACE-
+plot_title_suppress: [grace,calpar_csr]
