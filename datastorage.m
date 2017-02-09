@@ -13,8 +13,9 @@ classdef datastorage
 %     default_list=struct(...
 %     );
     parameter_list=struct(...
-      'start',          struct('default',datetime([0 0 31]),               'validation',@(i) isdatetime(i)),...
-      'stop',           struct('default',datetime([0 0 31]),               'validation',@(i) isdatetime(i))...
+      'start',          struct('default',datetime([0 0 31]),'validation',@(i) isdatetime(i)),...
+      'stop',           struct('default',datetime([0 0 31]),'validation',@(i) isdatetime(i)),...
+      'debug',          struct('default',false,             'validation',@(i) islogical(i))...
     );
   end
   %read only
@@ -27,6 +28,7 @@ classdef datastorage
   properties(GetAccess=private)
     starti
     stopi
+    debug
   end
   %calculated only when asked for
   properties(Dependent)
@@ -41,11 +43,12 @@ classdef datastorage
   methods
     %% constructor
     function obj=datastorage(varargin)
-      %parameter names
+      % parameter names
       pn=datastorage.parameters;
       p=inputParser;
+      p.addParameter('category','', @(i) ischar(i));
       p.KeepUnmatched=true;
-      %declare parameters
+      % declare parameters
       for i=1:numel(pn)
         %declare parameters
         p.addParameter(pn{i},datastorage.parameter_list.(pn{i}).default,datastorage.parameter_list.(pn{i}).validation)
@@ -58,10 +61,17 @@ classdef datastorage
       for i=1:numel(pn)
         obj.(pn{i})=collapse(p.Results.(pn{i}));
       end
+      % save category
+      obj.category=p.Results.category;
       % data is added to this initialized object with the 'init' method (see below)
     end
     %% dataname handling
-    function out=fix(obj,dataname)
+    function out=fix(obj,dataname,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('clean_empty',false,@(i) islogical(i));
+      % parse it
+      p.parse(varargin{:});
       % The object dataname includes the 'category' field, which is common to each
       % datastorage instance. When calling the datatype_*/level_*/field_*/sat_* members
       % (either directly or through data_*/vector_* members), the output of 
@@ -74,6 +84,10 @@ classdef datastorage
       end
       out=dataname.cells;
       out=out(2:end);
+      %clean empty cells if requested
+      if p.Results.clean_empty
+        out=out(cellfun(@(i)(~isempty(i)),out));
+      end
     end
     %% datatype operations
     function obj=datatype_init(obj)
@@ -83,11 +97,14 @@ classdef datastorage
       obj.data(1).(datatype_name)=datatype_value;
     end
     function out=datatype_get(obj,datatype_name)
-      if isfield(obj.data,datatype_name)
-        out=obj.data.(datatype_name);
-      else
+      if obj.datatype_isempty(datatype_name)
         out=[];
+      else
+        out=obj.data.(datatype_name);
       end
+    end
+    function out=datatype_isempty(obj,datatype_name)
+      out=~isfield(obj.data,datatype_name);
     end
     function out=datatype_list(obj)
       out=fieldnames(obj.data);
@@ -102,17 +119,20 @@ classdef datastorage
       obj=obj.datatype_set(datatype,datatype_value);
     end
     function out=level_get(obj,datatype,level_name)
-      datatype_value=obj.datatype_get(datatype);
-      if isfield(datatype_value,level_name)
-        out=datatype_value.(level_name);
-      else
+      if obj.level_isempty(datatype,level_name)
         out=[];
+      else
+        out=obj.data.(datatype).(level_name);
       end
     end
+    function out=level_isempty(obj,datatype,level_name)
+      out=~isfield(obj.datatype_get(datatype),level_name);
+    end
     function out=level_list(obj,datatype)
-      out=obj.datatype_get(datatype);
-      if ~isempty(out)
-        out=fieldnames(out);
+      if obj.datatype_isempty(datatype)
+        out=[];
+      else
+        out=fieldnames(obj.data.(datatype));
       end
     end
     %% field operations
@@ -125,17 +145,20 @@ classdef datastorage
       obj=obj.level_set(datatype,level,level_value);
     end
     function out=field_get(obj,datatype,level,field_name)
-      level_value=obj.level_get(datatype,level);
-      if isfield(level_value,field_name)
-        out=level_value.(field_name);
-      else
+      if obj.field_isempty(datatype,level,field_name)
         out=[];
+      else
+        out=obj.data.(datatype).(level).(field_name);
       end
     end
+    function out=field_isempty(obj,datatype,level,field_name)
+      out=~isfield(obj.level_get(datatype,level),field_name);
+    end
     function out=field_list(obj,datatype,level)
-      out=obj.level_get(datatype,level);
-      if ~isempty(out)
-        out=fieldnames(out);
+      if obj.level_isempty(datatype,level)
+        out=[];
+      else
+        out=fieldnames(obj.data.(datatype).(level));
       end
     end
     %% sat operations
@@ -155,10 +178,14 @@ classdef datastorage
         out=[];
       end
     end
+    function out=sat_isempty(obj,datatype,level,field,sat_name)
+      out=~isfield(obj.field_get(datatype,level,field),sat_name);
+    end
     function out=sat_list(obj,datatype,level,field)
-      out=obj.field_get(datatype,level,field);
-      if ~isempty(out)
-        out=fieldnames(out);
+      if obj.field_isempty(datatype,level,field)
+        out=[];
+      else
+        out=fieldnames(obj.data.(datatype).(level).(field));
       end
     end
     %% generalized datanames operations
@@ -173,19 +200,31 @@ classdef datastorage
       end
     end  
     function obj=data_init(obj,dataname)
-      dnf=obj.fix(dataname);
+      dnf=obj.fix(dataname,'clean_empty',true);
       obj=obj.(obj.data_function('init',dataname))(dnf{:});
     end
     function obj=data_set(obj,dataname,value)
-      dnf=obj.fix(dataname);
+      dnf=obj.fix(dataname,'clean_empty',true);
       obj=obj.(obj.data_function('set',dataname))(dnf{:},value);
     end
-    function out=data_get(obj,dataname)
-      dnf=obj.fix(dataname);
+    function [out,dataname]=data_get(obj,dataname,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('check_empty',false,@(i) islogical(i));
+      % parse it
+      p.parse(varargin{:});
+      dnf=obj.fix(dataname,'clean_empty',true);
       out=obj.(obj.data_function('get',dataname))(dnf{:});
+      % check if empty
+      assert(~p.Results.check_empty || ~isempty(out),...
+        [mfilename,':BUG TRAP: no data for product ',dataname.name,'.'])
+    end
+    function out=data_isempty(obj,dataname)
+      dnf=obj.fix(dataname,'clean_empty',true);
+      out=obj.(obj.data_function('isempty',dataname))(dnf{:});
     end
     function out=data_list(obj,dataname)
-      dnf=obj.fix(dataname);
+      dnf=obj.fix(dataname,'clean_empty',true);
       out=obj.(obj.data_function('list',dataname))(dnf{:});
     end
     %% cell array operations
@@ -304,6 +343,29 @@ classdef datastorage
         out{i}=obj_list{i}.(sts_field);
       end
     end
+    % Applies the 2-argument function f to the data given by dataname_list
+    function obj=vector_obj_op2(obj,obj2,f,dataname_list,varargin)
+      %operate on the requested set
+      values1=vector_get(obj, dataname_list);
+      validv1=cellfun(@(i)(~isempty(i)),values1);
+      values2=vector_get(obj2,dataname_list);
+      validv2=cellfun(@(i)(~isempty(i)),values2);
+      %sanity
+      if numel(values1) ~= numel(values2)
+        error([mfilename,': the given dataname list does not correspond to the same number of data entries in both input obj.'])
+      end
+      if any(validv1~=validv2)
+        error([mfilename,': the given dataname list does not have data in both objects. Debug needed.'])
+      end
+      %outputs
+      result=cell(size(values1));
+      %operate
+      for i=1:numel(values1)
+        result{i}=values1{i}.(f)(values2{i},varargin{:});
+      end
+      %propagate cell array with results back to object
+      obj=obj.vector_set(dataname_list,result);
+    end
     %% start/stop operations
     function out=get.start(obj)
       out=obj.vector_sts('start',obj.vector_names);
@@ -354,6 +416,11 @@ classdef datastorage
         %back-propagate modified set of objects
         obj=obj.vector_set(names,values);
       end
+    end
+    function obj_out=segment(obj,start,stop)
+      obj_out=obj;
+      obj_out.start=start;
+      obj_out.stop=stop;
     end
     %% metadata interface
     function obj=mdset(obj,dataname,varargin)
@@ -413,8 +480,9 @@ classdef datastorage
         if numel(out)==1
           out=out{1};
         else
-          error([mfilename,': requesting scalar output but variable ''out'' has length ''',num2str(numel(out)),...
-            '''. Debug needed!'])
+          out=datanames(datanames.common(out));
+%           error([mfilename,': requesting scalar output but variable ''out'' has length ''',num2str(numel(out)),...
+%             '''. Debug needed!'])
         end
       end
     end
@@ -437,9 +505,15 @@ classdef datastorage
       obj=obj.mdset(dataname,varargin{:});
       % make sure all data sources are loaded
       obj=obj.init_sources(dataname,varargin{:});
+      %save start/stop (can be changed in the init method, because some data is stored globally)
+      start_here=obj.start;
+      stop_here =obj.stop;
       % invoke init method
       ih=str2func(obj.mdget(dataname).mdget('method'));
       obj=ih(obj,dataname,varargin{:});
+      % enforce start/stop
+      obj.start=start_here;
+      obj.stop =stop_here;
     end
     function obj=init_sources(obj,dataname,varargin)
       p=inputParser;
@@ -447,11 +521,15 @@ classdef datastorage
       p.addRequired('dataname',          @(i) isa(i,'datanames'));
       % parse it
       p.parse(dataname,varargin{:});
+      if obj.debug; disp(['init source:1:',dataname.name,':start: ',datestr(obj.start),'; stop: ',datestr(obj.stop)]); end
       %loop over all source data
       for i=1:obj.mdget(dataname).nr_sources
-        %load this source
-        obj=obj.init(obj.mdget(dataname).sources(i),varargin{:});
+        %load this source if it is empty (use obj.init explicitly to re-load or reset data)
+        if obj.data_isempty(obj.mdget(dataname).sources(i))
+          obj=obj.init(obj.mdget(dataname).sources(i),varargin{:});
+        end
       end
+      if obj.debug; disp(['init source:2:',dataname.name,':start: ',datestr(obj.start),'; stop: ',datestr(obj.stop)]); end
     end
     function obj=init_nrtdm(obj,dataname,varargin)
       p=inputParser;
@@ -747,8 +825,9 @@ classdef datastorage
         end
       end
     end
-    function h=plot_mult(obj,dataname_list,plot_columns,varargin)
+    function h=plot_mult(obj,dataname_now,dataname_list,plot_columns,varargin)
       %parse mandatory args
+      dataname_now =obj.dataname_factory(dataname_now);
       dataname_list=obj.dataname_factory(dataname_list);
       if isnumeric(plot_columns)
         plot_columns=num2cell(plot_columns);
@@ -770,7 +849,7 @@ classdef datastorage
       p=inputParser;
       p.KeepUnmatched=true;
       %parse optional parameters as defined in the first metadata
-      p=obj.mdget(dataname_list{1}).plot_args(p,varargin{:});
+      p=obj.mdget(dataname_now{1}).plot_args(p,varargin{:});
       %make room for outputs
       h=cell(size(dataname_list));
       %loop over all datanames
@@ -781,9 +860,148 @@ classdef datastorage
         );
       end
       %enforce plot preferences (using the metadata of the first dataname)
-      obj.mdget(dataname_list{1}).enforce_plot
+      obj.mdget(dataname_now{1}).enforce_plot
       %annotate plot
       obj.plot_annotate(h,dataname_list,varargin{:})
+    end
+    function obj=plot_auto(obj,dataname,varargin)
+      %parse mandatory args
+      assert(isa(dataname,'datanames'),[mfilename,': ',...
+        'input ''dataname'' must be of class datanames, not ''',class(dataname),'.'])
+      %parse inputs
+      p=inputParser;
+      p.KeepUnmatched=true;
+      %parse optional parameters as defined in the metadata
+      p=obj.mdget(dataname).plot_args(p,varargin{:});
+      %retrieve product info
+      product=obj.mdget(dataname);
+      %build filename sufix
+      if isempty(p.Results.plot_file_suffix)
+        suffix='';
+      else
+        suffix=['.',p.Results.plot_file_suffix];
+      end
+      %retrive data flow structure
+      [~,df]=obj.dataflow(product);
+      %gather list of daily data files
+      [~,startlist,stoplist]=product.file('data',varargin{:},'start',obj.start,'stop',obj.stop);
+      %loop over all data
+      for t=1:numel(startlist)
+        for i=1:size(df.types,1)
+          for j=1:size(df.levels,1)
+            for k=1:size(df.fields,1)
+              for s=1:size(df.sats,1)
+                for c=1:numel(p.Results.plot_columns)
+                  %get name of current column to plot
+                  col_name=p.Results.plot_column_names{p.Results.plot_columns{c}};
+                  %build output datanames
+                  out_dn=datanames([obj.category,df.types(i,1),df.levels(j,1),df.fields(k,1),df.sats(s,1)]);
+                  %plot filename arguments
+                  filename_args=[obj.mdget(out_dn).file_args('plot'),{...
+                    'start',startlist(t),...
+                    'stop', stoplist(t),...
+                    'timestamp',true,...
+                    'remove_part','',...
+                    'prefix',p.Results.plot_file_prefix...
+                    'suffix',[col_name,suffix]...
+                  }];
+                  %plot filename
+                  filename=out_dn.file(filename_args{:});
+                  if isempty(dir(filename))
+                    %build input datanames
+                    in_dn=cell(1,product.nr_sources);
+                    for l=1:product.nr_sources
+                      in_dn{l}=datanames([obj.category,df.types(i,l+1),df.levels(j,l+1),df.fields(k,l+1),df.sats(s,l+1)]);
+                    end
+                    %get the data for the current segment
+                    obj_curr=obj.segment(startlist(t),stoplist(t));
+                    %make sure there is data 
+                    if any(cell2mat(obj_curr.vector_sts('nr_valid',in_dn))>1)
+                      %plot it
+                      figure('visible',p.Results.plot_visible);
+                      h=obj_curr.plot_mult(dataname,in_dn,p.Results.plot_columns{c},...
+                        varargin{:},...
+                        'plot_title_suffix',[col_name,'-direction']);
+                      %save this plot
+                      saveas(gcf,filename)
+                      % user feedback
+                      if strcmp(p.Results.plot_visible,'off')
+                        disp(['plot_auto: plotted ',dataname.name,' to file ',filename])
+                      end
+                    else
+                      disp(['plot_auto: not enough data to plot ',dataname.name,' to file ',filename,' (skipped)'])
+                    end
+                  end
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+    %% usefull stuff
+    function [sourcep,df]=dataflow(obj,product)
+      %retrive source metadata
+      sourcep=cell(1,product.nr_sources);
+      for i=1:product.nr_sources
+        sourcep{i}=obj.mdget(product.sources(i));
+      end
+      %retrieve dataflow structure
+      df=product.mdget('dataflow');
+      %loop over the types/levels/fields metadata fields
+      for i=1:numel(obj.parts)
+        %easier names
+        partname=[obj.parts{i},'s'];
+        %check if this part is there
+        if isfield(df,partname)
+          %retrive metadata value
+          tmp=df.(partname);
+          %multiple rows means this product spans multiple types/levels/fields
+          if iscell(tmp{1})
+            %need to unwrap nested cells case there are multiple rows
+            df.(partname)=cell(numel(tmp),numel(sourcep)+1);
+            for j=1:numel(tmp)
+              %sanity on types/levels/fields: number of columns must be equal to number of sources
+              assert(numel(tmp{j}) == numel(sourcep)+1,[mfilename,': ',...
+                'ilegal ''',partname,''' entry of the ''dataflow'' metadata field, ',...
+                'it must have the same number of columns as the number of product sources +1 (',num2str(numel(sourcep)+1),'), ',...
+                'not ',num2str(numel(tmp{j})),'.'])
+              df.(partname)(j,:)=tmp{j};
+            end
+          else
+            %variable tmp already contains types/levels/fields
+            assert(numel(tmp) == numel(sourcep)+1,[mfilename,': ',...
+              'ilegal ''',obj.parts{i},'s'' metadata field, ',...
+              'it must have the same number of columns as the number of product sources (',num2str(numel(sourcep)+1),'), ',...
+              'not ',num2str(numel(tmp)),'.'])
+          end
+        else
+          %if the dataflow structure is missing a part, then patch from this product or sources
+          if product.ismd_field(partname)
+            df.(partname)=product.mdget(partname);
+          else
+            found_part=false;
+            for j=1:product.nr_sources
+              if sourcep{j}.ismd_field(partname)
+                tmp=sourcep{j}.mdget(partname);
+                df.(partname)=cell(numel(tmp),numel(sourcep)+1);
+                for k=1:numel(sourcep)+1
+                  df.(partname)(:,k)=tmp(:);
+                end
+                found_part=true;
+              end
+            end
+            assert(found_part,[mfilename,': ',...
+              'could not find metadata field ''',partname,...
+              ''' in product ',product.dataname.name,...
+              ' nor in any of its sources.'])
+          end
+        end
+      end
+      %return scalar source product if only one
+      if numel(sourcep)==1
+        sourcep=sourcep{1};
+      end
     end
     %% generalized operations
     function obj=stats(obj,dataname,varargin)
@@ -791,20 +1009,18 @@ classdef datastorage
       p=inputParser;
       p.addRequired('dataname', @(i) isa(i,'datanames'));
       p.parse(dataname);
-      %retrieve products info
+      %retrieve product info
       product=obj.mdget(dataname);
-      sourcep=obj.mdget(product.sources(1));
       %paranoid sanity
       if product.nr_sources~=1
         error([mfilename,': number of sources in product ',dataname,...
           ' is expected to be 1, not ',num2str(product.nr_sources),'.'])
       end
+      %retrieve source and part lists
+      sourcep=obj.mdget(product.sources(1));
+      [~,levels,fields,sats]=sourcep.partslist;
       %check if data is already there
       if ~product.isfile('data')
-        %get names of parameters and levels
-        levels=sourcep.mdget('levels');
-        fields=sourcep.mdget('fields');
-        sats  =sourcep.mdget('sats');
         %loop over all data
         for i=1:numel(levels)
           for j=1:numel(fields)
@@ -839,9 +1055,8 @@ classdef datastorage
       else
         %load data
         load(char(product.file('data')),'s');
-        levels=fieldnames(s); %#ok<NODEF>
         for i=1:numel(levels)
-          obj=obj.level_set(product.dataname.type,levels{i},s.(levels{i}));
+          obj=obj.level_set(product.dataname.type,df.levels{i},s.(df.levels{i})); %#ok<NODEF>
         end
       end
     end
@@ -850,35 +1065,31 @@ classdef datastorage
       p=inputParser;
       p.addRequired('dataname', @(i) isa(i,'datanames'));
       p.parse(dataname);
-      %retrieve products info
+      %retrieve product info
       product=obj.mdget(dataname);
-      sourcep=obj.mdget(product.sources(1));
-      %paranoid sanity
+      %sanity
       if product.nr_sources~=1
         error([mfilename,': number of sources in product ',dataname,...
           ' is expected to be 1, not ',num2str(product.nr_sources),'.'])
       end
+      %retrieve source and part lists
+      sourcep=obj.mdget(product.sources(1));
+      [~,levels,fields,sats]=sourcep.partslist;
       %check if data is already there
       if ~product.isfile('data')
-        %get names of parameters and levels
-        levels=sourcep.mdget('levels');
-        fields=sourcep.mdget('fields');
-        sats  =sourcep.mdget('sats');
         %loop over all data
         for i=1:numel(levels)
           for j=1:numel(fields)
             %retrive data for both satellites
-            sats=obj.field_get(sourcep.dataname.type,levels{i},fields{j});
-            %get sat namees
-            satnames=fieldnames(sats);
+            d=obj.field_get(sourcep.dataname.type,levels{i},fields{j});
             %can only deal with two sats at the moment
-            if numel(fieldnames(sats))~=2
+            if numel(fieldnames(d))~=2
               error([mfilename,': can only deal with two sats at the moment. Implementation needed!'])
             end
             %compute stats
             stats_data=simpletimeseries.stats2(...
-              sats.(satnames{1}),...
-              sats.(satnames{2}),...
+              d.(sats{1}),...
+              d.(sats{2}),...
               'period',product.mdget('period'),...
               'overlap',product.mdget('overlap'),...
               'outlier',product.mdget('outlier'),...
@@ -902,9 +1113,88 @@ classdef datastorage
       else
         %load data
         load(char(product.file('data')),'s');
-        levels=fieldnames(s); %#ok<NODEF>
         for i=1:numel(levels)
-          obj=obj.level_set(product.dataname.type,levels{i},s.(levels{i}));
+          obj=obj.level_set(product.dataname.type,levels{i},s.(levels{i})); %#ok<NODEF>
+        end
+      end
+    end
+    function obj=arithmetic(obj,dataname,varargin)
+      %parse mandatory arguments
+      p=inputParser;
+      p.addRequired('dataname', @(i) isa(i,'datanames'));
+      p.parse(dataname);
+      %retrieve product info
+      product=obj.mdget(dataname);
+      %retrieve required operation
+      operation=product.mdget('operation');
+      %sanity
+      if product.nr_sources<2
+        error([mfilename,': number of sources in product ',dataname,...
+          ' is expected to at least 2, not ',num2str(product.nr_sources),'.'])
+      end
+      %retrive data flow structure
+      [~,df]=obj.dataflow(product);
+      %gather list of daily data files
+      [file_list,startlist,stoplist]=product.file('data',varargin{:},'start',obj.start,'stop',obj.stop);
+      %check if data is already there
+      if ~all(product.isfile('data',varargin{:},'start',obj.start,'stop',obj.stop))
+        %loop over all data
+        for i=1:size(df.types,1)
+          for j=1:size(df.levels,1)
+            for k=1:size(df.fields,1)
+              for s=1:size(df.sats,1)
+                %operate on all sources
+                for l=2:product.nr_sources
+                  out_dn=datanames([obj.category,df.types(i,1),df.levels(j,1),df.fields(k,1),df.sats(s,1)]);
+                  if l==2
+                    [in1,in1_dn]=obj.data_get(datanames(...
+                      [obj.category,df.types(i,l  ),df.levels(j,l  ),df.fields(k,l  ),df.sats(s,l  )]...
+                    ),'check_empty',true);
+                    [in2,in2_dn]=obj.data_get(datanames(...
+                      [obj.category,df.types(i,l+1),df.levels(j,l+1),df.fields(k,l+1),df.sats(s,l+1)]...
+                    ),'check_empty',true);
+                  else
+                    in1=out; in1_dn=out_dn;
+                    [in2,in2_dn]=obj.data_get(datanames(...
+                      [obj.category,df.types(i,l+1),df.levels(j,l+1),df.fields(k,l+1),df.sats(s,l+1)]...
+                    ),'check_empty',true);
+                  end
+                  if obj.debug;disp([out_dn.name,' = ',in1_dn.name,' + ',in2_dn.name]);end
+                  out=in1.(operation)(in2);
+                end
+                %propagate result
+                obj=obj.data_set(out_dn,out);
+              end
+            end
+          end
+        end
+        %save the data
+        for i=1:numel(file_list)
+          s=obj.segment(startlist(i),stoplist(i)).data_get(dataname); %#ok<*NASGU>
+          save(file_list{i},'s');
+        end
+      else
+        %load data
+        for i=1:numel(file_list)
+          load(file_list{i},'s');
+          %build object
+          o=datastorage(...
+            'category',dataname.category,...
+            'start',startlist(i),...
+             'stop',stoplist(i)...
+          ).data_set(dataname,s); %#ok<NODEF>
+          %get all data fields
+          dataname_list=o.vector_names(dataname);
+          %check if there's already data for this dataname
+          if any(cellfun(@obj.data_isempty,dataname_list))
+            %intiate the data
+            obj=obj.data_set(dataname,o.data_get(dataname));
+            if obj.debug;disp(['arithmetic: initialized ',dataname.name,' loaded from ',file_list{i}]);end
+          else
+            %concatenate the data loaded from the files
+            obj=obj.vector_obj_op2(o,'augment',dataname_list,varargin{:});
+            if obj.debug;disp(['arithmetic:   appended  ',dataname.name,' loaded from ',file_list{i}]);end
+          end
         end
       end
     end
@@ -1425,7 +1715,6 @@ function y = flatten(x)
     end
   end
 end
-
 function out=collapse(in)
   if ~isscalar(in) && ~iscell(in)
     %vectors are always lines (easier to handle strings)
