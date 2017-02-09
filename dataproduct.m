@@ -167,7 +167,7 @@ classdef dataproduct
         error([mfilename,': cannot handle mode ''',mode,'''.'])
       end
     end
-    function [out,timestamplist]=file(obj,mode,varargin)
+    function [out,startlist,stoplist]=file(obj,mode,varargin)
       %NOTICE: this procedure ALWAYS returns cell arrays!
       p=inputParser;
       p.KeepUnmatched=true;
@@ -186,17 +186,17 @@ classdef dataproduct
       if p.Results.use_storage_period
         switch lower(obj.mdget('storage_period'))
         case {'day','daily'}
-          timestamplist=time.day_list(p.Results.start,p.Results.stop);
+          [startlist,stoplist]=time.day_list(p.Results.start,p.Results.stop);
           timestamp_fmt='yyyymmdd';
         case {'month','monthly'}
-          timestamplist=time.month_list(p.Results.start,p.Results.stop);
+          [startlist,stoplist]=time.month_list(p.Results.start,p.Results.stop);
           timestamp_fmt='yyyymm';
         case {'year','yearly'}
-          timestamplist=time.year_list(p.Results.start,p.Results.stop);
+          [startlist,stoplist]=time.year_list(p.Results.start,p.Results.stop);
           timestamp_fmt='yyyy';
         case {'infinite','global'}
           out={strrep(filename,'.<TIMESTAMP>','')};
-          timestamplist=[];
+          startlist=[];stoplist=[];
           return
         case {'none','direct'}
           error([mfilename,': product ',obj.metadata.name,' is not to be saved in a file, so it is ilegal to call this procedure.'])
@@ -204,9 +204,9 @@ classdef dataproduct
           error([mfilename,': cannot handle metadata key ''storage_period'' with value ''',obj.mdget('storage_period'),'''.'])
         end
         %build list of files
-        out=cell(size(timestamplist));
-        for i=1:numel(timestamplist)
-          out{i}=strrep(filename,'<TIMESTAMP>',datestr(timestamplist(i),timestamp_fmt));
+        out=cell(size(startlist));
+        for i=1:numel(startlist)
+          out{i}=strrep(filename,'<TIMESTAMP>',datestr(startlist(i),timestamp_fmt));
         end
       else
         out={filename};
@@ -290,7 +290,7 @@ classdef dataproduct
       end
       in=obj.metadata.(metadatafieldname);
       switch class(in)
-      case {'double','logical'}
+      case {'double','logical','struct'}
         out=in;
       case 'cell'
         if iscellstr(in)
@@ -303,6 +303,23 @@ classdef dataproduct
       otherwise
         error([mfilename,': cannot handle class ',class(in),'. Implementation needed!'])
       end
+    end
+    %% special metadata entries
+    function out=partname(obj,part_level)
+      switch lower(part_level)
+      case {'type' ,'types' };if obj.ismd_field('types' ); out=obj.mdget('types' ); else out={obj.dataname.type }; end
+      case {'level','levels'};if obj.ismd_field('levels'); out=obj.mdget('levels'); else out={obj.dataname.level}; end
+      case {'field','fields'};if obj.ismd_field('fields'); out=obj.mdget('fields'); else out={obj.dataname.field}; end
+      case {'sat'  ,'sats'  };if obj.ismd_field('sats'  ); out=obj.mdget('sats'  ); else out={obj.dataname.sat  }; end
+      otherwise
+        error([mfilename,': cannot handle input ''part_level'' with value ''',part_level,'''.'])
+      end
+    end
+    function [types,levels,fields,sats]=partslist(obj)
+      types  =obj.partname('types');
+      levels =obj.partname('levels');
+      fields =obj.partname('fields');
+      sats   =obj.partname('sats');
     end
     %% data sources
     function out=nr_sources(obj)
