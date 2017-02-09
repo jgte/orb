@@ -324,32 +324,43 @@ classdef time
         rand(n,3)*60 ...
       ]))),'ConvertFrom','datenum')+years(2000);
     end
-    function out=day_list(start,stop)
+    function [startlist,stoplist]=day_list(start,stop)
       p=inputParser;
       p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
       p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
       p.parse(start,stop)
       round_start=dateshift(start,'start','day');
         round_end=dateshift(stop, 'start','day');
-      out=round_start:days(1):round_end;
+      startlist=round_start:days(1):round_end;
+      if nargout>1
+        stoplist=startlist+days(1);
+      end
     end
-    function out=month_list(start,stop)
+    function [startlist,stoplist]=month_list(start,stop)
       p=inputParser;
       p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
       p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
       p.parse(start,stop)
-      round_start=dateshift(start,'start','month');
-        round_end=dateshift(stop, 'start','month');
-      out=round_start:months(1):round_end;
+      %https://www.mathworks.com/matlabcentral/answers/73749-how-do-i-create-a-vector-with-the-first-day-of-each-month#answer_83695
+      dvec      = datevec(datenum(start):datenum(stop));
+      duniq     = unique(dvec(:, 1:2), 'rows');
+      startlist = datetime(datenum(duniq(:,1), duniq(:,2), 1),'ConvertFrom','datenum');
+      if nargout>1
+        stoplist = [startlist(2:end);dateshift(startlist(end),'end','month')+days(1)];
+      end
     end
-    function out=year_list(start,stop)
+    function [startlist,stoplist]=year_list(start,stop)
       p=inputParser;
       p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
       p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
       p.parse(start,stop)
-      round_start=dateshift(start,'start','year');
-        round_end=dateshift(stop, 'start','year');
-      out=round_start:years(1):round_end;
+      %https://www.mathworks.com/matlabcentral/answers/73749-how-do-i-create-a-vector-with-the-first-day-of-each-month#answer_83695
+      dvec      = datevec(datenum(start):datenum(stop));
+      duniq     = unique(dvec(:, 1), 'rows');
+      startlist = datetime(datenum(duniq(:,1), 1, 1),'ConvertFrom','datenum');
+      if nargout>1
+        stoplist = [startlist(2:end);dateshift(startlist(end),'end','year')+days(1)];
+      end
     end
   end
 end
