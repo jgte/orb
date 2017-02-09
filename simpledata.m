@@ -1403,7 +1403,6 @@ classdef simpledata
         end
       end
     end
-    
     function obj=and(obj,obj_new)
       %consolidate data sets
       [obj,obj_new]=obj.merge(obj_new);
