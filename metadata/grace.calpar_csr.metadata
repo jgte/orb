@@ -1,8 +1,8 @@
 import_dir: <getenv('HOME')>/data/csr/GraceAccCal
 method: csr.import_calpar
-fields: [AC0X, AC0XD, AC0XQ, AC0Z, AC0ZD, AC0ZQ]
 coords: [X,Y,Z]
 levels: [aak,accatt,estim]
+fields: [AC0X, AC0XD, AC0XQ, AC0Z, AC0ZD, AC0ZQ]
 sats: [A,B]
 bias_files: [<getenv('HOME')>/data/csr/corral-tacc/input/bsA2003,<getenv('HOME')>/data/csr/corral-tacc/input/bsB2003]
 jobid_col: 2
