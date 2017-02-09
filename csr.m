@@ -201,7 +201,7 @@ classdef csr
       levels    =calparp.mdget('levels');
       sats      =calparp.mdget('sats');
       param_col =calparp.mdget('param_col');
-      coords     =calparp.mdget('coords');
+      coords    =calparp.mdget('coords');
       for s=1:numel(sats)
         %gather quantities
         acc=obj.sat_get(l1baccp.dataname.type,l1baccp.dataname.level,l1baccp.dataname.field,sats{s});
@@ -248,10 +248,10 @@ classdef csr
                 cal.ac0q.cols(param_col).times(t.ac0q.^2)...
               );
             end
+            %propagate it
+            obj=obj.sat_set(dataname.type,dataname.level,levels{l},sats{s},calmod);
           end
         end
-        %propagate it
-        obj=obj.sat_set(dataname.type,dataname.level,levels{l},sats{s},calmod);
       end
     end
     function obj=import_acc_l1b(obj,dataname,varargin)
