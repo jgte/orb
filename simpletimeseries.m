@@ -905,12 +905,6 @@ classdef simpletimeseries < simpledata
           'timesystem',timesystem,...
           'descriptor',filename...
         );
-        %create epochs at day boundaries
-        t_days=dateshift(t(1),'start','day'):days(1):dateshift(t(end),'end','day');
-        %add day boundaries
-        obj=obj.t_merge(t_days);
-        %build fstep time domain
-        obj=obj.fstep(seconds(1));
       case 'ACC1B'
         %load data
         [raw,header]=file.textscan(filename,'%f %s %f %f %f %f %f %f %f %f %f %f');
@@ -1334,10 +1328,15 @@ classdef simpletimeseries < simpledata
       out=obj.t(mask);
     end
     function out=idx(obj,t_now,varargin)
-      out=idx@simpledata(obj,obj.t2x(t_now),varargin{:});
+      %need to handle doubles, to make it compatible with simpledata
+      if isdatetime(t_now)
+        out=idx@simpledata(obj,obj.t2x(t_now),varargin{:});
+      else
+        out=idx@simpledata(obj,t_now,varargin{:});
+      end
     end
     function obj=at(obj,t_now,varargin)
-      i=obj.idx(t_now,varargin{:});
+      i=unique(obj.idx(t_now,varargin{:}));
       obj=obj.assign(...
         obj.y(i,:),...
         't',obj.t(i,:),...
@@ -1694,7 +1693,22 @@ classdef simpletimeseries < simpledata
       %call upstream method
       [obj,idx1,idx2]=append@simpledata(obj1,obj2);
     end
-    %the augment method can be called directly
+    function obj1_out=augment(obj1,obj2,new_data_only)
+      %NOTICE:
+      % - obj1 receives the data from obj2, at those epochs defined in obj2
+      % - data from obj1 with epochs existing in obj2 are discarded (a 
+      %   report is given in case there is discrepancy in the data)
+      % - the optional argument 'new_data_only' ensures no data from obj1 is
+      %   discarded and only new data in obj2 is saved into obj1.
+      if ~exist('new_data_only','var') || isempty(new_data_only)
+        new_data_only=false;
+      end
+      if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
+        [obj1,obj2]=matchepoch(obj1,obj2);
+      end
+      %call upstream method
+      obj1_out=augment@simpledata(obj1,obj2,new_data_only);
+    end
     %NOTICE: this function used to be called consolidade
     function [obj1,obj2]=interp2_lcm(obj1,obj2)
       %extends the time domain of both objects to be in agreement
