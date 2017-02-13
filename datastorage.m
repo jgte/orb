@@ -2,6 +2,8 @@ classdef datastorage
   %static
   properties(Constant)
     
+    zero_date=datetime([0 0 31]); %this is used to define the date is not set (datenum(zero_date)=0)
+    
     parts={...
       'type',...
       'level',...
@@ -13,9 +15,9 @@ classdef datastorage
 %     default_list=struct(...
 %     );
     parameter_list=struct(...
-      'start',          struct('default',datetime([0 0 31]),'validation',@(i) isdatetime(i)),...
-      'stop',           struct('default',datetime([0 0 31]),'validation',@(i) isdatetime(i)),...
-      'debug',          struct('default',false,             'validation',@(i) islogical(i))...
+      'start',          struct('default',datastorage.zero_date,'validation',@(i) isdatetime(i)),...
+      'stop',           struct('default',datastorage.zero_date,'validation',@(i) isdatetime(i)),...
+      'debug',          struct('default',false,                'validation',@(i) islogical(i))...
     );
   end
   %read only
@@ -384,6 +386,10 @@ classdef datastorage
       end
     end
     function obj=set.start(obj,start)
+      %do nothing if start == zero_date
+      if isempty(start) || start == datastorage.zero_date
+        return
+      end
       %retrieve cell names
       names=obj.vector_names;
       %pick internal start time if no data has been loaded yet
@@ -401,6 +407,10 @@ classdef datastorage
       end
     end
     function obj=set.stop(obj,stop)
+      %do nothing if start == zero_date
+      if isempty(stop) || stop == datastorage.zero_date
+        return
+      end
       %retrieve cell names
       names=obj.vector_names;
       %pick internal start time if no data has been loaded yet
@@ -457,7 +467,7 @@ classdef datastorage
           out{i}=obj.dataname_factory(in{i},varargin{:});
         end
         %flatten cell array
-        out=flatten(out);
+        out=str.flatten(out);
       case 'datanames'        
         %propagate
         out={in};
@@ -1703,18 +1713,6 @@ classdef datastorage
   end
 end
 
-% https://github.com/ronw/ronw-matlab-tools/blob/master/celltools/flatten.m
-function y = flatten(x)
-  if ~iscell(x)
-    y = {x};
-  else
-    y = {};
-    for n = 1:length(x)
-      tmp = flatten(x{n});
-      y = [y(:);tmp(:)];
-    end
-  end
-end
 function out=collapse(in)
   if ~isscalar(in) && ~iscell(in)
     %vectors are always lines (easier to handle strings)
