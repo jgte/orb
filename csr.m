@@ -43,32 +43,93 @@ classdef csr
                   [tmp.(sats{s}).y(:,1)+polyval(ltb.(sats{s})(:,lbt_idx),t),tmp.(sats{s}).y(:,2:end)]...
                 );
               end
+              
+              %additional processing: add end of arcs
+              switch levels{i}
+              case {'aak','accatt'}
+                %get arc stars
+                arc_starts=tmp.(sats{s}).t;
+                %build arc ends
+                arc_ends=[arc_starts(2:end);dateshift(arc_starts(end),'end','day')]-seconds(1);
+                %arc ends are at maximum 24 hours after arc starts
+                fix_idx=arc_ends-arc_starts>days(1);
+                arc_ends(fix_idx)=arc_starts(fix_idx)+days(1);
+              case 'estim'
+                %get arc stars
+                arc_starts=tmp.(sats{s}).t;
+                %build arc ends
+                arc_ends=arc_starts+seconds(tmp.(sats{s}).y(:,3));
+                %get seconds-of-day of arc ends
+                sod_arc_ends=seconds(arc_ends-dateshift(arc_ends,'start','day'));
+                %find the 24hrs arcs (those that have ~0 seconds of days)
+                idx=find(sod_arc_ends<tmp.(sats{s}).t_tol);
+                %push those arcs to mid-night and remove 1 second
+                arc_ends(idx)=dateshift(arc_ends(idx),'start','day')-seconds(1);
+              end
+              %build timeseries with arc ends
+              arc_end_ts=simpletimeseries(arc_ends,tmp.(sats{s}).y,...
+                'format','datetime',...
+                'labels',tmp.(sats{s}).labels,...
+                'units',tmp.(sats{s}).y_units,...
+                'timesystem',tmp.(sats{s}).timesystem,...
+                'descriptor',['end of arcs for ',tmp.(sats{s}).descriptor]...
+              );
+              %augment the original timeseries with the end-of-arcs (only new data)
+              tmp.(sats{s})=tmp.(sats{s}).augment(arc_end_ts,true);
+              
+              %additional processing: add gaps
+              gap_idx=diff(tmp.(sats{s}).t)>seconds(1) & diff(tmp.(sats{s}).y(:,1))~=0;
+              gap_t=tmp.(sats{s}).t(gap_idx)+seconds(1);
+              %build timeseries with arc ends
+              gap_ts=simpletimeseries(gap_t,nan(numel(gap_t),tmp.(sats{s}).width),...
+                'format','datetime',...
+                'labels',tmp.(sats{s}).labels,...
+                'units',tmp.(sats{s}).y_units,...
+                'timesystem',tmp.(sats{s}).timesystem,...
+                'descriptor',['gaps for ',tmp.(sats{s}).descriptor]...
+              );
+              %augment the original timeseries with the gaps (only new data)
+              tmp.(sats{s})=tmp.(sats{s}).augment(gap_ts,true);
             end
-            %ensure date is compatible between the satellites
-            if ~tmp.A.isteq(tmp.B)
-              [tmp.A,tmp.B]=tmp.A.merge(tmp.B);
-            end
+            
+%             %ensure date is compatible between the satellites
+%             if ~tmp.A.isteq(tmp.B)
+%               [tmp.A,tmp.B]=tmp.A.merge(tmp.B);
+%             end
             %propagate data to object
             for s=1:numel(sats)
               obj=obj.sat_set(product.dataname.type,levels{i},fields{j},sats{s},tmp.(sats{s}));
             end
-            disp(['loaded data for ',str.just(levels{i},6),' and ',str.just(fields{j},6)])
+            disp(str.tablify([15,6,3,6],'loaded data for',levels{i},'and',fields{j}))
           end
         end
-        %loop over all sat and level to check for consistent time domain and Job IDs agreement
+%         %for each sat, ensure consistent time domain 
+%         for s=1:numel(sats)
+%           %gather names for this sat and level
+%           names=obj.vector_names(product.dataname.type,'','',sats{s});
+%           %gather info for user feedback
+%           length_start=cellfun(@(i)(obj.data_get(i).length),names);
+%           %ensure the time domain is the same for all fields (in each sat and level)
+%           obj=obj.vector_op(@simpledata.merge_multiple,...
+%             names,...
+%             str.tablify([7,6,10],['GRACE-',sats{s}],levels{i},product.dataname.type)...
+%           );
+%           %user feedback
+%           length_stop=cellfun(@(i)(obj.data_get(i).length),names);
+%           cellfun(...
+%             @(i,j,k)(disp(str.tablify([32,6,24,4],i.name,j,'data entries, changed by',k))),...
+%             names,num2cell(length_start),num2cell(length_stop-length_start))
+%         end
+        %loop over all sat and level to check Job IDs agreement
         for i=1:numel(levels)
           for s=1:numel(sats)
             %gather names for this sat and level
             names=obj.vector_names(product.dataname.type,levels{i},'',sats{s});
-            %ensure the time domain is the same for all fields (in each sat and level)
-            obj=obj.vector_op(@simpledata.merge_multiple,...
-              names,...
-              ['GRACE-',sats{s},' ',str.just(levels{i},6),' ',product.dataname.type]...
-            );
             %ensure job IDs are consistent for all fields (in each sat and level)
             equal_idx=obj.vector_tr(@simpledata.isequal_multiple,...
               names,...
-              product.mdget('jobid_col'),['GRACE-',sats{s},' ',str.just(levels{i},6),' ',product.dataname.type]...
+              product.mdget('jobid_col'),...
+              str.tablify([7,6,10],['GRACE-',sats{s}],levels{i},product.dataname.type)...
             );
             for j=1:numel(equal_idx)
               if ~equal_idx{j}
@@ -79,6 +140,24 @@ classdef csr
             end
           end
         end
+%         %loop over all sat, add epochs at day boundaries and build fstep time domain
+%         for i=1:numel(levels)
+%           for j=1:numel(fields)
+%             for s=1:numel(sats)
+%               %save time series into dedicated var
+%               ts_now=obj.sat_get(product.dataname.type,levels{i},fields{j},sats{s});
+%               %create epochs at day boundaries
+%               t_days=dateshift(ts_now.t(1),'start','day'):days(1):dateshift(ts_now.t(end),'end','day');
+%               %add day boundaries
+%               ts_now=ts_now.t_merge(t_days);
+%               %build fstep time domain
+%               ts_now=ts_now.fstep(seconds(1));
+%               %save time series back to object
+%               obj=obj.sat_set(product.dataname.type,levels{i},fields{j},sats{s},ts_now);
+%             end
+%           end
+%         end
+
         %loop over all sats, levels and fields to:
         % - in case of estim: ensure that there are no arcs with lenghts longer than consecutive time stamps
         % - in case of aak and accatt: ensure that the t0 value is the same as the start of the arc
@@ -89,10 +168,10 @@ classdef csr
             case 'estim'
               %this check ensures that there are no arcs with lenghts longer than consecutive time stamps
               for j=1:numel(fields)
-                disp(['Checking ',product.dataname.type,' ',str.just(levels{i},6),' ',str.just(fields{j},6),' ',sats{s}])
+                disp(str.tablify([8,10,6,6,1],'Checking',product.dataname.type,levels{i},fields{j},sats{s}))
                 %save time series into dedicated var
                 ts_now=obj.sat_get(product.dataname.type,levels{i},fields{j},sats{s});
-                %forget about epochs that have been artificially inserted to represent forward steps
+                %forget about epochs that have been artificially inserted to represent gaps and end of arcs
                 idx1=find(diff(ts_now.t)>seconds(1));
                 %get arc lenths
                 al=ts_now.y(idx1,3);
@@ -130,10 +209,10 @@ classdef csr
               for j=1:numel(fields)
                 %some fields do not have t0
                 if ~any(fields{j}(end)=='DQ')
-                  disp(['Skipping ',product.dataname.name,' ',str.just(levels{i},6),' ',str.just(fields{j},6),' ',sats{s}])
+                  disp(str.tablify([8,10,6,6,1],'Skipping',product.dataname.type,levels{i},fields{j},sats{s}))
                   continue
                 end
-                disp(['Checking ',product.dataname.name,' ',str.just(levels{i},6),' ',str.just(fields{j},6),' ',sats{s}])
+                disp(str.tablify([8,10,6,6,1],'Checking',product.dataname.type,levels{i},fields{j},sats{s}))
                 %save time series into dedicated var
                 ts_now=obj.sat_get(product.dataname.type,levels{i},fields{j},sats{s});
                 %forget about epochs that have been artificially inserted to represent forward steps
