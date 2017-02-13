@@ -66,9 +66,9 @@ classdef str
         right_justified=false;
       end
       if right_justified
-        out=str.just(in,tab,'right');
+        out=str.just(in,tab,'mode','right');
       else
-        out=str.just(in,tab,'left');
+        out=str.just(in,tab,'mode','left');
       end
     end
     function s=clean(s,mode)
@@ -121,11 +121,17 @@ classdef str
         out=isfield(parser.Unmatched,field);
       end
     end
-    function out=just(in,len,mode)
-      if ~exist('mode','var') || isempty(mode)
-        mode='center';
-      end
-      out=strjust([repmat(' ',1,len-numel(in)),in],mode);
+    function out=just(in,len,varargin)
+      % parse mandatory arguments
+      p=inputParser;
+      p.addRequired( 'in',           @(i) ischar(i));
+      p.addRequired( 'len',          @(i) isfinite(i));
+      p.addParameter('just','center',@(i) any(strcmp(i,{'left','center','right'})));
+      p.parse(in,len,varargin{:});
+      %truncate 'in' if needed
+      if numel(in)>len; in=in(1:len); end
+      %call mother routine
+      out=strjust([repmat(' ',1,len-numel(in)),in],p.Results.just);
     end
     function out=th(i)
       switch i
@@ -147,5 +153,57 @@ classdef str
         ))
       end
     end
+    function y = flatten(x)
+      % https://github.com/ronw/ronw-matlab-tools/blob/master/celltools/flatten.m
+      if ~iscell(x)
+        y = {x};
+      else
+        y = {};
+        for n = 1:length(x)
+          tmp = str.flatten(x{n});
+          y = [y(:);tmp(:)];
+        end
+      end
+    end
+    %first argument is field width, all remaining inputs are values to print.
+    function out=tablify(w,varargin)
+      %justification scheme
+      mode='center';
+      %expand scalar widths
+      if isscalar(w)
+        w=ones(size(varargin))*w;
+      else
+        assert(numel(varargin)==numel(w),[mfilename,': ',...
+          'number of elements of vector input ''w'' (',numel(w),') must be the same as the ',...
+          'number of additional input arguments (',numel(varargin),').'])
+      end
+      out = cell(size(varargin));
+      for i=1:numel(varargin)
+        switch class(varargin{i})
+        case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double','logical'}
+          if isscalar(varargin{i})
+            out{i} = str.just(num2str(varargin{i},['%',num2str(w(i)),'g']),w(i),'just',mode);
+          else
+            out{i} = str.tablify(w(i),num2cell(varargin{i}));
+          end
+        case 'char'
+          out{i} = str.just(varargin{i},w(i),'just',mode);
+        case 'cell'
+          out_now=cell(size(varargin{i}));
+          for j=1:length(varargin{i})
+            out_now{j} = str.tablify(w(i),varargin{i}{j});
+          end
+          out{i}=out_now;
+        case 'datetime'
+          out{i}=str.just(datestr(varargin{i}),w(i),'just',mode);
+        case 'duration'
+          out{i}=str.just(time.str(seconds(varargin{i})),w(i),'just',mode);
+        otherwise
+          error([mfilename,': class ''',class(varargin{i}),''' of the ',str.th(i),' input argument is not supported.'])
+        end
+      end
+      out=strjoin(str.flatten(out),' ');
+    end
+
   end
 end
