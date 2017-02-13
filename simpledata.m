@@ -762,9 +762,8 @@ classdef simpledata
     end
     function out=idx(obj,x_now,varargin)
       % sanity
-      if ~isvector(x_now)
-        error([mfilename,': Input x_now must be a vector.'])
-      end
+      assert(isvector( x_now),[mfilename,': Input x_now must be a vector.'])
+      assert(isnumeric(x_now),[mfilename,': Input x_now must be numeric, not ',class(x_now),'.'])
       if numel(x_now)>1
         %making room for outputs
         out=NaN(size(x_now));
@@ -776,7 +775,7 @@ classdef simpledata
         %compute distance to input
         distance=(obj.x-x_now).^2;
         %handle default find arguments
-        if ~exist('varargin','var')
+        if isempty(varargin)
           out=find(distance==min(distance),1,'first');
         else
           out=find(distance==min(distance),varargin{:});
@@ -1252,25 +1251,60 @@ classdef simpledata
       %update object
       obj=obj1.assign(y_now,'x',x_now,'mask',mask_now);
     end
-    function obj1_out=augment(obj1,obj2)
+    function obj1_out=augment(obj1,obj2,new_data_only)
       %NOTICE:
       % - obj1 receives the data from obj2, at those epochs defined in obj2
       % - data from obj1 with epochs existing in obj2 are discarded (a 
       %   report is given in case there is discrepancy in the data)
+      % - the optional argument 'new_data_only' ensures no data from obj1 is
+      %   discarded and only new data in obj2 is saved into obj1.
+      if ~exist('new_data_only','var') || isempty(new_data_only)
+        new_data_only=false;
+      end
       %need compatible data
       obj1.compatible(obj2);
       %merge x domain, also get idx2, which is needed to propagate data
       [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2);
-      %count data in obj2 which has the same epochs as in obj1 but is different
-      if any(idx1==idx2) && any(any(obj1_out.y(idx1==idx2,:)~=obj2_out.y(idx1==idx2,:)))
-        disp(['WARNING: There are ',num2str(sum(obj1_out.y(idx1==idx2,:)~=obj2_out.y(idx1==idx2,:))),...
-          ' entries in obj1 that are defined at the same epochs as in obj2 but with different values; ',...
-          'these data have been discarded.'])
+      %branch on method mode
+      if new_data_only
+        %find entries with different epochs
+        new_idx=find( (idx1~=idx2) & idx2) ;
+        %retrieve original data at these entries
+        obj2_new=obj2.at(obj2_out.x(new_idx));
+        %propagate data
+        obj1_out.y(new_idx,:)=obj2_new.y;
+        %propagate mask
+        obj1_out.mask(new_idx,:)=obj2_new.mask;
+      else
+        %count data in obj2 which has the same epochs as in obj1 but is different
+        common_idx=find(idx1==idx2);
+        if any(common_idx) && ( any(obj1_out.mask(common_idx)) ||  any(obj1_out.mask(common_idx)) )
+          common_diff_idx=common_idx(any(obj1_out.y(common_idx,:)~=obj2_out.y(common_idx,:),2));
+          if ~isempty(common_diff_idx)
+            disp(['WARNING:BEGIN',10,'There are ',num2str(numel(common_diff_idx)),...
+                ' entries in obj1 that are defined at the same epochs as in obj2 but with different values:'])
+            for i=1:min([10,numel(common_diff_idx)])
+              disp(str.tablify([16,20,16,12],...
+                ['obj1.t(',num2str(common_diff_idx(i)),  ')='],obj1_out.t(common_diff_idx(i)  ),...
+                ['obj1.y(',num2str(common_diff_idx(i)),',:)='],obj1_out.y(common_diff_idx(i),:)...
+              ))
+              disp(str.tablify([16,20,16,12],...
+                ['obj2.t(',num2str(common_diff_idx(i)),  ')='],obj2_out.t(common_diff_idx(i)  ),...
+                ['obj2.y(',num2str(common_diff_idx(i)),',:)='],obj2_out.y(common_diff_idx(i),:)...
+              ))
+              disp(str.tablify([16,20,16,12],...
+                ['diff.t(',num2str(common_diff_idx(i)),  ')='],obj1_out.t(common_diff_idx(i)  )-obj2_out.t(common_diff_idx(i)  ),...
+                ['diff.y(',num2str(common_diff_idx(i)),',:)='],obj1_out.y(common_diff_idx(i),:)-obj2_out.y(common_diff_idx(i),:)...
+              ))
+            end
+            disp(['The data of obj1 have been discarded.',10,'WARNING:END'])
+          end
+        end
+        %propagate data
+        obj1_out.y(idx2,:)=obj2.y;
+        %propagate mask
+        obj1_out.mask(idx2,:)=obj2.mask;
       end
-      %propagate data
-      obj1_out.y(idx2,:)=obj2.y;
-      %propagate mask
-      obj1_out.mask(idx2,:)=obj2.mask;
     end
     function out=isequal(obj1,obj2,columns)
       if ~exist('columns','var') || isempty(columns)
