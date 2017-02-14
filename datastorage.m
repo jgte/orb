@@ -25,12 +25,12 @@ classdef datastorage
     category
     par
     data
+    debug
   end
   %private (visible only to this object)
   properties(GetAccess=private)
     starti
     stopi
-    debug
   end
   %calculated only when asked for
   properties(Dependent)
@@ -427,7 +427,7 @@ classdef datastorage
         obj=obj.vector_set(names,values);
       end
     end
-    function obj_out=segment(obj,start,stop)
+    function obj_out=trim(obj,start,stop)
       obj_out=obj;
       obj_out.start=start;
       obj_out.stop=stop;
@@ -531,7 +531,9 @@ classdef datastorage
       p.addRequired('dataname',          @(i) isa(i,'datanames'));
       % parse it
       p.parse(dataname,varargin{:});
-      if obj.debug; disp(['init source:1:',dataname.name,':start: ',datestr(obj.start),'; stop: ',datestr(obj.stop)]); end
+      if obj.debug && ~isempty(obj.start) && isempty(obj.end)
+        disp(['init source:1:',dataname.name,':start: ',datestr(obj.start),'; stop: ',datestr(obj.stop)]); 
+      end
       %loop over all source data
       for i=1:obj.mdget(dataname).nr_sources
         %load this source if it is empty (use obj.init explicitly to re-load or reset data)
@@ -539,7 +541,9 @@ classdef datastorage
           obj=obj.init(obj.mdget(dataname).sources(i),varargin{:});
         end
       end
-      if obj.debug; disp(['init source:2:',dataname.name,':start: ',datestr(obj.start),'; stop: ',datestr(obj.stop)]); end
+      if obj.debug && ~isempty(obj.start) && isempty(obj.end)
+        disp(['init source:2:',dataname.name,':start: ',datestr(obj.start),'; stop: ',datestr(obj.stop)]); 
+      end
     end
     function obj=init_nrtdm(obj,dataname,varargin)
       p=inputParser;
@@ -808,8 +812,9 @@ classdef datastorage
           'stop',obj.stop,...
           'timestamp',true,...
           'remove_part',p.Results.plot_together,...
-          'prefix',p.Results.plot_file_prefix...
-          'suffix',p.Results.plot_file_suffix...
+          'prefix',p.Results.plot_file_prefix,...
+          'suffix',p.Results.plot_file_suffix,...
+          'full_path',p.Results.plot_file_full_path,...
         }];
         %plot filename
         filename=dataname_now.file(filename_args{:});
@@ -877,7 +882,7 @@ classdef datastorage
     function obj=plot_auto(obj,dataname,varargin)
       %parse mandatory args
       assert(isa(dataname,'datanames'),[mfilename,': ',...
-        'input ''dataname'' must be of class datanames, not ''',class(dataname),'.'])
+        'input ''dataname'' must be of class datanames, not ''',class(dataname),'''.'])
       %parse inputs
       p=inputParser;
       p.KeepUnmatched=true;
@@ -924,7 +929,7 @@ classdef datastorage
                       in_dn{l}=datanames([obj.category,df.types(i,l+1),df.levels(j,l+1),df.fields(k,l+1),df.sats(s,l+1)]);
                     end
                     %get the data for the current segment
-                    obj_curr=obj.segment(startlist(t),stoplist(t));
+                    obj_curr=obj.trim(startlist(t),stoplist(t));
                     %make sure there is data 
                     if any(cell2mat(obj_curr.vector_sts('nr_valid',in_dn))>1)
                       %plot it
@@ -1180,7 +1185,7 @@ classdef datastorage
         end
         %save the data
         for i=1:numel(file_list)
-          s=obj.segment(startlist(i),stoplist(i)).data_get(dataname); %#ok<*NASGU>
+          s=obj.trim(startlist(i),stoplist(i)).data_get(dataname); %#ok<*NASGU>
           save(file_list{i},'s');
         end
       else
