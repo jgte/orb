@@ -66,6 +66,13 @@ classdef csr
                 %push those arcs to midnight and remove 1 second
                 arc_ends(idx)=dateshift(arc_ends(idx),'start','day')-seconds(1);
               end
+              
+              %surpress over-lapping arcs
+              ov_idx=find(arc_starts(2:end)-arc_ends(1:end-1)<0);
+              if ~isempty(ov_idx)
+                arc_ends(ov_idx)=arc_starts(ov_idx+1)-seconds(1);
+              end
+              
               %get data and set the arc length to zero
               arc_end_y=tmp.(sats{s}).y;
               arc_end_y(:,3)=0;
@@ -95,7 +102,9 @@ classdef csr
               if obj.debug
 %                 t0=datetime('16-Aug-2002');t1=datetime('21-Aug-2002');
 %                 t0=datetime('04-Apr-2002');t1=datetime('08-Apr-2002');
-                t0=datetime('12-Jan-2003');t1=datetime('16-Jan-2003');
+%                 t0=datetime('12-Jan-2003');t1=datetime('16-Jan-2003');
+%                 t0=datetime('2003-11-29');t1=datetime('2003-12-02');
+                t0=datetime('2012-06-29');t1=datetime('2012-07-03');
                 o=tmp.(sats{s}).trim(t0,t1);
                 disp(str.tablify(22,'orignal t','original y'))
                 for di=1:o.length
@@ -119,12 +128,14 @@ classdef csr
               %augment the original timeseries with the end-of-arcs and gaps (only new data)
               tmp.(sats{s})=tmp.(sats{s}).augment(arc_end_ts,true).augment(gap_ts,true);
               
+              
               if obj.debug
                 au=tmp.(sats{s}).trim(t0,t1);
                 disp(str.tablify(22,'augmented t','augmented y'))
                 for di=1:au.length
                   disp(str.tablify(22,au.t(di),au.y(di,1)))
                 end
+                keyboard
               end
 
             end
@@ -233,12 +244,11 @@ classdef csr
                   disp([....
                     ': found ',num2str(numel(bad_idx)),' arc lengths (3rd column) longer than ',...
                     ' difference between consecutive time stamps (4th column):',10,...
-                    strjoin(msg,'\n'),10,...
-                    'These data have been discarded!'
+                    strjoin(msg,'\n')
                   ])
-                  mask=ts_now.mask;
-                  mask(idx1(bad_idx))=false;
-                  obj=obj.sat_set(product.dataname.type,levels{i},fields{j},sats{s},ts_now.mask_and(mask).mask_update);
+%                   mask=ts_now.mask;
+%                   mask(idx1(bad_idx))=false;
+%                   obj=obj.sat_set(product.dataname.type,levels{i},fields{j},sats{s},ts_now.mask_and(mask).mask_update);
                 end
               end
             case {'aak','accatt'}
@@ -261,25 +271,24 @@ classdef csr
                 %report if any such epochs have been found
                 if ~isempty(bad_idx)
                   msg=cell(1,min([numel(bad_idx),10])+1);
-                  msg{1}='idx: arc init time - MJD = delta time (should be zero)';
+                  msg{1}=str.tablify(20,'idx','arc init time','MJD','delta time');
                   for k=1:numel(msg)-1
                     idx=idx1(bad_idx(k));
-                    msg{k+1}=[...
-                      num2str(idx1(bad_idx(k))),': ',...
-                      datestr(ts_now.t(idx1(bad_idx(k))),'yyyy-mm-dd HH:MM:SS'),' - ',...
-                      datestr(t0(bad_idx(k)),'yyyy-mm-dd HH:MM:SS'),' = ',...
-                      char(ts_now.t(idx1(bad_idx(k)))-t0(bad_idx(k)))...
-                    ];
+                    msg{k+1}=str.tablify(20,...
+                      idx1(bad_idx(k)),...
+                      ts_now.t(idx1(bad_idx(k))),...
+                      t0(bad_idx(k)),...
+                      ts_now.t(idx1(bad_idx(k)))-t0(bad_idx(k))...
+                    );
                   end
                   disp([...
                     'found ',num2str(numel(bad_idx)),' arc init time (2nd column) different than the',...
                     ' MJD reported in the data (3rd column):',10,...
-                    strjoin(msg,'\n'),10,...
-                    'These data have been discarded!'
+                    strjoin(msg,'\n')...
                   ])
-                  mask=ts_now.mask;
-                  mask(idx1(bad_idx))=false;
-                  obj=obj.sat_set(product.dataname.type,levels{i},fields{j},sats{s},ts_now.mask_and(mask).mask_update);
+%                   mask=ts_now.mask;
+%                   mask(idx1(bad_idx))=false;
+%                   obj=obj.sat_set(product.dataname.type,levels{i},fields{j},sats{s},ts_now.mask_and(mask).mask_update);
                 end
               end
             end
@@ -327,6 +336,18 @@ classdef csr
       i=i+1; ssl(i).field='AC0X';
       ssl(i).start=datetime('2003-01-12 00:00:00');
       ssl(i).stop =datetime('2003-01-15 00:00:00');
+      i=i+1; ssl(i).field='AC0X';
+      ssl(i).start=datetime('2003-11-29 00:00:00');
+      ssl(i).stop =datetime('2003-12-02 00:00:00');
+      i=i+1; ssl(i).field='AC0XD';
+      ssl(i).start=datetime('2006-06-03 00:00:00');
+      ssl(i).stop =datetime('2006-06-07 00:00:00');
+      i=i+1; ssl(i).field='AC0XD';
+      ssl(i).start=datetime('2006-06-12 00:00:00');
+      ssl(i).stop =datetime('2006-06-19 00:00:00');
+      i=i+1; ssl(i).field='AC0X';
+      ssl(i).start=datetime('2012-06-30 00:00:00');
+      ssl(i).stop =datetime('2012-07-03 00:00:00');
       sats  =product.mdget('sats');
       %loop over the data
       for i=1:numel(ssl)
