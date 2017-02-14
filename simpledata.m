@@ -985,7 +985,7 @@ classdef simpledata
       %remove data outside start/stop
       assert(start<=stop,[mfilename,': input ''start'' must refer to an abcissae before input ''stop''.'])
       %trivial call
-      if stop<obj.x(1) || obj.x(end)<start
+      if stop<obj.x(1) || obj.x(end)<start || all (obj.x < start | stop < obj.x)
         obj=[];
       else
         obj=obj.remove(obj.x < start | stop < obj.x);
