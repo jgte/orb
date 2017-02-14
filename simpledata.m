@@ -982,11 +982,14 @@ classdef simpledata
       obj=obj.assign(obj.y(~rm_mask,:),'x',obj.x(~rm_mask),'mask',obj.mask(~rm_mask));
     end
     function obj=trim(obj,start,stop)
-      %trim data outside start/stop
-      if start>stop
-        error([mfilename,': input ''start'' must refer to an abcissae before input ''stop''.'])
+      %remove data outside start/stop
+      assert(start<=stop,[mfilename,': input ''start'' must refer to an abcissae before input ''stop''.'])
+      %trivial call
+      if stop<obj.x(1) || obj.x(end)<start
+        obj=[];
+      else
+        obj=obj.remove(obj.x < start | stop < obj.x);
       end
-      obj=obj.remove(obj.x < start | stop < obj.x);
     end
     function obj=slice(obj,start,stop)
       %delete data between start/stop
