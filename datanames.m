@@ -187,7 +187,7 @@ classdef datanames
         delta=0;
       end
       out=obj.trunk_clean;
-      out=out(1:obj.length-delta);
+      out=out(1:obj.trunk_length-delta);
     end
     function out=trunk_clean(obj)
       %NOTICE: this is similar to obj.cells_clean but the empty cells are only removed
@@ -229,6 +229,7 @@ classdef datanames
       p.addParameter('remove_part',       '',      @(i) ischar(i))
       p.addParameter('prefix',            '',      @(i) ischar(i))
       p.addParameter('suffix',            '',      @(i) ischar(i))
+      p.addParameter('full_path',         true,    @(i) islogical(i))
       % parse it
       p.parse(varargin{:});
       %get data file/path parts (and remove the specified filename part, N.B.: empty parts are handled in obj.edit)
@@ -245,7 +246,11 @@ classdef datanames
         filename{end+1}=p.Results.ext;
       end
       %assemble components and add path
-      out=fullfile(p.Results.dir,dataparts{:},strjoin(filename,datanames.separator));
+      if p.Results.full_path
+        out=fullfile(p.Results.dir,dataparts{:},strjoin(filename,datanames.separator));
+      else
+        out=fullfile(p.Results.dir,strjoin(filename,datanames.separator));
+      end
       %include detailed timestamp if requested
       if p.Results.timestamp
         out=strrep(...
