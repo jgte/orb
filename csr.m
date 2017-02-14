@@ -19,7 +19,7 @@ classdef csr
           ltb.(sats{s})=flipud(transpose(dlmread(bias_files{s})));
         end
         %load data
-        for i=3:numel(levels)
+        for i=1:numel(levels)
           for j=1:numel(fields)
             tmp=struct('A',[],'B',[]);
             %read data
@@ -63,11 +63,14 @@ classdef csr
                 sod_arc_ends=seconds(arc_ends-dateshift(arc_ends,'start','day'));
                 %find the 24hrs arcs (those that have ~0 seconds of days)
                 idx=find(sod_arc_ends<tmp.(sats{s}).t_tol);
-                %push those arcs to mid-night and remove 1 second
+                %push those arcs to midnight and remove 1 second
                 arc_ends(idx)=dateshift(arc_ends(idx),'start','day')-seconds(1);
               end
+              %get data and set the arc length to zero
+              arc_end_y=tmp.(sats{s}).y;
+              arc_end_y(:,3)=0;
               %build timeseries with arc ends
-              arc_end_ts=simpletimeseries(arc_ends,tmp.(sats{s}).y,...
+              arc_end_ts=simpletimeseries(arc_ends,arc_end_y,...
                 'format','datetime',...
                 'labels',tmp.(sats{s}).labels,...
                 'units',tmp.(sats{s}).y_units,...
@@ -90,7 +93,9 @@ classdef csr
               );
             
               if obj.debug
-                t0=datetime('16-Aug-2002');t1=datetime('21-Aug-2002');
+%                 t0=datetime('16-Aug-2002');t1=datetime('21-Aug-2002');
+%                 t0=datetime('04-Apr-2002');t1=datetime('08-Apr-2002');
+                t0=datetime('12-Jan-2003');t1=datetime('16-Jan-2003');
                 o=tmp.(sats{s}).trim(t0,t1);
                 disp(str.tablify(22,'orignal t','original y'))
                 for di=1:o.length
@@ -103,9 +108,11 @@ classdef csr
                    disp(str.tablify(22,as.t(di),as.y(di,1),ae.t(di),ae.y(di,1)))
                  end
                  g=gap_ts.trim(t0,t1);
-                 disp(str.tablify(22,'gap t','gap y'))
-                 for di=1:g.length
-                   disp(str.tablify(22,g.t(di),g.y(di,1)))
+                 if ~isempty(g)
+                   disp(str.tablify(22,'gap t','gap y'))
+                   for di=1:g.length
+                     disp(str.tablify(22,g.t(di),g.y(di,1)))
+                   end
                  end
               end
 
@@ -208,20 +215,20 @@ classdef csr
                 %get consecutive time difference
                 dt=seconds(diff(ts_now.t(idx1)));
                 %find arcs that span over time stamps
-                bad_idx=find(al(1:end-1)-dt>ts_now.t_tol); %no abs here!
+                bad_idx=find(al(1:end-1)-dt>1); %no abs here!
                 %report if any such epochs have been found
                 if ~isempty(bad_idx)
-                  msg=cell(1,min([numel(bad_idx),10])+1);
-                  msg{1}='idx: arc init time; arc length; succ time diff; delta arc len (should be zero)';
+                  msg=cell(1,min([10,numel(bad_idx)])+1);
+                  msg{1}=str.tablify(20,'idx','arc init t','arc length','succ time diff','delta arc len');
                   for k=1:numel(msg)-1
                     idx=idx1(bad_idx(k));
-                    msg{k+1}=[...
-                      num2str(idx1(bad_idx(k))),': ',...
-                      datestr(ts_now.t(idx)),'; ',...
-                      num2str(al(bad_idx(k)),'%.5d'),'; ',...
-                      num2str(dt(bad_idx(k))),' ',...
-                      num2str(al(bad_idx(k))-dt(bad_idx(k)))...
-                    ];
+                    msg{k+1}=str.tablify(20,...
+                      idx1(bad_idx(k)),...
+                      ts_now.t(idx),...
+                      al(bad_idx(k)),...
+                      dt(bad_idx(k)),...
+                      al(bad_idx(k))-dt(bad_idx(k))...
+                    );
                   end
                   disp([....
                     ': found ',num2str(numel(bad_idx)),' arc lengths (3rd column) longer than ',...
@@ -319,7 +326,7 @@ classdef csr
       ssl(i).stop =datetime('2002-08-18 23:59:59');
       i=i+1; ssl(i).field='AC0X';
       ssl(i).start=datetime('2003-01-12 00:00:00');
-      ssl(i).stop =datetime('2003-01-14 23:59:59');
+      ssl(i).stop =datetime('2003-01-15 00:00:00');
       sats  =product.mdget('sats');
       %loop over the data
       for i=1:numel(ssl)
