@@ -19,7 +19,7 @@ classdef csr
           ltb.(sats{s})=flipud(transpose(dlmread(bias_files{s})));
         end
         %load data
-        for i=1:numel(levels)
+        for i=3:numel(levels)
           for j=1:numel(fields)
             tmp=struct('A',[],'B',[]);
             %read data
@@ -58,7 +58,7 @@ classdef csr
                 %get arc stars
                 arc_starts=tmp.(sats{s}).t;
                 %build arc ends
-                arc_ends=arc_starts+seconds(tmp.(sats{s}).y(:,3));
+                arc_ends=arc_starts+seconds(tmp.(sats{s}).y(:,3))-seconds(1);
                 %get seconds-of-day of arc ends
                 sod_arc_ends=seconds(arc_ends-dateshift(arc_ends,'start','day'));
                 %find the 24hrs arcs (those that have ~0 seconds of days)
@@ -74,12 +74,12 @@ classdef csr
                 'timesystem',tmp.(sats{s}).timesystem,...
                 'descriptor',['end of arcs for ',tmp.(sats{s}).descriptor]...
               );
-              %augment the original timeseries with the end-of-arcs (only new data)
-              tmp.(sats{s})=tmp.(sats{s}).augment(arc_end_ts,true);
               
               %additional processing: add gaps
-              gap_idx=diff(tmp.(sats{s}).t)>seconds(1) & diff(tmp.(sats{s}).y(:,1))~=0;
-              gap_t=tmp.(sats{s}).t(gap_idx)+seconds(1);
+              gap_idx=[...
+                abs(seconds(arc_ends(1:end-1)+seconds(1)-arc_starts(2:end))) > tmp.(sats{s}).t_tol;...
+              false];
+              gap_t=arc_ends(gap_idx)+seconds(1);
               %build timeseries with arc ends
               gap_ts=simpletimeseries(gap_t,nan(numel(gap_t),tmp.(sats{s}).width),...
                 'format','datetime',...
@@ -88,8 +88,38 @@ classdef csr
                 'timesystem',tmp.(sats{s}).timesystem,...
                 'descriptor',['gaps for ',tmp.(sats{s}).descriptor]...
               );
-              %augment the original timeseries with the gaps (only new data)
-              tmp.(sats{s})=tmp.(sats{s}).augment(gap_ts,true);
+            
+              if obj.debug
+                t0=datetime('16-Aug-2002');t1=datetime('21-Aug-2002');
+                o=tmp.(sats{s}).trim(t0,t1);
+                disp(str.tablify(22,'orignal t','original y'))
+                for di=1:o.length
+                  disp(str.tablify(22,o.t(di),o.y(di,1)))
+                end
+                 as=tmp.(sats{s}).trim(t0,t1);
+                 ae=arc_end_ts.trim(t0,t1);
+                 disp(str.tablify(22,'arc start t','arc start y','arc end t','arc end y'))
+                 for di=1:min([as.length,ae.length])
+                   disp(str.tablify(22,as.t(di),as.y(di,1),ae.t(di),ae.y(di,1)))
+                 end
+                 g=gap_ts.trim(t0,t1);
+                 disp(str.tablify(22,'gap t','gap y'))
+                 for di=1:g.length
+                   disp(str.tablify(22,g.t(di),g.y(di,1)))
+                 end
+              end
+
+              %augment the original timeseries with the end-of-arcs and gaps (only new data)
+              tmp.(sats{s})=tmp.(sats{s}).augment(arc_end_ts,true).augment(gap_ts,true);
+              
+              if obj.debug
+                au=tmp.(sats{s}).trim(t0,t1);
+                disp(str.tablify(22,'augmented t','augmented y'))
+                for di=1:au.length
+                  disp(str.tablify(22,au.t(di),au.y(di,1)))
+                end
+              end
+
             end
             
 %             %ensure date is compatible between the satellites
@@ -258,6 +288,48 @@ classdef csr
         levels=fieldnames(s); %#ok<NODEF>
         for i=1:numel(levels)
           obj=obj.level_set(product.dataname.type,levels{i},s.(levels{i}));
+        end
+      end
+    end
+    function import_calpar_debug_plots(debug)
+      if ~exist('debug','var') || isempty(debug)
+        debug=false;
+      end
+      %get current git version
+      [status,timetag]=system(['git log -1 --format=%cd --date=iso-local ',mfilename,'.m']);
+      %get rid of timezone and leading trash
+      timetag=timetag(9:27);
+      %sanity
+      assert(status==0,[mfilename,': could not determine git time tag'])
+      %create dir for plots
+      plot_dir=fullfile('plot','import_calpar_debug_plots',timetag);
+      if isempty(dir(plot_dir)); mkdir(plot_dir); end
+
+      %load calibration parameters
+      a=datastorage('debug',debug).init('grace.calpar_csr','plot_dir',plot_dir);
+      %retrieve product info
+      product=a.mdget(datanames('grace.calpar_csr'));
+      %define start/stop pairs and level
+      i=0;ssl=struct([]);
+      i=i+1; ssl(i).field='AC0X';
+      ssl(i).start=datetime('2002-08-06 00:00:00');
+      ssl(i).stop =datetime('2002-08-06 23:59:59');
+      i=i+1; ssl(i).field='AC0X';
+      ssl(i).start=datetime('2002-08-16 00:00:00');
+      ssl(i).stop =datetime('2002-08-18 23:59:59');
+      i=i+1; ssl(i).field='AC0X';
+      ssl(i).start=datetime('2003-01-12 00:00:00');
+      ssl(i).stop =datetime('2003-01-14 23:59:59');
+      sats  =product.mdget('sats');
+      %loop over the data
+      for i=1:numel(ssl)
+        for s=1:numel(sats)
+          dataname_now={'grace','calpar_csr','',ssl(i).field,sats{s}};
+          p=a.trim(ssl(i).start,ssl(i).stop).plot(...
+            datanames(dataname_now),...
+            'plot_file_full_path',false,...
+            'plot_together','level'...
+          );
         end
       end
     end
