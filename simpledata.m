@@ -1254,22 +1254,27 @@ classdef simpledata
       %update object
       obj=obj1.assign(y_now,'x',x_now,'mask',mask_now);
     end
-    function obj1_out=augment(obj1,obj2,new_data_only)
+    function obj1_out=augment(obj1,obj2,varargin)
       %NOTICE:
       % - obj1 receives the data from obj2, at those epochs defined in obj2
       % - data from obj1 with epochs existing in obj2 are discarded (a 
       %   report is given in case there is discrepancy in the data)
       % - the optional argument 'new_data_only' ensures no data from obj1 is
       %   discarded and only new data in obj2 is saved into obj1.
-      if ~exist('new_data_only','var') || isempty(new_data_only)
-        new_data_only=false;
-      end
+      % Parse inputs
+      p=inputParser;
+      p.KeepUnmatched=true;
+      % optional arguments
+      p.addParameter('new_data_only',false, @(i)islogical(i) && isscalar(i));
+      p.addParameter('quiet',        false, @(i)islogical(i) && isscalar(i));
+      % parse it
+      p.parse(varargin{:});
       %need compatible data
       obj1.compatible(obj2);
       %merge x domain, also get idx2, which is needed to propagate data
       [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2);
       %branch on method mode
-      if new_data_only
+      if p.Results.new_data_only
         %find entries with different epochs
         new_idx=find( (idx1~=idx2) & idx2) ;
         %retrieve original data at these entries
@@ -1283,7 +1288,7 @@ classdef simpledata
         common_idx=find(idx1==idx2);
         if any(common_idx) && ( any(obj1_out.mask(common_idx)) ||  any(obj1_out.mask(common_idx)) )
           common_diff_idx=common_idx(any(obj1_out.y(common_idx,:)~=obj2_out.y(common_idx,:),2));
-          if ~isempty(common_diff_idx)
+          if ~isempty(common_diff_idx) && ~p.Results.quiet
             disp(['WARNING:BEGIN',10,'There are ',num2str(numel(common_diff_idx)),...
                 ' entries in obj1 that are defined at the same epochs as in obj2 but with different values:'])
             for i=1:min([10,numel(common_diff_idx)])
@@ -1300,7 +1305,7 @@ classdef simpledata
                 ['diff.y(',num2str(common_diff_idx(i)),',:)='],obj1_out.y(common_diff_idx(i),:)-obj2_out.y(common_diff_idx(i),:)...
               ))
             end
-            disp(['The data of obj1 have been discarded.',10,'WARNING:END'])
+            disp(['The data of obj1 have been over-written by the values in obj2.',10,'WARNING:END'])
           end
         end
         %propagate data
