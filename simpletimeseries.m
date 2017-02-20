@@ -1693,21 +1693,18 @@ classdef simpletimeseries < simpledata
       %call upstream method
       [obj,idx1,idx2]=append@simpledata(obj1,obj2);
     end
-    function obj1_out=augment(obj1,obj2,new_data_only)
+    function obj1_out=augment(obj1,obj2,varargin)
       %NOTICE:
       % - obj1 receives the data from obj2, at those epochs defined in obj2
       % - data from obj1 with epochs existing in obj2 are discarded (a 
       %   report is given in case there is discrepancy in the data)
       % - the optional argument 'new_data_only' ensures no data from obj1 is
       %   discarded and only new data in obj2 is saved into obj1.
-      if ~exist('new_data_only','var') || isempty(new_data_only)
-        new_data_only=false;
-      end
       if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
         [obj1,obj2]=matchepoch(obj1,obj2);
       end
       %call upstream method
-      obj1_out=augment@simpledata(obj1,obj2,new_data_only);
+      obj1_out=augment@simpledata(obj1,obj2,varargin{:});
     end
     %NOTICE: this function used to be called consolidade
     function [obj1,obj2]=interp2_lcm(obj1,obj2)
