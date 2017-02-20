@@ -66,9 +66,9 @@ classdef str
         right_justified=false;
       end
       if right_justified
-        out=str.just(in,tab,'mode','right');
+        out=str.just(in,tab,'just','right');
       else
-        out=str.just(in,tab,'mode','left');
+        out=str.just(in,tab,'just','left');
       end
     end
     function s=clean(s,mode)
