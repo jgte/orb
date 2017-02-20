@@ -74,6 +74,7 @@ classdef datastorage
       p.addParameter('clean_empty',false,@(i) islogical(i));
       % parse it
       p.parse(varargin{:});
+      dataname=obj.dataname_factory(dataname,'need_scalar',true);
       % The object dataname includes the 'category' field, which is common to each
       % datastorage instance. When calling the datatype_*/level_*/field_*/sat_* members
       % (either directly or through data_*/vector_* members), the output of 
