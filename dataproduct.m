@@ -421,17 +421,19 @@ classdef dataproduct
           dat=simpledata.rm_outliers(dat);
         end
         dat=dat(~isnan(dat(:)));
-        %enfore data-driven mean and/or scale
-        if p.Results.plot_automean && p.Results.plot_autoscale
-          v(3:4)=mean(dat)+4*std(dat)*[-1,1];
-        elseif p.Results.plot_automean
-          v(3:4)=mean(dat)+0.5*diff(v(3:4))*[-1,1];
-        elseif p.Results.plot_autoscale
-          v(3:4)=mean(v(3:4))+4*std(dat)*[-1,1];
-        end
-        %fix non-negative data sets
-        if all(dat>=0) && v(3)<0
-          v(3)=0;
+        if ~isempty(dat)
+          %enfore data-driven mean and/or scale
+          if p.Results.plot_automean && p.Results.plot_autoscale
+            v(3:4)=mean(dat)+4*std(dat)*[-1,1];
+          elseif p.Results.plot_automean
+            v(3:4)=mean(dat)+0.5*diff(v(3:4))*[-1,1];
+          elseif p.Results.plot_autoscale
+            v(3:4)=mean(v(3:4))+4*std(dat)*[-1,1];
+          end
+          %fix non-negative data sets
+          if all(dat>=0) && v(3)<0
+            v(3)=0;
+          end
         end
       end
       axis(p.Results.axis_handle,v);
