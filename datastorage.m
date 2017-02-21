@@ -203,10 +203,12 @@ classdef datastorage
       end
     end  
     function obj=data_init(obj,dataname)
+      dataname=datanames(dataname);
       dnf=obj.fix(dataname,'clean_empty',true);
       obj=obj.(obj.data_function('init',dataname))(dnf{:});
     end
     function obj=data_set(obj,dataname,value)
+      dataname=datanames(dataname);
       dnf=obj.fix(dataname,'clean_empty',true);
       obj=obj.(obj.data_function('set',dataname))(dnf{:},value);
     end
@@ -216,6 +218,7 @@ classdef datastorage
       p.addParameter('check_empty',false,@(i) islogical(i));
       % parse it
       p.parse(varargin{:});
+      dataname=datanames(dataname);
       dnf=obj.fix(dataname,'clean_empty',true);
       out=obj.(obj.data_function('get',dataname))(dnf{:});
       % check if empty
@@ -432,6 +435,28 @@ classdef datastorage
       obj_out=obj;
       obj_out.start=start;
       obj_out.stop=stop;
+    end
+    %% length operations
+    function [out,dataname]=length(obj,dataname)
+      if ~exist('dataname','var') || isempty(dataname)
+        dataname=obj.vector_names;
+      else
+        dataname=obj.dataname_factory(dataname);
+      end
+      out=cell2mat(obj.vector_sts('length',dataname));
+    end
+    %% debug utils
+    function peek(obj,dataname,varargin)
+      if ~exist('dataname','var') || isempty(dataname)
+        dataname=obj.vector_names;
+      else
+        dataname=obj.dataname_factory(dataname);
+      end
+      obj_list=obj.vector_get(dataname);
+      for i=1:numel(obj_list)
+        disp(obj_list{i}.descriptor)
+        obj_list{i}.peek(varargin{:});
+      end
     end
     %% metadata interface
     function obj=mdset(obj,dataname,varargin)
