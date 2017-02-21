@@ -630,20 +630,31 @@ classdef simpledata
           1:min([           obj.peeklength,  round(0.5*obj.length)  ]),...
             max([obj.length-obj.peeklength+1,round(0.5*obj.length)+1]):obj.length...
         ];
+      elseif strcmp(idx,'all')
+        idx=1:obj.length;
       end
+      %check if formatted time stamp is possible
+      formatted_time=ismethod(obj,'t') || isfield(obj,'t') || isprop(obj,'t');
+      %adapt tab to formatted time
+      if tab<19 && formatted_time
+        tab_x=19;
+      else
+        tab_x=tab;
+      end
+      %
       for i=1:numel(idx)
         out=cell(1,obj.width);
         for j=1:numel(out)
           out{j}=str.tabbed(num2str(obj.y(idx(i),j)),tab,true);
         end
         %use formatted dates is object supports them
-        if ismethod(obj,'t')
+        if formatted_time
           x_str=datestr(obj.t(idx(i)),'yyyy-mm-dd HH:MM:SS');
         else
           x_str=num2str(obj.x(idx(i)));
         end
         disp([...
-          str.tabbed(x_str,tab,true),' ',...
+          str.tabbed(x_str,tab_x,true),' ',...
           strjoin(out),' ',...
           str.show(obj.mask(idx(i)))...
         ])
