@@ -1399,12 +1399,17 @@ classdef simpletimeseries < simpledata
       if isempty(start) || start==obj.start
         %trivial call
         return
-      elseif start<obj.start
+      %check if required start is before the start of the current time series
+      elseif simpletimeseries.ist('<',start,obj.start,obj.t_tol)
         %append a single epoch
         obj=obj.assign(...
           [nan(1,obj.width);obj.y],...
           't',[start;obj.t]...
         );
+      %check if required start is after the end of the current time series
+      elseif simpletimeseries.ist('>',start,obj.stop,obj.t_tol)
+        %build pseudo-empty data
+        obj=obj.assign(nan(1,obj.width),'t',start);
       else
         %trim object
         obj=obj.trim(start,obj.stop);
@@ -1414,12 +1419,17 @@ classdef simpletimeseries < simpledata
       if isempty(stop) || stop==obj.stop
         %trivial call
         return
+      %check if required stop is after the end of the current time series
       elseif simpletimeseries.ist('>',stop,obj.stop,obj.t_tol)
         %append a single epoch
         obj=obj.assign(...
           [obj.y;nan(1,obj.width)],...
           't',[obj.t;stop]...
         );
+      %check if required stop is before the start of the current time series
+      elseif simpletimeseries.ist('<',stop,obj.start,obj.t_tol)
+        %build pseudo-empty data
+        obj=obj.assign(nan(1,obj.width),'t',stop);
       else
         %trim object
         obj=obj.trim(obj.start,stop);
