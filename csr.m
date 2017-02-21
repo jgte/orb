@@ -12,8 +12,10 @@ classdef csr
         %get names of parameters and levels
         levels    =product.mdget('levels');
         fields    =product.mdget('fields');
+        fields_out=product.mdget('fields_out');
         sats      =product.mdget('sats');
         bias_files=product.mdget('bias_files');
+        jobid_col =product.mdget('jobid_col');
         %need to get long-term biases
         for s=1:numel(sats)
           ltb.(sats{s})=flipud(transpose(dlmread(bias_files{s})));
@@ -51,31 +53,136 @@ classdef csr
                 arc_starts=tmp.(sats{s}).t;
                 %build arc ends
                 arc_ends=[arc_starts(2:end);dateshift(arc_starts(end),'end','day')]-seconds(1);
-                %arc ends are at maximum 24 hours after arc starts
-                fix_idx=arc_ends-arc_starts>days(1);
-                arc_ends(fix_idx)=arc_starts(fix_idx)+days(1);
+                %arc ends are at maximum 24 hours after arc starts (only for those arcs starting at mid-night)
+                fix_idx=arc_ends-arc_starts>days(1) & ...
+                  seconds(arc_starts-dateshift(arc_starts,'start','day'))<tmp.(sats{s}).t_tol;
+                arc_ends(fix_idx)=arc_starts(fix_idx)+days(1)-seconds(1);
               case 'estim'
                 %get arc stars
                 arc_starts=tmp.(sats{s}).t;
-                %build arc ends
+                %build arc ends (arc duration given explicitly)
                 arc_ends=arc_starts+seconds(tmp.(sats{s}).y(:,3))-seconds(1);
+                %patch missing arc durations
+                idx=find(isnat(arc_ends));
+                if ~isempty(idx)
+                  disp(['Arcs without arc length for ',f,' (',num2str(numel(idx)),' in total):',10,...
+                    str.tablify(20,'idx','arc start','arc durection')])
+                  for k=1:min([10,numel(idx)])
+                    disp(str.tablify(20,idx(k),arc_starts(idx(k)),tmp.(sats{s}).y(idx(k),3)))
+                  end
+                  arc_ends(idx)=dateshift(arc_starts(idx),'end','day')-seconds(1);
+                end
                 %get seconds-of-day of arc ends
                 sod_arc_ends=seconds(arc_ends-dateshift(arc_ends,'start','day'));
                 %find the 24hrs arcs (those that have ~0 seconds of days)
                 idx=find(sod_arc_ends<tmp.(sats{s}).t_tol);
                 %push those arcs to midnight and remove 1 second
                 arc_ends(idx)=dateshift(arc_ends(idx),'start','day')-seconds(1);
+                %check for ilegal arc durations
+                idx=find(sod_arc_ends>86400);
+                if ~isempty(idx)
+                  disp(['Arcs ending after midnight for ',f,' (',num2str(numel(idx)),' in total):',10,...
+                    str.tablify(20,'idx','arc start','arc end','sod arc end')])
+                  for k=1:min([10,numel(idx)])
+                    disp(str.tablify(20,idx(k),arc_starts(idx(k)),arc_ends(idx(k)),sod_arc_ends(idx(k))))
+                  end
+                  arc_ends(idx)=dateshift(arc_ends(idx),'start','day')-seconds(1);
+                end
               end
               
+              %bug trap
+              assert(all(~isnat(arc_ends)) && all(~isnat(arc_ends)),...
+                [mfilename,': found NaT in the arc starts/ends'])
               %surpress over-lapping arcs
-              ov_idx=find(arc_starts(2:end)-arc_ends(1:end-1)<0);
-              if ~isempty(ov_idx)
-                arc_ends(ov_idx)=arc_starts(ov_idx+1)-seconds(1);
+              idx=find(arc_starts(2:end)-arc_ends(1:end-1)<0);
+              if ~isempty(idx)
+                disp(['Over-lapping arcs for ',f,' (',num2str(numel(idx)),' in total):',10,...
+                  str.tablify(20,'idx','curr arc start','curr arc end','next arc start')])
+                for k=1:min([10,numel(idx)])
+                  disp(str.tablify(20,idx(k),arc_starts(idx(k)),arc_ends(idx(k)),arc_starts(idx(k)+1)))
+                end
+                arc_ends(idx)=arc_starts(idx+1)-seconds(1);
               end
-              
-              %get data and set the arc length to zero
-              arc_end_y=tmp.(sats{s}).y;
-              arc_end_y(:,3)=0;
+              %compute arc lengths
+              arc_length=arc_ends-arc_starts;
+
+              %fancy stuff: handle parameters defined as arc segments
+              if isempty(strfind(fields{j},'AC0Y'))
+                %no fancy stuff, all data is good
+                good_idx=true(size(arc_starts));
+              else
+                %there are 8 segments per arc
+                periodicity=arc_length/8;
+                %get day location for this parameter
+                day_loc=str2double(fields{j}(end));
+                %get sub-arc starts/ends
+                sub_arc_starts=arc_starts+periodicity*(day_loc-1);
+                  sub_arc_ends=arc_starts+periodicity*(day_loc  )-seconds(1);
+                %cap sub-arc start/ends to be within the current arc
+                idx={...
+                  find(sub_arc_starts>arc_ends  ),...
+                  find(sub_arc_starts<arc_starts),...
+                  find(sub_arc_ends  >arc_ends  ),...
+                  find(sub_arc_ends  <arc_starts)...
+                };
+                msg={...
+                  'Sub-arc starts after arc ends',...
+                  'Sub-arc starts before arc starts',...
+                  'Sub-arc ends after arc ends',...
+                  'Sub-arc ends before arc starts'...
+                };
+                for k=1:numel(idx)
+                  if ~isempty(idx{k})
+                    disp([msg{k},' for ',f,' (',num2str(numel(idx{k})),' in total):',10,...
+                      str.tablify(20,'idx','sub-arc start','sub-arc end','arc start','arc end','periodicity')])
+                    for l=1:min([10,numel(idx{k})])
+                      disp(str.tablify(20,idx{k}(l),...
+                        sub_arc_starts(idx{k}(l)),sub_arc_ends(idx{k}(l)),...
+                            arc_starts(idx{k}(l)),    arc_ends(idx{k}(l)),...
+                            periodicity(idx{k}(l))...
+                      ))
+                    end
+                    switch k
+                    case 1; sub_arc_starts(idx{k}(l))=arc_ends(  idx{k}(l));
+                    case 2; sub_arc_starts(idx{k}(l))=arc_starts(idx{k}(l));
+                    case 3; sub_arc_ends(  idx{k}(l))=arc_ends(  idx{k}(l));
+                    case 4; sub_arc_ends(  idx{k}(l))=arc_starts(idx{k}(l));
+                    end
+                  end
+                end
+                %get only existing sub-arcs
+                good_idx=sub_arc_starts<sub_arc_ends;
+                if any(~good_idx)
+                  disp(['Sub-arcs that end before they start for ',f,' (',num2str(numel(idx)),' in total):',10,...
+                    str.tablify(20,'idx','sub-arc start','sub-arc end')])
+                  idx=find(~good_idx);
+                  for k=1:min([10,numel(idx)])
+                    disp(str.tablify(20,sub_arc_starts(idx(k)),sub_arc_ends(idx(k))))
+                  end
+                end
+                %propagate the arc extremeties
+                arc_starts=sub_arc_starts(good_idx);
+                  arc_ends=sub_arc_ends(  good_idx);
+              end
+
+              %propagate data
+              arc_start_y=tmp.(sats{s}).y(good_idx,:);
+                arc_end_y=tmp.(sats{s}).y(good_idx,:);
+
+              % set the arc length to zero for arc ends
+              switch levels{i}
+              case 'estim'
+                arc_end_y(:,3)=0;
+              end
+                       
+             %build timeseries with arc starts
+              arc_start_ts=simpletimeseries(arc_starts,arc_start_y,...
+                'format','datetime',...
+                'labels',tmp.(sats{s}).labels,...
+                'units',tmp.(sats{s}).y_units,...
+                'timesystem',tmp.(sats{s}).timesystem,...
+                'descriptor',['start of arcs for ',tmp.(sats{s}).descriptor]...
+              );
               %build timeseries with arc ends
               arc_end_ts=simpletimeseries(arc_ends,arc_end_y,...
                 'format','datetime',...
@@ -110,8 +217,8 @@ classdef csr
                 for di=1:o.length
                   disp(str.tablify(22,o.t(di),o.y(di,1)))
                 end
-                 as=tmp.(sats{s}).trim(t0,t1);
-                 ae=arc_end_ts.trim(t0,t1);
+                 as=arc_start_ts.trim(t0,t1);
+                 ae=  arc_end_ts.trim(t0,t1);
                  disp(str.tablify(22,'arc start t','arc start y','arc end t','arc end y'))
                  for di=1:min([as.length,ae.length])
                    disp(str.tablify(22,as.t(di),as.y(di,1),ae.t(di),ae.y(di,1)))
@@ -126,8 +233,7 @@ classdef csr
               end
 
               %augment the original timeseries with the end-of-arcs and gaps (only new data)
-              tmp.(sats{s})=tmp.(sats{s}).augment(arc_end_ts,true).augment(gap_ts,true);
-              
+              tmp.(sats{s})=arc_start_ts.augment(arc_end_ts,'only_new_data',true).augment(gap_ts,'only_new_data',true);
               
               if obj.debug
                 au=tmp.(sats{s}).trim(t0,t1);
@@ -151,6 +257,40 @@ classdef csr
             disp(str.tablify([15,6,3,6],'loaded data for',levels{i},'and',fields{j}))
           end
         end
+        
+        
+                %load data
+        load([char(product.file('data')),'.test'],'-mat','s');
+        levels=fieldnames(s); %#ok<NODEF>
+        for i=1:numel(levels)
+          obj=obj.level_set(product.dataname.type,levels{i},s.(levels{i}));
+        end
+        
+        %merge cross-track accelerations together
+        ac0y='AC0Y';
+        field_part_list={'','D','Q'};
+        %loop over all levels and sats
+        for i=1:numel(levels)
+          for s=1:numel(sats)
+            for f=1:numel(field_part_list)
+              %start with first field
+              field1=[ac0y,field_part_list{f},'1'];
+              ts_now=obj.sat_get(product.dataname.type,levels{i},field1,sats{s});
+              %loop over all other fields
+              for fpl=2:8
+                field=[ac0y,field_part_list{f},num2str(fpl)];
+                ts_now=ts_now.augment(obj.sat_get(product.dataname.type,levels{i},field,sats{s}),'quiet',true);
+              end
+              %save the data
+              obj=obj.sat_set(product.dataname.type,levels{i},[ac0y,field_part_list{f}],sats{s},ts_now);
+              disp(str.tablify([29,5,3,6,3,7],'merged cross-track parameter',[ac0y,field_part_list{f}],...
+                'for',levels{i},'and',['GRACE-',sats{s}]))
+            end
+          end
+        end
+        
+        
+        
 %         %for each sat, ensure consistent time domain 
 %         for s=1:numel(sats)
 %           %gather names for this sat and level
@@ -172,18 +312,29 @@ classdef csr
         for i=1:numel(levels)
           for s=1:numel(sats)
             %gather names for this sat and level
-            names=obj.vector_names(product.dataname.type,levels{i},'',sats{s});
-            %ensure job IDs are consistent for all fields (in each sat and level)
-            equal_idx=obj.vector_tr(@simpledata.isequal_multiple,...
-              names,...
-              product.mdget('jobid_col'),...
-              str.tablify([7,6,10],['GRACE-',sats{s}],levels{i},product.dataname.type)...
-            );
-            for j=1:numel(equal_idx)
-              if ~equal_idx{j}
-                error([mfilename,': Job ID inconsistency between ',...
-                  '[',strjoin(names{j  },','),'] and ',...
-                  '[',strjoin(names{j+1},','),']  (possibly more).'])
+            names=obj.vector_names(product.dataname.type,levels{i},fields_out,sats{s});
+            for j=1:numel(names)-1
+              d1=obj.data_get(names{j  });
+              d2=obj.data_get(names{j+1});
+              [~,i1,i2]=intersect(d1.t,d2.t);
+              bad_idx=find(...
+                d1.y(i1,jobid_col) ~= d2.y(i2,jobid_col) & ...
+                d1.mask(i1) & ...
+                d2.mask(i2) ...
+              );
+              if ~isempty(bad_idx)
+                n=min([10,numel(bad_idx)]);
+                msg=cell(1,2*n+1);
+                msg{1}=str.tablify([26,6,20,10],'data name','idx','t','Job ID');
+                for k=1:n
+                  idx=i1(bad_idx(k));
+                  msg{2*k  }=str.tablify([26,6,20,10],names{j  }.name,idx,d1.t(idx),d1.y(idx,jobid_col));
+                  idx=i2(bad_idx(k));
+                  msg{2*k+1}=str.tablify([26,6,20,10],names{j+1}.name,idx,d2.t(idx),d2.y(idx,jobid_col));
+                end
+                error([mfilename,': found ',num2str(numel(bad_idx)),' Job ID inconsistencies:',10,...
+                  strjoin(msg,'\n')
+                ])
               end
             end
           end
@@ -215,10 +366,10 @@ classdef csr
             switch levels{i}
             case 'estim'
               %this check ensures that there are no arcs with lenghts longer than consecutive time stamps
-              for j=1:numel(fields)
-                disp(str.tablify([8,10,6,6,1],'Checking',product.dataname.type,levels{i},fields{j},sats{s}))
+              for j=1:numel(fields_out)
+                disp(str.tablify([8,10,6,6,1],'Checking',product.dataname.type,levels{i},fields_out{j},sats{s}))
                 %save time series into dedicated var
-                ts_now=obj.sat_get(product.dataname.type,levels{i},fields{j},sats{s});
+                ts_now=obj.sat_get(product.dataname.type,levels{i},fields_out{j},sats{s});
                 %forget about epochs that have been artificially inserted to represent gaps and end of arcs
                 idx1=find(diff(ts_now.t)>seconds(1));
                 %get arc lenths
@@ -253,21 +404,25 @@ classdef csr
               end
             case {'aak','accatt'}
               %this check ensures that the t0 value is the same as the start of the arc
-              for j=1:numel(fields)
+              for j=1:numel(fields_out)
                 %some fields do not have t0
-                if ~any(fields{j}(end)=='DQ')
-                  disp(str.tablify([8,10,6,6,1],'Skipping',product.dataname.type,levels{i},fields{j},sats{s}))
+                if ~any(fields_out{j}(end)=='DQ')
+                  disp(str.tablify([8,10,6,6,1],'Skipping',product.dataname.type,levels{i},fields_out{j},sats{s}))
                   continue
                 end
-                disp(str.tablify([8,10,6,6,1],'Checking',product.dataname.type,levels{i},fields{j},sats{s}))
+                disp(str.tablify([8,10,6,6,1],'Checking',product.dataname.type,levels{i},fields_out{j},sats{s}))
                 %save time series into dedicated var
-                ts_now=obj.sat_get(product.dataname.type,levels{i},fields{j},sats{s});
+                ts_now=obj.sat_get(product.dataname.type,levels{i},fields_out{j},sats{s});
                 %forget about epochs that have been artificially inserted to represent forward steps
                 idx1=find(diff(ts_now.t)>seconds(1));
                 %get t0
                 t0=simpletimeseries.utc2gps(datetime(ts_now.y(idx1,3),'convertfrom','modifiedjuliandate'));
                 %find arcs that have (much) t0 different than their first epoch
-                bad_idx=find(abs(ts_now.t(idx1)-t0)>seconds(1) & ts_now.mask(idx1));
+                bad_idx=find(...
+                  abs(ts_now.t(idx1)-t0)>seconds(1) & ...
+                  ts_now.mask(idx1) & ...                          %ignore gaps
+                  [true;diff(ts_now.y(idx1,jobid_col))~=0] ...     %ignore epochs inside the same arc
+                );
                 %report if any such epochs have been found
                 if ~isempty(bad_idx)
                   msg=cell(1,min([numel(bad_idx),10])+1);
@@ -327,37 +482,40 @@ classdef csr
       product=a.mdget(datanames('grace.calpar_csr'));
       %define start/stop pairs and level
       i=0;ssl=struct([]);
-      i=i+1; ssl(i).field='AC0X';
+      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
       ssl(i).start=datetime('2002-08-06 00:00:00');
       ssl(i).stop =datetime('2002-08-06 23:59:59');
-      i=i+1; ssl(i).field='AC0X';
+      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
       ssl(i).start=datetime('2002-08-16 00:00:00');
       ssl(i).stop =datetime('2002-08-18 23:59:59');
-      i=i+1; ssl(i).field='AC0X';
+      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
       ssl(i).start=datetime('2003-01-12 00:00:00');
       ssl(i).stop =datetime('2003-01-15 00:00:00');
-      i=i+1; ssl(i).field='AC0X';
+      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
       ssl(i).start=datetime('2003-11-29 00:00:00');
       ssl(i).stop =datetime('2003-12-02 00:00:00');
-      i=i+1; ssl(i).field='AC0XD';
+      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
       ssl(i).start=datetime('2006-06-03 00:00:00');
       ssl(i).stop =datetime('2006-06-07 00:00:00');
-      i=i+1; ssl(i).field='AC0XD';
+      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
       ssl(i).start=datetime('2006-06-12 00:00:00');
       ssl(i).stop =datetime('2006-06-19 00:00:00');
-      i=i+1; ssl(i).field='AC0X';
+      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
       ssl(i).start=datetime('2012-06-30 00:00:00');
       ssl(i).stop =datetime('2012-07-03 00:00:00');
       sats  =product.mdget('sats');
       %loop over the data
       for i=1:numel(ssl)
-        for s=1:numel(sats)
-          dataname_now={'grace','calpar_csr','',ssl(i).field,sats{s}};
-          p=a.trim(ssl(i).start,ssl(i).stop).plot(...
-            datanames(dataname_now),...
-            'plot_file_full_path',false,...
-            'plot_together','level'...
-          );
+        p=a.trim(ssl(i).start,ssl(i).stop);
+        for f=1:numel(ssl(i).field)
+          for s=1:numel(sats)
+            dataname_now={'grace','calpar_csr','',ssl(i).field{f},sats{s}};
+            p.plot(...
+              datanames(dataname_now),...
+              'plot_file_full_path',false,...
+              'plot_together','level'...
+            );
+          end
         end
       end
     end
