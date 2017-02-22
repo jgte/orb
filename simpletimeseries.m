@@ -824,7 +824,7 @@ classdef simpletimeseries < simpledata
               ),'InputFormat','yyyy/MM/dd HH:mm:ss'...
             )...
           );
-          data_fh=@(raw) [raw{7},double(raw{6}),simpletimeseries.FromDateTime(time_fh(raw),'modifiedjuliandate')];
+          data_fh=@(raw) [raw{7},double(raw{6})];
           timesystem='gps';
         end
         if ~isempty(regexp(filename,'AC0[XYZ][QD]\d?\.aak','once')) || ~isempty(regexp(filename,'AC0[XYZ][QD]\d?\.accatt','once'))
@@ -840,7 +840,7 @@ classdef simpletimeseries < simpledata
               ),'InputFormat','yyyy/MM/dd HH:mm:ss'...
             )...
           );
-          data_fh=@(raw) [raw{7},double(raw{6}),raw{8},simpletimeseries.FromDateTime(time_fh(raw),'modifiedjuliandate')];
+          data_fh=@(raw) [raw{7},double(raw{6}),raw{8}];
           timesystem='gps';
         end
         if ~isempty(regexp(filename,'AC0[XYZ]\d?\.estim','once')) || ~isempty(regexp(filename,'AC0[XYZ][DQ]\d?\.estim','once'))
@@ -851,7 +851,7 @@ classdef simpletimeseries < simpledata
           time_fh=@(raw) datetime(raw{7}+raw{9}/seconds(days(1)),...
             'ConvertFrom','modifiedjuliandate'...
           );
-          data_fh=@(raw) [raw{14},double(raw{11}),raw{10},raw{7}+raw{9}/seconds(days(1))];
+          data_fh=@(raw) [raw{14},double(raw{11}),raw{10}];
           timesystem='gps';
         end
 
@@ -1446,6 +1446,7 @@ classdef simpletimeseries < simpledata
       obj.t=simpletimeseries.([obj.timesystem,'2',in])(obj.t);
       obj.timesystem=in;
     end
+    
     %% management methods
     function check_st(obj,t_now)
       %check consistency in the values of obj.start and obj.epoch
