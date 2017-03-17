@@ -37,6 +37,11 @@ classdef segmentedfreqseries < simplefreqseries
       if seg_overlap>=seg_length
         error([mfilename,'input ''seg_overlap'' (',num2str(seg_overlap),') must be smaller than input ''seg_length'' (',num2str(seg_length),').'])
       end
+      %handle infinite segment length
+      if ~isfinite(seg_length)
+        seg_length=time(end)-time(1);
+        seg_overlap=seconds(0);
+      end
       %guess the number of segments
       n=ceil((time(end)-time(1))/seg_length*2);
       %init outputs

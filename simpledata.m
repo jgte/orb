@@ -331,6 +331,60 @@ classdef simpledata
           error([mfilename,': detected NaN in <out>. Debug needed.'])
       end
     end
+    function out=vmean(obj_list,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired( 'obj_list', @(i) iscell(i))
+      p.addParameter('weights',ones(size(obj_list))/numel(obj_list),@(i) isnumeric(i) && all(size(obj_list)==size(i)))
+      p.parse(obj_list,varargin{:})
+      out=obj_list{1}.*p.Results.weights(1);
+      for i=2:numel(obj_list)
+        out=out+obj_list{i}.*p.Results.weights(i);
+      end
+    end
+    function out=vtimes(obj_list1,obj_list2)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired( 'obj_list1', @(i) iscell(i))
+      p.addRequired( 'obj_list2', @(i) iscell(i) && all(size(obj_list1)==size(obj_list2)) )
+      p.parse(obj_list1,obj_list2)
+      out=cell(size(obj_list1));
+      for i=1:numel(obj_list1)
+        out{i}=obj_list1{i}.*obj_list2{i};
+      end
+    end
+    function out=vscale(obj_list,scales)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired( 'obj_list', @(i) iscell(i))
+      p.addRequired( 'scales',   @(i) isnumeric(i) && all(numel(obj_list)==numel(scales)) )
+      p.parse(obj_list,scales)
+      out=cell(size(obj_list));
+      for i=1:numel(obj_list)
+        out{i}=obj_list{i}.*scales(i);
+      end
+    end
+    function out=vsqrt(obj_list)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired( 'obj_list', @(i) iscell(i))
+      p.parse(obj_list)
+      out=cell(size(obj_list));
+      for i=1:numel(obj_list)
+        out{i}=obj_list{i}.sqrt;
+      end
+    end
+    %constructors
+    function out=unitc(x,width,varargin)
+      out=simpledata(x(:),ones(numel(x),width),...
+        varargin{:}...
+      );
+    end
+    function out=randn(x,width,varargin)
+      out=simpledata(x(:),randn(numel(x),width),...
+        varargin{:}...
+      );
+    end
     %general test for the current object
     function out=test_parameters(field,varargin)
       %basic parameters
@@ -359,10 +413,55 @@ classdef simpledata
           'x_unit',    'x_unit',...
           'descriptor','descriptor'...
         };
-      case 'y'
-        out=ones(l,1)*randn(1,w)*10+randn(l,w)+(1:l)'*randn(1,w)*0.1;
+      case 'x';             out=transpose(1:l);
+      case 'T';             out=l./[3 5];
+      case 'y_randn_scale'; out=0.1;
+      case 'y_poly_scale';  out=[0.3 0.8 1.6];
+      case 'y_sin_scale';   out=[0.8 0.5];
+      case 'y_randn'
+        out=simpledata.test_parameters('y_randn_scale')*randn(l,w);
+      case 'y_poly'
+        c=simpledata.test_parameters('y_poly_scale');
+        x=simpledata.test_parameters('x',l);
+        out=zeros(l,w);
+        for i=1:numel(c)
+          out=out+c(i)*(x/l).^(i-1)*ones(1,w);
+        end
+      case 'y_sin_T'
+        c=simpledata.test_parameters('y_sin_scale');
+        T=simpledata.test_parameters('T',l);
+        x=simpledata.test_parameters('x',l);
+        out=zeros(l,w);
+        for i=1:numel(T)
+          out=out+c(i)*sin(2*pi/T(i)*x*ones(1,w) + ones(l,1)*[pi/3 pi/4 pi/5]);
+        end
+      case 'y_sin'
+        c=simpledata.test_parameters('y_sin_scale');
+        T=simpledata.test_parameters('T',l);
+        x=simpledata.test_parameters('x',l);
+        out=zeros(l,w);
+        for i=1:numel(T)
+          out=out+c(i)*sin(2*pi/T(i)*x*randn(1,w) + ones(l,1)*randn(1,w));
+        end
+      case 'y_all'
+        out=...
+          simpledata.test_parameters('y_randn',l,w)+...
+          simpledata.test_parameters('y_poly', l,w)+...
+          simpledata.test_parameters('y_sin',  l,w);
+      case 'y_all_T'
+        out=...
+          simpledata.test_parameters('y_randn',l,w)+...
+          simpledata.test_parameters('y_poly', l,w)+...
+          simpledata.test_parameters('y_sin_T',l,w);
+      case {'randn','trend','sin','all','all_T'}
+        args=simpledata.test_parameters('args',l,w);
+        out=simpledata(...
+          simpledata.test_parameters('x',l,w),...
+          simpledata.test_parameters(['y_',field],l,w),...
+          args{:}...
+        );
       case 'mask'
-        out=rand(l,1)<0.8;
+        out=rand(l,1)<0.9;
       case 'no-mask'
         out=true(l,1);
       case 'columns'
@@ -388,6 +487,20 @@ classdef simpledata
       columns=simpledata.test_parameters('columns',l,w);
 
       i=0;
+
+
+      i=i+1;h{i}=figure('visible','on');
+      a=cell(1,w*2);
+      legend_str=cell(1,numel(a)+1);
+      for i=1:numel(a)
+        a{i}=simpledata.randn(1:l,w);
+        a{i}.plot('columns',1,'line',{'.'})
+        legend_str{i}=['a',num2str(i)];
+      end
+      b=simpledata.vmean(a);
+      b.plot('columns',1)
+      legend_str{end}='mean(a_i)';
+      legend(legend_str)
       
       i=i+1;h{i}=figure('visible','off');
       a=simpledata(1:l,simpledata.test_parameters('y',l,w),...
@@ -525,12 +638,12 @@ classdef simpledata
           obj.(pn)=p.Results.(pn);
         end
       end
+      %assign (this needs to come before the parameter check, so that sizes are known)
+      obj=obj.assign(y,'x',x,varargin{:});
       % check parameters
       for i=1:numel(simpledata.parameters)
         obj=check_annotation(obj,simpledata.parameters{i});
       end
-      %assign
-      obj=obj.assign(y,'x',x,varargin{:});
     end
     function obj=assign(obj,y,varargin)
       p=inputParser;
@@ -1201,7 +1314,7 @@ classdef simpledata
         end 
       end
     end
-    function [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2,varargin)
+    function [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2)
       %NOTICE:
       % - idx1 contains the index of the x in obj1 that were added from obj2
       % - idx2 contains the index of the x in obj2 that were added from obj1
@@ -1377,9 +1490,9 @@ classdef simpledata
         compatible(obj1,obj2)
         %operate
         if obj1.length==1
-          obj1.y=obj1.y*ones(1,obj2.length)-obj2.y;
+          obj1.y=ones(obj2.length,1)*obj1.y-obj2.y;
         elseif obj2.length==1
-          obj1.y=obj2.y*ones(1,obj2.length)-obj1.y;
+          obj1.y=ones(obj1.length,1)*obj2.y-obj1.y;
         else
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2);
@@ -1456,6 +1569,29 @@ classdef simpledata
         end
       end
     end
+    function obj1=power(obj1,obj2)
+      if isnumeric(obj2)
+        obj1.y=obj1.y.^obj2;
+      elseif isnumeric(obj1)
+        obj2.y=obj1.^obj2.y;
+        obj1=obj2;
+      else
+        %operate
+        if obj1.length==1
+          obj1.y=obj1.y*ones(1,obj2.length).^obj2.y;
+        elseif obj2.length==1
+          obj1.y=obj2.y*ones(1,obj2.length).^obj1.y;
+        else
+          %consolidate data sets
+          [obj1,obj2]=obj1.merge(obj2);
+          %operate
+          obj1=obj1.assign(obj1.y.^obj2.y,'mask',obj1.mask & obj2.mask);
+        end
+      end
+    end
+    function obj=sqrt(obj)
+      obj=obj.power(0.5);
+    end
     function obj=and(obj,obj_new)
       %consolidate data sets
       [obj,obj_new]=obj.merge(obj_new);
@@ -1475,6 +1611,89 @@ classdef simpledata
       y_now=zeros(numel(x_now),obj.width);
       %assign to output
       obj=obj.assign(y_now,'x',x_now);
+    end
+    %% decomposition
+    function out=parametric_decomposition(obj,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('polynomial',[1 1], @(i) isnumeric(i) || isempty(i));
+      p.addParameter('sinusoidal',[],    @(i) isnumeric(i) || isduration(i)|| isempty(i));
+      p.addParameter('phi',       [],    @(i) isnumeric(i) || isempty(i));
+      % parse it
+      p.parse(varargin{:});
+      %handle unknown phase angles
+      if any(strcmp(p.UsingDefaults,'phi'))
+        % no initial phase given, find it out
+        args={'mode','solve_phi'};
+      else
+        % use given initial phase
+        args={...
+          'phi',p.Results.phi,...
+          'mode','struct'...
+        };
+      end
+      % call mother routine
+      s.msg=['Parametric decomposition of ',obj.descriptor]; s.n=obj.width;
+      x_now=obj.x_masked;
+      y_now=obj.y_masked;
+      for i=1:obj.width
+        d(i)=num.pardecomp(x_now,y_now(:,i),...
+          'polynomial',p.Results.polynomial,...
+          'sinusoidal',p.Results.sinusoidal,...
+          args{:}...
+        ); %#ok<AGROW>
+        s=time.progress(s,i);
+      end
+      time.progress(s,obj.width);
+      % use the correct object constructor
+      init=str2func(class(obj));
+      % use correct abcissae
+      switch class(obj)
+      case 'simpledata'
+        x_now=obj.x_masked;
+      case {'simpletimeseries','gravity'}
+        x_now=obj.t_masked;
+      otherwise
+        error([mfilename,': cannot handle objects of class ''',class(obj),'''.'])
+      end
+      % assign outputs
+      for i=1:numel(p.Results.polynomial)
+        %save polynomial coefficients
+        o=init(x_now(1),transpose(num.struct_deal(d,'polynomial',i,[])));
+        o=o.copy_metadata(obj);
+        o.descriptor=['p',num2str(i-1),' of ',str.clean(obj.descriptor,'file')];
+        out.(['p',num2str(i-1)])=o;
+        %save polynomial timeseries
+        o=init(x_now,num.struct_deal(d,'y_polynomial',[],i));
+        o=o.copy_metadata(obj).merge(obj);
+        o.descriptor=['p',num2str(i-1),' of ',str.clean(obj.descriptor,'file')];
+        out.(['ts_p',num2str(i-1)])=o;
+      end
+      for i=1:numel(p.Results.sinusoidal)
+        %save sinusoidal coefficients
+        o=init(x_now(1),transpose(num.struct_deal(d,'sinusoidal',i,[])));
+        o=o.copy_metadata(obj);
+        o.descriptor=['s',num2str(i),' of ',str.clean(obj.descriptor,'file')];
+        out.(['s',num2str(i)])=o;
+        %save initial phases
+        if any(strcmp(p.UsingDefaults,'phi'))
+          %save sinusoidal coefficients
+          o=init(x_now(1),transpose(num.struct_deal(d,'phi',i,[])));
+          o=o.copy_metadata(obj);
+          o.descriptor=['s',num2str(i),' of ',str.clean(obj.descriptor,'file')];
+          out.(['phi',num2str(i)])=o;
+        end
+        %save sinusoidal timeseries
+        o=init(x_now,num.struct_deal(d,'y_sinusoidal',[],i));
+        o=o.copy_metadata(obj).merge(obj);
+        o.descriptor=['s',num2str(i),' of ',str.clean(obj.descriptor,'file')];
+        out.(['ts_s',num2str(i)])=o;
+      end
+      %save residuals
+      o=init(x_now,num.struct_deal(d,'y_res',[],1));
+      o=o.copy_metadata(obj).merge(obj);
+      o.descriptor=['residual of ',str.clean(obj.descriptor,'file')];
+      out.res=o;
     end
     %% vector
     function out=norm(obj,p)
@@ -1586,8 +1805,13 @@ classdef simpledata
         if ~obj.plot_zeros
           out.mask{i}=out.mask{i} & ( obj.y(:,columns(i)) ~= 0 );
         end
-        % get data
-        x_plot=obj.x(out.mask{i});
+        % get abcissae
+        if isprop(obj,'t')
+          x_plot=obj.t(out.mask{i});
+        else
+          x_plot=obj.x(out.mask{i});
+        end
+        % get ordinate
         y_plot{i}=obj.y(out.mask{i},columns(i))-out.y_mean{i};
         % plot it
         if isempty(p.Results.line)
@@ -1598,7 +1822,7 @@ classdef simpledata
       end
       %set x axis
       if obj.length>1
-        xlim([obj.x(1) obj.x(end)])
+        xlim(datenum([x_plot(1) x_plot(end)]))
       end
       %annotate
       if isempty(p.Results.title)
