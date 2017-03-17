@@ -434,7 +434,7 @@ classdef csr
       %load calibration parameters
       a=datastorage('debug',debug).init('grace.calpar_csr','plot_dir',plot_dir);
       %retrieve product info
-      product=a.mdget(datanames('grace.calpar_csr'));
+      sats=a.mdget(datanames('grace.calpar_csr')).mdget('sats');
       %define start/stop pairs and level
       i=0;ssl=struct([]);
       i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
@@ -458,7 +458,6 @@ classdef csr
       i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
       ssl(i).start=datetime('2012-06-30 00:00:00');
       ssl(i).stop =datetime('2012-07-03 00:00:00');
-      sats  =product.mdget('sats');
       %loop over the data
       for i=1:numel(ssl)
         p=a.trim(ssl(i).start,ssl(i).stop);
@@ -511,8 +510,6 @@ classdef csr
             calmod.descriptor=['calibration model ',levels{l},' GRACE-',upper(sats{s})];
             disp(['Computing the ',calmod.descriptor])
             for i=1:numel(coords)
-              %skip Y coordinate for now
-              if coords{i}=='Y',continue,end
               %build nice structure with the relevant calibration parameters
               cal=struct(...
                 'ac0' ,obj.sat_get(calparp.dataname.type,levels{l},['AC0',coords{i}    ],sats{s}).interp(acc.t),...
@@ -533,6 +530,10 @@ classdef csr
               if any(t.ac0(good_idx)~=t.ac0d(good_idx)) || any(t.ac0(good_idx)~=t.ac0q(good_idx))
                 error([mfilename,': calibration time domain inconsistent between parameters, debug needed!'])
               end
+              
+              
+              é preciso arranjar isto, o start arc tem de ser definido algures
+              
               %build calibration model
               calmod=calmod.set_cols(i,...
                 cal.ac0.cols( param_col)+...
@@ -635,6 +636,41 @@ classdef csr
       if ~isempty(obj)
         obj.start=p.Results.start;
         obj.stop= p.Results.stop;
+      end
+    end
+    function calpar_debug_plots(debug)
+      if ~exist('debug','var') || isempty(debug)
+        debug=false;
+      end
+      %get current git version
+      [status,timetag]=system(['git log -1 --format=%cd --date=iso-local ',mfilename,'.m']);
+      %get rid of timezone and leading trash
+      timetag=timetag(9:27);
+      %sanity
+      assert(status==0,[mfilename,': could not determine git time tag'])
+      %create dir for plots
+      plot_dir=fullfile('plot','calpar_debug_plots',timetag);
+      if isempty(dir(plot_dir)); mkdir(plot_dir); end
+      
+      %define list of days to plot
+      lod=datetime({...
+        '2002-08-06',...
+        '2002-08-16','2002-08-17',...
+        '2003-01-13','2003-01-14',...
+        '2003-11-20',...
+        '2006-06-14','2006-06-15',...
+        '2002-04-15',...
+        '2002-08-03',...
+        '2002-08-26',...
+        '2002-04-27',...
+        '2002-09-30'...
+      });
+      %loop over all requested days
+      for i=1:numel(lod)
+        start=lod(i);
+        stop=lod(i)+days(1)-seconds(1);
+        %plot it
+        datastorage('debug',debug,'start',start,'stop',stop).init('grace.acc.cal_csr_plots','plot_dir',plot_dir)
       end
     end
   end

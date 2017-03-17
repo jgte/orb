@@ -123,6 +123,10 @@ classdef simpletimeseries < simpledata
       case {'=','==','equal'}
         if numel(t1)==numel(t2) 
           out=seconds(t1(:)-t2(:)).^2<tol.^2;
+        elseif isscalar(t1)
+          out=seconds(t1-t2(:)).^2<tol.^2;
+        elseif isscalar(t2)
+          out=seconds(t1(:)-t2).^2<tol.^2;
         else
           out=false;
         end
@@ -539,24 +543,32 @@ classdef simpletimeseries < simpledata
         l=1000;
       end
       if ~exist('w','var') || isempty(w)
-        w=1;
+        w=3;
       end
 %       %test the time conversions
 %       simpletimeseries.test_time(l)
       %test current object
       args=simpledata.test_parameters('args',l,w);
       now=juliandate(datetime('now'),'modifiedjuliandate');
-     
+                
+      i=0;      
       
-      i=0;
-      a=simpletimeseries(...
-        now+[1:round(l/3),round(l*2/3):round(l*4/3)],...  % t
-        simpledata.test_parameters('y',l,w),...           % y
-        'mask',simpledata.test_parameters('mask',l),...
-        args{:},...
-        'format','modifiedjuliandate'...
+      a=simpletimeseries.test_parameters('all_T',l,w);
+%       i=i+1;h{i}=figure('visible','on'); a.plot('title', 'original')
+      
+      b=a.parametric_decomposition(...
+        'polynomial',ones(size(simpledata.test_parameters('y_poly_scale'))),...
+        'sinusoidal',simpledata.test_parameters('T',l)...
       );
-      i=i+1;h{i}=figure('visible','off'); a.plot('title', 'original')
+      i=i+1;h{i}=figure('visible','on'); 
+      a.plot('title', 'original','columns',1)
+      fn=fields(b.ts);
+      for i=1:numel(fn);
+        b.ts.(fn{i}).plot('columns',1)
+      end
+      legend('original',fn{:})
+      
+      return
       
       lines1=cell(w,1);lines1(:)={'-o'};
       lines2=cell(w,1);lines2(:)={'-x'};
@@ -1157,9 +1169,10 @@ classdef simpletimeseries < simpledata
         obj=assign@simpledata(obj,y,'x',obj.t2x(p.Results.t),varargin{:});
       end
       %update epoch (needed to derive obj.t from obj.x)
+      %NOTICE: don't use obj.epoch= here, because at init that is not possible
       if ~isempty(p.Results.epoch)
         obj.epochi=p.Results.epoch;
-      elseif t_present
+      elseif presence.t
         obj.epochi=p.Results.t(1);
       else 
         error([mfilename,': cannot derive epoch without either input ''epoch'' or ''t''.'])
@@ -1195,9 +1208,9 @@ classdef simpletimeseries < simpledata
     function out=stats(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('period', 30*obj.step, @(i) isduration(i) || ~isfinite(i));
-      p.addParameter('overlap',seconds(0),  @(i) isduration(i));
-      p.addParameter('mode',  'struct',     @(i) ischar(i));
+      p.addParameter('period', seconds(inf), @(i) isduration(i));
+      p.addParameter('overlap',seconds(0),   @(i) isduration(i));
+      p.addParameter('mode',  'struct',      @(i) ischar(i));
       % parse it
       p.parse(varargin{:});
       % call upstream method if period is infinite
@@ -1260,6 +1273,10 @@ classdef simpletimeseries < simpledata
     function obj=set.t(obj,t_now)
       %NOTICE: this blindly changes the time domain!
       obj=obj.assign(obj.y,'t',t_now);
+      obj.epoch=t_now(1);
+    end
+    function obj=set_t(obj,t_now)
+      obj.t=t_now;
     end
     function out=get.t(obj)
       if isempty(obj.x)
@@ -1310,6 +1327,18 @@ classdef simpletimeseries < simpledata
       htd=obj.t_domain;
       out=(numel(htd)==numel(obj.t)) && all(obj.t(:)==htd(:));
     end
+    function out=istavail(obj,t)
+      if isscalar(t)
+        out=any(simpletimeseries.ist('==',t,obj.t,obj.t_tol));
+      else
+        for i=1:numel(t)
+          %scalar call
+          out=obj.istavail(t(i));
+          %no need to continue looping if found something
+          if out;break;end
+        end
+      end
+    end
     function obj=set.t_formatted(obj,t_now)
       [obj.t,format_now]=simpletimeseries.ToDateTime(t_now,obj.format);
       if ~strcmp(format_now,format_in)
@@ -1353,8 +1382,11 @@ classdef simpletimeseries < simpledata
       %convert outputs
       t_old=obj.x2t(x_old);
     end
-    function out=mjd(obj)
-      out=simpletimeseries.FromDateTime(obj.t,'modifiedjuliandate');
+    function out=mjd(obj,mask)
+      if ~exist('mask','var') || isempty(mask)
+        mask=true(size(obj.t));
+      end
+      out=simpletimeseries.FromDateTime(obj.t(mask),'modifiedjuliandate');
     end
     %% step methods
     function out=step_num(obj)
@@ -1446,7 +1478,6 @@ classdef simpletimeseries < simpledata
       obj.t=simpletimeseries.([obj.timesystem,'2',in])(obj.t);
       obj.timesystem=in;
     end
-    
     %% management methods
     function check_st(obj,t_now)
       %check consistency in the values of obj.start and obj.epoch
@@ -1664,7 +1695,7 @@ classdef simpletimeseries < simpledata
       % - idx1 contains the index of the x in obj1 that were added from obj2
       % - idx2 contains the index of the x in obj2 that were added from obj1
       % - no data is propagated between objects, only the time domain is changed!
-      if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
+      if isprop(obj1,'epoch') && isprop(obj2,'epoch')
         [obj1,obj2]=matchepoch(obj1,obj2);
       end
       %call upstream method
@@ -1717,7 +1748,7 @@ classdef simpletimeseries < simpledata
       %call upstream method
       obj1_out=augment@simpledata(obj1,obj2,varargin{:});
     end
-    %NOTICE: this function used to be called consolidade
+    %NOTICE: this function used to be called consolidate
     function [obj1,obj2]=interp2_lcm(obj1,obj2)
       %extends the time domain of both objects to be in agreement
       %with the each other
@@ -1789,17 +1820,19 @@ classdef simpletimeseries < simpledata
     function out=plot(obj,varargin)
       %call superclass
       out=plot@simpledata(obj,varargin{:});
-      %using internal Matlab representation for dates
-      lines_now=get(gca,'children');
-      for i=1:numel(lines_now)
-        for j=1:numel(out.handle)
-          if out.handle{j}==lines_now(i)
-            lines_now(i).XData=datenum(obj.x2t(lines_now(i).XData));
-          end
-        end
-      end
-      set(gca,'XTick',datenum(obj.t));
-      datetick('x',time.format(seconds(obj.span)))
+%       %using internal Matlab representation for dates
+%       lines_now=get(gca,'children');
+%       for i=1:numel(lines_now)
+%         for i=1:numel(out.handle)
+%           if out.handle{i}==lines_now(i)
+%             lines_now(i).XData=datenum(obj.x2t(lines_now(i).XData));
+%           end
+%         end
+%       end
+%       if strcmpi(get(gca,'XTick'),'auto')
+%         set(gca,'XTick',datenum(obj.t));
+%         datetick('x',time.format(seconds(obj.span)))
+%       end
       %annotate
       out.xlabel='time';
       xlabel(out.xlabel)
@@ -1846,10 +1879,10 @@ classdef simpletimeseries < simpledata
         fprintf(fid,'%s',header);
         %build time vectors
         time_str=datestr(obj.t_idx(obj.mask),'yyyy-mm-dd HH:MM:SS.FFF');
-        mjd=simpletimeseries.FromDateTime(obj.t_idx(obj.mask),'modifiedjuliandate');
+        mjd=obj.mjd(obj.mask);
         %build format string
         fmt='%s UTC %14.8f';
-        for j=1:numel(p.Results.columns)
+        for i=1:numel(p.Results.columns)
           fmt=[fmt,' %16.8e']; %#ok<AGROW>
         end
         fmt=[fmt,'\n'];

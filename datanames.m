@@ -75,6 +75,8 @@ classdef datanames
         obj.cells=in;
       case 'char'
         obj.name=in;
+      case 'dataproduct'
+        obj=in.dataname;
       otherwise
         error([mfilename,': cannot handle input ''in'' of class ',class(in),'.'])
       end

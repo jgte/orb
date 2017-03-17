@@ -164,6 +164,89 @@ classdef file
       %close the file (if fid not given)
       if close_file, fclose(fid); end
     end
+    function out=wildcard(in,varargin)
+      % FILENAMES = FILENAME_WILDCARD(STR) looks for files which fit the wilcard
+      % input string STR and returns a cell array FILENAMES with the
+      % corresponding filenames.
+      %
+      % Optional 'strict_mat_search' as true (default is false) makes script look for mat files named:
+      %
+      % ['^',f_in,'\.mat$']
+      %
+      % Instead of the standard way which is:
+      %
+      % ['^',f_in,'.*\.mat$']
+      %
+      % Optional 'prefer_non_mat_files' as true will skip looking for corresponding .mat
+      % files (default is false).
+
+      % Created by J.Encarnacao <J.deTeixeiradaEncarnacao@tudelft.nl>
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired( 'in',@(i) ischar(i));
+      p.addParameter('strict_mat_search'   ,false, @(i) islogical(i) && isscalar(i));
+      p.addParameter('prefer_non_mat_files',false, @(i) islogical(i) && isscalar(i));
+      p.addParameter('disp',                true,  @(i) islogical(i) && isscalar(i));
+      % parse it
+      p.parse(in,varargin{:});
+      %wildcard character '*' needs to be translated to '.*' (if not already)
+      in=translate_wildcard(in);
+      %finding relevant directory
+      [a,f,e]=fileparts(in);
+      if isempty(a)
+          a='.';
+      end
+      %rebuilding complete filename
+      f_in=[f,e];
+      %fetching directory listing
+      f=dir(a);
+      f=struct2cell(f);
+      f=f(1,:);
+      %greping
+      f1=reduce_cell_array(regexp([f(:)],['^',f_in,'$'],'match'));
+      %branch on options
+      if p.Results.prefer_non_mat_files
+        filenames=unique(f1);
+      else
+        %taking into account also mat files
+        if p.Results.strict_mat_search
+          f2=reduce_cell_array(regexp([f(:)],['^',f_in,'\.mat$'],'match'));
+        else
+          f2=reduce_cell_array(regexp([f(:)],['^',f_in,'.*\.mat$'],'match'));
+        end
+        %preferentially load mat files and not original files
+        for i=1:length(f2)
+          f2_now=strrep(f2{i},'.mat','');
+          for j=1:length(f1)
+            if strcmp(f2_now,f1{j})
+              %delete non-mat file
+              f1{j}='';
+            end
+          end
+        end
+        filenames=unique([f1(:),f2(:)]);
+      end
+      %one filename is frequently empty
+      filenames(cellfun('isempty',filenames))=[];
+      %inform user if no files found
+      if isempty(filenames)
+        if p.Results.disp
+          disp([mfilename,':warning: found no files named ',in,'.'])
+        end
+        out='';
+        return
+      end
+      %add path
+      root=fileparts(in);
+      out=cell(1,length(filenames));
+      for i=1:length(filenames)
+        out{i}=fullfile(root,filenames{i});
+      end
+      %inform user
+      if p.Results.disp
+        disp([mfilename,': found ',num2str(numel(out)),' filenames in wildcarded string ''',in,'''.'])
+      end
+    end
   end
 end
 
@@ -191,4 +274,32 @@ function out = isnumstr(in)
   %if ~out
   %    disp([mfilename,':debug: non-numerical chars: ',in])
   %end
+end
+function out = translate_wildcard(in)
+  if ~isempty(strfind(in,'*'))
+    idx=strfind(in,'*');
+    for i=1:numel(idx)
+      if idx(i) > 1 && ~strcmp(in(idx(i)-1),'.')
+        out=translate_wildcard([in(1:idx(i)-1),'.',in(idx(i):end)]);
+        return
+      end
+      if idx(i) == 1
+        out=translate_wildcard(['.',in(idx(i):end)]);
+        return
+      end
+    end
+  end
+  out=in;
+end
+function out = reduce_cell_array(in)
+  out=cell(size(in));
+  for i=1:numel(in)
+      if ~isempty(in{i})
+          out{i}=in{i}{1};
+      else
+          out{i}='';
+      end
+  end
+  % clean up empty entries
+  out(cellfun('isempty',out))=[];
 end

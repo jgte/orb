@@ -1,0 +1,14 @@
+method: datastorage.plot_auto
+sources: [gswarm.swarm.mean.decomp,gswarm.swarm.mean.full,gswarm.swarm.mean.decomp,gswarm.swarm.mean.decomp,gswarm.swarm.mean.decomp,gswarm.swarm.mean.decomp]
+storage_period: global
+dataflow: #[this product, (=) source 1, (operation) source 2, ...]
+  types:  [swarm,        swarm,  swarm,  swarm, swarm,   swarm,  swarm]
+  levels: [mean,         mean,   mean,   mean,   mean,   mean,   mean]
+  fields: [decomp_plots, full,   decomp, decomp, decomp, decomp, decomp]
+  sats:   [signal,       signal, ts_p0,  ts_p1,  ts_s1,  ts_s2,  res]
+plot_columns_together: false
+plot_columns: [3,4,5,6,7,8]
+plot_title_suppress: [gswarm,mean]
+plot_legend_suppress: [decomp,ts\_]
+plot_xlimits: [2013-11-01,2016-12-31]
+plot_zeromean: false

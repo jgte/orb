@@ -2,7 +2,8 @@ classdef datastorage
   %static
   properties(Constant)
     
-    zero_date=datetime([0 0 31]); %this is used to define the date is not set (datenum(zero_date)=0)
+    %this is used to define when the date is not set (datenum(zero_date)=0)
+    zero_date=datetime(0,'ConvertFrom','datenum'); 
     
     parts={...
       'type',...
@@ -375,6 +376,12 @@ classdef datastorage
     %% start/stop operations
     function out=get.start(obj)
       out=obj.vector_sts('start',obj.vector_names);
+      %need to filter out zero_dates
+      for i=1:numel(out)
+        if out{i}==datastorage.zero_date
+          out{i}=datetime(inf,'ConvertFrom','datenum');
+        end
+      end
       if isempty(out)
         out=obj.starti;
       else
@@ -383,6 +390,12 @@ classdef datastorage
     end
     function out=get.stop(obj)
       out=obj.vector_sts('stop',obj.vector_names);
+      %need to filter out zero_dates
+      for i=1:numel(out)
+        if out{i}==datastorage.zero_date
+          out{i}=datetime(0,'ConvertFrom','datenum');
+        end
+      end
       if isempty(out)
         out=obj.stopi;
       else
@@ -404,7 +417,9 @@ classdef datastorage
         values=obj.vector_get(names);
         %loop over complete set of objects
         for i=1:numel(values)
-          values{i}.start=start;
+          if values{i}.start~=datastorage.zero_date
+            values{i}.start=start;
+          end
         end
         %back-propagate modified set of objects
         obj=obj.vector_set(names,values);
@@ -425,7 +440,9 @@ classdef datastorage
         values=obj.vector_get(names);
         %loop over complete set of objects
         for i=1:numel(values)
-          values{i}.stop=stop;
+          if values{i}.stop~=datastorage.zero_date
+            values{i}.stop=stop;
+          end
         end
         %back-propagate modified set of objects
         obj=obj.vector_set(names,values);
@@ -473,7 +490,8 @@ classdef datastorage
         end
       end
       if isempty(md)
-        error([mfilename,': cannot find the metadata of product ',dataname.name,' or any of its trunk elements.'])
+        error([mfilename,': cannot find the metadata of product ',dataname.name,' or any of its trunk elements. ',...
+          'Have you called obj.init(''',dataname.name,''')?'])
       end
     end
     %% dataname type factory
@@ -526,7 +544,7 @@ classdef datastorage
     function obj=init(obj,dataname,varargin)
       % convert to object
       dataname=obj.dataname_factory(dataname,'need_scalar',true);
-      % save the cateogry, if not done already
+      % save the category, if not done already
       if isempty(obj.category)
         obj.category=dataname.category;
       else
@@ -623,8 +641,9 @@ classdef datastorage
       d=obj.data_get(dataname);
       %checking data class
       switch class(d)
-      case 'simpletimeseries'
+      case {'simpletimeseries','gravity'}
         h=d.plot(...
+          'method','timeseries',...
           'columns', p.Results.plot_columns,...
           'outlier', p.Results.plot_outlier,...
           'zeromean',p.Results.plot_zeromean...
@@ -640,7 +659,7 @@ classdef datastorage
         error([mfilename,': cannot plot data of class ',class(d),'; implementation needed!'])
       end
     end
-    function plot_legend(obj,h,dataname_list_to_plot,varargin)
+    function plot_legend(obj,h,dataname_now,dataname_list_to_plot,varargin)
       %parse mandatory args
       if ~iscell(h)
         error([mfilename,': can only handle input ''h'' as cell, not of class ',class(d),'.'])
@@ -652,7 +671,7 @@ classdef datastorage
         p=inputParser;
         p.KeepUnmatched=true;
         %parse optional parameters as defined in the metadata
-        p=obj.mdget(dataname_list_to_plot{1}).plot_args(p,varargin{:});
+        p=obj.mdget(dataname_now).plot_args(p,varargin{:});
         %add the legend given as input, if there
         if ~isempty(p.Results.plot_legend)
           %some sanity
@@ -678,6 +697,8 @@ classdef datastorage
               %define sufix
               if p.Results.plot_zeromean
                 suffix=num2str(h{j}.y_mean{k});
+              else
+                suffix='';
               end
               %build legend stirngs
               c=c+1;
@@ -688,18 +709,20 @@ classdef datastorage
             end
           end
         end
+        %remove strings as needed
+        legend_str=cellfun(@(i) str.clean(i,p.Results.plot_legend_suppress),legend_str,'UniformOutput',false);
         %put the legend in the current plot
         set(legend(legend_str),'fontname','courier')
       end
     end
-    function plot_title(obj,dataname_list_to_plot,varargin)
+    function plot_title(obj,dataname_now,dataname_list_to_plot,varargin)
       %parse mandatory args
       dataname_list_to_plot=obj.dataname_factory(dataname_list_to_plot);
       %parse inputs
       p=inputParser;
       p.KeepUnmatched=true;
       %parse optional parameters as defined in the metadata
-      p=obj.mdget(dataname_list_to_plot{1}).plot_args(p,varargin{:});
+      p=obj.mdget(dataname_now).plot_args(p,varargin{:});
       %add the title given as input, if there
       if ~isempty(p.Results.plot_title)
         title_str=p.Results.plot_title;
@@ -716,7 +739,7 @@ classdef datastorage
       %grid, if requested
       if p.Results.plot_grid;grid on;end
     end
-    function plot_ylabel(obj,h,dataname_list_to_plot,varargin)
+    function plot_ylabel(obj,h,dataname_now,dataname_list_to_plot,varargin)
       %parse mandatory args
       if ~iscell(h)
         error([mfilename,': can only handle input ''h'' as cell, not of class ',class(d),'.'])
@@ -726,7 +749,7 @@ classdef datastorage
       p=inputParser;
       p.KeepUnmatched=true;
       %parse optional parameters as defined in the metadata
-      p=obj.mdget(dataname_list_to_plot{1}).plot_args(p,varargin{:});
+      p=obj.mdget(dataname_now).plot_args(p,varargin{:});
       %add the y-label given as input, if there
       if ~isempty(p.Results.plot_ylabel)
         ylabel_str=p.Results.plot_ylabel;
@@ -738,19 +761,23 @@ classdef datastorage
           end
         end
         %fix y-axis label
-        ylabel_str=['[',h{1}.y_units,']'];
+        if numel(h)==1
+          ylabel_str=h{1}.ylabel;
+        else
+          ylabel_str=['[',h{1}.y_units,']'];
+        end
       end
       %put the ylabel in the current plot
       ylabel(ylabel_str)
     end
-    function dataname_list_to_plot=plot_label_prefix(obj,dataname_list_to_plot,varargin)
+    function dataname_list_to_plot=plot_label_prefix(obj,dataname_now,dataname_list_to_plot,varargin)
       %parse mandatory args
       dataname_list_to_plot=obj.dataname_factory(dataname_list_to_plot);
       %parse inputs
       p=inputParser;
       p.KeepUnmatched=true;
       %parse optional parameters as defined in the metadata
-      p=obj.mdget(dataname_list_to_plot{1}).plot_args(p,varargin{:});
+      p=obj.mdget(dataname_now).plot_args(p,varargin{:});
       %add prefixes, if there
       for i=1:numel(datastorage.parts)
         %only add prefix to title if:
@@ -771,18 +798,18 @@ classdef datastorage
         end
       end
     end
-    function plot_annotate(obj,h,dataname_list_to_plot,varargin)
+    function plot_annotate(obj,h,dataname_now,dataname_list_to_plot,varargin)
       %NOTICE: argument parsing done in plot_label_prefix, plot_legend, plot_title and plot_ylabel
       % paranoid sanity
       str.sizetrap(h,dataname_list_to_plot)
       %process plot label prefixes
-      dataname_list_to_plot=obj.plot_label_prefix(dataname_list_to_plot,varargin{:});
+      dataname_list_to_plot=obj.plot_label_prefix(dataname_now,dataname_list_to_plot,varargin{:});
       %plot legend (only if needed)
-      obj.plot_legend(h,dataname_list_to_plot,varargin{:})
+      obj.plot_legend(h,dataname_now,dataname_list_to_plot,varargin{:})
       %plot title
-      obj.plot_title(dataname_list_to_plot,varargin{:})
+      obj.plot_title(dataname_now,dataname_list_to_plot,varargin{:})
       %plot y-label
-      obj.plot_ylabel(h,dataname_list_to_plot,varargin{:})
+      obj.plot_ylabel(h,dataname_now,dataname_list_to_plot,varargin{:})
     end
     %% generalized plotting
     function h=plot(obj,dataname,varargin)
@@ -808,6 +835,9 @@ classdef datastorage
         %retrieve plot columns indexes and names
         plot_columns=p.Results.plot_columns;
         col_names   =p.Results.plot_column_names;
+        if isempty(col_names)
+          col_names=obj.data_get(dataname_now).labels;
+        end
         %make room for handles
         h=cell(1,numel(plot_columns));
         %loop over all data columns to plot
@@ -903,7 +933,7 @@ classdef datastorage
       %enforce plot preferences (using the metadata of the first dataname)
       obj.mdget(dataname_now{1}).enforce_plot
       %annotate plot
-      obj.plot_annotate(h,dataname_list,varargin{:})
+      obj.plot_annotate(h,dataname_now{1},dataname_list,varargin{:})
     end
     function obj=plot_auto(obj,dataname,varargin)
       %parse mandatory args
@@ -932,9 +962,15 @@ classdef datastorage
           for j=1:size(df.levels,1)
             for k=1:size(df.fields,1)
               for s=1:size(df.sats,1)
+                %get name of current column to plot
+                col_names   =p.Results.plot_column_names;
+                if isempty(col_names)
+                  %pick the first input dataname
+                  dataname_now=datanames([obj.category,df.types(i,2),df.levels(j,2),df.fields(k,2),df.sats(s,2)]);
+                  col_names=obj.data_get(dataname_now).labels;
+                end
+                %loop over all columns to plot
                 for c=1:numel(p.Results.plot_columns)
-                  %get name of current column to plot
-                  col_name=p.Results.plot_column_names{p.Results.plot_columns{c}};
                   %build output datanames
                   out_dn=datanames([obj.category,df.types(i,1),df.levels(j,1),df.fields(k,1),df.sats(s,1)]);
                   %plot filename arguments
@@ -944,7 +980,7 @@ classdef datastorage
                     'timestamp',true,...
                     'remove_part','',...
                     'prefix',p.Results.plot_file_prefix...
-                    'suffix',[col_name,suffix]...
+                    'suffix',[col_names{p.Results.plot_columns{c}},suffix]...
                   }];
                   %plot filename
                   filename=out_dn.file(filename_args{:});
@@ -962,7 +998,7 @@ classdef datastorage
                       figure('visible',p.Results.plot_visible);
                       h=obj_curr.plot_mult(dataname,in_dn,p.Results.plot_columns{c},...
                         varargin{:},...
-                        'plot_title_suffix',[col_name,'-direction']);
+                        'plot_title_suffix',col_names{p.Results.plot_columns{c}});
                       %save this plot
                       saveas(gcf,filename)
                       % user feedback

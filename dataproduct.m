@@ -14,6 +14,7 @@ classdef dataproduct
         'plot_file_suffix','',...
         'plot_file_full_path',true,...
         'plot_legend',{{}},...
+        'plot_legend_suppress',{{}},...
         'plot_ylabel','',...
         'plot_label_prefix_sat','',...
         'plot_label_prefix_field','',...
@@ -83,7 +84,7 @@ classdef dataproduct
        stop_idx=strfind(in,'>');
       %check if matlab code is not part of the field
       if isempty(start_idx) && isempty(stop_idx)
-        out=in;
+        out=strtrim(in);
         return
       end
       %parse matlab code if nr of < and > match
@@ -197,7 +198,14 @@ classdef dataproduct
           timestamp_fmt='yyyy';
         case {'infinite','global'}
           out={strrep(filename,'.<TIMESTAMP>','')};
-          startlist=[];stoplist=[];
+          if iscell(obj.metadata.plot_xlimits(1));xl=obj.metadata.plot_xlimits{1};
+          else                                    xl=obj.metadata.plot_xlimits(1);
+          end
+          if isfinite(xl);startlist=xl;else startlist=[];end
+          if iscell(obj.metadata.plot_xlimits(2));xl=obj.metadata.plot_xlimits{2};
+          else                                    xl=obj.metadata.plot_xlimits(2);
+          end
+          if isfinite(xl);stoplist=xl;else stoplist=[];end
           return
         case {'none','direct'}
           error([mfilename,': product ',obj.metadata.name,' is not to be saved in a file, so it is ilegal to call this procedure.'])
@@ -278,6 +286,7 @@ classdef dataproduct
       p=inputParser;
       p.addRequired( 'metadatafieldname',            @(i) ischar(i));
       p.addParameter('return_empty_if_missing',false,@(i) islogical(i));
+      p.addParameter('always_cell_array',      false,@(i) islogical(i));
       % parse it
       p.parse(metadatafieldname,varargin{:});
       % check for existence (unless return_empty_if_missing)
@@ -303,6 +312,9 @@ classdef dataproduct
         out=dataproduct.parse_commands(in);
       otherwise
         error([mfilename,': cannot handle class ',class(in),'. Implementation needed!'])
+      end
+      if ~iscell(out) && p.Results.always_cell_array
+        out={out};
       end
     end
     %% special metadata entries
@@ -390,8 +402,13 @@ classdef dataproduct
       v=axis(p.Results.axis_handle);
       if p.Results.plot_xdate
         for i=1:2
-          if isfinite(   p.Results.plot_xlimits(i))
-            v(i)=datenum(p.Results.plot_xlimits(i));
+          if iscell(p.Results.plot_xlimits(i))
+            xl=p.Results.plot_xlimits{i};
+          else
+            xl=p.Results.plot_xlimits(i);
+          end
+          if isfinite(   xl)
+            v(i)=datenum(xl);
           end
         end
         if ~strcmp(datestr(v(1),'yyyymmdd'),datestr(v(2),'yyyymmdd')) && ...

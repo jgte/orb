@@ -4,6 +4,16 @@ classdef time
     formt_list={'S.FFF','SS.FFF','HH:MM:SS','HH:MM','dd/mm HH:MM','dd/mm/yy','mm/yyyy' ,'yyyy'}
     units_list={'ms'   ,'s'     ,'min'     ,'hrs'  ,'days'       ,'mon'     ,'yrs'     ,'cent'};
     magnt_list=[0.01   ,60      ,3600      ,86400  ,2678400      ,31536000  ,3153600000,inf   ];
+    funct_list={...
+      @(i) seconds(i*1e-3),...
+      @(i) seconds(i),...
+      @(i) minutes(i),...
+      @(i) hours(i),...
+      @(i) days(i),...
+      @(i) days(365.25*i/12),...
+      @(i) years(i),...
+      @(i) years(i*100)...
+    };
   end    
   methods(Static)
     function test
@@ -93,19 +103,28 @@ classdef time
         end
       end
     end
+    function out=num2duration(in,units)
+      units=time.translate_units(units);
+      for i=1:numel(time.units_list)
+        if strcmp(units,time.units_list{i})
+          out=time.funct_list{i}(in);
+          return
+        end
+      end
+    end
     function s=progress(s,i)
       % %Example: 
       % s.msg='something'; s.n=n;
       % for i=1:n
       %     <do something>
-      %     s=simpledata.progress(s,i);
+      %     s=time.progress(s,i);
       % end
       % %or:
       % s.msg='something'; s.n=n;
       % while criteria
       %     <do something>
       %     criteria=<some check>
-      %     s=simpledata.progress(s);
+      %     s=time.progress(s);
       % end
       if ~exist('i','var') || isempty(i)
         if isfield(s,'c')
@@ -315,6 +334,9 @@ classdef time
       if flagFrac
           fraction(:) = fracRow;
       end
+    end
+    function date=doy2datetime(year,doy)
+      date=datetime(datenum([year 0 0 0 0 0])+doy,'ConvertFrom','datenum');
     end
     function out=rand(n)
       out=datetime(sort(datenum(round([...

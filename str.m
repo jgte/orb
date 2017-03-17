@@ -105,7 +105,7 @@ classdef str
           end
         end
       otherwise
-        error([mfilename,': unknown mode ''',mode,'''.'])
+        s=strrep(s,mode,'');
       end
     end
     function out=ispresent(parser,field)
