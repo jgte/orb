@@ -44,23 +44,53 @@ classdef num
       p.addParameter('mode',      'struct',                             @(i) ischar(i));
       % parse it
       p.parse(t,y,varargin{:});
+      %simpler names
+      np=numel(p.Results.polynomial);
+      ns=numel(p.Results.sinusoidal);
+      ny=numel(y);
+      % trivial call
+      if ~any(y~=0)
+        %assign outputs
+        out=struct(...
+            'polynomial',zeros(np,1),...
+            'sinusoidal',zeros(ns,1),...
+          'y_polynomial',zeros(ny,np),...
+          'y_sinusoidal',zeros(ny,ns),...
+          'y_res',zeros(ny,1),...
+          'rnorm',0,...
+          'norm',0 ...
+        );
+        %handle special modes
+        switch p.Results.mode
+        case 'solve_phi'
+          out.phi=zeros(ns,1);
+        end
+        %we're done
+        return
+      end
+      %handle empty phi
+      if any(strcmp(p.UsingDefaults,'phi'))
+        phi=zeros(size(p.Results.sinusoidal));
+      else
+        phi=p.Results.phi;
+      end
       % branch on mode
-      %assign outputs
       switch p.Results.mode
         case 'test'
+          s=1;
           n=1000;
           randn_scale=0.2;
           poly_scale=[0.3 0.8 1.6];
           sin_scale=[0.8 0.5];
-          sin_T=n./[3 5];
+          sin_T=s*n./[3 5];
           sin_phi=[pi/3 pi/4]; %randn(numel(sin_scale));
           %derived parameters
           legend_str=cell(1,numel(poly_scale)+numel(sin_scale));
-          t=transpose(1:n);
+          t=transpose(1:s:(n*s));
           y=randn_scale*randn(n,1);
           for i=1:numel(poly_scale)
             legend_str{i}=['t^',num2str(i-1)];
-            y=y+poly_scale(i)*(t/n).^(i-1);
+            y=y+poly_scale(i)*(t/n/s).^(i-1);
           end
           for i=1:numel(sin_scale)
             legend_str{i+numel(poly_scale)}=['sin_',num2str(i)];
@@ -72,38 +102,26 @@ classdef num
           figure
           plot(t,y,t,a.y_polynomial,t,a.y_sinusoidal,t,a.y_res)
           legend('original',legend_str{:},'res')
+          title(['norm(mod+res)=',num2str(norm(sum([a.y_polynomial,a.y_sinusoidal,a.y_res,-y],2)))])
         case 'struct'
-          %simpler names
-          np=numel(p.Results.polynomial);
-          ns=numel(p.Results.sinusoidal);
-          ny=numel(y);
           %handle durations
           if isduration(p.Results.sinusoidal)
             T=seconds(p.Results.sinusoidal);
           else
             T=p.Results.sinusoidal;
           end
-          %handle empty phi
-          if isempty(p.Results.phi)
-            phi=zeros(size(T));
-          else
-            phi=p.Results.phi;
-          end
           % init design matrix
           A=zeros(ny,np+ns);
-          S=zeros(np+ns);
           % build design matrix: polynomial coefficients
           for i=1:np
-            S(i)=t(end)^(i-1);
-            A(:,i)=t.^(i-1)/S(i);
+            A(:,i)=(t/t(end)).^(i-1);
           end
           % build design matrix: sinusoidal coefficients
           for i=np+(1:ns)
-            S(i)=1;
             A(:,i)=sin(2*pi/T(i-np)*t+phi(i-np));
           end
           %solve the system of linear equations
-          x=A\y.*S;
+          x=A\y;
           %get modelled components
           y_mod=zeros(numel(y),numel(x));
           for j=1:numel(x)
@@ -118,6 +136,7 @@ classdef num
             'y_polynomial',y_mod(:,1:np),...
             'y_sinusoidal',y_mod(:,np+1:end),...
             'y_res',y_res,...
+            'rnorm',norm(y_res)./norm(y),...
             'norm',norm(y_res)...
           );
         case 'solve_phi'
@@ -131,11 +150,17 @@ classdef num
             ).norm ...
           );
           %find the phase angles
-          phi=fminsearch(fun,p.Results.phi);
+          phi=fminsearch(fun,phi);
           %get all info (the system is solved one more time, but with the correct phi)
           out=num.pardecomp(t,y,varargin{:},'phi',phi,'mode','struct');
           %append initial phase
           out.phi=phi(:);
+          %sanity
+          field_names=fields(out);
+          for i=1:numel(field_names)
+            assert(~any(isnan(out.(field_names{i})(:))),...
+              [mfilename,': found NaNs in field ''',field_names{i},''': debug needed!'])
+          end
       otherwise
         error([mfilename,': unknown output mode ''',p.Results.mode,'''.'])
       end

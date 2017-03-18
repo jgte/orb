@@ -1059,6 +1059,15 @@ classdef simpledata
       obj1=obj1.mask_update;
       obj2=obj2.mask_update;
     end
+    function obj=masked(obj,mask)
+      if ~exist('mask','var') || isempty(mask)
+        mask=obj.mask;
+      end
+      obj=obj.assign(obj.y_masked(mask),'x',obj.x_masked(mask));
+      %sanity
+      assert(all(obj.mask) || ~any(isnan(obj.y(:))),...
+        [mfilename,': making operation failed: found non-unitary mask entries and/or NaNs in the data.'])
+    end
     %% management methods
     function check_sd(obj)
       %sanitize
@@ -1694,6 +1703,31 @@ classdef simpledata
       o=o.copy_metadata(obj).merge(obj);
       o.descriptor=['residual of ',str.clean(obj.descriptor,'file')];
       out.res=o;
+      %save norms
+      o=init(x_now(1),num.struct_deal(d,'norm',[],1));
+      o=o.copy_metadata(obj);
+      o.descriptor=['norm of the residuals of ',str.clean(obj.descriptor,'file')];
+      out.norm=o;
+      %save norm ratio
+      o=init(x_now(1),num.struct_deal(d,'rnorm',[],1));
+      o=o.copy_metadata(obj);
+      o.descriptor=['signal and residual norms ratio for ',str.clean(obj.descriptor,'file')];
+      out.rnorm=o;
+      %paranoid sanity
+      fieldnames=fields(out);
+      check=[];
+      for i=1:numel(fieldnames)
+        if ~isempty(strfind(fieldnames{i},'ts_'))
+          if isempty(check)
+            check=out.(fieldnames{i});
+          else
+            check=check+out.(fieldnames{i});
+          end
+        end
+      end
+      check=check+out.res-obj;
+      assert(norm(check.masked.norm)/norm(obj.masked.norm)<1e-12,...
+        [mfilename,': norm of circular check is too high. Debug needed!'])
     end
     %% vector
     function out=norm(obj,p)
