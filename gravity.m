@@ -1260,11 +1260,16 @@ classdef gravity < simpletimeseries
       p.addParameter('line',     '-',      @(i)ischar(i));
       p.addParameter('title',    '',       @(i)ischar(i));
       p.addParameter('functional',obj.functional,gravity.parameter_list.functional.validation);
+      p.addParameter('time',      [],      @(i) simpletimeseries.valid_t(i) || isempty(i));
       % parse it
       p.parse(varargin{:});
       % enforce requested functional
       if ~strcmpi(obj.functional,p.Results.functional)
         obj=obj.scale(p.Results.functional,'functional');
+      end
+      %consider only requested 
+      if ~isempty(p.Results.time)
+        obj=obj.at(p.Results.time);
       end
       %build anotate
       if isempty(p.Results.title)
@@ -1277,6 +1282,27 @@ classdef gravity < simpletimeseries
       case 'timeseries'
         %call superclass
         out=plot@simpletimeseries(obj,varargin{:});
+      case {'triang','trianglog10'}
+        %get triangular plots (don't plot invalid entries)
+        tri_now=obj.masked.tri;
+        for i=1:numel(tri_now)
+          bad_idx=(tri_now{i}==0);
+          tri_now{i}(bad_idx)=NaN;
+          figure
+          if strcmpi(p.Results.method,'trianglog10')
+            imagesc(log10(abs(tri_now{i})))
+          else
+            imagesc(tri_now{i})
+          end
+          set(gca,'xticklabel',strsplit(num2str(get(gca,'xtick')-obj.lmax-1),' '))
+          set(gca,'yticklabel',strsplit(num2str(get(gca,'ytick')-1),' '))
+          ylabel('SH degree')
+          xlabel('SH order')
+          colorbar
+          cb.nan;
+          cb.label([obj.functional,' [',obj.y_units{1},']']);
+          title([out.title,' - ',datestr(obj.t(i)),', \mu=',num2str(mean(tri_now{i}(~bad_idx)))])
+        end   
       case {'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
         v=transpose(obj.(p.Results.method));
         switch lower(p.Results.method)

@@ -347,6 +347,9 @@ classdef datastorage
       out=cell(size(dataname_list));
       obj_list=obj.vector_get(dataname_list);
       for i=1:numel(out)
+        assert(~isfield(obj_list{i},sts_field),...
+          [mfilename,': object ',dataname_list{i}.name,' cannot handle the simpletimeseries method ''',sts_field,'''.']...
+        );
         out{i}=obj_list{i}.(sts_field);
       end
     end
@@ -534,6 +537,15 @@ classdef datastorage
         if numel(out)==1
           out=out{1};
         else
+          %NOTICE: Datanames with legitimate duplicate parts, e.g. 'gswarm.swarm.aiub.aiub', will be corrupted here.
+          %        This happens when passing an existing dataname as char to the obj.init method. Wrap that externally
+          %        on dataname contructorm i.e.:
+          % - Collides with this bug:
+          % a=datastorage().init('gswarm.swarm.aiub.aiub');a.init('gswarm.swarm.aiub.aiub')
+          %
+          % - Circumvents this bug:
+          % a=datastorage().init('gswarm.swarm.aiub.aiub');a.init(datanames('gswarm.swarm.aiub.aiub'))
+          %
           out=datanames(datanames.common(out));
 %           error([mfilename,': requesting scalar output but variable ''out'' has length ''',num2str(numel(out)),...
 %             '''. Debug needed!'])
