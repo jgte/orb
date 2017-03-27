@@ -108,7 +108,8 @@ classdef datastorage
       end
     end
     function out=datatype_isempty(obj,datatype_name)
-      out=~isfield(obj.data,datatype_name);
+      out=~isfield(obj.data,datatype_name) || ...
+        isempty(obj.data.(datatype_name));
     end
     function out=datatype_list(obj)
       out=fieldnames(obj.data);
@@ -130,7 +131,8 @@ classdef datastorage
       end
     end
     function out=level_isempty(obj,datatype,level_name)
-      out=~isfield(obj.datatype_get(datatype),level_name);
+      out=~isfield(obj.datatype_get(datatype),level_name) || ...
+        isempty(obj.data.(datatype).(level_name));
     end
     function out=level_list(obj,datatype)
       if obj.datatype_isempty(datatype)
@@ -156,7 +158,8 @@ classdef datastorage
       end
     end
     function out=field_isempty(obj,datatype,level,field_name)
-      out=~isfield(obj.level_get(datatype,level),field_name);
+      out=~isfield(obj.level_get(datatype,level),field_name) || ...
+           isempty(obj.data.(datatype).(level).(field_name));
     end
     function out=field_list(obj,datatype,level)
       if obj.level_isempty(datatype,level)
@@ -183,7 +186,8 @@ classdef datastorage
       end
     end
     function out=sat_isempty(obj,datatype,level,field,sat_name)
-      out=~isfield(obj.field_get(datatype,level,field),sat_name);
+      out=~isfield(obj.field_get(datatype,level,field),sat_name) || ...
+           isempty(obj.data.(datatype).(level).(field).(sat_name));
     end
     function out=sat_list(obj,datatype,level,field)
       if obj.field_isempty(datatype,level,field)
@@ -456,6 +460,26 @@ classdef datastorage
       obj_out.start=start;
       obj_out.stop=stop;
     end
+    %% time operations
+    function out=isteq(obj,dataname)
+      if ~exist('dataname','var') || isempty(dataname)
+        dataname=obj.vector_names;
+      else
+        dataname=obj.dataname_factory(dataname);
+      end
+      %default value
+      out=true;
+      %use the first object as reference
+      obj1=obj.data_get(dataname{1});
+      %loop over all remaining objects 
+      for i=2:numel(dataname)
+        %check of the time domains agree
+        if ~obj1.isteq(obj.data_get(dataname{i}))
+          out=false;
+          return
+        end
+      end
+    end
     %% length operations
     function [out,dataname]=length(obj,dataname)
       if ~exist('dataname','var') || isempty(dataname)
@@ -575,8 +599,13 @@ classdef datastorage
       start_here=obj.start;
       stop_here =obj.stop;
       % invoke init method
-      ih=str2func(obj.mdget(dataname).mdget('method'));
-      obj=ih(obj,dataname,varargin{:});
+      init_str=obj.mdget(dataname).mdget('method');
+      if ~isempty(strfind(init_str,'datastorage.'))
+        obj=obj.(strrep(init_str,'datastorage.',''))(dataname,varargin{:});
+      else
+        ih=str2func(init_str);
+        obj=ih(obj,dataname,varargin{:});
+      end
       % enforce start/stop
       obj.start=start_here;
       obj.stop =stop_here;
@@ -661,9 +690,9 @@ classdef datastorage
           'zeromean',p.Results.plot_zeromean...
         );
         %save units
-        h.y_units=d.y_units{p.Results.plot_columns{1}};
+        h.y_units=d.y_units{p.Results.plot_columns(1)};
         for i=2:numel(p.Results.plot_columns)
-          if ~strcmp(h.y_units,d.y_units(p.Results.plot_columns{i}))
+          if ~strcmp(h.y_units,d.y_units(p.Results.plot_columns(i)))
             error([mfilename,':BUG TRAP: y-units are not consistent in all plotted lines.'])
           end
         end
@@ -748,6 +777,10 @@ classdef datastorage
       end
       %put the title in the current plot
       title(str.clean(title_str,'_'))
+      %handle keywords
+      if strcmp(title_str,'clear')
+        title('')
+      end
       %grid, if requested
       if p.Results.plot_grid;grid on;end
     end
@@ -776,7 +809,7 @@ classdef datastorage
         if numel(h)==1
           ylabel_str=h{1}.ylabel;
         else
-          ylabel_str=['[',h{1}.y_units,']'];
+          ylabel_str=h{1}.y_units;
         end
       end
       %put the ylabel in the current plot
@@ -900,7 +933,7 @@ classdef datastorage
           %enforce plot preferences
           obj.mdget(dataname_now).enforce_plot
           %annotate plot
-          obj.plot_annotate(h,dataname_list_to_plot,varargin{:})
+          obj.plot_annotate(h,dataname_now,dataname_list_to_plot,varargin{:})
           %save this plot
           saveas(gcf,filename)
         else
@@ -912,19 +945,17 @@ classdef datastorage
       %parse mandatory args
       dataname_now =obj.dataname_factory(dataname_now);
       dataname_list=obj.dataname_factory(dataname_list);
-      if isnumeric(plot_columns)
-        plot_columns=num2cell(plot_columns);
-      elseif ~iscell(plot_columns)
+      if ~isnumeric(plot_columns)
         error([mfilename,': can only handle input ''plot_columns'' that is cell, not of class ''',...
           class(plot_columns),'''.'])
       end
-      %expand scalar plot_columns
+      %expand scalar plot_columns into cell array (usually plot_columns is not a
       if isscalar(plot_columns)
-        plot_columns=num2cell(plot_columns{1}*ones(1,numel(dataname_list)));
+        plot_columns=num2cell(plot_columns*ones(1,numel(dataname_list)));
       elseif numel(plot_columns) ~= numel(dataname_list)
         tmp=cell(size(dataname_list));
         for i=1:numel(tmp)
-          tmp{i}=[plot_columns{:}];
+          tmp{i}=plot_columns;
         end
         plot_columns=tmp;
       end
@@ -939,7 +970,7 @@ classdef datastorage
       for i=1:numel(dataname_list)
         h{i}=obj.justplot(dataname_list{i},varargin{:},...
           'plot_columns_together',true,...
-          'plot_columns',plot_columns(i)...
+          'plot_columns',plot_columns{i}... %leave plot_columns here as cell array
         );
       end
       %enforce plot preferences (using the metadata of the first dataname)
@@ -992,7 +1023,7 @@ classdef datastorage
                     'timestamp',true,...
                     'remove_part','',...
                     'prefix',p.Results.plot_file_prefix...
-                    'suffix',[col_names{p.Results.plot_columns{c}},suffix]...
+                    'suffix',[col_names{p.Results.plot_columns(c)},suffix]...
                   }];
                   %plot filename
                   filename=out_dn.file(filename_args{:});
@@ -1008,9 +1039,9 @@ classdef datastorage
                     if any(cell2mat(obj_curr.vector_sts('nr_valid',in_dn))>1)
                       %plot it
                       figure('visible',p.Results.plot_visible);
-                      h=obj_curr.plot_mult(dataname,in_dn,p.Results.plot_columns{c},...
+                      h=obj_curr.plot_mult(dataname,in_dn,p.Results.plot_columns(c),...
                         varargin{:},...
-                        'plot_title_suffix',col_names{p.Results.plot_columns{c}});
+                        'plot_title_suffix',col_names{p.Results.plot_columns(c)});
                       %save this plot
                       saveas(gcf,filename)
                       % user feedback
@@ -1067,7 +1098,14 @@ classdef datastorage
         else
           %if the dataflow structure is missing a part, then patch from this product or sources
           if product.ismd_field(partname)
-            df.(partname)=product.mdget(partname);
+            df.(partname)=product.mdget(partname,'always_cell_array',true);
+            %this avoids having to define repetitive (e.g.) sats values in the 'dataflow' metadata field,
+            %the scalar 'sats' metadata fiels is enough (doesn't work for 'types')
+            if i>1 && numel(df.(partname))==1 && numel(df.([obj.parts{1},'s']))>1
+              tmp=cell(size(df.([obj.parts{1},'s'])));
+              tmp(:)=df.(partname);
+              df.(partname)=tmp;
+            end
           else
             found_part=false;
             for j=1:product.nr_sources
@@ -1249,6 +1287,12 @@ classdef datastorage
                     ),'check_empty',true);
                   end
                   if obj.debug;disp([out_dn.name,' = ',in1_dn.name,' + ',in2_dn.name]);end
+                  %enforce common time domain, if given
+                  if product.ismd_field('common_time')
+                    common_time=product.mdget('common_time');
+                    in1=in1.interp([common_time{:}]);
+                    in2=in2.interp([common_time{:}]);
+                  end
                   out=in1.(operation)(in2);
                 end
                 %propagate result
