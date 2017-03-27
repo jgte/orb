@@ -224,7 +224,7 @@ classdef file
             end
           end
         end
-        filenames=unique([f1(:),f2(:)]);
+        filenames=unique([f1(:);f2(:)]);
       end
       %one filename is frequently empty
       filenames(cellfun('isempty',filenames))=[];
