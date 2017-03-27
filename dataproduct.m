@@ -37,6 +37,7 @@ classdef dataproduct
         'plot_autoscale',false,... %y-scale is derived from the data (in dataproduct.enforce_plot)
         'plot_automean',false,...  %middle-point of y axis is derived from the data (in dataproduct.enforce_plot)
         'plot_zeromean',false,...  %mean of data is removed before plotting (in simpledata.plot)
+        'plot_colormap','',...
         'plot_outlier',0 ...
       )...
     );
@@ -367,7 +368,7 @@ classdef dataproduct
         %declare this plot parameter as optional argument to this function
         p.addParameter(...
           mdf{i},...
-          obj.metadata.(mdf{i}),...
+          num.cell(obj.metadata.(mdf{i})),...
           @(i) iscell(i) || ischar(i) || isnumeric(i) || islogical(i)... %pretty generic validation needed to let anything in
         )
       end
@@ -396,7 +397,9 @@ classdef dataproduct
       % enforce line properties
       line_handles=get(p.Results.axis_handle,'Children');
       for i=1:numel(line_handles)
-        set(line_handles(i),'LineWidth',p.Results.plot_line_width)
+        if isprop(line_handles(i),'LineWidth')
+          set(line_handles(i),'LineWidth',p.Results.plot_line_width)
+        end
       end
       % enforce x-limits
       v=axis(p.Results.axis_handle);
@@ -454,6 +457,10 @@ classdef dataproduct
         end
       end
       axis(p.Results.axis_handle,v);
+      %enforce colormap
+      if ~isempty(p.Results.plot_colormap)
+        colormap(p.Results.plot_colormap)
+      end
     end
   end
 end
