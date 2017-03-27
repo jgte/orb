@@ -78,6 +78,11 @@ classdef str
         end
         return
       end
+      %trivial call
+      if isempty(mode)
+        return
+      end
+      %branch on mode
       switch lower(mode)
       case 'basename'
         [~,s,e]=fileparts(s);
