@@ -1482,8 +1482,8 @@ classdef datastorage
                   scl=1;
                 end
                 sat=struct(...
-                  'A',s.(fields{i}).A.(mode{1}).mask_and(mask).mask_update,...
-                  'B',s.(fields{i}).B.(mode{1}).mask_and(mask).mask_update...
+                  'A',s.(fields{i}).A.(mode{1}).mask_and(mask),...
+                  'B',s.(fields{i}).B.(mode{1}).mask_and(mask)...
                 );
                 figure('visible',obj.par.plot.visible);
                 sat.A.scale(scl).plot('columns',obj.par.calpar_csr.data_col_idx);
@@ -1521,7 +1521,7 @@ classdef datastorage
                   scl=1;
                 end    
                 figure('visible',obj.par.plot.visible);
-                s.(fields{i}).(mode{1}).mask_and(mask).mask_update.scale(scl).plot(...
+                s.(fields{i}).(mode{1}).mask_and(mask).scale(scl).plot(...
                   'columns',obj.par.calpar_csr.data_col_idx...
                 );
                 obj.enforce_plot_par('ylimits',ylimits)
@@ -1811,7 +1811,7 @@ classdef datastorage
                       scl=1;
                     end
                     %plot it
-                    h=ts.mask_and(mask).mask_update.scale(scl).plot('columns',data_col_idx);
+                    h=ts.mask_and(mask).scale(scl).plot('columns',data_col_idx);
                     legend_str{m}=[models{m},' \mu=',h.y_mean{data_col_idx}];
                   end
                   %plot tweaking
