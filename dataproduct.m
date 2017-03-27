@@ -426,6 +426,9 @@ classdef dataproduct
                                     'PaperPosition',     p.Results.plot_size);
       % enforce line properties
       line_handles=plotting.line_handles(p.Results.axis_handle);
+      for i=1:numel(line_handles)		
+        set(line_handles(i),'LineWidth',p.Results.plot_line_width)		
+      end		
       % enforce x-limits
       v=axis(p.Results.axis_handle);
       if p.Results.plot_xdate
@@ -466,7 +469,7 @@ classdef dataproduct
           dat=simpledata.rm_outliers(dat);
         end
         dat=dat(~isnan(dat(:)));
-        if ~isempty(dat)
+        if ~isempty(dat) && diff(minmax(dat))~=0
           %enfore data-driven mean and/or scale
           if p.Results.plot_automean && p.Results.plot_autoscale
             v(3:4)=mean(dat)+4*std(dat)*[-1,1];
