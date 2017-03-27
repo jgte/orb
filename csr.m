@@ -3,7 +3,9 @@ classdef csr
     function log(msg)
       logname=fullfile(fileparts(mfilename),'import_calpar.log');
       if ~exist('msg','var')
-        if ~isempty(dir(logname)); delete(logname); end
+        if ~isempty(dir(logname))
+          system(['mv -v ',logname,' ',strrep(logname,'.log',''),'.',datestr(datetime('now'),30),'.log'])
+        end
       else
         fid = fopen(logname,'a');  
         fprintf(fid,[strjoin(msg,'\n'),'\n']);
@@ -77,6 +79,7 @@ classdef csr
                   assert(tmp.(sats{s}).width < t0_col || all(tmp.(sats{s}).mjd==tmp.(sats{s}).y(:,t0_col)),[mfilename,':',...
                     'discrepancy between time domain and t0.'])
                 end
+                %add long-term biases
                 t=tmp.(sats{s}).mjd-ltb.(sats{s})(2,1);
                 tmp.(sats{s})=tmp.(sats{s}).assign(...
                   [tmp.(sats{s}).y(:,param_col)+polyval(...
@@ -531,8 +534,7 @@ classdef csr
                 error([mfilename,': calibration time domain inconsistent between parameters, debug needed!'])
               end
               
-              
-              é preciso arranjar isto, o start arc tem de ser definido algures
+              %é preciso arranjar isto, o start arc tem de ser definido algures (para aak e accatt)
               
               %build calibration model
               calmod=calmod.set_cols(i,...
@@ -638,6 +640,38 @@ classdef csr
         obj.stop= p.Results.stop;
       end
     end
+    function rm_data(mode,varargin)
+      if ~exist('mode','var') || isempty(mode)
+        mode='all';
+      end
+      switch lower(mode)
+      case 'all'
+        %define all data to be removed
+%           'grace.acc.l1b.nrtdm',...
+%           'grace.acc.mod.nrtdm',...
+%           'grace.acc.l1b.csr',...
+%           'grace.acc.mod.csr',...
+%           'graceacccal',...
+        d={...
+          'grace.acc.cal_csr',...
+          'grace.calpar_csr',...
+          'grace.calpar_csr_corr',...
+          'grace.calpar_csr_stats'...
+        };
+        %recursive call
+        for i=1:numel(d)
+          csr.rm_data(d{i});
+        end
+      case 'graceacccal'
+        datadir=fullfile(getenv('HOME'),'data','csr','GraceAccCal');
+        system(['rm -fv ',fullfile(datadir,'to-delete','*.mat')])
+        system(['mv -fv ',fullfile(datadir,'*.mat'),' ',fullfile(datadir,'to-delete')])
+      case 'import_calpar_debug_plots'
+        
+      otherwise
+        dataproduct(mode).rm_data(varargin{:});
+      end
+    end
     function calpar_debug_plots(debug)
       if ~exist('debug','var') || isempty(debug)
         debug=false;
@@ -654,7 +688,7 @@ classdef csr
       
       %define list of days to plot
       lod=datetime({...
-        '2002-08-06',...
+%         '2002-08-06',...
         '2002-08-16','2002-08-17',...
         '2003-01-13','2003-01-14',...
         '2003-11-20',...
@@ -670,7 +704,7 @@ classdef csr
         start=lod(i);
         stop=lod(i)+days(1)-seconds(1);
         %plot it
-        datastorage('debug',debug,'start',start,'stop',stop).init('grace.acc.cal_csr_plots','plot_dir',plot_dir)
+        datastorage('debug',debug,'start',start,'stop',stop).init('grace.acc.cal_csr_plots','plot_dir',plot_dir);
       end
     end
   end
