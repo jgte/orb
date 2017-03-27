@@ -233,7 +233,6 @@ classdef cb
           colormap(new)
       end
     end
-    
     function new=center(WHITEVAL,old,gap)
       % NEW = PLOT_COLORBAR_CENTER(WHITEVAL), returns a new colormap with a gap
       % in the colormap around WHITEVAL value in the colormap currently in use.
