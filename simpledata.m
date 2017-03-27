@@ -858,6 +858,26 @@ classdef simpledata
         for f=p.Results.struct_fields;
           out.(f{1})=stats@simpledata(obj,varargin{:},'mode',f{1});
         end
+      case 'obj'
+        %get structure with requested stats
+        s=stats@simpledata(obj,varargin{:},'mode','struct');
+        % use the correct object constructor
+        init=str2func(class(obj));
+        % use correct abcissae
+        switch class(obj)
+        case 'simpledata'
+          x_now=mean(obj.x_masked);
+        case {'simpletimeseries','gravity','simplegrid'}
+          x_now=mean(obj.t_masked);
+        otherwise
+          error([mfilename,': cannot handle objects of class ''',class(obj),'''.'])
+        end
+        %loop over all structure fields and create a object
+        fields=fieldnames(s);
+        for i=1:numel(fields)
+          out.(fields{i})=init(x_now,s.(fields{i}));
+          out.(fields{i})=out.(fields{i}).copy_metadata(obj);
+        end
       otherwise
         error([mfilename,': unknown mode.'])
       end
@@ -1478,15 +1498,17 @@ classdef simpledata
         compatible(obj1,obj2)
         %operate
         if obj1.length==1
-          obj1.y=obj1.y*ones(1,obj2.length)+obj2.y;
+          obj1=obj1.assign(ones(obj2.length,1)*obj1.y+obj2.y,'mask',obj2.mask,'t',obj2.t);
         elseif obj2.length==1
-          obj1.y=obj2.y*ones(1,obj2.length)+obj1.y;
+          obj1=obj1.assign(ones(obj1.length,1)*obj2.y+obj1.y,'mask',obj1.mask,'t',obj1.t);
         else
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2);
           %operate
           obj1=obj1.assign(obj1.y+obj2.y,'mask',obj1.mask & obj2.mask);
         end
+        %update descriptor
+        obj1.descriptor=[obj1.descriptor,'+',obj2.descriptor];
       end
     end
     function obj1=minus(obj1,obj2)
@@ -1499,15 +1521,17 @@ classdef simpledata
         compatible(obj1,obj2)
         %operate
         if obj1.length==1
-          obj1.y=ones(obj2.length,1)*obj1.y-obj2.y;
+          obj1=obj1.assign(ones(obj2.length,1)*obj1.y-obj2.y,'mask',obj2.mask,'t',obj2.t);
         elseif obj2.length==1
-          obj1.y=ones(obj1.length,1)*obj2.y-obj1.y;
+          obj1=obj1.assign(obj1.y-ones(obj1.length,1)*obj2.y,'mask',obj1.mask,'t',obj1.t);
         else
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2);
           %operate
           obj1=obj1.assign(obj1.y-obj2.y,'mask',obj1.mask & obj2.mask);
         end
+        %update descriptor
+        obj1.descriptor=[obj1.descriptor,'-',obj2.descriptor];
       end
     end
     function obj=scale(obj,scl)
@@ -1544,17 +1568,18 @@ classdef simpledata
       else
         %sanity
         compatible(obj1,obj2,'compatible_parameters',{'x_units'})
-        %operate
         if obj1.length==1
-          obj1.y=obj1.y*ones(1,obj2.length).*obj2.y;
+          obj1=obj1.assign(ones(obj2.length,1)*obj1.y.*obj2.y,'mask',obj2.mask,'t',obj2.t);
         elseif obj2.length==1
-          obj1.y=obj2.y*ones(1,obj2.length).*obj1.y;
+          obj1=obj1.assign(ones(obj1.length,1)*obj2.y.*obj1.y,'mask',obj1.mask,'t',obj1.t);
         else
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2);
           %operate
           obj1=obj1.assign(obj1.y.*obj2.y,'mask',obj1.mask & obj2.mask);
         end
+        %update descriptor
+        obj1.descriptor=[obj1.descriptor,'*',obj2.descriptor];
       end
     end
     function obj1=rdivide(obj1,obj2)
@@ -1565,17 +1590,18 @@ classdef simpledata
       else
         %sanity
         compatible(obj1,obj2,'compatible_parameters',{'x_units'})
-        %operate
         if obj1.length==1
-          obj1.y=obj1.y*ones(1,obj2.length)./obj2.y;
+          obj1=obj1.assign(ones(obj2.length,1)*obj1.y./obj2.y,'mask',obj2.mask,'t',obj2.t);
         elseif obj2.length==1
-          obj1.y=obj2.y*ones(1,obj2.length)./obj1.y;
+          obj1=obj1.assign(obj1.y./ones(obj1.length,1)*obj2.y,'mask',obj1.mask,'t',obj1.t);
         else
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2);
           %operate
           obj1=obj1.assign(obj1.y./obj2.y,'mask',obj1.mask & obj2.mask);
         end
+        %update descriptor
+        obj1.descriptor=[obj1.descriptor,'/',obj2.descriptor];
       end
     end
     function obj1=power(obj1,obj2)
@@ -1587,15 +1613,17 @@ classdef simpledata
       else
         %operate
         if obj1.length==1
-          obj1.y=obj1.y*ones(1,obj2.length).^obj2.y;
+          obj1=obj1.assign(ones(obj2.length,1)*obj1.y.^obj2.y,'mask',obj2.mask,'t',obj2.t);
         elseif obj2.length==1
-          obj1.y=obj2.y*ones(1,obj2.length).^obj1.y;
+          obj1=obj1.assign(ones(obj1.length,1)*obj2.y.^obj1.y,'mask',obj1.mask,'t',obj1.t);
         else
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2);
           %operate
           obj1=obj1.assign(obj1.y.^obj2.y,'mask',obj1.mask & obj2.mask);
         end
+        %update descriptor
+        obj1.descriptor=[obj1.descriptor,'^',obj2.descriptor];
       end
     end
     function obj=sqrt(obj)
@@ -1625,9 +1653,10 @@ classdef simpledata
     function out=parametric_decomposition(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
+      p.addParameter('phi',          [], @(i) isnumeric(i) || isempty(i));
       p.addParameter('polynomial',[1 1], @(i) isnumeric(i) || isempty(i));
-      p.addParameter('sinusoidal',[],    @(i) isnumeric(i) || isduration(i)|| isempty(i));
-      p.addParameter('phi',       [],    @(i) isnumeric(i) || isempty(i));
+      p.addParameter('sinusoidal',   [], @(i) isnumeric(i) || isduration(i) || isempty(i));
+      p.addParameter('t_mod_f',      [], @(i) isnumeric(i) || isempty(i));
       % parse it
       p.parse(varargin{:});
       %handle unknown phase angles
@@ -1636,10 +1665,7 @@ classdef simpledata
         args={'mode','solve_phi'};
       else
         % use given initial phase
-        args={...
-          'phi',p.Results.phi,...
-          'mode','struct'...
-        };
+        args={'mode','struct'};
       end
       % call mother routine
       s.msg=['Parametric decomposition of ',obj.descriptor]; s.n=obj.width;
@@ -1647,21 +1673,42 @@ classdef simpledata
       y_now=obj.y_masked;
       for i=1:obj.width
         d(i)=num.pardecomp(x_now,y_now(:,i),...
-          'polynomial',p.Results.polynomial,...
-          'sinusoidal',p.Results.sinusoidal,...
-          args{:}...
-        ); %#ok<AGROW>
+          args{:},varargin{:}...
+        );%#ok<AGROW>
         s=time.progress(s,i);
       end
-      time.progress(s,obj.width);
+      %check if higher x-domain resolution for the model is needed
+      if p.Results.t_mod_f > 1
+        %build high-res x domain
+        x_mod=transpose(x_now(1):mean(diff(x_now))/p.Results.t_mod_f:x_now(end));
+        if x_mod(end)~=x_now(end); x_mod(end+1)=x_now(end);  end
+        %retrieve modelled data
+        clear s; s.msg=['Increase temporal resolution of parametric decomposition of ',obj.descriptor]; s.n=obj.width;
+        for i=1:obj.width
+          y_mod=num.pardecomp(x_mod,ones(size(x_mod)),varargin{:},'mode','model',...
+            'x',[d(i).polynomial(:);d(i).sinusoidal(:)]...
+          );
+          %re-assign higher-res modelled data
+          d(i).y_polynomial=y_mod(:,                             1:numel(p.Results.polynomial) );
+          d(i).y_sinusoidal=y_mod(:,numel(p.Results.polynomial)+(1:numel(p.Results.sinusoidal)));
+          s=time.progress(s,i);
+        end
+      else
+        x_mod=x_now;
+      end
       % use the correct object constructor
       init=str2func(class(obj));
       % use correct abcissae
       switch class(obj)
       case 'simpledata'
         x_now=obj.x_masked;
-      case {'simpletimeseries','gravity'}
+      case {'simpletimeseries','gravity','simplegrid'}
         x_now=obj.t_masked;
+        if p.Results.t_mod_f > 1
+          x_mod=transpose(x_now(1):mean(diff(x_now))/p.Results.t_mod_f:x_now(end));
+        else
+          x_mod=x_now;
+        end
       otherwise
         error([mfilename,': cannot handle objects of class ''',class(obj),'''.'])
       end
@@ -1673,8 +1720,8 @@ classdef simpledata
         o.descriptor=['p',num2str(i-1),' of ',str.clean(obj.descriptor,'file')];
         out.(['p',num2str(i-1)])=o;
         %save polynomial timeseries
-        o=init(x_now,num.struct_deal(d,'y_polynomial',[],i));
-        o=o.copy_metadata(obj).merge(obj);
+        o=init(x_mod,num.struct_deal(d,'y_polynomial',[],i));
+        o=o.copy_metadata(obj); %don't merge with obj here, breaks with t_mod_f 
         o.descriptor=['p',num2str(i-1),' of ',str.clean(obj.descriptor,'file')];
         out.(['ts_p',num2str(i-1)])=o;
       end
@@ -1693,8 +1740,8 @@ classdef simpledata
           out.(['phi',num2str(i)])=o;
         end
         %save sinusoidal timeseries
-        o=init(x_now,num.struct_deal(d,'y_sinusoidal',[],i));
-        o=o.copy_metadata(obj).merge(obj);
+        o=init(x_mod,num.struct_deal(d,'y_sinusoidal',[],i));
+        o=o.copy_metadata(obj); %don't merge with obj here, breaks with t_mod_f
         o.descriptor=['s',num2str(i),' of ',str.clean(obj.descriptor,'file')];
         out.(['ts_s',num2str(i)])=o;
       end
@@ -1713,21 +1760,21 @@ classdef simpledata
       o=o.copy_metadata(obj);
       o.descriptor=['signal and residual norms ratio for ',str.clean(obj.descriptor,'file')];
       out.rnorm=o;
-      %paranoid sanity
-      fieldnames=fields(out);
-      check=[];
-      for i=1:numel(fieldnames)
-        if ~isempty(strfind(fieldnames{i},'ts_'))
-          if isempty(check)
-            check=out.(fieldnames{i});
-          else
-            check=check+out.(fieldnames{i});
-          end
-        end
-      end
-      check=check+out.res-obj;
-      assert(norm(check.masked.norm)/norm(obj.masked.norm)<1e-12,...
-        [mfilename,': norm of circular check is too high. Debug needed!'])
+%       %paranoid sanity
+%       fieldnames=fields(out);
+%       check=[];
+%       for i=1:numel(fieldnames)
+%         if ~isempty(strfind(fieldnames{i},'ts_'))
+%           if isempty(check)
+%             check=out.(fieldnames{i});
+%           else
+%             check=check+out.(fieldnames{i});
+%           end
+%         end
+%       end
+%       check=check+out.res-obj;
+%       assert(norm(check.masked.norm)/norm(obj.masked.norm)<1e-12,...
+%         [mfilename,': norm of circular check is too high. Debug needed!'])
     end
     %% vector
     function out=norm(obj,p)
@@ -1851,7 +1898,11 @@ classdef simpledata
         if isempty(p.Results.line)
           out.handle{i}=plot(x_plot,y_plot{i});hold on
         else
-          out.handle{i}=plot(x_plot,y_plot{i},p.Results.line{i});hold on
+          if iscell(p.Results.line{i})
+            out.handle{i}=plot(x_plot,y_plot{i},p.Results.line{i}{:});hold on
+          else
+            out.handle{i}=plot(x_plot,y_plot{i},p.Results.line{i});hold on
+          end
         end
       end
       %set x axis
