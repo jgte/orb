@@ -946,7 +946,7 @@ classdef datastorage
       dataname_now =obj.dataname_factory(dataname_now);
       dataname_list=obj.dataname_factory(dataname_list);
       if ~isnumeric(plot_columns)
-        error([mfilename,': can only handle input ''plot_columns'' that is cell, not of class ''',...
+        error([mfilename,': can only handle input ''plot_columns'' that is numeric, not of class ''',...
           class(plot_columns),'''.'])
       end
       %expand scalar plot_columns into cell array (usually plot_columns is not a
