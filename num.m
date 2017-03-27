@@ -42,6 +42,8 @@ classdef num
       p.addParameter('sinusoidal',[2*min(diff(t)),(t(end)-t(1))/2],     @(i) isnumeric(i) || isempty(i) || isduration(i));
       p.addParameter('phi',       [0,0],                                @(i) isnumeric(i) || isempty(i));
       p.addParameter('mode',      'struct',                             @(i) ischar(i));
+      %these parameters are only valid for the "model" mode.
+      p.addParameter('x',         [],                                   @(i) isnumeric(i) || isempty(i));
       % parse it
       p.parse(t,y,varargin{:});
       %simpler names
@@ -103,7 +105,7 @@ classdef num
           plot(t,y,t,a.y_polynomial,t,a.y_sinusoidal,t,a.y_res)
           legend('original',legend_str{:},'res')
           title(['norm(mod+res)=',num2str(norm(sum([a.y_polynomial,a.y_sinusoidal,a.y_res,-y],2)))])
-        case 'struct'
+        case 'design'
           %handle durations
           if isduration(p.Results.sinusoidal)
             T=seconds(p.Results.sinusoidal);
@@ -120,13 +122,28 @@ classdef num
           for i=np+(1:ns)
             A(:,i)=sin(2*pi/T(i-np)*t+phi(i-np));
           end
-          %solve the system of linear equations
-          x=A\y;
+          %outputs
+          out=A;
+        case 'model'
+          %sanity
+          assert(~isempty(p.Results.x),[mfilename,': need input argument ''x''.'])
+          %get the design matrix
+          A=num.pardecomp(t,y,varargin{:},'mode','design');
           %get modelled components
+          x=p.Results.x;
           y_mod=zeros(numel(y),numel(x));
           for j=1:numel(x)
             y_mod(:,j)=A(:,j)*x(j);
           end
+          %outputs
+          out=y_mod;
+        case 'struct'
+          %get the design matrix
+          A=num.pardecomp(t,y,varargin{:},'mode','design');
+          %solve the system of linear equations
+          x=A\y;
+          %get modelled components
+          y_mod=num.pardecomp(t,y,varargin{:},'mode','model','x',x);
           %get residuals
           y_res=y-sum(y_mod,2);
           %assign outputs
@@ -143,8 +160,7 @@ classdef num
           %declare function to optimize
           fun=@(phi) (...
             num.pardecomp(t,y,...
-              'polynomial',p.Results.polynomial,...
-              'sinusoidal',p.Results.sinusoidal,...
+              varargin{:},...
               'phi',phi,...
               'mode','struct'...
             ).norm ...
@@ -180,6 +196,12 @@ classdef num
         for i=1:numel(s)
           out(i,:)=s(i).(field)(line,:);
         end
+      end
+    end
+    % converts cell array to numeric array if all entries are numeric
+    function inout=cell(inout)
+      if iscell(inout) && all(cellfun(@isnumeric,inout))
+        inout=cell2mat(inout);
       end
     end
   end
