@@ -856,14 +856,15 @@ classdef simpletimeseries < simpledata
           timesystem='gps';
         end
         if ~isempty(regexp(filename,'AC0[XYZ]\d?\.estim','once')) || ~isempty(regexp(filename,'AC0[XYZ][DQ]\d?\.estim','once'))
+          % 1    2  3  4  5  6  7     8 9   10      11       12                    13                     14
           % 2002 04 05 04/05/02 52369 1 0.0 26400.0 1593715  3.774424464092000e-08 -3.585594302740665e-09 3.415865033817934e-08
           fmt='%d %d %d %d/%d/%d %f %d %f %f %d %f %f %f';
-          units={'m/s^2','',''};
+          units={'m/s^2','','sec','sec'};
           labels={str.clean(filename,{'file','grace','.'}),'Job ID','arc duration','arc start'};
           time_fh=@(raw) datetime(raw{7}+raw{9}/seconds(days(1)),...
             'ConvertFrom','modifiedjuliandate'...
           );
-          data_fh=@(raw) [raw{14},double(raw{11}),raw{10}];
+          data_fh=@(raw) [raw{14},double(raw{11}),raw{10},raw{9}];
           timesystem='gps';
         end
 
