@@ -636,7 +636,7 @@ classdef grace
                     ])
                     mask=ts_now.mask;
                     mask(idx1(bad_idx))=false;
-                    obj=obj.sat_set(datatype,levels{i},fields{j},grace.sats{s},ts_now.mask_and(mask).mask_update);
+                    obj=obj.sat_set(datatype,levels{i},fields{j},grace.sats{s},ts_now.mask_and(mask));
                   end
                 end
               case {'aak','accatt'}
@@ -677,7 +677,7 @@ classdef grace
                     ])
                     mask=ts_now.mask;
                     mask(idx1(bad_idx))=false;
-                    obj=obj.sat_set(datatype,levels{i},fields{j},grace.sats{s},ts_now.mask_and(mask).mask_update);
+                    obj=obj.sat_set(datatype,levels{i},fields{j},grace.sats{s},ts_now.mask_and(mask));
                   end
                 end
               end
@@ -1019,8 +1019,8 @@ classdef grace
                   scl=1;
                 end
                 sat=struct(...
-                  'A',s.(fields{i}).A.(mode{1}).mask_and(mask).mask_update,...
-                  'B',s.(fields{i}).B.(mode{1}).mask_and(mask).mask_update...
+                  'A',s.(fields{i}).A.(mode{1}).mask_and(mask),...
+                  'B',s.(fields{i}).B.(mode{1}).mask_and(mask)...
                 );
                 figure('visible',obj.par.plot.visible);
                 sat.A.scale(scl).plot('columns',obj.par.calpar_csr.data_col_idx);
@@ -1058,7 +1058,7 @@ classdef grace
                   scl=1;
                 end    
                 figure('visible',obj.par.plot.visible);
-                s.(fields{i}).(mode{1}).mask_and(mask).mask_update.scale(scl).plot(...
+                s.(fields{i}).(mode{1}).mask_and(mask).scale(scl).plot(...
                   'columns',obj.par.calpar_csr.data_col_idx...
                 );
                 obj.enforce_plot_par('ylimits',ylimits)
@@ -1347,7 +1347,7 @@ classdef grace
                       scl=1;
                     end
                     %plot it
-                    h=ts.mask_and(mask).mask_update.scale(scl).plot('columns',data_col_idx);
+                    h=ts.mask_and(mask).scale(scl).plot('columns',data_col_idx);
                     legend_str{m}=[models{m},' \mu=',h.y_mean{data_col_idx}];
                   end
                   %plot tweaking

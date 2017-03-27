@@ -1002,12 +1002,12 @@ classdef simpledata
     %in comparison, implicit gaps are:
     %x=[1,2,4,5..], mask=[T,T,T,T...] (x=3 being an implict gap).
     function obj=mask_and(obj,mask_now)
-      %NOTE: this calls set.mask (and mask_update as well)
       obj.mask=obj.mask & mask_now(:);
+      obj=obj.mask_update;
     end
     function obj=mask_or(obj,mask_now)
-      %NOTE: this calls set.mask (and mask_update as well)
       obj.mask=obj.mask | mask_now(:);
+      obj=obj.mask_update;
     end
     function obj=mask_update(obj)
       %sanity
@@ -1074,8 +1074,8 @@ classdef simpledata
       out=sum(obj.mask);
     end
     function [obj1,obj2]=mask_match(obj1,obj2)
-      obj1=obj1.mask_and(obj2.mask);
-      obj2=obj2.mask_and(obj1.mask);
+      obj1.mask=obj1.mask & obj2.mask;
+      obj2.mask=obj2.mask & obj1.mask;
       obj1=obj1.mask_update;
       obj2=obj2.mask_update;
     end
