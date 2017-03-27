@@ -7,7 +7,7 @@ dataflow: #[this product, (=) source 1, (operation) source 2, ...]
   fields: [decomp11_plots, full,     decomp11, decomp11, decomp11, decomp11]
   sats:   [signal,        signal,   ts_p0,    ts_p1,    ts_s1,    res]
 plot_columns_together: false
-plot_columns: [1,3,4,5,6,7,8]
+plot_columns: [150]
 plot_title_suppress: [gswarm,combined]
 plot_legend_suppress: [decomp11,ts\_]
 plot_xlimits: [2013-11-01,2016-12-31]
