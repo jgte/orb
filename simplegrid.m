@@ -30,7 +30,7 @@ classdef simplegrid < simpletimeseries
   %calculated only when asked for
   properties(Dependent)
     lat
-    lon
+    lon,lon180,lon360
     map
     vecmat
     list
@@ -52,6 +52,9 @@ classdef simplegrid < simpletimeseries
     %% spacing
     function out=getSpacing(lon,lat)
       out = [ min(diff(unique(lon(:),'sorted'))) min(diff(unique(lat(:),'sorted'))) ];
+      if isempty(out)
+        out=[1 1];
+      end
     end
     function out=lat_spacing_valid(spacing)
       out= isnumeric(spacing) && isscalar(spacing) && mod(180,spacing)==0;
@@ -631,6 +634,15 @@ classdef simplegrid < simpletimeseries
 %     function out=load(filename)
 %       %TODO
 %     end
+    %% map add-ons
+  function h=coast(varargin)
+      p=inputParser;
+      p.addParameter('line_color','k',@(i) ischaracter(i));
+      p.addParameter('line_width',1.5,  @(i) isscalar(i) && isnumeric(i));
+      p.parse(varargin{:});
+      coast = load('coast');
+      h=plot(coast.long,coast.lat,'LineWidth',p.Results.line_width,'Color',p.Results.line_color);
+  end
     %% tests
     %general test for the current object
     function out=test_parameters(field,l,w)
@@ -641,7 +653,7 @@ classdef simplegrid < simpletimeseries
         out=simpledata.test_parameters(field,l,w);
       end
     end
-    function test(method,l)
+    function a=test(method,l)
       if ~exist('method','var') || isempty(method)
         method='all';
       end
@@ -650,7 +662,7 @@ classdef simplegrid < simpletimeseries
       end
       switch lower(method)
       case 'all'
-         for i={'reps','plus','minus','times','rdivide','print','resample','ggm05s','stats'}
+         for i={'reps','plus','minus','times','rdivide','print','resample','ggm05s','stats','coast'}
            simplegrid.test(i{1},l);
          end
       case 'reps'
@@ -741,6 +753,10 @@ classdef simplegrid < simpletimeseries
         a.prettymap
         disp(method)
         a.stats('mode',method,'period',inf).prettymap
+      case 'coast'
+        a=simplegrid.coast;
+      case 'plot'
+        a=simplegrid.slanted(l(1)*10,l(2)*10).plot;
       end
     end
   end
@@ -970,10 +986,10 @@ classdef simplegrid < simpletimeseries
     end
     %% matrix handling
     function sm=get.matrix(obj)
-      sm=simplegrid.dtc('list','matrix',obj.vecmat);
+      sm=simplegrid.dtc('vecmat','matrix',obj.vecmat);
     end
     function obj=set.matrix(obj,matrix)
-      simplegrid.matrixt_check(matrix);
+      simplegrid.matrix_check(matrix);
       obj=obj.assign(matrix.map,...
                  't',matrix.t,...
                'lat',matrix.lat,...
@@ -1044,6 +1060,18 @@ classdef simplegrid < simpletimeseries
         out=obj.lon_convert('vecmat');
       end
     end
+    function obj=set.lon360(obj,lon_now)
+      obj.lon=wrapTo360(lon_now);
+    end
+    function out=get.lon360(obj)
+      out=wrapTo360(obj.lon);
+    end
+    function obj=set.lon180(obj,lon_now)
+      obj.lon=wrapTo180(lon_now);
+    end
+    function out=get.lon180(obj)
+      out=wrapTo180(obj.lon);
+    end
     function out=lon_convert(obj,type)
       try
         out=obj.(type).lon;
@@ -1112,6 +1140,45 @@ classdef simplegrid < simpletimeseries
       lon_new=mean([obj.lon(1:end-1);obj.lon(2:end)]);
       lat_new=mean([obj.lat(1:end-1),obj.lat(2:end)],2);
       obj=obj.spatial_interp(lon_new,lat_new);
+    end
+    %% spatial cropping
+    function obj=spatial_crop(obj,lon_limits,lat_limits)
+      %get the data
+      m=obj.matrix;
+      %get the spatial mask
+      mask=struct(...
+        'lat',obj.lat>=lat_limits(1) & obj.lat<=lat_limits(2), ...
+        'lon',wrapTo180(obj.lon)>=wrapTo180(lon_limits(1)) & wrapTo180(obj.lon)<=wrapTo180(lon_limits(2)) ...
+      );
+      %apply the mask
+      m.lat=m.lat(mask.lat,mask.lon);
+      m.lon=m.lon(mask.lat,mask.lon);
+      m.map=m.map(mask.lat,mask.lon,:);
+      %propagate the data
+      obj.matrix=m;
+    end
+    %% spatial ops
+    function obj=spatial_sum(obj)
+      %get the data
+      m=obj.vecmat;
+      %collapse data to a single spatial point
+      m.lat=mean(m.lat);
+      m.lon=mean(m.lon);
+      m.map=sum(sum(m.map));
+      %propagate the data
+      obj.vecmat=m;
+    end
+    function out=spatial_mean(obj)
+      %get the data
+      m=obj.vecmat;
+      %collapse data to a single spatial point
+      m.lat=mean(m.lat);
+      m.lon=mean(m.lon);
+      m.map=sum(sum(m.map))/size(m.map,1)/size(m.map,2);
+      %propagate the data
+      obj.vecmat=m;
+      %reduce to timeseries object
+      out=simpletimeseries(obj.t,m.map(:)).copy_metadata(obj);
     end
     %% utilities
     function obj=area(obj)
@@ -1202,62 +1269,106 @@ classdef simplegrid < simpletimeseries
       [obj1,obj2]=interp2@simpletimeseries(obj1,obj2);
     end
     %the append method can be called directly (only acts in the time domain)
-
     %% plot functions
     function out=imagesc(obj,varargin)
       p=inputParser;
-      p.addParameter('t',         obj.t(1),@(i) simpletimeseries.valid_t(i));
-      p.addParameter('show_coast',   false,@(i) islogical(i));
-      p.addParameter('show_colorbar',false,@(i) islogical(i));
-      p.addParameter('bias',             0,@(i) isscalar(i) && isnumeric(i));
+      p.addParameter('t', obj.t_masked(1), @(i) simpletimeseries.valid_t(i));
+      p.addParameter('show_coast',   true, @(i) islogical(i));
+      p.addParameter('show_colorbar',true, @(i) islogical(i));
+      p.addParameter('bias',            0, @(i) isscalar(i) && isnumeric(i));
+      p.addParameter('boxes',          {}, @(i) isstruct(i));
       p.parse(varargin{:});
       %interpolate at the requested time and resample to center of grid
       obj_interp=obj.interp(p.Results.t).center_resample;
+      %need to have lon domain in the -180 to 180 domain, so that coast is show properly
+      [lon_now,lon_idx]=sort(obj_interp.lon180);
       %build image
-      out.axis_handle=imagesc(obj_interp.lon,obj_interp.lat,obj_interp.map);hold on
+      out.axis_handle=imagesc(...
+        lon_now,...
+        obj_interp.lat,...
+        obj_interp.map(:,lon_idx,:)...
+      );hold on
       axis xy
-      %invert y-axis
-      set(gca,'YDir','reverse');
       %labels
       xlabel(['lon [',obj.sp_units,']'])
       ylabel(['lat [',obj.sp_units,']'])
       %ploting coastline
       if p.Results.show_coast
-        out.coast_handle=obj.coast;
+        out.coast_handle=simplegrid.coast;
       end
       %add colorbar
       if p.Results.show_colorbar
         out.colorbar_handle=colorbar;
       end
+      %add boxes
+      if ~isempty(p.Results.boxes)
+        b=p.Results.boxes;
+        for i=1:numel(b)
+          plot(...
+            wrapTo180([b(i).lon(1) b(i).lon(2) b(i).lon(2) b(i).lon(1) b(i).lon(1)]),...
+            [b(i).lat(1) b(i).lat(1) b(i).lat(2) b(i).lat(2) b(i).lat(1)],...
+            b(i).line{:}...
+          );
+        end
+      end
     end
-    function h=coast(obj,varargin)
-      p=inputParser;
-      p.addParameter('line_color','k',@(i) ischaracter(i));
-      p.addParameter('line_width',1,  @(i) isscalar(i) && isnumeric(i));
-      p.parse(varargin{:});
-      coast = load('coast');
-      h=plot3(...
-        coast.long,...
-        coast.lat,...
-        ones(size(coast.lat))*max(obj.y(:))+1,...
-        p.Results.line_color,...
-        'LineWidth',p.Results.line_width...
-      );
-    end
-%     function out=plot(obj,method,varargin)
+%     function out=plot(obj,varargin)
 %       % Parse inputs
 %       p=inputParser;
 %       p.KeepUnmatched=true;
 %       % optional arguments
-%       p.addParameter('something',false,@(i)islogical(i));
+%       p.addParameter('MapProjection','ortho',@(i)ischar(i));
+%       p.addParameter('MapLatLimit',[-90,90],@(i)isnumeric(i) && isvector(i) && numel(i)==2);
+%       p.addParameter('MapLonLimit',[-90,90],@(i)isnumeric(i) && isvector(i) && numel(i)==2);
+%       p.addParameter('Origin',     [0    0],@(i)isnumeric(i) && isvector(i) && numel(i)==2);
+%       p.addParameter('Frame',      'on',    @(i)ischar(i));
+%       p.addParameter('MeridianLabel','off', @(i)ischar(i));
+%       p.addParameter('ParallelLabel','off', @(i)ischar(i));
+%       p.addParameter('time',obj.t,          @(i) simpletimeseries.valid_t(i) || isempty(i));
+%       p.addParameter('coast',true,          @(i) isscalar(i) && islogical(i));
 %       % parse it
 %       p.parse(varargin{:});
-% 
+%       % init outputs
+%       out=cell(size(p.Results.time));
+%       % get data
+%       sv=obj.vecmat;
+%       %loop over all time
+%       for i=1:numel(p.Results.time)
+%         %get index of this time
+%         idx=obj.idx(p.Results.time(i));
+%         %create world
+%         wm=worldmap(p.Results.MapLatLimit,p.Results.MapLonLimit);
+%         %enforce map preferences
+%         prop_list={...
+%           'MapProjection',...
+%           'MapLatLimit',...
+%           'MapLonLimit',...
+%           'Origin',...
+%           'Frame',...
+%           'MeridianLabel',...
+%           'ParallelLabel'...
+%         };
+%         for j=1:numel(prop_list)
+%           setm(wm,prop_list{j},p.Results.(prop_list{j}));
+%         end
+%         % plot grid on map
+%         gs=geoshow(wm,sv.lat(:),sv.lon(:),sv.map(:,:,idx),'DisplayType','texturemap');
+%         %ploting coastline
+%         if p.Results.coast
+%           gsc=simplegrid.coast;
+%         end
+%         % save outputs
+%         if nargout>0
+%           out{i}.wm=wm;
+%           out{i}.gs=gs;
+%           out{i}.gsc=gsc;
+%         end
+%       end
 %     end
   end
 end
 
-%% These routines are the foundation for the grid object and were developed by or in cooperation with Pedro Inácio.
+%% These routines are the foundation for the grid object and were developed by or in cooperation with Pedro In?cio.
 %  They remain here to acknowledge that fact.
 function out_grid = grid_constructor(varargin)
 % GRID=GRID_CONSTRUCTOR is the function that defines a grid 'object'. More
@@ -2105,7 +2216,7 @@ function [c_out,s_out]=mod_sh_ana(long,lat,grid,N)
 %   P.Inacio (p.m.g.inacio@tudelft.nl), 09/2011, Added check that grid
 %       values at 0 and 2*pi latitudes are the same and use only 0 in the
 %       analysis.
-%   P.Inacio, 10/2011, Added check that grid values at latitudes Â±pi/2 must
+%   P.Inacio, 10/2011, Added check that grid values at latitudes ??pi/2 must
 %       all be the same. Also added a more robust check that grids are
 %       regular taking into account a numerical error threshold.
 
