@@ -147,10 +147,10 @@ classdef str
     end
     function sizetrap(var1,var2)
       if numel(var1)~=numel(var2)
-        throwAsCaller(MException([mfilename,':SizeTrap'],...
+        throwAsCaller(MException([mfilename,':SizeTrap'],[...
           'size of variable ''',inputname(1),''' (',num2str(numel(var1)),') different than ',...
           'size of variable ''',inputname(2),''' (',num2str(numel(var2)),'). This is ilegal.'...
-        ))
+        ]))
       end
     end
     function y = flatten(x)
@@ -204,6 +204,15 @@ classdef str
       end
       out=strjoin(str.flatten(out),' ');
     end
-
+    function out=num(in)
+      out1=regexprep(in,'(\d)[Dd]([-+\d])','$1e$2');  %replace D and d exponents in scientific notation with e
+      out2=strsplit(out1);                            %split string along blank characters
+      out3=out2(cellfun(@(i) ~isempty(i),out2));      %remove empty cells
+      out=cellfun(@(i) sscanf(i,'%f'),out3);                  %convert to numeric cells
+      %sanity
+      if ~isnumeric(out)
+        error([mfilename,': convertion from string to vector failed.'])
+      end
+    end
   end
 end
