@@ -151,6 +151,29 @@ classdef dataproduct
       % load metadata
       obj=obj.metadata_load;
     end
+    function obj=rm_data(obj,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('rm_args',[], @(i) ischar(i));
+      % parse it
+      p.parse(varargin{:});
+      %get list of files
+      files=obj.file('data',varargin{:},'discover',true);
+      %loop over all files and delete them
+      for i=1:numel(files)
+        if ~isempty(dir(files{i}))
+          disp(['deleting ',files{i},'...'])
+          com=['rm -v ',p.Results.rm_args,' ',files{i}];
+          if system(com)==0
+            disp('done!')
+          else
+            error([mfilename,': command "',com,'" failed.'])
+          end
+        else
+          disp([files{i},' non-existing, skipping...'])
+        end
+      end
+    end
     %% filename handlers
     function out=file_args(obj,mode)
       switch lower(mode)
@@ -177,6 +200,7 @@ classdef dataproduct
       p.addParameter('start',     datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',      datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('use_storage_period',true,    @(i) islogical(i))
+      p.addParameter('discover',          false,   @(i) islogical(i))
       % parse it
       p.parse(varargin{:});
       % retrive arguments for this file type
@@ -209,14 +233,20 @@ classdef dataproduct
           if isfinite(xl);stoplist=xl;else stoplist=[];end
           return
         case {'none','direct'}
-          error([mfilename,': product ',obj.metadata.name,' is not to be saved in a file, so it is ilegal to call this procedure.'])
+          error([mfilename,': product ',obj.dataname.name,' is not to be saved in a file, so it is ilegal to call this procedure.'])
         otherwise
           error([mfilename,': cannot handle metadata key ''storage_period'' with value ''',obj.mdget('storage_period'),'''.'])
         end
-        %build list of files
-        out=cell(size(startlist));
-        for i=1:numel(startlist)
-          out{i}=strrep(filename,'<TIMESTAMP>',datestr(startlist(i),timestamp_fmt));
+        %branch on requested behaviour
+        if p.Results.discover
+          %discover existing files
+          out=file.wildcard(strrep(filename,'<TIMESTAMP>','*'),'disp',false);
+        else
+          %build list of files
+          out=cell(size(startlist));
+          for i=1:numel(startlist)
+            out{i}=strrep(filename,'<TIMESTAMP>',datestr(startlist(i),timestamp_fmt));
+          end
         end
       else
         out={filename};
@@ -395,12 +425,7 @@ classdef dataproduct
                                     'PaperUnits',        p.Results.plot_units,...
                                     'PaperPosition',     p.Results.plot_size);
       % enforce line properties
-      line_handles=get(p.Results.axis_handle,'Children');
-      for i=1:numel(line_handles)
-        if isprop(line_handles(i),'LineWidth')
-          set(line_handles(i),'LineWidth',p.Results.plot_line_width)
-        end
-      end
+      line_handles=plotting.line_handles(p.Results.axis_handle);
       % enforce x-limits
       v=axis(p.Results.axis_handle);
       if p.Results.plot_xdate
