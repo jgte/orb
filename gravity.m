@@ -1,8 +1,8 @@
-classdef gravity < simpletimeseries
+ classdef gravity < simpletimeseries
   %static
   properties(Constant)
     %this is used to define when the date is not set (datenum(zero_date)=0), used for static fields
-    zero_date=datetime(0,'ConvertFrom','datenum'); 
+    zero_date=datetime(0,'ConvertFrom','datenum');
     %default value of some internal parameters
     default_list=struct(...
       'G',        6.67408e-11,...      % Gravitational constant [m3/kg/s2]
@@ -77,7 +77,7 @@ classdef gravity < simpletimeseries
   end
   %private (visible only to this object)
   properties(GetAccess=private)
-    
+
   end
   %calculated only when asked for
   properties(Dependent)
@@ -316,7 +316,7 @@ classdef gravity < simpletimeseries
         error([mfilename,': unknown data type ''',from,'''.'])
       end
     end
-    %% mapping 
+    %% mapping
     function out=mapping(lmax)
       %create triangular matrix for degrees
       d=(0:lmax)'*ones(1,2*lmax+1).*gravity.dtc('mat','tri',ones(lmax+1));
@@ -409,7 +409,7 @@ classdef gravity < simpletimeseries
         end
         save(mat_filename,'m','e')
       else
-        %NOTICE: input argument 'time' is ignored here; only by coincidence (or design, 
+        %NOTICE: input argument 'time' is ignored here; only by coincidence (or design,
         %        e.g. if gravity.load_dir is used) will time be same as the one saved
         %        in the mat file.
         load(mat_filename)
@@ -418,7 +418,6 @@ classdef gravity < simpletimeseries
         if e.t~=time;e.t=time;end %#ok<NODEF>
       end
     end
-
     function out=parse_epoch_grace(filename)
       [~,f]=fileparts(filename);
       %GSM-2_2015180-2015212_0027_JPLEM_0001_0005.gsm
@@ -724,7 +723,7 @@ classdef gravity < simpletimeseries
         disp(a.tri{numel(t)})
         disp(['- a.C(',num2str(d),',',num2str(o),',',datestr(t(numel(t))),')=',num2str(a.C(d,o,t(numel(t))))])
         disp(['- a.C(',num2str(d),',',num2str(o),',',datestr(t(1)),')=',num2str(a.C(d,o,t(1)))])
-      end    
+      end
     end
   end
   methods
@@ -804,7 +803,7 @@ classdef gravity < simpletimeseries
           %propagate existing coefficients
           mat_new{i}(1:obj.lmax+1,1:obj.lmax+1)=mat_old{i};
         end
-      else 
+      else
         for i=1:obj.length
           %truncate
           mat_new{i}=mat_old{i}(1:l+1,1:l+1);
@@ -834,7 +833,7 @@ classdef gravity < simpletimeseries
       end
       %make room for data
       y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('mat',in{1})));
-      %build data 
+      %build data
       for i=1:obj.length
         y_now(i,:)=gravity.mat2y(in{i});
       end
@@ -858,7 +857,7 @@ classdef gravity < simpletimeseries
       end
       %make room for data
       y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('cs',in)));
-      %build data 
+      %build data
       for i=1:obj.length
         y_now(i,:)=gravity.mat2y(gravity.cs2mat(in(i)));
       end
@@ -882,7 +881,7 @@ classdef gravity < simpletimeseries
       end
       %make room for data
       y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('tri',in{1})));
-      %build data 
+      %build data
       for i=1:obj.length
         y_now(i,:)=gravity.mat2y(gravity.cs2mat(gravity.tri2cs(in{i})));
       end
@@ -906,7 +905,7 @@ classdef gravity < simpletimeseries
       end
       %make room for data
       y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('mod',in{1})));
-      %build data 
+      %build data
       for i=1:obj.length
         y_now(i,:)=gravity.mat2y(gravity.cs2mat(gravity.mod2cs(in{i})));
       end
@@ -975,12 +974,16 @@ classdef gravity < simpletimeseries
       %retrieve matrix form
       mat_now=obj.mat;
       %get indexes of the cosine-coefficients
-      C_idx=o>=0;
-      for i=1:numel(time)
-        %set cosine coefficients
-        mat_now{obj.idx(time(i))}( d( C_idx)+1,o( C_idx)+1)=values( C_idx);
-        %retrieve sine coefficients
-        mat_now{obj.idx(time(i))}(-o(~C_idx)  ,d(~C_idx)+1)=values(~C_idx);
+      for ti=1:numel(time)
+        for i=1:numel(d)
+          if o(i)>=0
+            %set cosine coefficients
+            mat_now{obj.idx(time(ti))}( d( i)+1,o( i)+1)=values( i);
+          else
+            %retrieve sine coefficients
+            mat_now{obj.idx(time(ti))}(-o(~i)  ,d(~i)+1)=values(~i);
+          end
+        end
       end
       %save new values
       obj.mat=mat_now;
@@ -1011,7 +1014,7 @@ classdef gravity < simpletimeseries
       %       'vert-grav-grad' - vertical gravity gradient.
       %get nr of degrees
       N=obj.lmax+1;
-      %get pre-scaling      
+      %get pre-scaling
       switch lower(obj.functional)
         case 'nondim'
           %no scaling
@@ -1034,7 +1037,7 @@ classdef gravity < simpletimeseries
               gravity.default_list.love(:,1),...
               gravity.default_list.love(:,2),...
               deg,'linear','extrap');
-            pos_scale(i,:)=obj.R*(rho_earth/rho_water) * 1/3 * (2*deg+1)/(1+lv);
+            pos_scale(i,:)=obj.R*(gravity.default_list.rho_earth/gravity.default_list.rho_water) * 1/3 * (2*deg+1)/(1+lv);
           end
         case 'geoid' %[m]
           pos_scale=ones(N)*obj.R;
@@ -1078,6 +1081,22 @@ classdef gravity < simpletimeseries
 %         s(l+1)=-(2*l+1)/b*s(l)+s(l-1);
 %       end
     end
+    function s=scale_spline(obj,deg_half)
+      w=5;
+      s=nan(1,obj.lmax+1);
+      w0=max([1,deg_half-w+1]);
+      w1=min([obj.lmax,deg_half+w+1]);
+      if w0>1
+        s(1:w0)=1;
+      end
+      s(w0:w1)=spline([1 (2*w+1)],[0 1 0 0],1:(2*w+1));
+      if w1<obj.lmax+1
+        s(w1:obj.lmax+1)=0;
+      end
+    	%sanity
+      assert(~any(isnan(s)),...
+        [mfilename,': found NaNs in the output. Debug needed!'])
+    end
     % scale according to number of orders in each degree
     function s=scale_nopd(obj,~)
       s=1./obj.nopd;
@@ -1089,7 +1108,7 @@ classdef gravity < simpletimeseries
         case obj.lmax+1
           %get unit model, scaled per degree and get y-representation
           s=gravity.unit(obj.lmax,'scale_per_degree',s).y;
-          
+
 %           %per-degree scaling
 %           tri_now=obj.tri;
 %           scale_mat=s(:)*ones(size(tri_now,2),1);
@@ -1097,14 +1116,17 @@ classdef gravity < simpletimeseries
 %             tri_now{i}=tri_now{i}.*(scale_mat*ones(1,size(tri_now{i},2)));
 %           end
 %           obj.tri=tri_now;
-        case {1,obj.width}
-          %global or per-coefficients scaling: do nothing, already predicted upstream
+        case 1
+          %global scaling: already handled downstream
+        case obj.width
+          %per-coefficients scaling: expand over all time domain
+          s=ones(obj.length,1)*transpose(s(:));
         otherwise
           error([mfilename,': cannot handle scaling factors with number of elements equal to ',...
             num2str(numel(s)),'; either 1, max degree+1 (',num2str(obj.lmax+1),') or nr of coeffs (',...
             num2str(obj.width),').'])
         end
-        %call mother routine 
+        %call mother routine
         obj=scale@simpledata(obj,s);
       else
         % input 's' assumes different meanings, dependending on the method
@@ -1228,7 +1250,7 @@ classdef gravity < simpletimeseries
         end
         if ~isequal(obj1.(par{i}),obj2.(par{i}))
           error([mfilename,': discrepancy in parameter ',par{i},'.'])
-        end 
+        end
       end
     end
     function [obj1,obj2]=merge(obj1,obj2,varargin)
@@ -1238,13 +1260,13 @@ classdef gravity < simpletimeseries
       else
         obj1.lmax=obj2.lmax;
       end
-      %match the compatible parameters 
+      %match the compatible parameters
       parameters=gravity.compatible_parameter_list;
       for i=1:numel(parameters)
         p=(parameters{i});
         if ~isequal(obj1.(p),obj2.(p))
           obj2=obj2.scale(obj1.(p),p);
-        end 
+        end
       end
       %extend the time-domain of both objects to be in agreement with the each other.
       [obj1,obj2]=merge@simpletimeseries(obj1,obj2);
@@ -1267,7 +1289,7 @@ classdef gravity < simpletimeseries
       if ~strcmpi(obj.functional,p.Results.functional)
         obj=obj.scale(p.Results.functional,'functional');
       end
-      %consider only requested 
+      %consider only requested
       if ~isempty(p.Results.time)
         obj=obj.at(p.Results.time);
       end
@@ -1302,7 +1324,7 @@ classdef gravity < simpletimeseries
           cb.nan;
           cb.label([obj.functional,' [',obj.y_units{1},']']);
           title([out.title,' - ',datestr(obj.t(i)),', \mu=',num2str(mean(tri_now{i}(~bad_idx)))])
-        end   
+        end
       case {'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
         v=transpose(obj.(p.Results.method));
         switch lower(p.Results.method)
@@ -1335,7 +1357,7 @@ classdef gravity < simpletimeseries
       otherwise
         error([mfilename,': unknonw method ''',p.Results.method,'''.'])
       end
-      
+
     end
   end
 end
@@ -1353,15 +1375,17 @@ function [m,e]=load_gsm(filename,time)
   s=fgets(fid);
   while(strncmp(s, 'GRCOF2', 6) == 0)
      if (keyword_search(s, 'FIRST'))
-       modelname =strtrim(s(7:end)); 
+       modelname =strtrim(s(7:end));
      end
      if (keyword_search(s, 'EARTH'))
-       x=str2num(s(7:end));
+%        x=str2num(s(7:end));
+       x=str.num(s(7:end));
        GM=x(1);
        radius=x(2);
      end
      if keyword_search(s, 'SHM') && ~keyword_search(s, 'SHM*')
-       x=str2num(s(4:16));
+%        x=str2num(s(4:16));
+       x=str.num(s(4:16));
        Lmax=x(1);
        %Mmax=x(2);
        permanent_tide=strfind(s,'inclusive permanent tide');
@@ -1385,7 +1409,8 @@ function [m,e]=load_gsm(filename,time)
       continue
     end
     %get numeric data
-    x=str2num(s(7:76)); %#ok<*ST2NM>
+%     x=str2num(s(7:76)); %#ok<*ST2NM>
+    x=str.num(s(7:76));
     %save degree and order
     d=x(1)+1;
     o=x(2)+1;
@@ -1440,8 +1465,10 @@ function [m,e]=load_csr(filename,time)
   s=fgets(fid);
   while(strncmp(s, 'RECOEF', 6) == 0)
      if (keyword_search(s, 'SOLUTION  FIELD'))
-           GM=str2num(s(21:40));
-       radius=str2num(s(41:60));
+%            GM=str2num(s(21:40));
+           GM=str.num(s(21:40));
+%        radius=str2num(s(41:60));
+       radius=str.num(s(41:60));
      end
      s=fgets(fid);
   end
@@ -1465,12 +1492,18 @@ function [m,e]=load_csr(filename,time)
       continue
     end
     %save degree and order
-    d=str2num(s( 7: 9))+1;
-    o=str2num(s(10:12))+1;
-    mi.C(d,o)=str2num(s(13:33));
-    mi.S(d,o)=str2num(s(34:54));
-    ei.C(d,o)=str2num(s(55:65));
-    ei.S(d,o)=str2num(s(66:76));
+%     d=str2num(s( 7: 9))+1;
+    d=str.num(s(7:9))+1;
+%     o=str2num(s(10:12))+1;
+    o=str.num(s(10:12));
+%     mi.C(d,o)=str2num(s(13:33));
+    mi.C(d,o)=str.num(s(13:33));
+%     mi.S(d,o)=str2num(s(34:54));
+    mi.S(d,o)=str.num(s(34:54));
+%     ei.C(d,o)=str2num(s(55:65));
+    ei.C(d,o)=str.num(s(55:65));
+%     ei.S(d,o)=str2num(s(66:76));
+    ei.S(d,o)=str.num(s(66:76));
     % read next line
     s=fgets(fid);
   end
@@ -1619,7 +1652,8 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
       continue
     end
     %retrieve keywords, degree and order
-    x=str2num(s(5:end));
+%     x=str2num(s(5:end));
+    x=str.num(s(5:end));
     n=x(1)+1;
     m=x(2)+1;
     if strcmp(s(1:4),'gfct')
@@ -1632,7 +1666,7 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
         mi.t0=zeros(grep_nr_occurences(filename,'gfct'));
         if numel(mi.t0)==0; error([mfilename,'Problem with gfct']); end
       end
-      mi.t0(i_t0,:)=[n m yrd]; 
+      mi.t0(i_t0,:)=[n m yrd];
       if (strcmp(header.errors,'formal') || ...
           strcmp(header.errors,'calibrated') || ...
           strcmp(header.errors,'calibrated_and_formal'))
@@ -1655,8 +1689,8 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
         if numel(trnd.C)==0; error([mfilename,'Problem with trnd']); end
       end
       i_trnd=i_trnd+1;
-      trnd.C(i_trnd,:)=[n m x(3)]; 
-      trnd.S(i_trnd,:)=[n m x(4)]; 
+      trnd.C(i_trnd,:)=[n m x(3)];
+      trnd.S(i_trnd,:)=[n m x(4)];
     elseif strcmp(s(1:4),'acos')
       if isempty(acos.C)
         acos.C=zeros(grep_nr_occurences(filename,'acos'),4); acos.S=acos.C;
