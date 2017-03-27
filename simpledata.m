@@ -1907,7 +1907,9 @@ classdef simpledata
       end
       %set x axis
       if obj.length>1
-        xlim(datenum([x_plot(1) x_plot(end)]))
+        %get common axis limits (don't crop stuff)
+        v=plotting.common_axis_limits(gca);
+        xlim(v(1:2))
       end
       %annotate
       if isempty(p.Results.title)
