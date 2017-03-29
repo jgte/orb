@@ -1737,12 +1737,6 @@ classdef simpletimeseries < simpledata
       [obj,idx1,idx2]=append@simpledata(obj1,obj2);
     end
     function obj1_out=augment(obj1,obj2,varargin)
-      %NOTICE:
-      % - obj1 receives the data from obj2, at those epochs defined in obj2
-      % - data from obj1 with epochs existing in obj2 are discarded (a 
-      %   report is given in case there is discrepancy in the data)
-      % - the optional argument 'new_data_only' ensures no data from obj1 is
-      %   discarded and only new data in obj2 is saved into obj1.
       if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
         [obj1,obj2]=matchepoch(obj1,obj2);
       end

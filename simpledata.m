@@ -488,7 +488,34 @@ classdef simpledata
 
       i=0;
 
+      i=i+1;h{i}=figure('visible','off');
+      a=simpledata([1:4,5 7 9 11],[11 12 13 14 15 17 19 31]',...
+        'mask',logical([1 1 0 0 1 1 0 0])...
+      );
+      b=simpledata([1:4,6,8,10 12],[21 22 23 24 26 28 40 42]',...
+        'mask',logical([1 0 1 0 1 0 1 0])...
+      );
+      disp('Augment test: a')
+      a.peek
+      disp('Augment test: b')
+      b.peek
+      disp('Augment test: a.augment(b,common=[true,false],new=true,old=true)')
+      a.augment(b,'quiet',true,'common',true,'new',true,'old',true,'skip_gaps',false).peek
+      disp('---')
+      a.augment(b,'quiet',true,'common',false,'new',true,'old',true,'skip_gaps',false).peek
+      
+      disp('Augment test: a.augment(b,common=[true,false],new=false,old=true)')
+      a.augment(b,'quiet',true,'common',true,'new',false,'old',true,'skip_gaps',false).peek
+      disp('---')
+      a.augment(b,'quiet',true,'common',false,'new',false,'old',true,'skip_gaps',false).peek
 
+      disp('Augment test: a.augment(b,common=true,new=true,old=true,skip_gaps=[false,true])')
+      a.augment(b,'quiet',true,'common',true,'new',true,'old',true,'skip_gaps',false).peek
+      disp('---')
+      a.augment(b,'quiet',true,'common',true,'new',true,'old',true,'skip_gaps',true).peek
+      
+      keyboard
+      
       i=i+1;h{i}=figure('visible','on');
       a=cell(1,w*2);
       legend_str=cell(1,numel(a)+1);
@@ -1410,61 +1437,89 @@ classdef simpledata
     function obj1_out=augment(obj1,obj2,varargin)
       %NOTICE:
       % - obj1 receives the data from obj2, at those epochs defined in obj2
-      % - data from obj1 with epochs existing in obj2 are discarded (a 
-      %   report is given in case there is discrepancy in the data)
-      % - the optional argument 'new_data_only' ensures no data from obj1 is
-      %   discarded and only new data in obj2 is saved into obj1.
+      % - no explicit gaps are ever copied (i.e. obj1 valid data is not turned to gaps)
+      % - 'common' copies the common valid entries in obj2 to obj1 (default true)
+      % - 'new' copies the new entries in obj2 to obj1 (default true)
+      % - 'old' makes sure the existing data is not deleted (basically over-rides
+      %   the previous two args, default false)
+      % - 'skip_gaps' does not copy explicit gaps from obj2 to obj1 (only valid data)
+      % - notice that common=true,new=*,old=true is the same as common=false,new=*,old=true: old data
+      %   is not deleted in both cases, so the common data is never copied anyway
       % Parse inputs
       p=inputParser;
       p.KeepUnmatched=true;
       % optional arguments
-      p.addParameter('new_data_only',false, @(i)islogical(i) && isscalar(i));
-      p.addParameter('quiet',        false, @(i)islogical(i) && isscalar(i));
+      p.addParameter('quiet',       false, @(i)islogical(i) && isscalar(i));
+      p.addParameter('common',      true,  @(i)islogical(i) && isscalar(i));
+      p.addParameter('new',         true,  @(i)islogical(i) && isscalar(i));
+      p.addParameter('old',         false, @(i)islogical(i) && isscalar(i));
+      p.addParameter('skip_gaps',   false, @(i)islogical(i) && isscalar(i));
       % parse it
       p.parse(varargin{:});
       %need compatible data
       obj1.compatible(obj2);
       %merge x domain, also get idx2, which is needed to propagate data
-      [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2);
-      %branch on method mode
-      if p.Results.new_data_only
-        %find entries with different epochs
-        new_idx=find( (idx1~=idx2) & idx2) ;
-        %retrieve original data at these entries
-        obj2_new=obj2.at(obj2_out.x(new_idx));
-        %propagate data
-        obj1_out.y(new_idx,:)=obj2_new.y;
-        %propagate mask
-        obj1_out.mask(new_idx,:)=obj2_new.mask;
+      if p.Results.skip_gaps
+        [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2.masked);
       else
-        %count data in obj2 which has the same epochs as in obj1 but is different
-        common_idx=find(idx1==idx2);
-        if any(common_idx) && ( any(obj1_out.mask(common_idx)) ||  any(obj1_out.mask(common_idx)) )
-          common_diff_idx=common_idx(any(obj1_out.y(common_idx,:)~=obj2_out.y(common_idx,:),2));
-          if ~isempty(common_diff_idx) && ~p.Results.quiet
-            disp(['WARNING:BEGIN',10,'There are ',num2str(numel(common_diff_idx)),...
-                ' entries in obj1 that are defined at the same epochs as in obj2 but with different values:'])
-            for i=1:min([10,numel(common_diff_idx)])
-              disp(str.tablify([16,20,16,12],...
-                ['obj1.t(',num2str(common_diff_idx(i)),  ')='],obj1_out.t(common_diff_idx(i)  ),...
-                ['obj1.y(',num2str(common_diff_idx(i)),',:)='],obj1_out.y(common_diff_idx(i),:)...
-              ))
-              disp(str.tablify([16,20,16,12],...
-                ['obj2.t(',num2str(common_diff_idx(i)),  ')='],obj2_out.t(common_diff_idx(i)  ),...
-                ['obj2.y(',num2str(common_diff_idx(i)),',:)='],obj2_out.y(common_diff_idx(i),:)...
-              ))
-              disp(str.tablify([16,20,16,12],...
-                ['diff.t(',num2str(common_diff_idx(i)),  ')='],obj1_out.t(common_diff_idx(i)  )-obj2_out.t(common_diff_idx(i)  ),...
-                ['diff.y(',num2str(common_diff_idx(i)),',:)='],obj1_out.y(common_diff_idx(i),:)-obj2_out.y(common_diff_idx(i),:)...
-              ))
+        [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2);
+      end
+      %get common data
+      common_idx= (idx1==idx2) & obj1_out.mask & obj2_out.mask;
+      %get new data
+      new_idx=idx2 & obj2_out.mask;
+      %get old data
+      old_idx=idx1 & obj1_out.mask;
+      %idx to be considered
+      idx=false(size(idx1));
+      %branch on method mode
+      if p.Results.common;   idx=idx |     common_idx; end
+      if p.Results.new;      idx=idx |        new_idx; end
+      if p.Results.old;      idx=idx &       ~old_idx; end
+
+%       [common_idx,new_idx,old_idx,idx]
+      
+      %count data in obj2 which has the same epochs as in obj1 but is different
+      common_idx=find( (idx1==idx2) & idx);
+      if any(common_idx) && ( any(obj1_out.mask(common_idx)) ||  any(obj1_out.mask(common_idx)) )
+        common_diff_idx=common_idx(any(obj1_out.y(common_idx,:)~=obj2_out.y(common_idx,:),2));
+        if ~isempty(common_diff_idx) && ~p.Results.quiet
+          disp(['WARNING:BEGIN',10,'There are ',num2str(numel(common_diff_idx)),...
+              ' entries in obj1 that are defined at the same epochs as in obj2 but with different values:'])
+          for i=1:min([10,numel(common_diff_idx)])
+            if ismethod(obj1,'t')
+              var_name='t';
+              x1=obj1_out.t(common_diff_idx(i));
+              x2=obj2_out.t(common_diff_idx(i));
+            else
+              var_name='x';
+              x1=obj1_out.x(common_diff_idx(i));
+              x2=obj2_out.x(common_diff_idx(i));
             end
-            disp(['The data of obj1 have been over-written by the values in obj2.',10,'WARNING:END'])
+            idx_str=num2str(common_diff_idx(i));
+            y1=obj1_out.y(common_diff_idx(i),:);
+            y2=obj2_out.y(common_diff_idx(i),:);
+            disp(str.tablify([16,20,16,12],['obj1.',var_name,'(',idx_str,  ')='],x1,   ['obj1.y(',idx_str,',:)='],y1   ))
+            disp(str.tablify([16,20,16,12],['obj2.',var_name,'(',idx_str,  ')='],x2,   ['obj2.y(',idx_str,',:)='],   y2))
+            disp(str.tablify([16,20,16,12],['diff.',var_name,'(',idx_str,  ')='],x1-x2,['diff.y(',idx_str,',:)='],y1-y2))
           end
+          disp(['The data of obj1 have been over-written by the values in obj2.',10,'WARNING:END'])
         end
+      end
+      if all(~idx)
+        %do nothing
+      else
+        %retrieve original data at these entries, don't get gaps if requested
+        if p.Results.skip_gaps
+          obj2_new=obj2.masked.at(obj2_out.x(idx));
+        else
+          obj2_new=obj2.at(obj2_out.x(idx));
+        end          
         %propagate data
-        obj1_out.y(idx2,:)=obj2.y;
+        obj1_out.y(idx,:)=obj2_new.y;
         %propagate mask
-        obj1_out.mask(idx2,:)=obj2.mask;
+        obj1_out.mask(idx)=obj2_new.mask;
+        obj1_out=obj1_out.mask_update;
       end
     end
     function out=isequal(obj1,obj2,columns)
