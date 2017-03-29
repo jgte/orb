@@ -10,4 +10,4 @@ plot_outlier: 0
 plot_zeromean: true
 plot_label_prefix_sat: GRACE-
 plot_title_suppress: [grace,acc,calmod]
-plot_column_names: [X,Y,Z]
+plot_column_names: [X-axis,Y-axis,Z-axis]
