@@ -4,8 +4,8 @@ dataflow: #[this product, (=) source 1, (operation) source 2, ...]
   types:  [acc,          acc,acc,   acc,    acc,acc]
   levels: [cal_csr_plots,l1b,calmod,cal_csr,mod,mod]
   fields:
-    - [aak,    csr,aak,   aak,   nrtdm,csr]
-    - [accatt, csr,accatt,accatt,nrtdm,csr]
+    #- [aak,    csr,aak,   aak,   nrtdm,csr]
+    #- [accatt, csr,accatt,accatt,nrtdm,csr]
     - [estim,  csr,estim, estim, nrtdm,csr]
 storage_period: daily
 plot_columns: [1,2,3]
@@ -15,4 +15,4 @@ plot_outlier: 0
 plot_zeromean: true
 plot_label_prefix_sat: GRACE-
 plot_title_suppress: [grace,acc]
-plot_column_names: [X,Y,Z]
+plot_column_names: [X-axis,Y-axis,Z-axis]

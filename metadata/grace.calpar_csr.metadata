@@ -1,7 +1,8 @@
 import_dir: <getenv('HOME')>/data/csr/GraceAccCal
 method: csr.import_calpar
 coords: [X,Y,Z]
-levels: [aak,accatt,estim]
+#levels: [aak,accatt,estim]
+levels: [estim]
 fields: [AC0X,AC0XD,AC0XQ,
 AC0Y1, AC0Y2, AC0Y3, AC0Y4, AC0Y5, AC0Y6, AC0Y7, AC0Y8,
 AC0YD1,AC0YD2,AC0YD3,AC0YD4,AC0YD5,AC0YD6,AC0YD7,AC0YD8,
@@ -14,8 +15,8 @@ sats: [A,B]
 bias_files: [<getenv('HOME')>/data/csr/corral-tacc/input/bsA2003,<getenv('HOME')>/data/csr/corral-tacc/input/bsB2003]
 jobid_col: 2
 param_col: 1
-arclen_col: 3
-t0_col: 3
+arclen_col: 3 #valid for estim
+t0_col: 3     #valid for aak,accatt
 storage_period: global
 plot_columns: [1]
 plot_together: sat
