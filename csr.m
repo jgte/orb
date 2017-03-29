@@ -1,10 +1,18 @@
 classdef csr
   methods(Static)
+    function timetag=gitversion
+      %get current git version
+      [status,timetag]=system(['git log -1 --format=%cd --date=iso-local ',mfilename,'.m']);
+      %get rid of timezone and leading trash
+      timetag=timetag(9:27);
+      %sanity
+      assert(status==0,[mfilename,': could not determine git time tag'])
+    end
     function log(msg)
       logname=fullfile(fileparts(mfilename),'import_calpar.log');
       if ~exist('msg','var')
         if ~isempty(dir(logname))
-          system(['mv -v ',logname,' ',strrep(logname,'.log',''),'.',datestr(datetime('now'),30),'.log'])
+          system(['mv -v ',logname,' ',strrep(logname,'.log',''),'.',datestr(datetime('now'),30),'.log']);
         end
       else
         fid = fopen(logname,'a');  
@@ -12,7 +20,10 @@ classdef csr
         fclose(fid);
       end
     end
-    function report(debug,idx,context,id,labels,data)
+    function report(debug,idx,context,id,labels,data,log_flag)
+      if ~exist('log_flag','var') ||isempty(log_flag)
+        log_flag=true;
+      end
       if isempty(idx); return; end
       [~,ids]=fileparts(id);
       if isempty(ids); ids=id; end
@@ -22,11 +33,12 @@ classdef csr
       for k=1:numel(idx)
         msg_data=cell(1,numel(data));
         for l=1:numel(data)
-          msg_data{l}=data{l}(idx(k));
+          msg_data{l}=data{l}(k);
         end
         msg{k+2}=str.tablify(20,ids,idx(k),msg_data{:});
       end
-      if debug;disp(strjoin(msg(1:min([12,numel(msg)])),'\n')); else disp(msg{1}); end; csr.log(msg)
+      if debug;disp(strjoin(msg(1:min([20,numel(msg)])),'\n')); else disp(msg{1}); end; 
+      if log_flag;csr.log(msg);end
     end
     function obj=import_calpar(obj,dataname,varargin)
       %open log file
@@ -149,47 +161,54 @@ classdef csr
                 arc_ends(idx)=arc_starts(idx+1)-seconds(1);
               end
               
-              %compute arc lengths
-              arc_length=arc_ends-arc_starts;
+%               %compute arc lengths
+%               arc_length=arc_ends-arc_starts;
+              
+              %compute arc day start and end
+              day_starts=dateshift(arc_starts,'start','day');
+              day_ends  =dateshift(arc_starts,'end',  'day');
 
               %fancy stuff: handle parameters defined as arc segments
               if ~isempty(strfind(fields{j},'AC0Y'))
-                %there are 8 segments per arc
-                periodicity=arc_length/8;
+                %there are 8 segments per day
+                periodicity=days(1)/8;
                 %get day location for this parameter
                 day_loc=str2double(fields{j}(end));
                 %get sub-arc starts/ends
                 sub_arc_starts=arc_starts+periodicity*(day_loc-1);
                   sub_arc_ends=arc_starts+periodicity*(day_loc  )-seconds(1);
-                %cap sub-arc start/ends to be within the current arc
+                %get sub arc boundaries
+                sub_arc_bound_starts=max([arc_starts,day_starts],[],2);
+                sub_arc_bound_ends  =min([arc_ends,  day_ends  ],[],2);
+                %cap sub-arc start/ends to be within the current day
                 idx={...
-                  find(sub_arc_starts>arc_ends  ),...
-                  find(sub_arc_starts<arc_starts),...
-                  find(sub_arc_ends  >arc_ends  ),...
-                  find(sub_arc_ends  <arc_starts)...
+                  find( sub_arc_starts>sub_arc_bound_ends   ),...
+                  find( sub_arc_starts<sub_arc_bound_starts ),...
+                  find( sub_arc_ends  >sub_arc_bound_ends   ),...
+                  find( sub_arc_ends  <sub_arc_bound_starts )...
                 };
                 msg={...
-                  'Sub-arc starts after arc ends',...
-                  'Sub-arc starts before arc starts',...
-                  'Sub-arc ends after arc ends',...
-                  'Sub-arc ends before arc starts'...
+                  'Sub-arc starts after day/arc ends',...
+                  'Sub-arc starts before day/arc starts',...
+                  'Sub-arc ends after day/arc ends',...
+                  'Sub-arc ends before day/arc starts'...
                 };
                 for k=1:numel(idx)
                   csr.report(obj.debug,idx{k},msg{k},f,...
                     {'sub-arc start','sub-arc end',...
-                        'arc start',     'arc end',...
-                        'periodicity'},...
+                        'day start',     'day end'...
+                    },...
                     {sub_arc_starts(idx{k}),sub_arc_ends(idx{k}),...
-                         arc_starts(idx{k}),    arc_ends(idx{k}),...
-                        periodicity(idx{k})}...
+                         day_starts(idx{k}),    day_ends(idx{k})...
+                    }...
                   )
                   %fix it
                   if ~isempty(idx{k})
                     switch k
-                    case 1; sub_arc_starts(idx{k})=arc_ends(  idx{k});
-                    case 2; sub_arc_starts(idx{k})=arc_starts(idx{k});
-                    case 3; sub_arc_ends(  idx{k})=arc_ends(  idx{k});
-                    case 4; sub_arc_ends(  idx{k})=arc_starts(idx{k});
+                    case 1; sub_arc_starts(idx{k})=sub_arc_bound_ends(  idx{k});
+                    case 2; sub_arc_starts(idx{k})=sub_arc_bound_starts(idx{k});
+                    case 3; sub_arc_ends(  idx{k})=sub_arc_bound_ends(  idx{k});
+                    case 4; sub_arc_ends(  idx{k})=sub_arc_bound_starts(idx{k});
                     end
                   end
                 end
@@ -197,18 +216,52 @@ classdef csr
                 arc_starts=sub_arc_starts;
                   arc_ends=sub_arc_ends;
               end
-
+              
+              %arc ends cannot be at day starts (that's the next arc start)
+              idx=find(arc_ends==day_ends);
+              if ~isempty(idx)
+                arc_ends(idx)=arc_ends(idx)-seconds(1);
+              end
+                            
               %propagate data
               arc_start_y=tmp.(sats{s}).y;
                 arc_end_y=tmp.(sats{s}).y;
 
+              %remove arcs with zero length (only applicable to AC0Y2-8)
+              zero_len_idx=find(arc_ends-arc_starts<=0);
+              csr.report(obj.debug,zero_len_idx,'Non-positive arc length',f,...
+                {'arc start','arc end','arc_length'},...
+                {arc_starts(zero_len_idx),arc_ends(zero_len_idx),...
+                arc_ends(zero_len_idx)-arc_starts(zero_len_idx)}...
+              )
+              if ~isempty(zero_len_idx)
+                good_idx=(arc_ends-arc_starts>0);
+                arc_starts =arc_starts( good_idx);
+                arc_ends   =arc_ends(   good_idx);
+                arc_start_y=arc_start_y(good_idx,:);
+                  arc_end_y=  arc_end_y(good_idx,:);
+              end
+
+              %general reporting
+              rep_date='2002-08-16';
+              rep_delta=arc_starts-rep_date;
+              rep_idx=find(abs(rep_delta)==min(abs(rep_delta)));
+              rep_idx=(rep_idx(1)-8):(rep_idx(end)+8);
+              csr.report(true,rep_idx,['Arcs around ',datestr(rep_date)],f,...
+                {'arc start','arc end','arc length','inter-arc gap'},...
+                {arc_starts(rep_idx),arc_ends(rep_idx),...
+                 arc_ends(rep_idx)-arc_starts(rep_idx),...
+                 arc_starts(rep_idx+1)-arc_ends(rep_idx)...
+                 },...
+              false)              
+              
               % set the arc length to zero for arc ends
               switch levels{i}
               case 'estim'
                 arc_end_y(:,arclen_col)=0;
               end
-                       
-             %build timeseries with arc starts
+              
+              %build timeseries with arc starts
               arc_start_ts=simpletimeseries(arc_starts,arc_start_y,...
                 'format','datetime',...
                 'labels',tmp.(sats{s}).labels,...
@@ -266,8 +319,8 @@ classdef csr
               end
 
               %augment the original timeseries with the end-of-arcs and gaps (only new data)
-              tmp.(sats{s})=arc_start_ts.augment(arc_end_ts,'only_new_data',true).augment(gap_ts,'only_new_data',true);
-              
+              tmp.(sats{s})=arc_start_ts.augment(arc_end_ts,'old',true).augment(gap_ts,'old',true);
+                  
               if obj.debug
                 au=tmp.(sats{s}).trim(t0,t1);
                 disp(str.tablify(22,'augmented t','augmented y'))
@@ -285,7 +338,7 @@ classdef csr
 %             end
             %propagate data to object
             for s=1:numel(sats)
-              obj=obj.sat_set(product.dataname.type,levels{i},fields{j},sats{s},tmp.(sats{s}));
+              obj=obj.sat_set(product.dataname.type,levels{i},fields{j},sats{s},tmp.(sats{s}));     
             end
             disp(str.tablify([15,6,3,6],'loaded data for',levels{i},'and',fields{j}))
           end
@@ -299,15 +352,29 @@ classdef csr
           for s=1:numel(sats)
             for f=1:numel(field_part_list)
               %start with first field
-              field1=[ac0y,field_part_list{f},'1'];
-              ts_now=obj.sat_get(product.dataname.type,levels{i},field1,sats{s});
+              field=[ac0y,field_part_list{f},'1'];
+              ts_now=obj.sat_get(product.dataname.type,levels{i},field,sats{s});
+              disp([levels{i},':',sats{s},':',field]);idx=ts_now.idx(datetime('2002-08-16'));ts_now.peek((idx-10):(idx+10))
               %loop over all other fields
               for fpl=2:8
                 field=[ac0y,field_part_list{f},num2str(fpl)];
-                ts_now=ts_now.augment(obj.sat_get(product.dataname.type,levels{i},field,sats{s}),'quiet',true);
+                ts_now=ts_now.augment(...
+                  obj.sat_get(product.dataname.type,levels{i},field,sats{s}),...
+                  'quiet',true,...
+                  'old',true,...
+                  'skip_gaps',true...
+                );
+                disp([levels{i},':',sats{s},':',field]);idx=ts_now.idx(datetime('2002-08-16'));ts_now.peek((idx-30):(idx+30))
               end
               %save the data
               obj=obj.sat_set(product.dataname.type,levels{i},[ac0y,field_part_list{f}],sats{s},ts_now);
+
+% d=obj.sat_get(product.dataname.type,levels{i},[ac0y,field_part_list{f}],sats{s});
+% ti=d.idx(datetime('01-Dec-2002'));
+% for tii=(ti-1):(ti+2)
+%   disp(['3: ',d.labels{1},' ',d.labels{2},' @ ',datestr(d.t(tii)),': ',num2str(d.y(tii,jobid_col),'%i')])
+% end
+              
               disp(str.tablify([29,5,3,6,3,7],'merged cross-track parameter',[ac0y,field_part_list{f}],...
                 'for',levels{i},'and',['GRACE-',sats{s}]))
             end
@@ -332,12 +399,12 @@ classdef csr
                 n=numel(bad_idx);
                 msg=cell(1,2*n+2);
                 msg{1}=str.tablify([5,6,24],'found',numel(bad_idx),'Job ID inconsistencies:');
-                msg{2}=str.tablify([26,6,20,10],'data name','idx','t','Job ID');
+                msg{2}=str.tablify([30,6,20,12],'data name','idx','t','Job ID');
                 for k=1:n
                   idx=i1(bad_idx(k));
-                  msg{2*k+1}=str.tablify([26,6,20,10],names{j  }.name,idx,d1.t(idx),d1.y(idx,jobid_col));
+                  msg{2*k+1}=str.tablify([30,6,20,12],names{j  }.name,idx,d1.t(idx),num2str(d1.y(idx,jobid_col),'%i'));
                   idx=i2(bad_idx(k));
-                  msg{2*k+2}=str.tablify([26,6,20,10],names{j+1}.name,idx,d2.t(idx),d2.y(idx,jobid_col));
+                  msg{2*k+2}=str.tablify([30,6,20,12],names{j+1}.name,idx,d2.t(idx),num2str(d2.y(idx,jobid_col),'%i'));
                 end
                 error([mfilename,':',strjoin(msg,'\n')])
               end
@@ -424,14 +491,8 @@ classdef csr
       if ~exist('debug','var') || isempty(debug)
         debug=false;
       end
-      %get current git version
-      [status,timetag]=system(['git log -1 --format=%cd --date=iso-local ',mfilename,'.m']);
-      %get rid of timezone and leading trash
-      timetag=timetag(9:27);
-      %sanity
-      assert(status==0,[mfilename,': could not determine git time tag'])
       %create dir for plots
-      plot_dir=fullfile('plot','import_calpar_debug_plots',timetag);
+      plot_dir=fullfile('plot','import_calpar_debug_plots',csr.gitversion);
       if isempty(dir(plot_dir)); mkdir(plot_dir); end
 
       %load calibration parameters
@@ -523,19 +584,27 @@ classdef csr
               if any([isempty(acc),isempty(cal.ac0),isempty(cal.ac0d),isempty(cal.ac0q)])
                 error([mfilename,': not all data is available to perform this operation.'])
               end
-              %retrieve time domain (it is the same for all cal pars)
+              %remove transient calpars, this is indicative of a gap (interpolation is done blindly over any gap length)
               fields=fieldnames(cal);
               for f=1:numel(fields)
-                t.(fields{f})=days(acc.t-simpletimeseries.ToDateTime(cal.(fields{f}).y(:,end),'modifiedjuliandate'));
+                cal.(fields{f})=cal.(fields{f}).mask_and([cal.(fields{f}).mask(1);diff(cal.(fields{f}).y(:,1))==0]);
+              end
+              %retrieve time domain (it is the same for all cal pars)
+              for f=1:numel(fields)
+                if strcmp(levels{l},'estim')
+                  sod=dateshift(cal.(fields{f}).t(1),'start','day');
+                  soa=sod+seconds(cal.(fields{f}).y(:,4));
+                  t.(fields{f})=days(acc.t-soa);
+                else
+                  %TODO: é preciso arranjar isto, o start arc tem de ser definido algures (para aak e accatt)
+                  t.(fields{f})=days(acc.t-simpletimeseries.ToDateTime(cal.(fields{f}).y(:,end),'modifiedjuliandate'));
+                end
               end
               %paranoid sanity check
               good_idx=~isnan(t.ac0);
               if any(t.ac0(good_idx)~=t.ac0d(good_idx)) || any(t.ac0(good_idx)~=t.ac0q(good_idx))
                 error([mfilename,': calibration time domain inconsistent between parameters, debug needed!'])
               end
-              
-              %é preciso arranjar isto, o start arc tem de ser definido algures (para aak e accatt)
-              
               %build calibration model
               calmod=calmod.set_cols(i,...
                 cal.ac0.cols( param_col)+...
@@ -666,8 +735,14 @@ classdef csr
         datadir=fullfile(getenv('HOME'),'data','csr','GraceAccCal');
         system(['rm -fv ',fullfile(datadir,'to-delete','*.mat')])
         system(['mv -fv ',fullfile(datadir,'*.mat'),' ',fullfile(datadir,'to-delete')])
-      case 'import_calpar_debug_plots'
-        
+      case {'import_calpar_debug_plots','calpar_debug_plots'}
+        plot_dir=fullfile('plot',lower(mode),csr.gitversion);
+        disp(plot_dir)
+        if ~isempty(dir(plot_dir))
+          [status,result]=system(['rm -fvr "',plot_dir,'"']);
+          assert(status==0,['error removing ',mode,'.'])
+          disp(result)
+        end
       otherwise
         dataproduct(mode).rm_data(varargin{:});
       end
@@ -676,28 +751,26 @@ classdef csr
       if ~exist('debug','var') || isempty(debug)
         debug=false;
       end
-      %get current git version
-      [status,timetag]=system(['git log -1 --format=%cd --date=iso-local ',mfilename,'.m']);
-      %get rid of timezone and leading trash
-      timetag=timetag(9:27);
-      %sanity
-      assert(status==0,[mfilename,': could not determine git time tag'])
       %create dir for plots
-      plot_dir=fullfile('plot','calpar_debug_plots',timetag);
+      plot_dir=fullfile('plot','calpar_debug_plots',csr.gitversion);
       if isempty(dir(plot_dir)); mkdir(plot_dir); end
       
       %define list of days to plot
       lod=datetime({...
-%         '2002-08-06',...
-        '2002-08-16','2002-08-17',...
-        '2003-01-13','2003-01-14',...
-        '2003-11-20',...
-        '2006-06-14','2006-06-15',...
-        '2002-04-15',...
-        '2002-08-03',...
-        '2002-08-26',...
         '2002-04-27',...
+        '2002-05-16',...
+        '2002-08-06',...
+        '2002-09-28',...
         '2002-09-30'...
+%         '2002-08-16','2002-08-17',...
+%         '2003-01-13','2003-01-14',...
+%         '2003-11-20',...
+%         '2006-06-14','2006-06-15',...
+%         '2002-04-15',...
+%         '2002-08-03',...
+%         '2002-08-26',...
+%         '2002-04-27',...
+%         '2002-09-30'...
       });
       %loop over all requested days
       for i=1:numel(lod)
@@ -705,6 +778,7 @@ classdef csr
         stop=lod(i)+days(1)-seconds(1);
         %plot it
         datastorage('debug',debug,'start',start,'stop',stop).init('grace.acc.cal_csr_plots','plot_dir',plot_dir);
+        keyboard
       end
     end
   end
