@@ -45,7 +45,8 @@ classdef csr
       csr.log
       % parse mandatory arguments
       p=inputParser;
-      p.addRequired('dataname', @(i) isa(i,'datanames'));
+      p.addRequired('dataname',  @(i) isa(i,'datanames'));
+      p.addParameter('debugdate', [], @(i) ischar(i) || isempty(i));
       p.parse(dataname);
       %retrieve product info
       product=obj.mdget(dataname);
@@ -262,18 +263,20 @@ classdef csr
                   arc_end_y=  arc_end_y(good_idx,:);
               end
 
-%               %general reporting
-%               rep_date='2002-08-16';
-%               rep_delta=arc_starts-rep_date;
-%               rep_idx=find(abs(rep_delta)==min(abs(rep_delta)));
-%               rep_idx=(rep_idx(1)-8):(rep_idx(end)+8);
-%               csr.report(true,rep_idx,['Arcs around ',datestr(rep_date)],f,...
-%                 {'arc start','arc end','arc length','inter-arc gap'},...
-%                 {arc_starts(rep_idx),arc_ends(rep_idx),...
-%                  arc_ends(rep_idx)-arc_starts(rep_idx),...
-%                  arc_starts(rep_idx+1)-arc_ends(rep_idx)...
-%                  },...
-%               false)              
+              %debug date report
+              if ~isempty(p.Results.debugdate)
+                rep_date=datetime(p.Results.debugdate);
+                rep_delta=arc_starts-rep_date;
+                rep_idx=find(abs(rep_delta)==min(abs(rep_delta)));
+                rep_idx=(rep_idx(1)-8):(rep_idx(end)+8);
+                csr.report(true,rep_idx,['DEBUG DATE: Arcs around ',datestr(rep_date)],f,...
+                  {'arc start','arc end','arc length','inter-arc gap'},...
+                  {arc_starts(rep_idx),arc_ends(rep_idx),...
+                   arc_ends(rep_idx)-arc_starts(rep_idx),...
+                   arc_starts(rep_idx+1)-arc_ends(rep_idx)...
+                   },...
+                false)
+              end
               
 %               % set the arc length to zero for arc ends
 %               switch levels{i}
@@ -307,6 +310,7 @@ classdef csr
             for s=1:numel(sats)
               obj=obj.sat_set(product.dataname.type,levels{i},fields{j},sats{s},tmp.(sats{s}));     
             end
+            %user feedback
             disp(str.tablify([15,6,3,6],'loaded data for',levels{i},'and',fields{j}))
           end
         end
@@ -330,11 +334,17 @@ classdef csr
                   'old',true,...
                   'skip_gaps',true...
                 );
-% disp(['merge AC0Y*:',levels{i},':',sats{s},':',field]);idx=ts_now.idx(datetime('2002-08-16'));ts_now.peek((idx-10):(idx+10))
+                %debug date report
+                if ~isempty(p.Results.debugdate)
+                  rep_date=datetime(p.Results.debugdate);
+                  disp(['DEBUG DATE: merge AC0Y*:',levels{i},':',sats{s},':',field,' @ ',datestr(rep_date)]);
+                  idx=ts_now.idx(rep_date);
+                  ts_now.peek((idx-10):(idx+10));
+                end
               end
               %save the data
               obj=obj.sat_set(product.dataname.type,levels{i},[ac0y,field_part_list{f}],sats{s},ts_now);
-     
+              %user feedback
               disp(str.tablify([29,5,3,6,3,7],'merged cross-track parameter',[ac0y,field_part_list{f}],...
                 'for',levels{i},'and',['GRACE-',sats{s}]))
             end
@@ -359,15 +369,15 @@ classdef csr
                 'timesystem',tmp.timesystem,...
                 'descriptor',['gaps for ',tmp.descriptor]...
               );
-
-% dt=datetime('2002-08-16');d=tmp;
-% disp(['before gaps:',levels{i},':',sats{s},':',fields_out{j}]);idx=d.idx(dt);d.peek((idx):(idx+20))
-
-              obj=obj.sat_set(product.dataname.type,levels{i},fields_out{j},sats{s},tmp.augment(gaps,'old',true,'new',true));    
-
-% dt=datetime('2002-08-16');d=obj.sat_get(product.dataname.type,levels{i},fields_out{j},sats{s});
-% disp(['after gaps:',levels{i},':',sats{s},':',fields_out{j}]);idx=d.idx(dt);d.peek((idx):(idx+20))
-              
+              %augment and save
+              obj=obj.sat_set(product.dataname.type,levels{i},fields_out{j},sats{s},tmp.augment(gaps,'old',true,'new',true));  
+              %debug date report
+              if ~isempty(p.Results.debugdate)
+                rep_date=datetime(p.Results.debugdate);
+                disp(['DEBUG DATE: with gaps:',levels{i},':',sats{s},':',fields_out{j},' @ ',datestr(rep_date)]);
+                idx=ts_now.idx(rep_date);
+                obj.sat_get(product.dataname.type,levels{i},fields_out{j},sats{s}).peek((idx):(idx+20));
+              end              
             end
           end
         end
@@ -496,6 +506,9 @@ classdef csr
       ssl(i).start=datetime('2002-08-06 00:00:00');
       ssl(i).stop =datetime('2002-08-06 23:59:59');
       i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
+      ssl(i).start=datetime('2002-08-06 00:00:00');
+      ssl(i).stop =datetime('2002-08-06 23:59:59');
+      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
       ssl(i).start=datetime('2002-08-16 00:00:00');
       ssl(i).stop =datetime('2002-08-18 23:59:59');
       i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
@@ -585,8 +598,11 @@ classdef csr
                 cal.(fields{f})=cal.(fields{f}).mask_and([cal.(fields{f}).mask(1);diff(cal.(fields{f}).y(:,1))==0]);
                 %retrieve time domain (it is the same for all cal pars)
                 if strcmp(levels{l},'estim')
-                  sod=dateshift(cal.(fields{f}).t(1),'start','day');
+                  %start of day
+                  sod=dateshift(cal.(fields{f}).t,'start','day');
+                  %second of arc
                   soa=sod+seconds(cal.(fields{f}).y(:,4));
+                  %time domain for the calibration model: units are days and zero epoch is the start of the arc
                   t.(fields{f})=days(acc.t-soa);
                 else
                   %TODO: é preciso arranjar isto, o start arc tem de ser definido algures (para aak e accatt)
@@ -751,8 +767,9 @@ classdef csr
       %define list of days to plot
       lod=datetime({...
         '2002-05-04',... %nominal
-        '2005-05-11',...
-        '2005-09-07',...
+        '2002-05-11',...
+        '2002-09-07',...
+        '2002-04-15',... %exceptio
         '2002-04-27',... %exception
         '2002-05-16',...
         '2002-08-06',...
