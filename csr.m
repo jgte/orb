@@ -108,15 +108,16 @@ classdef csr
                 arc_starts=tmp.(sats{s}).t;
                 %build arc ends
                 arc_ends=[arc_starts(2:end);dateshift(arc_starts(end),'end','day')]-seconds(1);
-                %arc ends are at maximum 24 hours after arc starts (only for those arcs starting at mid-night)
-                fix_idx=arc_ends-arc_starts>days(1) & ...
-                  seconds(arc_starts-dateshift(arc_starts,'start','day'))<tmp.(sats{s}).t_tol;
-                arc_ends(fix_idx)=arc_starts(fix_idx)+days(1)-seconds(1);
+%                 %arc ends are at maximum 24 hours after arc starts (only for those arcs starting at mid-night)
+%                 fix_idx=arc_ends-arc_starts>days(1) & ...
+%                   seconds(arc_starts-dateshift(arc_starts,'start','day'))<tmp.(sats{s}).t_tol;
+%                 arc_ends(fix_idx)=arc_starts(fix_idx)+days(1)-seconds(1);
               case 'estim'
                 %get arc stars
                 arc_starts=tmp.(sats{s}).t;
                 %build arc ends (arc duration given explicitly)
                 arc_ends=arc_starts+seconds(tmp.(sats{s}).y(:,arclen_col))-seconds(1);
+                
                 %patch missing arc durations
                 idx=find(isnat(arc_ends));
                 %report edge cases
@@ -128,28 +129,54 @@ classdef csr
                 if ~isempty(idx);
                   arc_ends(idx)=dateshift(arc_starts(idx),'end','day')-seconds(1);
                 end
-                
-                %get seconds-of-day of arc ends
-                sod_arc_ends=seconds(arc_ends-dateshift(arc_ends,'start','day'));
-                %find the 24hrs arcs (those that have ~0 seconds of days)
-                idx=find(sod_arc_ends<tmp.(sats{s}).t_tol);
-                %push those arcs to midnight and remove 1 second
-                arc_ends(idx)=dateshift(arc_ends(idx),'start','day')-seconds(1);
-                %check for ilegal arc durations
-                idx=find(sod_arc_ends>86400);
-                csr.report(obj.debug,idx,'Arcs ending after midnight',f,...
-                  {'arc start','arc end','sod arc end'},...
-                  {arc_starts,arc_ends,sod_arc_ends}...
-                )
-                %fix it
-                if ~isempty(idx)
-                  arc_ends(idx)=dateshift(arc_ends(idx),'start','day')-seconds(1);
-                end
+%                 
+%                 %get seconds-of-day of arc ends
+%                 sod_arc_ends=seconds(arc_ends-dateshift(arc_ends,'start','day'));
+%                 %find the 24hrs arcs (those that have ~0 seconds of days)
+%                 idx=find(sod_arc_ends<tmp.(sats{s}).t_tol);
+%                 %push those arcs to midnight and remove 1 second TODOL this was 'start'
+%                 arc_ends(idx)=dateshift(arc_ends(idx),'end','day')-seconds(1);
+%                 %check for ilegal arc durations
+%                 idx=find(sod_arc_ends>86400);
+%                 csr.report(obj.debug,idx,'Arcs ending after midnight',f,...
+%                   {'arc start','arc end','sod arc end'},...
+%                   {arc_starts,arc_ends,sod_arc_ends}...
+%                 )
+%                 %fix it
+%                 if ~isempty(idx)
+%                   arc_ends(idx)=dateshift(arc_ends(idx),'start','day')-seconds(1);
+%                 end
+              end
+
+              %bug trap
+              assert(all(~isnat(arc_starts)),...
+                [mfilename,': found NaT in the arc starts'])
+
+              %compute arc day start and end
+              day_starts=dateshift(arc_starts,'start','day');
+              day_ends  =dateshift(arc_starts,'end',  'day');
+
+              %arc ends cannot go over day boundaries
+              idx=find(arc_ends>day_ends);
+              csr.report(obj.debug,idx,'Arc ends over day boundary',f,...
+                {'curr arc start','curr arc end','day ends'},...
+                {arc_starts,arc_ends,day_ends}...
+              )
+              %fix it
+              if ~isempty(idx)
+                arc_ends(idx)=day_ends(idx)-seconds(1);
               end
               
+%               %fix NaTs in arc ends
+%               idx=find(isnat(arc_ends));
+%               %fix it
+%               if ~isempty(idx)
+%                 arc_ends(idx)=day_ends(idx)-seconds(1);
+%               end
               %bug trap
-              assert(all(~isnat(arc_ends)) && all(~isnat(arc_ends)),...
+              assert(all(~isnat(arc_ends)),...
                 [mfilename,': found NaT in the arc starts/ends'])
+              
               %surpress over-lapping arcs
               idx=find(arc_starts(2:end)-arc_ends(1:end-1)<0);
               csr.report(obj.debug,idx,'Over-lapping arcs',f,...
@@ -160,13 +187,6 @@ classdef csr
               if ~isempty(idx)
                 arc_ends(idx)=arc_starts(idx+1)-seconds(1);
               end
-              
-%               %compute arc lengths
-%               arc_length=arc_ends-arc_starts;
-              
-              %compute arc day start and end
-              day_starts=dateshift(arc_starts,'start','day');
-              day_ends  =dateshift(arc_starts,'end',  'day');
 
               %fancy stuff: handle parameters defined as arc segments
               if ~isempty(strfind(fields{j},'AC0Y'))
@@ -217,17 +237,17 @@ classdef csr
                   arc_ends=sub_arc_ends;
               end
               
-              %arc ends cannot be at day starts (that's the next arc start)
-              idx=find(arc_ends==day_ends);
-              if ~isempty(idx)
-                arc_ends(idx)=arc_ends(idx)-seconds(1);
-              end
+%               %arc ends cannot be at day starts (that's the next arc start)
+%               idx=find(arc_ends==day_ends);
+%               if ~isempty(idx)
+%                 arc_ends(idx)=arc_ends(idx)-seconds(1);
+%               end
                             
               %propagate data
               arc_start_y=tmp.(sats{s}).y;
                 arc_end_y=tmp.(sats{s}).y;
 
-              %remove arcs with zero length (only applicable to AC0Y2-8)
+              %remove arcs with zero length (only applicable to AC0Y*2-8)
               zero_len_idx=find(arc_ends-arc_starts<=0);
               csr.report(obj.debug,zero_len_idx,'Non-positive arc length',f,...
                 {'arc start','arc end','arc_length'},...
@@ -242,24 +262,24 @@ classdef csr
                   arc_end_y=  arc_end_y(good_idx,:);
               end
 
-              %general reporting
-              rep_date='2002-08-16';
-              rep_delta=arc_starts-rep_date;
-              rep_idx=find(abs(rep_delta)==min(abs(rep_delta)));
-              rep_idx=(rep_idx(1)-8):(rep_idx(end)+8);
-              csr.report(true,rep_idx,['Arcs around ',datestr(rep_date)],f,...
-                {'arc start','arc end','arc length','inter-arc gap'},...
-                {arc_starts(rep_idx),arc_ends(rep_idx),...
-                 arc_ends(rep_idx)-arc_starts(rep_idx),...
-                 arc_starts(rep_idx+1)-arc_ends(rep_idx)...
-                 },...
-              false)              
+%               %general reporting
+%               rep_date='2002-08-16';
+%               rep_delta=arc_starts-rep_date;
+%               rep_idx=find(abs(rep_delta)==min(abs(rep_delta)));
+%               rep_idx=(rep_idx(1)-8):(rep_idx(end)+8);
+%               csr.report(true,rep_idx,['Arcs around ',datestr(rep_date)],f,...
+%                 {'arc start','arc end','arc length','inter-arc gap'},...
+%                 {arc_starts(rep_idx),arc_ends(rep_idx),...
+%                  arc_ends(rep_idx)-arc_starts(rep_idx),...
+%                  arc_starts(rep_idx+1)-arc_ends(rep_idx)...
+%                  },...
+%               false)              
               
-              % set the arc length to zero for arc ends
-              switch levels{i}
-              case 'estim'
-                arc_end_y(:,arclen_col)=0;
-              end
+%               % set the arc length to zero for arc ends
+%               switch levels{i}
+%               case 'estim'
+%                 arc_end_y(:,arclen_col)=0;
+%               end
               
               %build timeseries with arc starts
               arc_start_ts=simpletimeseries(arc_starts,arc_start_y,...
@@ -277,65 +297,12 @@ classdef csr
                 'timesystem',tmp.(sats{s}).timesystem,...
                 'descriptor',['end of arcs for ',tmp.(sats{s}).descriptor]...
               );
-              
-              %additional processing: add gaps
-              gap_idx=[...
-                abs(seconds(arc_ends(1:end-1)+seconds(1)-arc_starts(2:end))) > tmp.(sats{s}).t_tol;...
-              false];
-              gap_t=arc_ends(gap_idx)+seconds(1);
-              %build timeseries with arc ends
-              gap_ts=simpletimeseries(gap_t,nan(numel(gap_t),tmp.(sats{s}).width),...
-                'format','datetime',...
-                'labels',tmp.(sats{s}).labels,...
-                'units',tmp.(sats{s}).y_units,...
-                'timesystem',tmp.(sats{s}).timesystem,...
-                'descriptor',['gaps for ',tmp.(sats{s}).descriptor]...
-              );
-            
-              if obj.debug
-%                 t0=datetime('16-Aug-2002');t1=datetime('21-Aug-2002');
-%                 t0=datetime('04-Apr-2002');t1=datetime('08-Apr-2002');
-%                 t0=datetime('12-Jan-2003');t1=datetime('16-Jan-2003');
-%                 t0=datetime('2003-11-29');t1=datetime('2003-12-02');
-                t0=datetime('2012-06-29');t1=datetime('2012-07-03');
-                o=tmp.(sats{s}).trim(t0,t1);
-                disp(str.tablify(22,'orignal t','original y'))
-                for di=1:o.length
-                  disp(str.tablify(22,o.t(di),o.y(di,param_col)))
-                end
-                 as=arc_start_ts.trim(t0,t1);
-                 ae=  arc_end_ts.trim(t0,t1);
-                 disp(str.tablify(22,'arc start t','arc start y','arc end t','arc end y'))
-                 for di=1:min([as.length,ae.length])
-                   disp(str.tablify(22,as.t(di),as.y(di,param_col),ae.t(di),ae.y(di,param_col)))
-                 end
-                 g=gap_ts.trim(t0,t1);
-                 if ~isempty(g)
-                   disp(str.tablify(22,'gap t','gap y'))
-                   for di=1:g.length
-                     disp(str.tablify(22,g.t(di),g.y(di,param_col)))
-                   end
-                 end
-              end
 
-              %augment the original timeseries with the end-of-arcs and gaps (only new data)
-              tmp.(sats{s})=arc_start_ts.augment(arc_end_ts,'old',true).augment(gap_ts,'old',true);
-                  
-              if obj.debug
-                au=tmp.(sats{s}).trim(t0,t1);
-                disp(str.tablify(22,'augmented t','augmented y'))
-                for di=1:au.length
-                  disp(str.tablify(22,au.t(di),au.y(di,param_col)))
-                end
-                keyboard
-              end
+              %augment arc starts with arc ends (only new data)
+              tmp.(sats{s})=arc_start_ts.augment(arc_end_ts,'old',true);
 
             end
             
-%             %ensure date is compatible between the satellites
-%             if ~tmp.A.isteq(tmp.B)
-%               [tmp.A,tmp.B]=tmp.A.merge(tmp.B);
-%             end
             %propagate data to object
             for s=1:numel(sats)
               obj=obj.sat_set(product.dataname.type,levels{i},fields{j},sats{s},tmp.(sats{s}));     
@@ -354,7 +321,6 @@ classdef csr
               %start with first field
               field=[ac0y,field_part_list{f},'1'];
               ts_now=obj.sat_get(product.dataname.type,levels{i},field,sats{s});
-              disp([levels{i},':',sats{s},':',field]);idx=ts_now.idx(datetime('2002-08-16'));ts_now.peek((idx-10):(idx+10))
               %loop over all other fields
               for fpl=2:8
                 field=[ac0y,field_part_list{f},num2str(fpl)];
@@ -364,19 +330,44 @@ classdef csr
                   'old',true,...
                   'skip_gaps',true...
                 );
-                disp([levels{i},':',sats{s},':',field]);idx=ts_now.idx(datetime('2002-08-16'));ts_now.peek((idx-30):(idx+30))
+% disp(['merge AC0Y*:',levels{i},':',sats{s},':',field]);idx=ts_now.idx(datetime('2002-08-16'));ts_now.peek((idx-10):(idx+10))
               end
               %save the data
               obj=obj.sat_set(product.dataname.type,levels{i},[ac0y,field_part_list{f}],sats{s},ts_now);
-
-% d=obj.sat_get(product.dataname.type,levels{i},[ac0y,field_part_list{f}],sats{s});
-% ti=d.idx(datetime('01-Dec-2002'));
-% for tii=(ti-1):(ti+2)
-%   disp(['3: ',d.labels{1},' ',d.labels{2},' @ ',datestr(d.t(tii)),': ',num2str(d.y(tii,jobid_col),'%i')])
-% end
-              
+     
               disp(str.tablify([29,5,3,6,3,7],'merged cross-track parameter',[ac0y,field_part_list{f}],...
                 'for',levels{i},'and',['GRACE-',sats{s}]))
+            end
+          end
+        end
+        %don't need the old fields no more
+        clear fields
+        
+        %add gaps
+        for i=1:numel(levels)
+          for j=1:numel(fields_out)
+            for s=1:numel(sats)
+              tmp=obj.sat_get(product.dataname.type,levels{i},fields_out{j},sats{s});
+              end_arc_idx=[false;diff(tmp.y(:,1))==0];
+                  gap_idx=[diff(tmp.t)>seconds(1)+tmp.t_tol;false];
+              gap_t=tmp.t(end_arc_idx & gap_idx)+seconds(1);
+              %build timeseries with arc ends
+              gaps=simpletimeseries(gap_t,nan(numel(gap_t),tmp.width),...
+                'format','datetime',...
+                'labels',tmp.labels,...
+                'units',tmp.y_units,...
+                'timesystem',tmp.timesystem,...
+                'descriptor',['gaps for ',tmp.descriptor]...
+              );
+
+% dt=datetime('2002-08-16');d=tmp;
+% disp(['before gaps:',levels{i},':',sats{s},':',fields_out{j}]);idx=d.idx(dt);d.peek((idx):(idx+20))
+
+              obj=obj.sat_set(product.dataname.type,levels{i},fields_out{j},sats{s},tmp.augment(gaps,'old',true,'new',true));    
+
+% dt=datetime('2002-08-16');d=obj.sat_get(product.dataname.type,levels{i},fields_out{j},sats{s});
+% disp(['after gaps:',levels{i},':',sats{s},':',fields_out{j}]);idx=d.idx(dt);d.peek((idx):(idx+20))
+              
             end
           end
         end
@@ -560,6 +551,7 @@ classdef csr
       for s=1:numel(sats)
         %gather quantities
         acc=obj.sat_get(l1baccp.dataname.type,l1baccp.dataname.level,l1baccp.dataname.field,sats{s});
+        assert(~isempty(acc),[mfilename,': acc data is not available to perform this operation.'])
         if ~isa(acc,'simpletimeseries')
           %patch nan calibration model
           calmod=simpletimeseries(...
@@ -573,24 +565,25 @@ classdef csr
             calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coords))).copy_metadata(acc);
             calmod.descriptor=['calibration model ',levels{l},' GRACE-',upper(sats{s})];
             disp(['Computing the ',calmod.descriptor])
-            for i=1:numel(coords)
-              %build nice structure with the relevant calibration parameters
+            for c=1:numel(coords)
+              %retreive data
               cal=struct(...
-                'ac0' ,obj.sat_get(calparp.dataname.type,levels{l},['AC0',coords{i}    ],sats{s}).interp(acc.t),...
-                'ac0d',obj.sat_get(calparp.dataname.type,levels{l},['AC0',coords{i},'D'],sats{s}).interp(acc.t),...
-                'ac0q',obj.sat_get(calparp.dataname.type,levels{l},['AC0',coords{i},'Q'],sats{s}).interp(acc.t)...
+                'ac0' ,obj.sat_get(calparp.dataname.type,levels{l},['AC0',coords{c}    ],sats{s}),...
+                'ac0d',obj.sat_get(calparp.dataname.type,levels{l},['AC0',coords{c},'D'],sats{s}),...
+                'ac0q',obj.sat_get(calparp.dataname.type,levels{l},['AC0',coords{c},'Q'],sats{s})...
               );
-              %sanity
-              if any([isempty(acc),isempty(cal.ac0),isempty(cal.ac0d),isempty(cal.ac0q)])
-                error([mfilename,': not all data is available to perform this operation.'])
-              end
-              %remove transient calpars, this is indicative of a gap (interpolation is done blindly over any gap length)
+              %get field names (too lazy to type)
               fields=fieldnames(cal);
+              %loop over all fields
               for f=1:numel(fields)
+                %interpolate to time domain of measurements
+                cal.(fields{f})=cal.(fields{f}).interp(acc.t);
+                %sanity
+                assert(~isempty(cal.(fields{f})),[mfilename,...
+                  ': ',(fields{f}),' data is not available to perform this operation.'])
+                %remove transient calpars, this is indicative of a gap (interpolation is done blindly over any gap length)
                 cal.(fields{f})=cal.(fields{f}).mask_and([cal.(fields{f}).mask(1);diff(cal.(fields{f}).y(:,1))==0]);
-              end
-              %retrieve time domain (it is the same for all cal pars)
-              for f=1:numel(fields)
+                %retrieve time domain (it is the same for all cal pars)
                 if strcmp(levels{l},'estim')
                   sod=dateshift(cal.(fields{f}).t(1),'start','day');
                   soa=sod+seconds(cal.(fields{f}).y(:,4));
@@ -606,9 +599,9 @@ classdef csr
                 error([mfilename,': calibration time domain inconsistent between parameters, debug needed!'])
               end
               %build calibration model
-              calmod=calmod.set_cols(i,...
-                cal.ac0.cols( param_col)+...
-                cal.ac0d.cols(param_col).times(t.ac0d)+...
+              calmod=calmod.set_cols(c,...
+                cal.ac0.cols( param_col                 )+...
+                cal.ac0d.cols(param_col).times(t.ac0d   )+...
                 cal.ac0q.cols(param_col).times(t.ac0q.^2)...
               );
             end
@@ -757,7 +750,10 @@ classdef csr
       
       %define list of days to plot
       lod=datetime({...
-        '2002-04-27',...
+        '2002-05-04',... %nominal
+        '2005-05-11',...
+        '2005-09-07',...
+        '2002-04-27',... %exception
         '2002-05-16',...
         '2002-08-06',...
         '2002-09-28',...
@@ -778,7 +774,6 @@ classdef csr
         stop=lod(i)+days(1)-seconds(1);
         %plot it
         datastorage('debug',debug,'start',start,'stop',stop).init('grace.acc.cal_csr_plots','plot_dir',plot_dir);
-        keyboard
       end
     end
   end
