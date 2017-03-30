@@ -16,6 +16,7 @@ classdef simpledata
     compatible_parameter_list={'y_units','x_units'};
     %default value of some internal parameters
     default_list=struct(...
+      'invalid',999999999,...
       'nSigma',4 ...
     );
   end
@@ -703,15 +704,16 @@ classdef simpledata
       %propagate y
       obj.y=y;
       % ---- mask ----
-      if obj.length==numel(p.Results.mask)
+      %check if explicit mask was given
+      if ~any(strcmp(p.UsingDefaults,'mask'))
+        %make sure things make sense 
+        assert(obj.length==numel(p.Results.mask),[mfilename,': ',...
+          'number of elements of input ''mask'' (',num2str(numel(p.Results.mask)),...
+          ') must be the same as the data length (',num2str(obj.length),').'])
         %propagate mask
         obj.mask=p.Results.mask(:);
       else
-        if ~any(strcmp(p.UsingDefaults,'mask'))
-          error([mfilename,': number of elements of input ''mask'' (',num2str(numel(p.Results.mask)),...
-            ') must be the same as the data length (',num2str(obj.length),').'])
-        end
-        %using default mask, data length may have changed: set mask from y
+        %using existing mask (the default), data length may have changed: set mask from y
         obj=obj.mask_reset;
       end
       %sanitize done inside mask_update
@@ -988,10 +990,8 @@ classdef simpledata
       if ~isvector(columns)
         error([mfilename,': input ''columns'' must be a vector'])
       end
-      %update width
-      obj.width=numel(columns);
       %retrieve requested columns
-      obj.y      =obj.y(:,    columns);
+      obj=obj.assign(obj.y(:, columns),'reset_width',true);
       obj.labels =obj.labels( columns);
       obj.y_units=obj.y_units(columns);
     end
@@ -1114,6 +1114,30 @@ classdef simpledata
       %sanity
       assert(all(obj.mask) || ~any(isnan(obj.y(:))),...
         [mfilename,': making operation failed: found non-unitary mask entries and/or NaNs in the data.'])
+    end
+    %% invalid methods
+    function obj=demasked(obj,invalid)
+      if ~exist('invalid','var') || isempty(invalid)
+        invalid=simpledata.default_list.invalid;
+      end
+      %replace NaNs with invalid entries
+      y_now=obj.y;
+      y_now(isnan(y_now))=invalid;
+      %back-propagate
+      obj=obj.assign(y_now);
+      %paranoid sanity
+      assert(obj.nr_gaps == 0,[mfilename,':BUG TRAP: ',...
+        'there are still explicit gaps in the data. Debug needed!'])
+    end
+    function obj=remasked(obj,invalid)
+      if ~exist('invalid','var') || isempty(invalid)
+        invalid=simpledata.default_list.invalid;
+      end
+      %replace invalids with NaNs entries
+      y_now=obj.y;
+      y_now(y_now==invalid)=Nan;
+      %back-propagate
+      obj=obj.assign(y_now);
     end
     %% management methods
     function check_sd(obj)
