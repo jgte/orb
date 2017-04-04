@@ -341,6 +341,7 @@
     %% constructors
     function obj=unit(lmax,varargin)
       p=inputParser;
+      p.KeepUnmatched=true;
       p.addRequired( 'lmax',                            @(i) isscalar(i) && isnumeric(i));
       p.addParameter('scale',           1,              @(i) isscalar(i));
       p.addParameter('scale_per_degree',ones(lmax+1,1), @(i) isvector(i) && lmax+1 == numel(i));
@@ -360,7 +361,8 @@
       %replicate by the nr of elements of t
       u=ones(numel(p.Results.t),1)*gravity.dtc('tri','y',u);
       %initialize
-      obj=gravity(p.Results.t,u);
+      varargin_now=simpledata.vararginclean(varargin,{'t'});
+      obj=gravity(p.Results.t,u,varargin_now{:});
       %call upstream scale method for global scale
       obj=obj.scale(p.Results.scale);
     end
@@ -379,7 +381,9 @@
     function [m,e]=load(filename,format,time)
       %default type
       if ~exist('format','var') || isempty(format)
-        format='icgem';
+        [~,~,format]=fileparts(filename);
+        %get rid of the dot
+        format=format(2:end);
       end
       %default time
       if ~exist('time','var') || isempty(time)
@@ -1359,6 +1363,91 @@
       end
 
     end
+    %% export functions
+    function filelist=icgem(obj,varargin)
+      % Parse inputs
+      p=inputParser;
+      p.KeepUnmatched=true;
+      % optional arguments
+      p.addParameter('prefix',   '',  @(i)ischar(i));
+      p.addParameter('suffix',   '',  @(i)ischar(i));
+      p.addParameter('delim',    '.', @(i)ischar(i));
+      p.addParameter('path',     '.', @(i)ischar(i));
+      p.addParameter('timefmt',  'yyyymmddTHHMMSS', @(i)ischar(i));
+      p.addParameter('error_obj','',  @(i)isa(i,'gravity') || isempty(i));
+      p.addParameter('modelname','unknown',         @(i)ischar(i));
+      p.addParameter('errors',   'formal',          @(i)ischar(i));
+      p.addParameter('norm',     'fully_normalized',@(i)ischar(i));
+      % parse it
+      p.parse(varargin{:});
+      % get only valid entries
+      obj_now=obj.masked;
+      % init outputs
+      filelist=cell(obj.length,1);
+      % build filenames
+      for i=1:obj_now.length
+        f={p.Results.prefix,datestr(obj_now.t(i),p.Results.timefmt),p.Results.suffix,'gfc'};
+        f=strjoin(f(~cellfun(@isempty,f)),p.Results.delim);
+        filelist{i}=fullfile(p.Results.path,f);
+      end
+      header={...
+       ''... %place holder for model epoch
+       ''... %place holder for time of exporting
+       ['timesystem                  ',obj_now.timesystem],...
+       ['descriptor                  ',obj_now.descriptor],...
+       ['geopotential_functional     ',obj_now.functional],...
+        'begin_of_head ===========================================================================',...
+        'product_type                gravity_field',...
+       ['modelname                   ',p.Results.modelname],...
+       ['earth_gravity_constant      ',num2str(obj_now.GM,'%.15g')],...
+       ['radius                      ',num2str(obj_now.R, '%.15g')],...
+        'min_degree                  0',...
+       ['max_degree                  ',num2str(obj_now.lmax,'%d')],...
+        'tide_system                 zero_tide',...
+       ['modelname                   ',p.Results.errors],...
+       ['norm                        ',p.Results.norm],...
+        'key   n   m             C                      S                 sigma C       sigma S',...
+        'end_of_head ============================================================================='...
+      };
+      %get the data in a suitable representations
+      sig=obj_now.mod;
+      % handle empty error models
+      if isempty(p.Results.error_obj)
+        err=cell(size(sig));
+        err(:)=gravity.unit(obj.lmax,'scale',0).mod;
+      else
+        err=p.Results.error_obj.mod;
+      end
+      % write data
+      for i=1:obj_now.length
+        %check if file is already available
+        if ~exist(filelist{i},'file')
+          %create dir if needed
+          if ~exist(fileparts(filelist{i}),'dir'); mkdir(fileparts(filelist{i})); end
+          %open file
+          fid=fopen(filelist{i},'w');
+          %update the header
+          header{1}=['model_epoch                 ',datestr(obj_now.t(i),   p.Results.timefmt)];
+          header{2}=['exported_at                 ',datestr(datetime('now'),p.Results.timefmt)];
+          %write the header
+          fprintf(fid,'%s\n',strjoin(header,'\n'));
+          %paranoid sanity
+          assert(all(sig{i}(:,1)==err{i}(:,1)) && all(sig{i}(:,2)==err{i}(:,2)),...
+            'degree/order domain discrepancy between signal and error')
+          %write the data
+          for j=1:numel(sig{i}(:,1))
+            fprintf(fid,'gfc %3d %3d %23.15e %23.15e %14.8g %14.8g\n',...
+              [sig{i}(j,1),sig{i}(j,2),sig{i}(j,3),sig{i}(j,4),err{i}(j,3),err{i}(j,4)]...
+            );
+          end
+          %close the file
+          fclose(fid);
+          disp(['Finished writing:  ',filelist{i}])
+        else
+          disp(['Already available: ',filelist{i}])
+        end
+      end
+    end
   end
 end
 
@@ -1747,6 +1836,15 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
     e=gravity(...
       time,...
       gravity.dtc('cs','y',ei),...
+      'GM',header.earth_gravity_constant,...
+      'R',header.radius,...
+      'descriptor',['error of ',header.modelname],...
+      'source',header.filename...
+    );
+  else
+    e=gravity.unit(m.lmax,...
+      'scale',0,...
+      't',time,...
       'GM',header.earth_gravity_constant,...
       'R',header.radius,...
       'descriptor',['error of ',header.modelname],...
