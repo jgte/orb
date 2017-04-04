@@ -920,6 +920,9 @@ classdef simpledata
         end
       end
     end
+    function out=size(obj)
+      out=[obj.length,obj.width];
+    end
     %% x methods
     function out=x_masked(obj,mask)
       if ~exist('mask','var') || isempty(mask)
