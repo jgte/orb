@@ -9,3 +9,4 @@ max_degree: 20
 plot_zeromean: true
 static_model: gswarm.grace.static.ggm05g
 smoothing_radius: 1500000
+export_dir: <getenv('HOME')>/data/gswarm/tudelft/gravity/4thSSM/
