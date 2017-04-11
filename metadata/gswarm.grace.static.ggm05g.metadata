@@ -1,4 +1,4 @@
-import_dir: <getenv('HOME')>/media/data2/data/grace/L2/
+import_dir: <getenv('HOME')>/data/grace/L2/
 method: gswarm.load_models
 model_types: [signal,error]
 wilcarded_filename: ggm05g.gfc

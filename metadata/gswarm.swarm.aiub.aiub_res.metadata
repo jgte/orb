@@ -1,10 +1,10 @@
 method: datastorage.arithmetic
 operation: minus
-sources: [gswarm.swarm.ifg.ifg,gswarm.grace.gfz.rl05]
+sources: [gswarm.swarm.aiub.aiub,gswarm.grace.gfz.rl05]
 dataflow: #[this product, (=) source 1, (operation) source 2, ...]
-  types:  [swarm,swarm,grace]
-  levels: [ifg,  ifg, gfz]
-  fields: [res,  ifg, rl05]
+  types:  [swarm,    swarm,grace]
+  levels: [aiub,     aiub, gfz]
+  fields: [aiub_res, aiub, rl05]
 sats: signal
 storage_period: global
 plot_columns_together: false
