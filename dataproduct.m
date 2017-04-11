@@ -156,10 +156,11 @@ classdef dataproduct
       p=inputParser;
       p.KeepUnmatched=true;
       p.addParameter('rm_args',[], @(i) ischar(i));
+      p.addParameter('mode','data', @(i) ischar(i));
       % parse it
       p.parse(varargin{:});
       %get list of files
-      files=obj.file('data',varargin{:},'discover',true);
+      files=obj.file(p.Results.mode,varargin{:},'discover',true);
       %loop over all files and delete them
       for i=1:numel(files)
         if ~isempty(dir(files{i}))
@@ -273,25 +274,23 @@ classdef dataproduct
       end
     end 
     %% metadata file
-    function out=md_file(obj,dir)
-      if ~exist('dir','var') || isempty(dir)
-        dir=obj.metadata_dir;
-      end
+    function out=md_file(obj)
+      assert(logical(exist(obj.metadata_dir,'dir')),[mfilename,': ',...
+        'cannot find metadata dir ''',obj.metadata_dir,'''.'])
       %get non-empty filename parts
       filename=obj.dataname.cells_clean;
       filename{end+1}='metadata';
       %assemble components
       filename=strjoin(filename,'.');
       %add path
-      out=fullfile(dir,filename);
+      out=fullfile(obj.metadata_dir,filename);
     end
     function out=ismd_file(obj)
       out=~isempty(dir(obj.md_file));
     end
     function md_file_check(obj)
-      if ~obj.ismd_file
-        error([mfilename,': could not find the metadata for product ',obj.dataname.name,' (expecting ',obj.md_file,').'])
-      end
+      assert(obj.ismd_file,[mfilename,': ',...
+        'could not find the metadata for product ',obj.dataname.name,' (expecting ',obj.md_file,').'])
     end    
     function obj=metadata_load(obj)
       obj.md_file_check
