@@ -1,0 +1,13 @@
+import_dir: <getenv('HOME')>/cloud/CSR/2017-04.test-Poole/data
+filename: postfit_subset_GRC|SAT|_AC0|COORD|/krr_|DATE|_RL61_62_RL05.*.resid
+method: csr.import_acc_resid_test
+sats: [A,B]
+coords: [X,Y,Z]
+storage_period: daily
+plot_columns: [1,2,3]
+plot_autoscale: true
+plot_automean: true
+plot_outlier: 3
+plot_zeromean: true
+plot_label_prefix_sat: GRACE-
+plot_title_suppress: [grace,csr]

@@ -1,4 +1,4 @@
-import_dir: <getenv('HOME')>/media/data2/data/grace/L2/GFZ/RL05
+import_dir: <getenv('HOME')>/data/grace/L2/GFZ/RL05
 method: gswarm.load_models
 model_types: [signal,error]
 wilcarded_filename: GSM-2_*.gsm
@@ -9,4 +9,4 @@ max_degree: 20
 plot_zeromean: true
 static_model: gswarm.grace.static.ggm05g
 smoothing_radius: 1500000
-export_dir: <getenv('HOME')>/data/gswarm/tudelft/gravity/4thSSM/
+export_dir: <getenv('HOME')>/data/gswarm/tudelft/gravity/EGU2017

@@ -1,4 +1,4 @@
-import_dir: <getenv('HOME')>/media/data2/data/gswarm/asu/gravity/ASU-Swarm-nmax40-orbits_IfG-gfc/
+import_dir: <getenv('HOME')>/data/gswarm/asu/gravity/ASU-Swarm-nmax40-orbits_IfG-gfc/
 method: gswarm.load_models
 model_types: [signal,error]
 wilcarded_filename: asu-swarm-*-nmax40.gfc
