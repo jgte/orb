@@ -564,16 +564,18 @@ classdef csr
       for s=1:numel(sats)
         %gather quantities
         acc=obj.sat_get(l1baccp.dataname.type,l1baccp.dataname.level,l1baccp.dataname.field,sats{s});
-        assert(~isempty(acc),[mfilename,': acc data is not available to perform this operation.'])
-        if ~isa(acc,'simpletimeseries')
-          %patch nan calibration model
-          calmod=simpletimeseries(...
-            [obj.start;obj.stop],...
-            nan(2,numel(obj.par.acc.data_col_name))...
-          );
-        else
-          %loop over all 
-          for l=1:numel(levels)
+        %loop over all levels
+        for l=1:numel(levels)
+          %handle exceptions (also deals with non-existing data)
+          if ~isa(acc,'simpletimeseries')
+            %patch nan calibration model
+            calmod=simpletimeseries(...
+              [obj.start;obj.stop],...
+              nan(2,numel(coords)),...
+              'descriptor',['calibration model ',levels{l},' GRACE-',upper(sats{s}),' (empty)']...
+            );
+            disp(['Skipping  the ',calmod.descriptor])
+          else
             %init models container
             calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coords))).copy_metadata(acc);
             calmod.descriptor=['calibration model ',levels{l},' GRACE-',upper(sats{s})];
@@ -620,10 +622,44 @@ classdef csr
                 cal.ac0d.cols(param_col).times(t.ac0d   )+...
                 cal.ac0q.cols(param_col).times(t.ac0q.^2)...
               );
+              %make debug plots
+              if product.mdget('debug_plot')
+                font_size_args={...
+                  'plot_fontsize_title',24,...
+                  'plot_fontsize_axis',18, ...
+                  'plot_fontsize_label',20 ...
+                };
+                filename=product.file('plot','start',obj.start,'stop',obj.stop,...
+                  'use_storage_period',false,'timestamp',true,...
+                  'suffix',[sats{s},'.',coords{c}]...
+                );
+                %add level
+                [p,f,e]=fileparts(filename{1});
+                filename=fullfile(p,levels{l},[f,e]);
+                if ~exist(fileparts(filename),'dir'); mkdir(fileparts(filename)); end
+                figure;
+                subplot(2,2,1)
+                for f=1:numel(fields)
+                  plot(acc.t,t.(fields{f})), hold on
+                end
+                grid on
+                title('time domain')
+                obj.mdget(dataname).enforce_plot(font_size_args{:})
+                legend(fields)
+                for f=1:numel(fields)
+                  subplot(2,2,f+1)
+                  plot(acc.t,cal.(fields{f}).cols(param_col).y)
+                  title(cal.(fields{f}).labels(param_col))
+                  grid on
+                  obj.mdget(dataname).enforce_plot(font_size_args{:})
+                end
+                disp(['Created plot ',filename])
+                saveas(gcf,filename)
+              end
             end
-            %propagate it
-            obj=obj.sat_set(dataname.type,dataname.level,levels{l},sats{s},calmod);
           end
+          %propagate it
+          obj=obj.sat_set(dataname.type,dataname.level,levels{l},sats{s},calmod);
         end
       end
     end
@@ -660,7 +696,7 @@ classdef csr
             ['ACC1B_',datestr(timestamplist(i),'yyyy-mm-dd'),'_',sats{s},'_',version,'.asc']...
           );
         end
-        %load (and save the data in mat format, as handled by simpletimeseries.import)
+        %load (and save the data in mat format, as handled by simpletimeseries.import
         obj=obj.sat_set(dataname.type,dataname.level,dataname.field,sats{s},...
           simpletimeseries.import(infile,'cut24hrs',false)...
         );
@@ -718,6 +754,86 @@ classdef csr
         obj.stop= p.Results.stop;
       end
     end
+    function obj=import_acc_resid_test(obj,dataname,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('dataname',@(i) isa(i,'datanames'));
+      p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
+      p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
+      % parse it
+      p.parse(dataname,varargin{:});
+      % sanity
+      if isempty(p.Results.start) || isempty(p.Results.stop)
+        error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
+      end
+      %retrieve product info
+      product=obj.mdget(dataname);
+      %retrieve relevant parameters
+      sats  =product.mdget('sats');
+      coords=product.mdget('coords');
+      indir =product.mdget('import_dir');
+      infile_template =product.mdget('filename');
+      %gather list of daily data files
+      [outfiles,timestamplist]=product.file('data',varargin{:},...
+        'start',p.Results.start,...
+        'stop', p.Results.stop...
+      );
+      %loop over the satellites
+      for f=1:numel(outfiles)
+        if ~exist(outfiles{f},'file')
+          for c=1:numel(coords)
+            for s=1:numel(sats)
+              infile=file.wildcard(...
+                strrep(strrep(strrep(infile_template,...
+                  '<sat>',sats{s}),...
+                  '<coord>',coords{c}),...
+                  '<date>',datestr(timestamplist(f),'yy-mm-dd'))...
+              );
+              d=simpletimeseries.import(infile,'cut24hrs',false);
+              %load (and save the data in mat format, as handled by simpletimeseries.import
+%               obj=obj.sat_set(dataname.type,dataname.level, ,sats{s},...
+%                 ...
+%               );
+              simpletimeseries.import(infile,'cut24hrs',false)
+            end
+          end
+        
+          %save data
+          s=obj.datatype_get(product.dataname.type); %#ok<*NASGU>
+          save(outfiles{f},'s');
+          clear s
+        else
+          %load data
+          load(outfiles{f},'s');
+          fields=fieldnames(s); %#ok<NODEF>
+          for i=1:numel(fields)
+            obj=obj.field_set(product.dataname.type,product.dataname.level,fields{i},s.(fields{i}));
+          end
+        end
+
+          
+      end
+      for s=1:numel(sats)
+        infile=cell(size(timestamplist));
+        %loop over all dates
+        for i=1:numel(timestamplist)
+          %build input data filename
+          infile{i}=fullfile(indir,datestr(timestamplist(i),'yy'),datestr(timestamplist(i),'mm'),'gps_orb_l',...
+            ['grc',sats{s},'_gps_orb_',datestr(timestamplist(i),'yyyy-mm-dd'),...
+            '_RL',acc_version,'_GPSRL',gps_version,'_RL',grav_version,'.*.acc']...
+          );
+        end
+        %load (and save the data in mat format, as handled by simpletimeseries.import)
+        obj=obj.sat_set(dataname.type,dataname.level,dataname.field,sats{s},...
+          simpletimeseries.import(infile,'cut24hrs',true)...
+        );
+      end
+      %make sure start/stop options are honoured (if non-empty)
+      if ~isempty(obj)
+        obj.start=p.Results.start;
+        obj.stop= p.Results.stop;
+      end
+    end
     function rm_data(mode,varargin)
       if ~exist('mode','var') || isempty(mode)
         mode='all';
@@ -753,7 +869,7 @@ classdef csr
           disp(result)
         end
       otherwise
-        dataproduct(mode).rm_data(varargin{:});
+        dataproduct(mode,'metadata_dir',obj.metadata_dir).rm_data(varargin{:});
       end
     end
     function calpar_debug_plots(debug)
@@ -766,15 +882,28 @@ classdef csr
       
       %define list of days to plot
       lod=datetime({...
-        '2002-05-04',... %nominal
-        '2002-05-11',...
-        '2002-09-07',...
-        '2002-04-15',... %exceptio
-        '2002-04-27',... %exception
-        '2002-05-16',...
-        '2002-08-06',...
-        '2002-09-28',...
-        '2002-09-30'...
+        '2008-02-24',...
+        '2008-02-25'...
+%         '2014-09-13',...
+%         '2014-09-14'...
+%         '2014-08-01',...
+%         '2014-08-02'...
+%         '2013-02-26',...
+%         '2013-02-25',...  
+%         '2013-02-24',...
+%         '2013-02-23',...
+%         '2013-02-22',...
+%         '2013-02-21'...
+%         '2013-02-20',...
+%         '2002-05-04',... %nominal
+%         '2002-05-11',...
+%         '2002-09-07',...
+%         '2002-04-15',... %exception
+%         '2002-05-16',...
+%         '2002-09-28',...
+%         '2002-09-30'...
+%         '2002-04-27',... %exception
+%         '2002-08-06',... %exception
 %         '2002-08-16','2002-08-17',...
 %         '2003-01-13','2003-01-14',...
 %         '2003-11-20',...
