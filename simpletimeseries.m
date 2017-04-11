@@ -747,6 +747,8 @@ classdef simpletimeseries < simpledata
       p.addParameter( 'cut24hrs', true,  @(i) isscalar(i) && islogical(i))
       p.addParameter( 'del_arch', true,  @(i) isscalar(i) && islogical(i))
       p.parse(varargin{:})
+      %use this flag to skip saving mat data (e.g. if input file is empty)
+      skip_save_mat=false;
       %unwrap wildcards and place holders (output is always a cellstr)
       filename=simpletimeseries.unwrap_datafiles(filename,varargin{:});
       %if argument is a cell string, then load all those files
@@ -805,6 +807,31 @@ classdef simpletimeseries < simpledata
       end
       %branch on extension/format ID
       switch e
+      case '.resid'
+        fid=fopen(filename);
+        raw = textscan(fid,'%f %f %f %f %f %f %f','delimiter',' ','MultipleDelimsAsOne',1,'Headerlines',1);
+        fclose(fid);
+        %building time domain
+        t=simpletimeseries.utc2gps(datetime(raw{1},...
+          'convertfrom','epochtime',...
+          'epoch','2000-01-01'...
+        ));
+        %building data domain
+        y=[raw{5:7}];
+        %determine coordinate
+        coords={'AC0X','AC0Y','AC0Z'};
+        idx=cellfun(@(i) ~isempty(strfind(filename,i)),coords);
+        %sanity
+        assert(sum(idx)==1,[mfilename,': the name for .resid files must include (one of) AC0X, AC0Y or AC0Z, not ''',...
+          filename,'''.'])
+        %building object
+        obj=simpletimeseries(t,y,...
+          'format','datetime',...
+          'y_units',{'m^2','m^2','m^2'},...
+          'labels', {coords{idx},[coords{idx},'D'],[coords{idx},'Q']},...
+          'timesystem','gps',...
+          'descriptor',['model response from file ',filename]...
+         );
       case '.sigma'
         fid=fopen(filename);
         raw = textscan(fid,'%d %d %d %d %d %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f','delimiter',' ','MultipleDelimsAsOne',1);
@@ -880,44 +907,47 @@ classdef simpletimeseries < simpledata
         %building data domain
         y=data_fh(raw);
         %sanity
-        if numel(t)==0 || numel(y)==0
-          error([mfilename,': file ',filename,' appears to be empty.'])
-        end
-        iter=0;
-        while any(diff(t)==0)
-          %loop inits
-          n0=numel(t);
-          iter=iter+1;
-          %need to remove duplicate entries with different job IDs
-          mask=true(size(t));
-          for i=2:numel(t)
-            %get rid of those entries with zero or negative time stamp delta and lower ID
-            if t(i)<=t(i-1) && mask(i)
-              if y(i,2) > y(i-1,2)
-                mask(i-1)=false;
-              else
-                mask(i)=false;
+        if isempty(t) || isempty(y)
+          disp([mfilename,': this file has no data  ',filename])
+          skip_save_mat=true;
+          obj=[];
+        else
+          iter=0;
+          while any(diff(t)==0)
+            %loop inits
+            n0=numel(t);
+            iter=iter+1;
+            %need to remove duplicate entries with different job IDs
+            mask=true(size(t));
+            for i=2:numel(t)
+              %get rid of those entries with zero or negative time stamp delta and lower ID
+              if t(i)<=t(i-1) && mask(i)
+                if y(i,2) > y(i-1,2)
+                  mask(i-1)=false;
+                else
+                  mask(i)=false;
+                end
               end
             end
+            t=t(mask);
+            y=y(mask,:);
+            disp(['At iter ',num2str(iter),', removed ',num2str(n0-numel(t),'%04d'),' duplicate time entries (',filename,').'])
           end
-          t=t(mask);
-          y=y(mask,:);
-          disp(['At iter ',num2str(iter),', removed ',num2str(n0-numel(t),'%04d'),' duplicate time entries (',filename,').'])
+          %need to monotonize the data (sometimes the entries are ordered according to arc number and not chronologically)
+          if any(diff(t)<0)
+            [t,i]=sort(t);
+            y=y(i,:);
+            disp(['Sorted ',num2str(sum(i~=transpose(1:numel(i))),'%04d'),' time entries (',filename,').'])
+          end
+          %building object
+          obj=simpletimeseries(t,y,...
+            'format','datetime',...
+            'labels',labels,...
+            'units',units,...
+            'timesystem',timesystem,...
+            'descriptor',filename...
+          );
         end
-        %need to monotonize the data (sometimes the entries are ordered according to arc number and not chronologically)
-        if any(diff(t)<0)
-          [t,i]=sort(t);
-          y=y(i,:);
-          disp(['Sorted ',num2str(sum(i~=transpose(1:numel(i))),'%04d'),' time entries (',filename,').'])
-        end
-        %building object
-        obj=simpletimeseries(t,y,...
-          'format','datetime',...
-          'labels',labels,...
-          'units',units,...
-          'timesystem',timesystem,...
-          'descriptor',filename...
-        );
       case 'ACC1B'
         %load data
         [raw,header]=file.textscan(filename,'%f %s %f %f %f %f %f %f %f %f %f %f');
@@ -936,6 +966,8 @@ classdef simpletimeseries < simpledata
         y=raw(:,2:4);
         %skip empty data files
         if isempty(t) || isempty(y)
+          disp([mfilename,': this file has no data  ',filename])
+          skip_save_mat=true;
           obj=[];
         else
           %building object
@@ -965,6 +997,8 @@ classdef simpletimeseries < simpledata
         y=raw(:,5:7)./unitfactor;
         %skip empty data files
         if isempty(t) || isempty(y)
+          disp([mfilename,': this file has no data  ',filename{i}])
+          skip_save_mat=true;
           obj=[];
         else
           %building object
@@ -986,7 +1020,7 @@ classdef simpletimeseries < simpledata
         error([mfilename,': cannot handle files of type ''',e,'''.'])
       end
       %save mat file if requested
-      if p.Results.save_mat
+      if p.Results.save_mat && ~skip_save_mat
         save(datafile,'obj')
       end
       %delete uncompressed file if compressed file is there
@@ -1429,43 +1463,47 @@ classdef simpletimeseries < simpledata
       out=obj.t(obj.length);
     end
     function obj=set.start(obj,start)
-      if isempty(start) || start==obj.start
+      if isempty(start) || simpletimeseries.ist('==',start,obj.start,obj.t_tol)
         %trivial call
         return
       %check if required start is before the start of the current time series
       elseif simpletimeseries.ist('<',start,obj.start,obj.t_tol)
-        %append a single epoch
-        obj=obj.assign(...
-          [nan(1,obj.width);obj.y],...
-          't',[start;obj.t]...
-        );
+        %preppend a single epoch
+        obj=obj.append_epochs(start,nan);
       %check if required start is after the end of the current time series
       elseif simpletimeseries.ist('>',start,obj.stop,obj.t_tol)
-        %build pseudo-empty data
+        %build pseudo-empty data (all previous data is discarded)
         obj=obj.assign(nan(1,obj.width),'t',start);
       else
         %trim object
         obj=obj.trim(start,obj.stop);
+        %recursive call in case start is at the middle of an epoch
+        if ~simpletimeseries.ist('==',start,obj.start,obj.t_tol)
+          %preppend a single epoch
+          obj=obj.append_epochs(start,nan);
+        end
       end
     end
     function obj=set.stop(obj,stop)
-      if isempty(stop) || stop==obj.stop
+      if isempty(stop) || simpletimeseries.ist('==',stop,obj.stop,obj.t_tol)
         %trivial call
         return
       %check if required stop is after the end of the current time series
       elseif simpletimeseries.ist('>',stop,obj.stop,obj.t_tol)
         %append a single epoch
-        obj=obj.assign(...
-          [obj.y;nan(1,obj.width)],...
-          't',[obj.t;stop]...
-        );
+        obj=obj.append_epochs(stop,nan);
       %check if required stop is before the start of the current time series
       elseif simpletimeseries.ist('<',stop,obj.start,obj.t_tol)
-        %build pseudo-empty data
+        %build pseudo-empty data (all previous data is discarded)
         obj=obj.assign(nan(1,obj.width),'t',stop);
       else
         %trim object
         obj=obj.trim(obj.start,stop);
+        %recursive call in case start is at the middle of an epoch
+        if ~simpletimeseries.ist('==',stop,obj.stop,obj.t_tol)
+         %append a single epoch
+          obj=obj.append_epochs(stop,nan);
+        end
       end
     end
     %% tsys methods
@@ -1591,6 +1629,34 @@ classdef simpletimeseries < simpledata
       otherwise
         error([mfilename,': cannot handle input ''nr_epochs'' of class ',class(nr_epochs),'.'])
       end
+    end
+    function obj=append_epochs(obj,t_now,y_now)
+      %shortcuts
+      if isscalar(y_now)
+        y_now=y_now*ones(numel(t_now),obj.width);
+      end
+      %sanity
+      assert(numel(t_now)==size(y_now,1) || size(y_now,2)~=obj.width,[mfilename,...
+        'inputs ''t_now'' and/or ''y_now'' have sizes inconsistent with this obj.'])
+      %try to avoid sorting
+      if all(t_now<obj.start)
+        %preppend the data (t_now should be sorted)
+        y_now=[y_now;obj.y];
+        t_now=[t_now(:);obj.t];
+      elseif all(t_now>obj.stop)
+        %append the data (t_now should be sorted)
+        y_now=[obj.y;y_now];
+        t_now=[obj.t;t_now(:)];
+      else
+        %concatenate data
+        y_now=[obj.y;y_now];
+        t_now=[obj.t;t_now(:)];
+        %sort along time
+        [t_now,sort_idx]=sort(t_now);
+        y_now=y_now(sort_idx,:);
+      end
+      %append the epoch
+      obj=obj.assign(y_now,'t',t_now);
     end
     function [obj,idx]=fill(obj)
       %NOTICE: this method is similar to resample in the sense it creates a complete time domain
