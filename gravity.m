@@ -575,14 +575,14 @@
       if numel(model_list)==1
         out=model_list;
       end
-      %sanity
-      for i=2:numel(model_list)
-        if ~model_list{1}.isteq(model_list{i})
-          error([mfilename,': time domain discrepancy between model ',...
-            model_list{1}.descriptor,' and model ',...
-            model_list{i}.descriptor,'.'])
-        end
-      end
+%       %sanity
+%       for i=2:numel(model_list)
+%         if ~model_list{1}.isteq(model_list{i})
+%           error([mfilename,': time domain discrepancy between model ',...
+%             model_list{1}.descriptor,' and model ',...
+%             model_list{i}.descriptor,'.'])
+%         end
+%       end
       %set model compatibility
       model_list=simpledata.merge_multiple(model_list);
       %branch on mode
@@ -601,7 +601,7 @@
           error([mfilename,': unknown type ',p.Results.type,'.'])
         end
       case {'dtm','difftomean'}
-        %compute
+        error([mfilename,': implementation needed'])
       otherwise
         error([mfilename,': unknown mode ''',p.Results.mode,'''.'])
       end
