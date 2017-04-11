@@ -1252,11 +1252,41 @@ classdef simpledata
       %propagate requested x-domain only (mask is rebuilt from NaNs in 
       obj=obj.assign(y_now,'x',x_now,'mask',mask_now);
     end
+    function obj_out=polyfit(obj,order)
+      %copy the data
+      obj_out=obj;
+      obj_out.descriptor=['order ',num2str(order),' polyfit of ',obj.descriptor];
+      %get the masked data
+      y_now=obj.y_masked;
+      x_now=obj.x_masked;
+      %make room for data
+      y_polyfitted=zeros(size(y_now));
+      %polyfit for all columns
+      for i=1:obj.width
+        y_polyfitted(:,i)=polyval(polyfit(x_now,y_now(:,i),order),x_now);
+      end
+      %propagate the data
+      obj_out.y(obj_out.mask,:)=y_polyfitted;
+    end
     function obj=detrend(obj,mode)
       if ~exist('mode','var') || isempty(mode)
         mode='linear';
       end
+      if ~isempty(strfind(mode,'poly'))
+        %determine polynomial order to be fitted
+        o=str2double(strrep(mode,'poly',''));
+        %polyfit the data
+        obj_polyfitted=obj.polyfit(o);
+        %subtract polyfitted data from input data
+        obj=obj-obj_polyfitted;
+        %we're done
+        return
+      end
       switch mode
+      case 'cubic'
+        obj=obj.detrend('poly3');
+      case 'quadratic'
+        obj=obj.detrend('poly2');
       case 'linear'
         %copy data
         y_now=obj.y;
@@ -1857,6 +1887,64 @@ classdef simpledata
 %       check=check+out.res-obj;
 %       assert(norm(check.masked.norm)/norm(obj.masked.norm)<1e-12,...
 %         [mfilename,': norm of circular check is too high. Debug needed!'])
+    end
+    %% differentiation
+    function obj=diff(obj,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('mode','central', @(i) ischar(i));
+      % parse it
+      p.parse(varargin{:});
+      % retrieve x- and y-domain
+      x_now=obj.x_masked;
+      y_now=obj.y_masked;
+      % branch on type of derivative
+      switch p.Results.mode
+      case 'forwards'
+        % gather indexes
+        iplus1=[false;true(obj.length-1,1)];
+        iminus1=[true(obj.length-1,1);false];
+        % compute forward derivative
+        y_diff=[...
+          (...
+            y_now(iplus1,:)-y_now(iminus1,:)...
+          )./(...
+            (x_now(iplus1)-x_now(iminus1))*ones(1,obj.width)...
+          );...
+          nan(1,obj.width)...
+        ];
+      case 'backwards'
+        % gather indexes
+        iplus1=[false;true(obj.length-1,1)];
+        iminus1=[true(obj.length-1,1);false];
+        % compute forward derivative
+        y_diff=[...
+          nan(1,obj.width);...
+          (...
+            y_now(iplus1,:)-y_now(iminus1,:)...
+          )./(...
+            (x_now(iplus1)-x_now(iminus1))*ones(1,obj.width)...
+          )...
+        ];
+      case 'central'
+        % gather indexes
+        iplus2=[false;false;true(obj.length-2,1)];
+        iminus2=[true(obj.length-2,1);false;false];
+        % compute central derivative
+        y_diff=[...
+          nan(1,obj.width);...
+          (...
+            y_now(iplus2,:)-y_now(iminus2,:)...
+          )./(...
+            (x_now(iplus2)-x_now(iminus2))*ones(1,obj.width)...
+          );...
+          nan(1,obj.width);...
+        ];
+      otherwise
+        error([mfilename,': unknown mode ''',p.Results.mode,'''.'])
+      end
+      %propagate data
+      obj=obj.assign(y_diff);
     end
     %% vector
     function out=norm(obj,p)
