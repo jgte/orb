@@ -18,7 +18,8 @@ classdef datastorage
     parameter_list=struct(...
       'start',          struct('default',datastorage.zero_date,'validation',@(i) isdatetime(i)),...
       'stop',           struct('default',datastorage.zero_date,'validation',@(i) isdatetime(i)),...
-      'debug',          struct('default',false,                'validation',@(i) islogical(i))...
+      'debug',          struct('default',false,                'validation',@(i) islogical(i)),...
+      'metadata_dir',   struct('default',dataproduct.default_list.metadata_dir,'validation',@(i) ischar(i))...
     );
   end
   %read only
@@ -27,6 +28,7 @@ classdef datastorage
     par
     data
     debug
+    metadata_dir
   end
   %private (visible only to this object)
   properties(GetAccess=private)
@@ -41,6 +43,17 @@ classdef datastorage
   methods(Static)
     function out=parameters
       out=fieldnames(datastorage.parameter_list);
+    end
+    %% zero date handling
+    function out=iszero_date(in)
+      switch class(in)
+      case 'cell'
+        out=cellfun(@(i) ~isempty(i) && i==datastorage.zero_date,in);
+      case 'datetime'
+        out=(in==datastorage.zero_date);
+      otherwise
+        error([mfilename,': unsupported class ',class(in),'.'])
+      end
     end
   end
   methods
@@ -69,6 +82,59 @@ classdef datastorage
       % data is added to this initialized object with the 'init' method (see below)
     end
     %% dataname handling
+    % NOTICE: this function always returns a cell of datanames, unless 'need_scalar' is true
+    function out=dataname_factory(obj,in,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('need_scalar',false, @(i) islogical(i) && isscalar(i));
+      % parse it
+      p.parse(varargin{:});
+      %handle input dataname
+      switch class(in)
+      case 'cell'
+        %vectorise
+        out=cell(size(in));
+        for i=1:numel(out)
+          out{i}=obj.dataname_factory(in{i},varargin{:});
+        end
+        %flatten cell array
+        out=str.flatten(out);
+      case 'datanames'        
+        %propagate
+        out={in};
+      case 'dataproduct'
+        %resolve
+        out={in.dataname};
+      case 'char'
+        % convert
+        out={datanames(in)};
+      otherwise
+        error([mfilename,': can not handle input ''dataname'' of class ''',class(in),'''.'])
+      end
+      %paranoid sanity
+      if ~iscell(out)
+        error([mfilename,': expecting variable ''out'' to be a cell, not of class ''',class(out),'''. Debug needed!'])
+      end
+      %handle scalar requests
+      if p.Results.need_scalar
+        if numel(out)==1
+          out=out{1};
+        else
+          %NOTICE: Datanames with legitimate duplicate parts, e.g. 'gswarm.swarm.aiub.aiub', will be corrupted here.
+          %        This happens when passing an existing dataname as char to the obj.init method. Wrap that externally
+          %        on dataname contructorm i.e.:
+          % - Collides with this bug:
+          % a=datastorage().init('gswarm.swarm.aiub.aiub');a.init('gswarm.swarm.aiub.aiub')
+          %
+          % - Circumvents this bug:
+          % a=datastorage().init('gswarm.swarm.aiub.aiub');a.init(datanames('gswarm.swarm.aiub.aiub'))
+          %
+          out=datanames(datanames.common(out));
+%           error([mfilename,': requesting scalar output but variable ''out'' has length ''',num2str(numel(out)),...
+%             '''. Debug needed!'])
+        end
+      end
+    end
     function out=fix(obj,dataname,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -198,6 +264,7 @@ classdef datastorage
     end
     %% generalized datanames operations
     function out=data_function(~,function_name,dataname)
+      dataname=datanames(dataname);
       if ~isa(dataname,'datanames')
         error([mfilename,': input ''names'' must be of class ''datanames'', not a ',class(dataname),'.'])
       end
@@ -208,12 +275,10 @@ classdef datastorage
       end
     end  
     function obj=data_init(obj,dataname)
-      dataname=datanames(dataname);
       dnf=obj.fix(dataname,'clean_empty',true);
       obj=obj.(obj.data_function('init',dataname))(dnf{:});
     end
     function obj=data_set(obj,dataname,value)
-      dataname=datanames(dataname);
       dnf=obj.fix(dataname,'clean_empty',true);
       obj=obj.(obj.data_function('set',dataname))(dnf{:},value);
     end
@@ -223,12 +288,11 @@ classdef datastorage
       p.addParameter('check_empty',false,@(i) islogical(i));
       % parse it
       p.parse(varargin{:});
-      dataname=datanames(dataname);
       dnf=obj.fix(dataname,'clean_empty',true);
       out=obj.(obj.data_function('get',dataname))(dnf{:});
       % check if empty
       assert(~p.Results.check_empty || ~isempty(out),...
-        [mfilename,':BUG TRAP: no data for product ',dataname.name,'.'])
+        [mfilename,':BUG TRAP: no data for product ',strjoin(dnf,'.'),'.'])
     end
     function out=data_isempty(obj,dataname)
       dnf=obj.fix(dataname,'clean_empty',true);
@@ -351,10 +415,18 @@ classdef datastorage
       out=cell(size(dataname_list));
       obj_list=obj.vector_get(dataname_list);
       for i=1:numel(out)
-        assert(~isfield(obj_list{i},sts_field),...
-          [mfilename,': object ',dataname_list{i}.name,' cannot handle the simpletimeseries method ''',sts_field,'''.']...
-        );
-        out{i}=obj_list{i}.(sts_field);
+        if isempty(obj_list{i})
+          out{i}=[];
+        else
+          assert(...
+                          isfield(obj_list{i}, sts_field) || ...
+                         ismethod(obj_list{i}, sts_field) || ...
+            any(strcmp(properties(obj_list{i}),sts_field)    ...
+          ),...
+            [mfilename,': object ',dataname_list{i}.name,' cannot handle the simpletimeseries method ''',sts_field,'''.']...
+          );
+          out{i}=obj_list{i}.(sts_field);
+        end
       end
     end
     % Applies the 2-argument function f to the data given by dataname_list
@@ -384,29 +456,27 @@ classdef datastorage
     function out=get.start(obj)
       out=obj.vector_sts('start',obj.vector_names);
       %need to filter out zero_dates
-      for i=1:numel(out)
-        if out{i}==datastorage.zero_date
-          out{i}=datetime(inf,'ConvertFrom','datenum');
-        end
+      out(datastorage.iszero_date(out))={datetime(inf,'ConvertFrom','datenum')};
+      %take the minimum of all starts
+      if iscell(out)
+        out=min([out{:}]);
       end
+      %handle empty objects
       if isempty(out)
         out=obj.starti;
-      else
-        out=min([out{:}]);
       end
     end
     function out=get.stop(obj)
       out=obj.vector_sts('stop',obj.vector_names);
       %need to filter out zero_dates
-      for i=1:numel(out)
-        if out{i}==datastorage.zero_date
-          out{i}=datetime(0,'ConvertFrom','datenum');
-        end
+      out(datastorage.iszero_date(out))={datetime(0,'ConvertFrom','datenum')};
+      %take the minimum of all starts
+      if iscell(out)
+        out=min([out{:}]);
       end
+      %handle empty objects
       if isempty(out)
         out=obj.stopi;
-      else
-        out=max([out{:}]);
       end
     end
     function obj=set.start(obj,start)
@@ -424,7 +494,7 @@ classdef datastorage
         values=obj.vector_get(names);
         %loop over complete set of objects
         for i=1:numel(values)
-          if values{i}.start~=datastorage.zero_date
+          if ~isempty(values{i}) && values{i}.start~=datastorage.zero_date
             values{i}.start=start;
           end
         end
@@ -447,7 +517,7 @@ classdef datastorage
         values=obj.vector_get(names);
         %loop over complete set of objects
         for i=1:numel(values)
-          if values{i}.stop~=datastorage.zero_date
+          if ~isempty(values{i}) && values{i}.stop~=datastorage.zero_date
             values{i}.stop=stop;
           end
         end
@@ -504,7 +574,7 @@ classdef datastorage
     end
     %% metadata interface
     function obj=mdset(obj,dataname,varargin)
-      obj.par.(dataname.name_clean)=dataproduct(dataname,varargin{:});
+      obj.par.(dataname.name_clean)=dataproduct(dataname,'metadata_dir',obj.metadata_dir,varargin{:});
     end
     function md=mdget(obj,dataname)
       md=[];delta=0;
@@ -519,61 +589,6 @@ classdef datastorage
       if isempty(md)
         error([mfilename,': cannot find the metadata of product ',dataname.name,' or any of its trunk elements. ',...
           'Have you called obj.init(''',dataname.name,''')?'])
-      end
-    end
-    %% dataname type factory
-    % NOTICE: this function always returns a cell of datanames, unless 'need_scalar' is true
-    function out=dataname_factory(obj,in,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addParameter('need_scalar',false, @(i) islogical(i) && isscalar(i));
-      % parse it
-      p.parse(varargin{:});
-      %handle input dataname
-      switch class(in)
-      case 'cell'
-        %vectorise
-        out=cell(size(in));
-        for i=1:numel(out)
-          out{i}=obj.dataname_factory(in{i},varargin{:});
-        end
-        %flatten cell array
-        out=str.flatten(out);
-      case 'datanames'        
-        %propagate
-        out={in};
-      case 'char'
-        % loop over all data in lower levels (in case this isn't already the lowest level)
-        out=obj.vector_names(datanames(in));
-        % sanity
-        if numel(out)==0
-          out={datanames(in)};
-        end
-      otherwise
-        error([mfilename,': can not handle input ''dataname'' of class ''',class(in),'''.'])
-      end
-      %paranoid sanity
-      if ~iscell(out)
-        error([mfilename,': expecting variable ''out'' to be a cell, not of class ''',class(out),'''. Debug needed!'])
-      end
-      %handle scalar requests
-      if p.Results.need_scalar
-        if numel(out)==1
-          out=out{1};
-        else
-          %NOTICE: Datanames with legitimate duplicate parts, e.g. 'gswarm.swarm.aiub.aiub', will be corrupted here.
-          %        This happens when passing an existing dataname as char to the obj.init method. Wrap that externally
-          %        on dataname contructorm i.e.:
-          % - Collides with this bug:
-          % a=datastorage().init('gswarm.swarm.aiub.aiub');a.init('gswarm.swarm.aiub.aiub')
-          %
-          % - Circumvents this bug:
-          % a=datastorage().init('gswarm.swarm.aiub.aiub');a.init(datanames('gswarm.swarm.aiub.aiub'))
-          %
-          out=datanames(datanames.common(out));
-%           error([mfilename,': requesting scalar output but variable ''out'' has length ''',num2str(numel(out)),...
-%             '''. Debug needed!'])
-        end
       end
     end
     %% datatype initialization
@@ -697,7 +712,12 @@ classdef datastorage
           end
         end
       otherwise
-        error([mfilename,': cannot plot data of class ',class(d),'; implementation needed!'])
+        if isempty(d)
+          disp(['Skip plotting empty data ',dataname.name])
+          h=[];
+        else
+          error([mfilename,': cannot plot data of class ',class(d),'; implementation needed!'])
+        end
       end
     end
     function plot_legend(obj,h,dataname_now,dataname_list_to_plot,varargin)
@@ -727,26 +747,30 @@ classdef datastorage
           %get how many lines have been plotted
           n=0;
           for j=1:numel(h)
-            n=n+numel(h{j}.legend);
+            if ~isempty(h{j})
+              n=n+numel(h{j}.legend);
+            end
           end
           %make room for legend strings
           legend_str=cell(1,n);
           %loop over all legend entries
           c=0;
           for j=1:numel(h)
-            for k=1:numel(h{j}.y_mean)
-              %define sufix
-              if p.Results.plot_zeromean
-                suffix=num2str(h{j}.y_mean{k});
-              else
-                suffix='';
+            if ~isempty(h{j})
+              for k=1:numel(h{j}.y_mean)
+                %define sufix
+                if p.Results.plot_zeromean
+                  suffix=num2str(h{j}.y_mean{k});
+                else
+                  suffix='';
+                end
+                %build legend stirngs
+                c=c+1;
+                legend_str{c}=str.clean(...
+                  strjoin([prefixes{j},{suffix}],' '),...
+                  {'title','succ_blanks'}...
+                );
               end
-              %build legend stirngs
-              c=c+1;
-              legend_str{c}=str.clean(...
-                strjoin([prefixes{j},{suffix}],' '),...
-                {'title','succ_blanks'}...
-              );
             end
           end
         end
@@ -799,15 +823,17 @@ classdef datastorage
       if ~isempty(p.Results.plot_ylabel)
         ylabel_str=p.Results.plot_ylabel;
       else
+        %get non-empty indexes
+        good_idx=find(cellfun(@(i) ~isempty(i) && ~isempty(i.y_units),h));
         %check the labels of all lines are compatible
-        for i=2:numel(h)
-          if ~strcmp(h{1}.y_units,h{i}.y_units)
+        for i=2:numel(good_idx)
+          if ~strcmp(h{good_idx(1)}.y_units,h{good_idx(i)}.y_units)
             error([mfilename,':BUG TRAP: y-units are not consistent in all plotted lines.'])
           end
         end
         %fix y-axis label
-        if numel(h)==1
-          ylabel_str=h{1}.ylabel;
+        if numel(good_idx)==1
+          ylabel_str=h{good_idx(1)}.ylabel;
         else
           ylabel_str=h{1}.y_units;
         end
@@ -1042,8 +1068,15 @@ classdef datastorage
                       h=obj_curr.plot_mult(dataname,in_dn,p.Results.plot_columns(c),...
                         varargin{:},...
                         'plot_title_suffix',col_names{p.Results.plot_columns(c)});
-                      %save this plot
-                      saveas(gcf,filename)
+                      %check if any data was plotted
+                      if all(isempty(h))
+                        %nothing to save
+                        disp(['plot_auto: skipped ',dataname.name,';   file ',filename,' not created'])
+                        close(gfc)
+                      else
+                        %save this plot
+                        saveas(gcf,filename)
+                      end
                       % user feedback
                       if strcmp(p.Results.plot_visible,'off')
                         disp(['plot_auto: plotted ',dataname.name,' to file ',filename])
@@ -1276,24 +1309,29 @@ classdef datastorage
                   if l==2
                     [in1,in1_dn]=obj.data_get(datanames(...
                       [obj.category,df.types(i,l  ),df.levels(j,l  ),df.fields(k,l  ),df.sats(s,l  )]...
-                    ),'check_empty',true);
+                    ));
                     [in2,in2_dn]=obj.data_get(datanames(...
                       [obj.category,df.types(i,l+1),df.levels(j,l+1),df.fields(k,l+1),df.sats(s,l+1)]...
-                    ),'check_empty',true);
+                    ));
                   else
                     in1=out; in1_dn=out_dn;
                     [in2,in2_dn]=obj.data_get(datanames(...
                       [obj.category,df.types(i,l+1),df.levels(j,l+1),df.fields(k,l+1),df.sats(s,l+1)]...
-                    ),'check_empty',true);
+                    ));
                   end
                   if obj.debug;disp([out_dn.name,' = ',in1_dn.name,' + ',in2_dn.name]);end
-                  %enforce common time domain, if given
-                  if product.ismd_field('common_time')
-                    common_time=product.mdget('common_time');
-                    in1=in1.interp([common_time{:}]);
-                    in2=in2.interp([common_time{:}]);
+                  %handle empty objects
+                  if isempty(in1) || isempty(in2)
+                    out=[];
+                  else
+                    %enforce common time domain, if given
+                    if product.ismd_field('common_time')
+                      common_time=product.mdget('common_time');
+                      in1=in1.interp([common_time{:}]);
+                      in2=in2.interp([common_time{:}]);
+                    end
+                    out=in1.(operation)(in2);
                   end
-                  out=in1.(operation)(in2);
                 end
                 %propagate result
                 obj=obj.data_set(out_dn,out);
