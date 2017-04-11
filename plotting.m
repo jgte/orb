@@ -2,7 +2,7 @@ classdef plotting
   methods(Static)
     function out=line_handles(axis_handle)
       tmp=get(axis_handle,'Children');
-      c=0;
+      c=0;out=[];
       for i=1:numel(tmp)
         if isprop(tmp(i),'LineWidth')
           c=c+1;
