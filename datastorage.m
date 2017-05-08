@@ -697,26 +697,34 @@ classdef datastorage
       d=obj.data_get(dataname);
       %checking data class
       switch class(d)
-      case {'simpletimeseries','gravity'}
+      case 'gravity'
         h=d.plot(...
-          'method','timeseries',...
+          'method',  p.Results.plot_method,...
           'columns', p.Results.plot_columns,...
           'outlier', p.Results.plot_outlier,...
           'zeromean',p.Results.plot_zeromean...
         );
-        %save units
-        h.y_units=d.y_units{p.Results.plot_columns(1)};
-        for i=2:numel(p.Results.plot_columns)
-          if ~strcmp(h.y_units,d.y_units(p.Results.plot_columns(i)))
-            error([mfilename,':BUG TRAP: y-units are not consistent in all plotted lines.'])
-          end
-        end
+      case 'simpletimeseries'
+        h=d.plot(...
+          'columns', p.Results.plot_columns,...
+          'outlier', p.Results.plot_outlier,...
+          'zeromean',p.Results.plot_zeromean...
+        );
       otherwise
         if isempty(d)
           disp(['Skip plotting empty data ',dataname.name])
           h=[];
         else
           error([mfilename,': cannot plot data of class ',class(d),'; implementation needed!'])
+        end
+      end
+      %check units
+      if ~isempty(h) && all(p.Results.plot_columns>0)
+        h.y_units=d.y_units{p.Results.plot_columns(1)};
+        for i=2:numel(p.Results.plot_columns)
+          if ~strcmp(h.y_units,d.y_units(p.Results.plot_columns(i)))
+            error([mfilename,':BUG TRAP: y-units are not consistent in all plotted lines.'])
+          end
         end
       end
     end
@@ -747,7 +755,7 @@ classdef datastorage
           %get how many lines have been plotted
           n=0;
           for j=1:numel(h)
-            if ~isempty(h{j})
+            if ~isempty(h{j}) && isfield(h, 'legend')
               n=n+numel(h{j}.legend);
             end
           end
@@ -756,7 +764,7 @@ classdef datastorage
           %loop over all legend entries
           c=0;
           for j=1:numel(h)
-            if ~isempty(h{j})
+            if ~isempty(h{j}) && isfield(h, 'y_mean')
               for k=1:numel(h{j}.y_mean)
                 %define sufix
                 if p.Results.plot_zeromean
@@ -822,6 +830,9 @@ classdef datastorage
       %add the y-label given as input, if there
       if ~isempty(p.Results.plot_ylabel)
         ylabel_str=p.Results.plot_ylabel;
+      elseif ~isfield(h,'y_units')
+        %do nothing
+        ylabel_str='';
       else
         %get non-empty indexes
         good_idx=find(cellfun(@(i) ~isempty(i) && ~isempty(i.y_units),h));
@@ -838,8 +849,10 @@ classdef datastorage
           ylabel_str=h{1}.y_units;
         end
       end
-      %put the ylabel in the current plot
-      ylabel(ylabel_str)
+      %put the ylabel in the current plot, if not empty
+      if ~isempty(ylabel_str)
+        ylabel(ylabel_str)
+      end
     end
     function dataname_list_to_plot=plot_label_prefix(obj,dataname_now,dataname_list_to_plot,varargin)
       %parse mandatory args
