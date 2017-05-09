@@ -6,7 +6,7 @@ classdef str
         disp(str.rand(10,1,i{1}))
       end
       disp(' - str.show -')
-      for i={1,'1',true,datetime('now'),seconds(1)}
+      for i={1,'1',true,datetime('now'),seconds(1),{2,'2',false,datetime('now'),seconds(2)}}
         disp(str.show(i{1}))
       end
       disp(' - str.tabbed -')
@@ -16,7 +16,12 @@ classdef str
           disp(['<',str.tabbed('str',i,j{1}),'>'])
         end
       end
-      
+      for i=4:4:16
+        disp([' - str.tablify: tab=',num2str(i),' -'])
+        disp(str.tablify(i,'1','2','3','4'))
+        disp(str.tablify(i,[1,2,3,randn(1)]))
+        disp(str.tablify(i,randn(1),'2',{'3',4}))
+      end
     end
     function out=rand(n,l,mode)
       if ~exist('l','var') || isempty(l)
@@ -40,25 +45,57 @@ classdef str
       end
       out=char(floor((ascii_stop-ascii_start)*rand(l,n)) + ascii_start);
     end
-    function out=show(in)
-      if isnumeric(in)
-        out=num2str(in);
-      elseif ischar(in)
-        out=in;
-      elseif islogical(in)
-        if in
-          out='T';
-        else
-          out='F';
+%     function out=show(in)
+%       if isnumeric(in)
+%         out=num2str(in);
+%       elseif ischar(in)
+%         out=in;
+%       elseif islogical(in)
+%         if in
+%           out='T';
+%         else
+%           out='F';
+%         end
+%       elseif isdatetime(in)
+%         out=datestr(in,'yyyy-mm-dd HH:MM:SS.FFF');
+%       elseif isduration(in)
+%         out=char(in);
+%       elseif iscell(in)
+%         out=strjoin(cellfun(@(i)([str.show(i),'; ']),in,'UniformOutput',false));
+%       else
+%         error([mfilename,': cannot handle variables of class ',class(in),'.'])
+%       end
+%     end
+    function out=show(in,fmt)
+      if ~isscalar(in)
+        out=cell(size(in));
+        for i=1:numel(in)
+          out{i}=str.show(in(i));
         end
-      elseif isdatetime(in)
-        out=datestr(in,'yyyy-mm-dd HH:MM:SS.FFF');
-      elseif isduration(in)
-        out=char(in);
-      elseif iscell(in)
-        out=strjoin(cellfun(@(i)([str.show(i),'; ']),in,'UniformOutput',false));
-      else
-        error([mfilename,': cannot handle variables of class ',class(in),'.'])
+        out=strjoin(out,' ');
+      else 
+        switch class(in)
+        case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double'}
+          if exist('fmt','var')
+            out=num2str(in,fmt);
+          else
+            out=num2str(in);
+          end
+        case 'logical'
+          if in, out='T';
+          else   out='F';
+          end
+        case 'char'
+          out=in;
+        case 'cell'
+          out=str.show(in{1});
+        case 'datetime'
+          out=datestr(in);
+        case 'duration'
+          out=time.str(seconds(in));
+        otherwise
+          error([mfilename,': class ''',class(in),''' is not supported.'])
+        end
       end
     end
     function out=tabbed(in,tab,right_justified)
@@ -183,41 +220,47 @@ classdef str
           'number of additional input arguments (',numel(varargin),').'])
       end
       out = cell(size(varargin));
+      c=0;
       for i=1:numel(varargin)
-        switch class(varargin{i})
-        case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double','logical'}
-          if isscalar(varargin{i})
-            out{i} = str.just(num2str(varargin{i},['%',num2str(w(i)),'g']),w(i),'just',mode);
-          else
-            out{i} = str.tablify(w(i),num2cell(varargin{i}));
-          end
-        case 'char'
-          out{i} = str.just(varargin{i},w(i),'just',mode);
-        case 'cell'
-          out_now=cell(size(varargin{i}));
-          for j=1:length(varargin{i})
-            out_now{j} = str.tablify(w(i),varargin{i}{j});
-          end
-          out{i}=out_now;
-        case 'datetime'
-          out{i}=str.just(datestr(varargin{i}),w(i),'just',mode);
-        case 'duration'
-          out{i}=str.just(time.str(seconds(varargin{i})),w(i),'just',mode);
-        otherwise
-          error([mfilename,': class ''',class(varargin{i}),''' of the ',str.th(i),' input argument is not supported.'])
+        for j=1:numel(varargin{i})
+          c=c+1;
+          out{c} = str.just(str.show(varargin{i}(j),['%',num2str(w(i)),'g']),w(i),'just',mode);
         end
+%         switch class(varargin{i})
+%         case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double','logical'}
+%           if isscalar(varargin{i})
+%             out{i} = str.just(num2str(varargin{i},['%',num2str(w(i)),'g']),w(i),'just',mode);
+%           else
+%             out{i} = str.tablify(w(i),num2cell(varargin{i}));
+%           end
+%         case 'char'
+%           out{i} = str.just(varargin{i},w(i),'just',mode);
+%         case 'cell'
+%           out_now=cell(size(varargin{i}));
+%           for j=1:length(varargin{i})
+%             out_now{j} = str.tablify(w(i),varargin{i}{j});
+%           end
+%           out{i}=out_now;
+%         case 'datetime'
+%           out{i}=str.just(datestr(varargin{i}),w(i),'just',mode);
+%         case 'duration'
+%           out{i}=str.just(time.str(seconds(varargin{i})),w(i),'just',mode);
+%         otherwise
+%           error([mfilename,': class ''',class(varargin{i}),''' of the ',str.th(i),' input argument is not supported.'])
+%         end
       end
-      out=strjoin(str.flatten(out),' ');
+      out=strjoin(out,' ');
     end
     function out=num(in)
       out1=regexprep(in,'(\d)[Dd]([-+\d])','$1e$2');  %replace D and d exponents in scientific notation with e
       out2=strsplit(out1);                            %split string along blank characters
       out3=out2(cellfun(@(i) ~isempty(i),out2));      %remove empty cells
-      out=cellfun(@(i) sscanf(i,'%f'),out3);                  %convert to numeric cells
+      out=cellfun(@(i) sscanf(i,'%f'),out3);          %convert to numeric cells
       %sanity
       if ~isnumeric(out)
         error([mfilename,': convertion from string to vector failed.'])
       end
     end
+
   end
 end

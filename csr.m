@@ -40,16 +40,14 @@ classdef csr
       if debug;disp(strjoin(msg(1:min([20,numel(msg)])),'\n')); else disp(msg{1}); end; 
       if log_flag;csr.log(msg);end
     end
-    function obj=import_calpar(obj,dataname,varargin)
+    function obj=import_calpar(obj,product,varargin)
       %open log file
       csr.log
       % parse mandatory arguments
       p=inputParser;
-      p.addRequired('dataname',  @(i) isa(i,'datanames'));
+      p.addRequired('product',  @(i) isa(i,'dataproduct'));
       p.addParameter('debugdate', [], @(i) ischar(i) || isempty(i));
-      p.parse(dataname);
-      %retrieve product info
-      product=obj.mdget(dataname);
+      p.parse(product);
       %check if data is already in matlab format
       if ~product.isfile('data')
         %get names of parameters and levels
@@ -541,16 +539,14 @@ classdef csr
         end
       end
     end
-    function obj=compute_calmod(obj,dataname,varargin)
+    function obj=compute_calmod(obj,product,varargin)
       % parse mandatory arguments
       p=inputParser;
-      p.addRequired('dataname', @(i) isa(i,'datanames'));
-      p.parse(dataname);
-      %retrieve products info
-      product=obj.mdget(dataname);
+      p.addRequired('product', @(i) isa(i,'dataproduct'));
+      p.parse(product);
       %paranoid sanity
       if product.nr_sources~=2
-        error([mfilename,': number of sources in product ',dataname,...
+        error([mfilename,': number of sources in product ',product.dataname.name,...
           ' is expected to be 2, not ',num2str(product.nr_sources),'.'])
       end
       %get sources
@@ -644,14 +640,14 @@ classdef csr
                 end
                 grid on
                 title('time domain')
-                obj.mdget(dataname).enforce_plot(font_size_args{:})
+                product.enforce_plot(font_size_args{:})
                 legend(fields)
                 for f=1:numel(fields)
                   subplot(2,2,f+1)
                   plot(acc.t,cal.(fields{f}).cols(param_col).y)
                   title(cal.(fields{f}).labels(param_col))
                   grid on
-                  obj.mdget(dataname).enforce_plot(font_size_args{:})
+                  product.enforce_plot(font_size_args{:})
                 end
                 disp(['Created plot ',filename])
                 saveas(gcf,filename)
@@ -659,24 +655,22 @@ classdef csr
             end
           end
           %propagate it
-          obj=obj.sat_set(dataname.type,dataname.level,levels{l},sats{s},calmod);
+          obj=obj.sat_set(product.dataname.type,product.dataname.level,levels{l},sats{s},calmod);
         end
       end
     end
-    function obj=import_acc_l1b(obj,dataname,varargin)
+    function obj=import_acc_l1b(obj,product,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired('dataname',@(i) isa(i,'datanames'));
+      p.addRequired('product',@(i) isa(i,'dataproduct'));
       p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
       % parse it
-      p.parse(dataname,varargin{:});
+      p.parse(product,varargin{:});
       % sanity
       if isempty(p.Results.start) || isempty(p.Results.stop)
         error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
       end
-      %retrieve product info
-      product=obj.mdget(dataname);
       %retrieve relevant parameters
       sats =product.mdget('sats');
       indir=product.mdget('import_dir');
@@ -697,7 +691,7 @@ classdef csr
           );
         end
         %load (and save the data in mat format, as handled by simpletimeseries.import
-        obj=obj.sat_set(dataname.type,dataname.level,dataname.field,sats{s},...
+        obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,sats{s},...
           simpletimeseries.import(infile,'cut24hrs',false)...
         );
       end
@@ -707,20 +701,18 @@ classdef csr
         obj.stop= p.Results.stop;
       end
     end
-    function obj=import_acc_mod(obj,dataname,varargin)
+    function obj=import_acc_mod(obj,product,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired('dataname',@(i) isa(i,'datanames'));
+      p.addRequired('product',@(i) isa(i,'dataproduct'));
       p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
       % parse it
-      p.parse(dataname,varargin{:});
+      p.parse(product,varargin{:});
       % sanity
       if isempty(p.Results.start) || isempty(p.Results.stop)
         error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
       end
-      %retrieve product info
-      product=obj.mdget(dataname);
       %retrieve relevant parameters
       sats =product.mdget('sats');
       indir=product.mdget('import_dir');
@@ -744,7 +736,7 @@ classdef csr
           );
         end
         %load (and save the data in mat format, as handled by simpletimeseries.import)
-        obj=obj.sat_set(dataname.type,dataname.level,dataname.field,sats{s},...
+        obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,sats{s},...
           simpletimeseries.import(infile,'cut24hrs',true)...
         );
       end
@@ -754,20 +746,18 @@ classdef csr
         obj.stop= p.Results.stop;
       end
     end
-    function obj=import_acc_resid_test(obj,dataname,varargin)
+    function obj=import_acc_resid_test(obj,product,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired('dataname',@(i) isa(i,'datanames'));
+      p.addRequired('product',@(i) isa(i,'dataproduct'));
       p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
       % parse it
-      p.parse(dataname,varargin{:});
+      p.parse(product,varargin{:});
       % sanity
       if isempty(p.Results.start) || isempty(p.Results.stop)
         error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
       end
-      %retrieve product info
-      product=obj.mdget(dataname);
       %retrieve relevant parameters
       sats  =product.mdget('sats');
       coords=product.mdget('coords');
@@ -791,7 +781,7 @@ classdef csr
               );
               d=simpletimeseries.import(infile,'cut24hrs',false);
               %load (and save the data in mat format, as handled by simpletimeseries.import
-%               obj=obj.sat_set(dataname.type,dataname.level, ,sats{s},...
+%               obj=obj.sat_set(product.dataname.type,product.dataname.level, ,sats{s},...
 %                 ...
 %               );
               simpletimeseries.import(infile,'cut24hrs',false)
@@ -824,7 +814,7 @@ classdef csr
           );
         end
         %load (and save the data in mat format, as handled by simpletimeseries.import)
-        obj=obj.sat_set(dataname.type,dataname.level,dataname.field,sats{s},...
+        obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,sats{s},...
           simpletimeseries.import(infile,'cut24hrs',true)...
         );
       end

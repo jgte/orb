@@ -5,8 +5,8 @@ wilcarded_filename: GSM-2_*.gsm
 model_format: gsm
 date_parser: gravity.parse_epoch_grace
 use_GRACE_C20: true
+delete_C00: true
 max_degree: 20
 plot_zeromean: true
 static_model: gswarm.grace.static.ggm05g
-smoothing_radius: 1500000
 export_dir: <getenv('HOME')>/data/gswarm/tudelft/gravity/EGU2017
