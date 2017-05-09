@@ -6,16 +6,14 @@
 
 classdef gswarm
   methods(Static)
-    function obj=load_models(obj,dataname,varargin)
+    function obj=load_models(obj,product,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired('dataname',@(i) isa(i,'datanames'));
+      p.addRequired('product',@(i) isa(i,'dataproduct'));
       p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
       % parse it
-      p.parse(dataname,varargin{:});
-      %retrieve product info
-      product=obj.mdget(dataname);
+      p.parse(product,varargin{:});
       %retrieve relevant parameters
       model_types       =product.mdget('model_types');
       indir             =product.mdget('import_dir');
@@ -24,23 +22,23 @@ classdef gswarm
       date_parser       =str2func(product.mdget('date_parser'));
       max_degree        =product.mdget('max_degree');
       use_GRACE_C20     =product.mdget('use_GRACE_C20');
+      delete_C00        =product.mdget('delete_C00');
       static_field      =product.mdget('static_model');
-      smoothing_radius  =product.mdget('smoothing_radius');
       %load all available data 
-      [m,e]=gravity.load_dir(indir,model_format,date_parser,...
+      [s,e]=gravity.load_dir(indir,model_format,date_parser,...
         'wilcarded_filename',wilcarded_filename,...
         'start',p.Results.start,...
         'stop',p.Results.stop,...
-        'descriptor',dataname.name...
+        'descriptor',product.dataname.name...
       );
       %enforce consistent GM and R
-      m=m.setGM(gravity.default_list.GM);
-      m=m.setR( gravity.default_list.R );
+      s=s.setGM(gravity.default_list.GM);
+      s=s.setR( gravity.default_list.R );
       e=e.setGM(gravity.default_list.GM);
       e=e.setR( gravity.default_list.R );
       %set maximum degree (if requested)
       if max_degree>0
-        m.lmax=max_degree;
+        s.lmax=max_degree;
         e.lmax=max_degree;
       end
       %set C20 coefficient
@@ -50,7 +48,7 @@ classdef gswarm
           error([mfilename,': there''s no point in replacing GRACE C20 coefficients in a static model.'])
         end
         %get C20 timeseries, interpolated to current time domain
-        c20=gravity.graceC20.interp(m.t);
+        c20=gravity.graceC20.interp(s.t);
 %         figure
 %         plot(c20.x_masked,c20.y_masked([],1),'x-','MarkerSize',10,'LineWidth',4), hold on
 %         plot(c20.x,spline(c20.x_masked,c20.y_masked([],1),c20.x),'o-','MarkerSize',10,'LineWidth',2)
@@ -63,9 +61,9 @@ classdef gswarm
             spline(c20.x_masked,c20.y_masked([],2),c20.x)...
           ],'t',c20.t,'mask',true(size(c20.x)));
         end
-        for i=1:m.length
-          m=m.setC(2,0,c20.y(i,1),m.t(i));
-          e=e.setC(2,0,c20.y(i,2),m.t(i));
+        for i=1:s.length
+          s=s.setC(2,0,c20.y(i,1),s.t(i));
+          e=e.setC(2,0,c20.y(i,2),s.t(i));
         end
 %           figure
 %           plot(c20.t,c20.y(:,1),'o-'), hold on
@@ -73,48 +71,77 @@ classdef gswarm
 %           legend('GRACE',m.descriptor)
       end
       %remove C00 bias
-      for i=1:m.length
-        m=m.setC(0,0,0);
-        e=e.setC(0,0,0);
-      end      
+      if delete_C00
+        for i=1:s.length
+          s=s.setC(0,0,0);
+          e=e.setC(0,0,0);
+        end
+      end
       %remove static field (if requested)
       if ~strcmpi(static_field,'none')
         %load model (only if not already done)
         if isempty(dir([static_field,'.mat']))
-          static=datastorage().init(static_field,'start',m.start,'stop',m.stop);
+          static=datastorage().init(static_field,'start',s.start,'stop',s.stop);
           save([static_field,'.mat'],'static')
         else
           load([static_field,'.mat'])
         end
         %subtract it
-        m=m-static.data_get(static_field).signal;
-      end
-      %apply smoothing
-      if smoothing_radius>0
-        m=m.scale(round(20000e3/smoothing_radius),'spline');
+        s=s-static.data_get(static_field).signal;
       end
       %propagate relevant data
       for i=1:numel(model_types)
         switch lower(model_types{i})
         case {'signal','sig','s'}
-          obj=obj.sat_set(dataname.type,dataname.level,dataname.field,model_types{i},m);
+          obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},s);
         case {'error','err','e'}
-          obj=obj.sat_set(dataname.type,dataname.level,dataname.field,model_types{i},e);
+          obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},e);
         otherwise
           error([mfilename,': unknown model type ''',model_types{i},'''.'])
         end
       end
     end
-    function obj=combine_models(obj,dataname,varargin)
+    function obj=smooth_models(obj,product,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired('dataname',@(i) isa(i,'datanames'));
+      p.addRequired('product',@(i) isa(i,'dataproduct'));
       p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
       % parse it
-      p.parse(dataname,varargin{:});
-      %retrieve product info
-      product=obj.mdget(dataname);
+      p.parse(product,varargin{:});
+      %retrieve relevant parameters
+      model_types       =product.mdget('model_types');
+      smoothing_degree  =product.mdget('smoothing_degree');
+      smoothing_method  =product.mdget('smoothing_method');
+      %sanity
+      assert(product.nr_sources==1,['Can only handle one source model, not ',num2str(product.nr_sources),'.'])
+      %gather model  
+      s=obj.data_get([product.sources(1).name,'.signal']);
+      e=obj.data_get([product.sources(1).name,'.error']);
+      %apply smoothing
+      if smoothing_degree>0
+        s=s.scale(smoothing_degree,smoothing_method);
+      end
+      %propagate relevant data
+      for i=1:numel(model_types)
+        switch lower(model_types{i})
+        case {'signal','sig','s'}
+          obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},s);
+        case {'error','err','e'}
+          obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},e);
+        otherwise
+          error([mfilename,': unknown model type ''',model_types{i},'''.'])
+        end
+      end
+    end
+    function obj=combine_models(obj,product,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('product',@(i) isa(i,'dataproduct'));
+      p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
+      p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
+      % parse it
+      p.parse(product,varargin{:});
       %check if data is already in matlab format
       if ~product.isfile('data')
         %retrieve relevant parameters
@@ -131,11 +158,11 @@ classdef gswarm
         for i=1:numel(model_types)
           switch lower(model_types{i})
           case {'signal','sig','s'}
-            obj=obj.sat_set(dataname.type,dataname.level,dataname.field,model_types{i},...
+            obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},...
               gravity.combine(s,'mode',combination_type,'type','signal')...
             );
           case {'error','err','e'}
-            obj=obj.sat_set(dataname.type,dataname.level,dataname.field,model_types{i},...
+            obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},...
               gravity.combine(e,'mode',combination_type,'type','error')...
             );
           otherwise
@@ -152,16 +179,14 @@ classdef gswarm
         obj=obj.data_set(product,s); %#ok<NODEF>
       end
     end
-    function obj=parametric_decomp(obj,dataname,varargin)
+    function obj=parametric_decomp(obj,product,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired('dataname',@(i) isa(i,'datanames'));
+      p.addRequired('product',@(i) isa(i,'dataproduct'));
       p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
       % parse it
-      p.parse(dataname,varargin{:});
-      %retrieve product info
-      product=obj.mdget(dataname);
+      p.parse(product,varargin{:});
       %check if data is already in matlab format
       if ~product.isfile('data')
         %sanity
@@ -190,7 +215,7 @@ classdef gswarm
           'sinusoidal',sinusoidal...
         );
         %propagate relevant data
-        obj=obj.field_set(dataname.type,dataname.level,dataname.field,s);
+        obj=obj.field_set(product.dataname.type,product.dataname.level,product.dataname.field,s);
         %save data
         s=obj.data_get(product); %#ok<*NASGU>
         save(char(product.file('data')),'s');
@@ -201,13 +226,15 @@ classdef gswarm
         obj=obj.data_set(product,s); %#ok<NODEF>
       end
     end
-    function obj=plot_rms_ts(obj,dataname,varargin)
+    function obj=plot_rms_ts(obj,product,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
       %parse optional parameters as defined in the metadata
-      p=obj.mdget(dataname).plot_args(p,varargin{:});
-      %retrieve product info
-      product=obj.mdget(dataname);
+      p=product.plot_args(p,varargin{:});
+      %sanity on non-optional parameters
+      if ~isa(product,'dataproduct') && ~isscalar(product)
+        error([mfilename,': can only handle input ''product'' as scalars of class ''productdata'', not ''',class(in),'''.'])
+      end
       %build filename sufix
       if isempty(p.Results.plot_file_suffix)
         suffix='';
@@ -274,7 +301,7 @@ classdef gswarm
                     figure('visible',p.Results.plot_visible);
                     h=bar(datenum(obj_curr.data_get(in_dn{1}).t),bardat);
                     %enforce plot preferences
-                    obj.mdget(dataname).enforce_plot
+                    product.enforce_plot
                     %build plot annotation structure
                     bh=cell(size(in_dn));
                     for di=1:numel(in_dn)
@@ -290,7 +317,7 @@ classdef gswarm
                       );
                     end
                     %annotate plot
-                    obj.plot_annotate(bh,dataname,in_dn,varargin{:})
+                    obj.plot_annotate(bh,product.dataname,in_dn,varargin{:})
                     %make xticks show readable time
                     datetick('x',product.mdget('plot_dateformat'))
                     %remove outline
@@ -299,10 +326,10 @@ classdef gswarm
                     saveas(gcf,filename)
                     % user feedback
                     if strcmp(p.Results.plot_visible,'off')
-                      disp(['gswarm.plot_rms_ts: plotted ',dataname.name,' to file ',filename])
+                      disp(['gswarm.plot_rms_ts: plotted ',product.dataname.name,' to file ',filename])
                     end
                   else
-                    disp(['gswarm.plot_rms_ts: not enough data to plot ',dataname.name,' to file ',filename,' (skipped)'])
+                    disp(['gswarm.plot_rms_ts: not enough data to plot ',product.dataname.name,' to file ',filename,' (skipped)'])
                   end
                 end
               end
@@ -311,21 +338,19 @@ classdef gswarm
         end
       end
     end
-    function filelist=icgem(obj,dataname,varargin)
+    function filelist=icgem(obj,product,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired('dataname',@(i) isa(i,'datanames'));
+      p.addRequired('product',@(i) isa(i,'dataproduct'));
       % parse it
-      p.parse(dataname,varargin{:});
-      %retrieve product info
-      product=obj.mdget(dataname);
+      p.parse(product,varargin{:});
       %retrieve relevant data
       dat=obj.data_get(product);
       %call exporting routine
       filelist=dat.signal.icgem(...
-        'prefix',dataname.name,...
+        'prefix',product.dataname.name,...
         'path',  product.mdget('export_dir'),...
-        'modelname',dataname.name...
+        'modelname',product.dataname.name...
       );
 %         'error_obj',dat.error,...
     end

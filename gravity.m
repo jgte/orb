@@ -612,6 +612,19 @@
       end
       out.descriptor=[p.Results.mode,' of ',strjoin(msg,', ')];
     end
+    %% (half) wavelength to degree convertions
+    function deg=wl2deg(wl)
+      deg=2*pi*obj.default_list.R./wl;
+    end
+    function wl=deg2wl(deg)
+      wl=gravity.wl2deg(deg);
+    end
+    function deg=hwl2deg(hwl)
+      deg=gravity.wl2deg(hwl*2);
+    end
+    function hwl=deg2hwl(deg)
+      hwl=gravity.deg2wl(deg)/2;
+    end
     %% tests
     %general test for the current object
     function out=test_parameters(field,l,w)
@@ -681,7 +694,7 @@
         disp(a.tri{numel(t)})
         disp('- drms')
         disp(a.at(t(numel(t))).drms)
-     case 'r'
+      case 'r'
         a=gravity.unit_amplitude(l,'t',t);
         disp('- tri: start')
         disp(a.tri{numel(t)})
@@ -727,6 +740,16 @@
         disp(a.tri{numel(t)})
         disp(['- a.C(',num2str(d),',',num2str(o),',',datestr(t(numel(t))),')=',num2str(a.C(d,o,t(numel(t))))])
         disp(['- a.C(',num2str(d),',',num2str(o),',',datestr(t(1)),')=',num2str(a.C(d,o,t(1)))])
+      case 'smoothing'
+        a=gravity.unit(l);
+        if isdatetime(t)
+          t=round(l/2);
+        end
+        methods={'gauss','spline','trunc'};
+        for i=1:numel(methods)
+          a.scale_plot(t,methods{i});
+        end
+        legend(methods);
       end
     end
   end
@@ -1069,9 +1092,8 @@
       s=pos_scale./pre_scale;
     end
     % Gaussan smoothing scaling
-    function s=scale_gauss(obj,radius)
+    function s=scale_gauss(obj,fwhm_degree)
       %https://en.wikipedia.org/wiki/Gaussian_function#Properties
-      fwhm_degree=(pi*obj.default_list.R)/radius;
       s=exp(-4*log(2)*((0:obj.lmax)/fwhm_degree/2).^2);
 %       find(abs(s-0.5)==min(abs(s-0.5)))
 %       %NOTICE: the tail of this function is unstable
@@ -1085,27 +1107,55 @@
 %         s(l+1)=-(2*l+1)/b*s(l)+s(l-1);
 %       end
     end
-    function s=scale_spline(obj,deg_half)
-      w=5;
+    function s=scale_spline(obj,fwhm_degree,width_degree)
+      if ~exist('width_degree','var') || isempty(width_degree)
+        width_degree=5;
+      end
+      if fwhm_degree<=width_degree
+        width_degree=fwhm_degree-1;
+      end
       s=nan(1,obj.lmax+1);
-      w0=max([1,deg_half-w+1]);
-      w1=min([obj.lmax,deg_half+w+1]);
-      if w0>1
+      w0=max([1,fwhm_degree-width_degree]);
+      w1=min([obj.lmax,fwhm_degree+width_degree]);
+      if w0>=1
         s(1:w0)=1;
       end
-      s(w0:w1)=spline([1 (2*w+1)],[0 1 0 0],1:(2*w+1));
-      if w1<obj.lmax+1
-        s(w1:obj.lmax+1)=0;
+      if width_degree<=0
+        s_transition=0.5;  
+      else
+        s_transition=spline([1 (2*width_degree+1)],[0 1 0 0],1:(2*width_degree+1));
+      end
+      s(w0+1:w1+1)=s_transition(1:w1-w0+1);
+      if w1+2<=obj.lmax+1
+        s(w1+2:obj.lmax+1)=0;
       end
     	%sanity
       assert(~any(isnan(s)),...
         [mfilename,': found NaNs in the output. Debug needed!'])
+    end
+    function s=scale_trunc(obj,fwhm_degree)
+      %https://en.wikipedia.org/wiki/Gaussian_function#Properties
+      s=[ones(1,min([fwhm_degree+1,obj.lmax+1])),zeros(1,obj.lmax-fwhm_degree)];
+%       find(abs(s-0.5)==min(abs(s-0.5)))
+%       %NOTICE: the tail of this function is unstable
+%       %http://dx.doi.org/10.1029/98JB02844
+%       b=log(2)/(1-cos(radius/obj.default_list.R));
+%       c=exp(-2*b);
+%       s=zeros(1,obj.lmax+1);
+%       s(1)=1;                         %degree 0
+%       s(2)=s(1)*((1+c)/(1-c) - 1/b);	%degree 1
+%       for l=2:obj.lmax
+%         s(l+1)=-(2*l+1)/b*s(l)+s(l-1);
+%       end
     end
     % scale according to number of orders in each degree
     function s=scale_nopd(obj,~)
       s=1./obj.nopd;
     end
     % scale operation agregator
+    function out=scale_factor(obj,s,method)
+      out=obj.(['scale_',method])(s);
+    end
     function obj=scale(obj,s,method)
       if ~exist('method','var') || isempty(method)
         switch numel(s)
@@ -1134,7 +1184,7 @@
         obj=scale@simpledata(obj,s);
       else
         % input 's' assumes different meanings, dependending on the method
-        obj=obj.scale(obj.(['scale_',method])(s));
+        obj=obj.scale(obj.scale_factor(s,method));
         %need to update metadata in some cases
         switch lower(method)
           case 'gm'
@@ -1146,6 +1196,15 @@
             obj.y_units=gravity.functional_units(s);
         end
       end
+    end
+    % scale plotting
+    function out=scale_plot(obj,s,method)
+      out.axishandle=plot(0:obj.lmax,obj.scale_factor(s,method),'LineWidth',2);
+      hold on
+      grid on
+      xlabel('SH degree')
+      ylabel('scale factor [ ]')
+      out.legend_str=method;
     end
     %% GM and R operations
     function out=getGM(obj)

@@ -1,14 +1,14 @@
 method: datastorage.arithmetic
 operation: minus
-sources: [gswarm.swarm.aiub.aiub,gswarm.grace.gfz.rl05]
+sources: [gswarm.swarm.aiub_aiub_spline,gswarm.grace.gfz_rl05_spline]
 dataflow: #[this product, (=) source 1, (operation) source 2, ...]
-  types:  [swarm,    swarm,grace]
-  levels: [aiub,     aiub, gfz]
-  fields: [aiub_res, aiub, rl05]
+  types:  [swarm,                swarm,            grace]
+  levels: [aiub_aiub_spline_res, aiub_aiub_spline, gfz_rl05_spline]
 sats: signal
 storage_period: global
 plot_columns_together: false
 plot_columns: [3,4,5]
+plot_column_names: ['C0,0', 'C1,0', 'C2,0', 'C3,0', 'C4,0', 'C5,0', 'C6,0']
 plot_title_suppress: [gswarm,swarm,res]
 plot_xlimits: [2013-11-01,2016-12-31]
 plot_zeromean: true
