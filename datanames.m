@@ -2,7 +2,7 @@ classdef datanames
   %static
   properties(Constant)
     separator='.';
-    separator_clean='_'; %needed to construct legal field names out of obj.name
+    separator_clean='__'; %needed to construct legal field names out of obj.name
     parts={...
       'type',...
       'level',...
@@ -304,6 +304,10 @@ classdef datanames
         out={obj.category,obj.type,obj.level,obj.field,obj.sat};
       end
       out=strjoin([{prefix},out,{suffix}],' ');
+    end
+    %% operator overloading
+    function out=eq(obj1,obj2)
+      out=all(cellfun(@(i) strcmp(obj1.(i),obj2.(i)),datanames.parts));
     end
   end
 end

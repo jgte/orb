@@ -67,6 +67,7 @@ classdef dataproduct
   end
   %calculated only when asked for
   properties(Dependent)
+    name
   end
   methods(Static)
     function out=parameters
@@ -119,10 +120,48 @@ classdef dataproduct
         error([mfilename,': could not parse string ''',in,''' because of unmatching ''<'' and ''>'' characters.'])
       end
     end
+    function products_out=unwrap_product(products_in,part)
+      %init outputs and output counter
+      products_out=cell(size(products_in));c=0;
+      %loop over all input products
+      for i=1:numel(products_in)
+        %check if unwrapping of this part is needed
+        if products_in{i}.ismd_field([part,'s_wrap'])
+          %cannot have the part non-empty
+          assert(isempty(products_in{i}.dataname.(part)),['Cannot have metadata entry ''',part,'s_wrap'' in product ',...
+            products_in{i}.name,', because need the ''',part,''' part to be empty (it is now ''',...
+            products_in{i}.dataname.(part),'''.)'])
+          %retrieve values of the wrapped field
+          parts_wrap=products_in{i}.mdget([part,'s_wrap']);
+          %retrieve name of the wrapped field
+          parts_name=products_in{i}.mdget([part,'s_name']);
+          %need field_wrap to be a cell array
+          assert(iscell(parts_wrap),['BUG TRAP: need variable ''',part,...
+            's_wrap'' to be a cell array, not a ',class(parts_wrap),'.'])
+          for p=1:numel(parts_wrap)
+            %patch product
+            product_patched=products_in{i};
+            product_patched.metadata=rmfield(product_patched.metadata,{[part,'s_wrap'],[part,'s_name']});
+            product_patched.metadata.(parts_name)=parts_wrap{p};
+            product_patched.dataname.cells=[products_in{i}.dataname.cells_clean,{[parts_name,'_',str.show(parts_wrap{p})]}];
+            % append to product list
+            c=c+1; products_out{c}=product_patched;
+          end
+        else
+          %propagate current wrap-less product
+          c=c+1; products_out{c}=products_in{i};
+        end
+      end
+    end
   end
   methods
     %% constructor
     function obj=dataproduct(in,varargin)
+      % trivial call (all other classes are handled in datanames)
+      if isa(in,'dataproduct')
+        obj=in;
+        return
+      end
       %need to read YAML
       addpath(genpath(fullfile(dataproduct.scriptdir,'yamlmatlab')));
       %parse inputs
@@ -236,7 +275,7 @@ classdef dataproduct
           if isfinite(xl);stoplist=xl;else stoplist=[];end
           return
         case {'none','direct'}
-          error([mfilename,': product ',obj.dataname.name,' is not to be saved in a file, so it is ilegal to call this procedure.'])
+          error([mfilename,': product ',obj.name,' is not to be saved in a file, so it is ilegal to call this procedure.'])
         otherwise
           error([mfilename,': cannot handle metadata key ''storage_period'' with value ''',obj.mdget('storage_period'),'''.'])
         end
@@ -274,6 +313,13 @@ classdef dataproduct
         end
       end
     end 
+    %% name methods (easy viewing)
+    function out=get.name(obj)
+      out=obj.dataname.name;
+    end
+    function out=str(obj)
+      out=obj.name;
+    end
     %% metadata file
     function out=md_file(obj)
       assert(logical(exist(obj.metadata_dir,'dir')),[mfilename,': ',...
@@ -291,7 +337,7 @@ classdef dataproduct
     end
     function md_file_check(obj)
       assert(obj.ismd_file,[mfilename,': ',...
-        'could not find the metadata for product ',obj.dataname.name,' (expecting ',obj.md_file,').'])
+        'could not find the metadata for product ',obj.name,' (expecting ',obj.md_file,').'])
     end    
     function obj=metadata_load(obj)
       obj.md_file_check
@@ -310,7 +356,7 @@ classdef dataproduct
     end
     function md_field_check(obj,metadatafieldname)
       if ~obj.ismd_field(metadatafieldname)
-        error([mfilename,': cannot find field ',metadatafieldname,' in the metadata of ',obj.dataname.name,'.'])
+        error([mfilename,': cannot find field ',metadatafieldname,' in the metadata of ',obj.name,'.'])
       end
     end
     %% metadata parsing

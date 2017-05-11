@@ -29,7 +29,7 @@ classdef gswarm
         'wilcarded_filename',wilcarded_filename,...
         'start',p.Results.start,...
         'stop',p.Results.stop,...
-        'descriptor',product.dataname.name...
+        'descriptor',product.name...
       );
       %enforce consistent GM and R
       s=s.setGM(gravity.default_list.GM);
@@ -110,27 +110,29 @@ classdef gswarm
       % parse it
       p.parse(product,varargin{:});
       %retrieve relevant parameters
-      model_types       =product.mdget('model_types');
       smoothing_degree  =product.mdget('smoothing_degree');
       smoothing_method  =product.mdget('smoothing_method');
+      %patch model_types, if not given explicitly
+      if product.ismd_field('model_types')
+        model_types=product.mdget('model_types','always_cell_array',true);
+      else
+        model_types={product.dataname.sat};
+      end
       %sanity
       assert(product.nr_sources==1,['Can only handle one source model, not ',num2str(product.nr_sources),'.'])
       %gather model  
-      s=obj.data_get([product.sources(1).name,'.signal']);
-      e=obj.data_get([product.sources(1).name,'.error']);
+      m=obj.data_get(product.sources(1).name);
       %apply smoothing
       if smoothing_degree>0
-        s=s.scale(smoothing_degree,smoothing_method);
+        m=m.scale(smoothing_degree,smoothing_method);
       end
       %propagate relevant data
       for i=1:numel(model_types)
         switch lower(model_types{i})
-        case {'signal','sig','s'}
-          obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},s);
         case {'error','err','e'}
           obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},e);
         otherwise
-          error([mfilename,': unknown model type ''',model_types{i},'''.'])
+          obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},m);
         end
       end
     end
@@ -145,8 +147,13 @@ classdef gswarm
       %check if data is already in matlab format
       if ~product.isfile('data')
         %retrieve relevant parameters
-        model_types       =product.mdget('model_types');
         combination_type  =product.mdget('combination_type');
+        %patch model_types, if not given explicitly
+        if product.ismd_field('model_types')
+          model_types=product.mdget('model_types','always_cell_array',true);
+        else
+          model_types={product.dataname.sat};
+        end
         %collect the models
         s=cell(product.nr_sources,1);
         e=cell(product.nr_sources,1);
@@ -157,16 +164,14 @@ classdef gswarm
         %propagate relevant data
         for i=1:numel(model_types)
           switch lower(model_types{i})
-          case {'signal','sig','s'}
-            obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},...
-              gravity.combine(s,'mode',combination_type,'type','signal')...
-            );
           case {'error','err','e'}
             obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},...
               gravity.combine(e,'mode',combination_type,'type','error')...
             );
           otherwise
-            error([mfilename,': unknown model type ''',model_types{i},'''.'])
+            obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},...
+              gravity.combine(s,'mode',combination_type,'type','signal')...
+            );
           end
         end
         %save data
@@ -193,11 +198,15 @@ classdef gswarm
         assert(product.nr_sources==1,...
           [mfilename,': can only operate on a single source, not ',num2str(product.nr_sources),'.']...
         )
-        %retrieve relevant parameters
-        model_types=product.mdget('model_types','always_cell_array',true);
+        %patch model_types, if not given explicitly
+        if product.ismd_field('model_types','always_cell_array',true)
+          model_types=product.mdget('model_types');
+        else
+          model_types={product.dataname.sat};
+        end
         %sanity
-        assert(numel(model_types)==1 && any(strcmp(model_types,{'signal','sig','s'})),...
-          [mfilename,': can only operate on models of type ''signal'', not ',strjoin(model_types,','),'.']...
+        assert(numel(model_types)==1 && all(~strcmp(model_types,{'error','err','e'})),...
+          [mfilename,': can not operate on models of type ''error''.']...
         )
         polynomial =ones(1,product.mdget('polyorder')+1);
         sinusoidal =time.num2duration(cell2mat(product.mdget('sin_period')),product.mdget('sin_period_unit'));
@@ -326,10 +335,10 @@ classdef gswarm
                     saveas(gcf,filename)
                     % user feedback
                     if strcmp(p.Results.plot_visible,'off')
-                      disp(['gswarm.plot_rms_ts: plotted ',product.dataname.name,' to file ',filename])
+                      disp(['gswarm.plot_rms_ts: plotted ',product.name,' to file ',filename])
                     end
                   else
-                    disp(['gswarm.plot_rms_ts: not enough data to plot ',product.dataname.name,' to file ',filename,' (skipped)'])
+                    disp(['gswarm.plot_rms_ts: not enough data to plot ',product.name,' to file ',filename,' (skipped)'])
                   end
                 end
               end
@@ -348,9 +357,9 @@ classdef gswarm
       dat=obj.data_get(product);
       %call exporting routine
       filelist=dat.signal.icgem(...
-        'prefix',product.dataname.name,...
+        'prefix',product.name,...
         'path',  product.mdget('export_dir'),...
-        'modelname',product.dataname.name...
+        'modelname',product.name...
       );
 %         'error_obj',dat.error,...
     end

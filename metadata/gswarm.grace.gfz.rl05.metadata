@@ -1,4 +1,5 @@
 import_dir: <getenv('HOME')>/data/grace/L2/GFZ/RL05
+storage_period: direct
 method: gswarm.load_models
 model_types: [signal,error]
 wilcarded_filename: GSM-2_*.gsm
@@ -7,6 +8,5 @@ date_parser: gravity.parse_epoch_grace
 use_GRACE_C20: true
 delete_C00: true
 max_degree: 20
-plot_zeromean: true
 static_model: gswarm.grace.static.ggm05g
-export_dir: <getenv('HOME')>/data/gswarm/tudelft/gravity/EGU2017
+plot_method: drms

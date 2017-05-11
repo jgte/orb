@@ -67,33 +67,42 @@ classdef str
 %       end
 %     end
     function out=show(in,fmt)
+      %trivial call
+      if ischar(in)
+        out=in;
+        return
+      end
+      %handle non-scalar quantities
       if ~isscalar(in)
         out=cell(size(in));
         for i=1:numel(in)
           out{i}=str.show(in(i));
         end
         out=strjoin(out,' ');
-      else 
-        switch class(in)
-        case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double'}
-          if exist('fmt','var')
-            out=num2str(in,fmt);
-          else
-            out=num2str(in);
-          end
-        case 'logical'
-          if in, out='T';
-          else   out='F';
-          end
-        case 'char'
-          out=in;
-        case 'cell'
-          out=str.show(in{1});
-        case 'datetime'
-          out=datestr(in);
-        case 'duration'
-          out=time.str(seconds(in));
-        otherwise
+        return
+      end
+      %branch on scalar type
+      switch class(in)
+      case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double'}
+        if exist('fmt','var')
+          out=num2str(in,fmt);
+        else
+          out=num2str(in);
+        end
+      case 'logical'
+        if in, out='T';
+        else   out='F';
+        end
+      case 'cell'
+        out=str.show(in{1}); %non-scalar cells already handled above
+      case 'datetime'
+        out=datestr(in);
+      case 'duration'
+        out=time.str(seconds(in));
+      otherwise
+        try
+          out=in.str;
+        catch
           error([mfilename,': class ''',class(in),''' is not supported.'])
         end
       end
@@ -207,6 +216,10 @@ classdef str
         end
       end
     end
+    function out=iscellequal(c1,c2)
+      %http://stackoverflow.com/questions/3231580/matlab-comparison-of-cell-arrays-of-string
+      out=isempty(setxor(c1,c2));
+    end
     %first argument is field width, all remaining inputs are values to print.
     function out=tablify(w,varargin)
       %justification scheme
@@ -261,6 +274,17 @@ classdef str
         error([mfilename,': convertion from string to vector failed.'])
       end
     end
-
+    function out=titlecase(in,separator)
+      if ~exist('separator','var') || isempty(separator)
+        separator=' ';
+      end
+      out=strsplit(in,separator);
+      for i=1:numel(out)
+        if ~isempty(out{i})
+          out{i}=[upper(out{i}(1)),lower(out{i}(2:end))];
+        end
+      end
+      out=strjoin(out,separator);
+    end
   end
 end

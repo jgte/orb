@@ -643,7 +643,7 @@ classdef simpletimeseries < simpledata
         for i=1:numel(in);
           filenames{i}=simpletimeseries.unwrap_datafiles(in{i},varargin{:});
         end
-        filenames=flatten(filenames);
+        filenames=str.flatten(filenames);
         %remove empty entries
         filenames=filenames(~cellfun('isempty',filenames));
         return
@@ -1967,15 +1967,3 @@ classdef simpletimeseries < simpledata
 end
 
 
-% https://github.com/ronw/ronw-matlab-tools/blob/master/celltools/flatten.m
-function y = flatten(x)
-  if ~iscell(x)
-    y = {x};
-  else
-    y = {};
-    for n = 1:length(x)
-      tmp = flatten(x{n});
-      y = [y(:);tmp(:)];
-    end
-  end
-end
