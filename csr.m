@@ -546,7 +546,7 @@ classdef csr
       p.parse(product);
       %paranoid sanity
       if product.nr_sources~=2
-        error([mfilename,': number of sources in product ',product.dataname.name,...
+        error([mfilename,': number of sources in product ',product.name,...
           ' is expected to be 2, not ',num2str(product.nr_sources),'.'])
       end
       %get sources

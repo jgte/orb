@@ -1,11 +1,12 @@
 import_dir: <getenv('HOME')>/data/gswarm/ifg/gravity/aiub/
+storage_period: direct
 method: gswarm.load_models
 model_types: [signal,error]
 wilcarded_filename: coeff-*-SaSbSc-AIUB.gfc
 model_format: gfc
 date_parser: gravity.parse_epoch_ifg
 use_GRACE_C20: true
+delete_C00: true
 max_degree: 20
-plot_zeromean: true
 static_model: gswarm.grace.static.ggm05g
-smoothing_radius: 1500000
+plot_method: drms

@@ -1,11 +1,12 @@
 import_dir: <getenv('HOME')>/data/grace/L2/
+storage_period: direct
 method: gswarm.load_models
 model_types: [signal,error]
 wilcarded_filename: ggm05g.gfc
 model_format: gfc
 date_parser: static
 use_GRACE_C20: false
+delete_C00: true
 max_degree: 20
-plot_zeromean: true
 static_model: none
-smoothing_radius: 0
+plot_method: drms

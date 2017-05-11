@@ -81,6 +81,33 @@ classdef datastorage
       obj.category=p.Results.category;
       % data is added to this initialized object with the 'init' method (see below)
     end
+    %% debug logging
+    function log(obj,varargin)
+      %don't do anything unless debug mode is on
+      if ~obj.debug
+        return
+      end
+      %get the stack
+      stack=dbstack(1);
+      %make room for message
+      msg=cell((nargin-1)/2+1,1);
+      %first item is the calling function
+      msg{1}=stack.name;
+      %loop over all arguments
+      for i=2:numel(msg)
+        idx0=2*(i-1)-1;
+        idx1=2*(i-1);
+        %don't show empty arguments
+        if isempty(varargin{idx1})
+          continue;
+        end
+        msg{i}=[varargin{idx0},':',str.show(varargin{idx1})];
+      end
+      %clean up empty cells
+      msg=msg(cellfun(@(i)(~isempty(i)),msg));
+      %show the debug message
+      disp(strjoin(msg,', '))
+    end
     %% dataname handling
     % NOTICE: this function always returns a cell of datanames, unless 'need_scalar' is true
     function out=dataname_factory(obj,in,varargin)
@@ -99,7 +126,7 @@ classdef datastorage
         end
         %flatten cell array
         out=str.flatten(out);
-      case 'datanames'        
+      case 'datanames'
         %propagate
         out={in};
       case 'dataproduct'
@@ -268,10 +295,14 @@ classdef datastorage
       if ~isa(dataname,'datanames')
         error([mfilename,': input ''names'' must be of class ''datanames'', not a ',class(dataname),'.'])
       end
-      if strcmp(function_name,'list')
-        out=[dataname.leaf_type(-1),'_',function_name];
+      switch function_name
+      case 'list'; delta=-1;
+      otherwise;   delta= 0;
+      end
+      if dataname.leaf_length-delta>numel(datanames.parts)+1
+        out='';
       else
-        out=[dataname.leaf_type,'_',function_name];
+        out=[dataname.leaf_type(delta),'_',function_name];
       end
     end  
     function obj=data_init(obj,dataname)
@@ -300,7 +331,24 @@ classdef datastorage
     end
     function out=data_list(obj,dataname)
       dnf=obj.fix(dataname,'clean_empty',true);
-      out=obj.(obj.data_function('list',dataname))(dnf{:});
+      df=obj.data_function('list',dataname);
+      if isempty(df)
+        out={};
+      else
+        out=obj.(obj.data_function('list',dataname))(dnf{:});
+      end
+    end
+    function out=data_inventory(obj,dataname)
+      dl=obj.data_list(dataname);
+      if isempty(dl)
+        out={dataname};
+      else
+        out=cell(size(dl));       
+        for i=1:numel(out)
+          out{i}=obj.data_inventory([dataname,'.',dl{i}]);
+        end
+        out=str.flatten(out);
+      end
     end
     %% cell array operations
     function out=vector_names_sanity(~,in,name,default)
@@ -595,6 +643,8 @@ classdef datastorage
     function obj=init(obj,dataname,varargin)
       % convert to object
       dataname=obj.dataname_factory(dataname,'need_scalar',true);
+      %debug output
+      obj.log('@','top','dataname',dataname.name,'start',obj.start,'stop',obj.stop)
       % save the category, if not done already
       if isempty(obj.category)
         obj.category=dataname.category;
@@ -617,34 +667,80 @@ classdef datastorage
       stop_here =obj.stop;
       % get init method
       ih=str2func(product.mdget('method'));
-      %check if unwrapping is needed
-      if product.ismd_field('fields_wrap')
-        %cannot have the field part non-empty
-        assert(isempty(product.dataname.field),['Cannot have metadata entry ''fields_wrap'' in product ',...
-          product.dataname.name,', because need the ''field'' part to be empty (it is now ''',...
-          product.dataname.field,'''.)'])
-        %retrieve values of the wrapped field
-        fields_wrap=product.mdget('fields_wrap');
-        %retrieve name of the wrapped field
-        fields_name=product.mdget('fields_name');
-        %need field_wrap to be a cell array
-        assert(iscell(fields_wrap),['BUG TRAP: need variable ''field_wrap'' to be a cell array, not a ',class(fields_wrap),'.'])
-        for i=1:numel(fields_wrap)
-          %patch product
-          product_now=product;
-          product_now.metadata=rmfield(product_now.metadata,{'fields_wrap','fields_name'});
-          product_now.metadata.(fields_name)=fields_wrap{i};
-          product_now.dataname.cells=[product.dataname.cells_clean,{[fields_name,str.show(fields_wrap{i})]}];
-          % invoke init method
-          obj=ih(obj,product_now,varargin{:});
+      % init product list (in case there is wrapped data)
+      product_list={product};
+      %unwrap data: go over all parts
+      for p=1:numel(dataname.parts)
+        %unwarp products in this list and feed output to input, to unwrap multitple wrapped parts
+        product_list=dataproduct.unwrap_product(product_list,dataname.parts{p});
+      end
+      %if there is no wrapped data, pass original product
+      if isempty(product_list)
+        product_list={product};
+      end
+      for p=1:numel(product_list)
+        % init methods work only on leafs, so need to expand the current product into all leafs (if not already)
+        product_leafs=obj.source_leafs(product_list{p});
+        for l=1:numel(product_leafs)
+          obj.log(...
+            '@','middle',...
+            'method',product.mdget('method'),...
+            ['product_list{',num2str(p),'}'],product_list{p},...
+            ['product_leafs{',num2str(l),'}'],product_leafs{l}...
+          )
+          % invoke init method, for all unwrapped leaf products (if any)
+          obj=ih(obj,product_leafs{l},varargin{:});
         end
-      else
-        % invoke init method
-        obj=ih(obj,product,varargin{:});
       end
       % enforce start/stop
       obj.start=start_here;
       obj.stop =stop_here;
+      %debug output
+      obj.log('@','bottom','dataname',dataname.name,'start',obj.start,'stop',obj.stop)
+    end
+    function product_leafs=source_leafs(obj,product)
+      %trivial call: maybe this is already a leaft product or there are no sources
+      if strcmp(product.dataname.leaf_type,'sat')
+        product_leafs={product};
+      	return
+      end
+      %if there are not sources, get the leafs from this product
+      if product.nr_sources==0
+        product_leafs=obj.data_inventory(product.name);
+        for i=1:numel(product_leafs)
+          %copy product
+          product_leafs{i}=product;
+          %edit dataname to point to leaf
+          product_leafs{i}.dataname=datanames(product_leafs{i});
+        end
+      else
+        %go over all sources and collect their leafs, store this list in a cell array
+        source_inventory=cell(1,product.nr_sources);
+        for i=1:product.nr_sources
+          source_now=product.sources(i).name;
+          source_inventory{i}=cellfun(@(i) strrep(i,source_now,''),obj.data_inventory(source_now));
+        end
+        %make sure all sources have the same leafs (otherwise can't really do anything)
+        for i=2:numel(source_inventory)
+          assert(str.iscellequal(source_inventory{1},str.iscellequal{i}),...
+            ['The data names under ',product.sources(1),' is not corresponding to ',product.sources(i),'.'])
+        end
+        %simplify things since we've made sure the leafs are the same
+        source_inventory=source_inventory{1};
+        %make room for outputs
+        product_leafs=cell(size(source_inventory));
+        %patch expand this product
+        for i=1:numel(source_inventory)
+          %propagate
+          product_leafs{i}=product;
+          %patch dataname
+          product_leafs{i}.dataname.cells=[product.dataname.cells,strsplit(source_inventory{i},datanames.separator)];
+          %patch sources
+          for j=1:product.nr_sources
+            product_leafs{i}.metadata.sources{j}=[product_leafs{i}.metadata.sources{j},source_inventory{i}];
+          end
+        end
+      end
     end
     function obj=init_sources(obj,product,varargin)
       p=inputParser;
@@ -652,18 +748,12 @@ classdef datastorage
       p.addRequired('product',@(i) isa(i,'dataproduct'));
       % parse it
       p.parse(product,varargin{:});
-      if obj.debug && ~isempty(obj.start) && isempty(obj.end)
-        disp(['init source:1:',product.dataname.name,':start: ',datestr(obj.start),'; stop: ',datestr(obj.stop)]); 
-      end
       %loop over all source data
       for i=1:product.nr_sources
         %load this source if it is empty (use obj.init explicitly to re-load or reset data)
         if obj.data_isempty(product.sources(i))
           obj=obj.init(product.sources(i),varargin{:});
         end
-      end
-      if obj.debug && ~isempty(obj.start) && isempty(obj.end)
-        disp(['init source:2:',product.dataname.name,':start: ',datestr(obj.start),'; stop: ',datestr(obj.stop)]); 
       end
     end
     function obj=init_nrtdm(obj,product,varargin)
@@ -928,11 +1018,12 @@ classdef datastorage
       end
       %save the single entry in dataname
       dataname_now=dataname_list{1};
+      product=obj.mdget(dataname_now);
       %parse inputs
       p=inputParser;
       p.KeepUnmatched=true;
       %parse optional parameters as defined in the metadata
-      p=obj.mdget(dataname_now).plot_args(p,varargin{:});
+      p=product.plot_args(p,varargin{:});
       %if columns are not to be plotted together, need to expand the calls to obj.plot to include each column
       if ~p.Results.plot_columns_together
         %retrieve plot columns indexes, these are naturally numeric arrays when read from the metadata files. keep it that way
@@ -970,7 +1061,7 @@ classdef datastorage
         end
       else
         %plot filename arguments
-        filename_args=[obj.mdget(dataname_now).file_args('plot'),{...
+        filename_args=[product.file_args('plot'),{...
           'start',obj.start,...
           'stop',obj.stop,...
           'timestamp',true,...
@@ -993,13 +1084,13 @@ classdef datastorage
             h{i}=obj.justplot(dataname_list_to_plot{i},varargin{:});
           end
           %enforce plot preferences
-          obj.mdget(dataname_now).enforce_plot
+          product.enforce_plot
           %annotate plot
           obj.plot_annotate(h,dataname_now,dataname_list_to_plot,varargin{:})
           %save this plot
           saveas(gcf,filename)
         else
-          h=[];
+          h=filename;
         end
       end
     end
@@ -1044,13 +1135,13 @@ classdef datastorage
       %parse mandatory args
       assert(isa(dataname,'datanames'),[mfilename,': ',...
         'input ''dataname'' must be of class datanames, not ''',class(dataname),'''.'])
+      %retrieve product info
+      product=obj.mdget(dataname);
       %parse inputs
       p=inputParser;
       p.KeepUnmatched=true;
       %parse optional parameters as defined in the metadata
-      p=obj.mdget(dataname).plot_args(p,varargin{:});
-      %retrieve product info
-      product=obj.mdget(dataname);
+      p=product.plot_args(p,varargin{:});
       %build filename sufix
       if isempty(p.Results.plot_file_suffix)
         suffix='';
@@ -1190,14 +1281,14 @@ classdef datastorage
             end
             if ~found_part
               %if nothing found, search for values of this partname in the data of the sources
-              partvalues=obj.data_list(sourcep{1}.dataname.name);
+              partvalues=obj.data_list(sourcep{1}.name);
               %check if all sources share the same values of this part
               for j=2:product.nr_sources
                 %cell array value comparisson:
                 %http://stackoverflow.com/questions/3231580/matlab-comparison-of-cell-arrays-of-string
-                assert(isempty(setxor(obj.data_list(sourcep{j}.dataname.name),partvalues)),...
-                  ['The ',partname,' names differ in products ',sourcep{1}.dataname.name,' and ',...
-                  sourcep{j}.dataname.name,'.'])
+                assert(str.iscellequal(obj.data_list(sourcep{j}.name),partvalues),...
+                  ['The ',partname,' names differ in products ',sourcep{1}.name,' and ',...
+                  sourcep{j}.name,'.'])
               end
               %propagate this part values
               df.(partname)=cell(numel(partvalues),numel(sourcep)+1);
@@ -1404,11 +1495,11 @@ classdef datastorage
           if any(cellfun(@obj.data_isempty,dataname_list))
             %intiate the data
             obj=obj.data_set(product.dataname,o.data_get(product.dataname));
-            if obj.debug;disp(['arithmetic: initialized ',product.dataname.name,' loaded from ',file_list{i}]);end
+            if obj.debug;disp(['arithmetic: initialized ',product.name,' loaded from ',file_list{i}]);end
           else
             %concatenate the data loaded from the files
             obj=obj.vector_obj_op2(o,'augment',dataname_list,varargin{:});
-            if obj.debug;disp(['arithmetic:   appended  ',product.dataname.name,' loaded from ',file_list{i}]);end
+            if obj.debug;disp(['arithmetic:   appended  ',product.name,' loaded from ',file_list{i}]);end
           end
         end
       end
