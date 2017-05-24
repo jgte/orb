@@ -1,0 +1,3 @@
+sources: [gswarm.swarm.asu.ifg.smoothed.res]
+storage_period: global
+submetadata1: stats.geoid.submetadata

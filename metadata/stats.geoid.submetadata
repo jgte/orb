@@ -1,0 +1,7 @@
+method: gswarm.stats
+derived_quantity: cumdas
+functional: geoid
+stats: [mean,std,max,min]
+stats_outlier: 0
+stats_period: <seconds(inf)>
+stats_overlap: <seconds(0)>

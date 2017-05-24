@@ -1,19 +1,6 @@
-% category
-% type
-% level
-% field
-% sat
-
 classdef gswarm
   methods(Static)
     function obj=load_models(obj,product,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired('product',@(i) isa(i,'dataproduct'));
-      p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
-      % parse it
-      p.parse(product,varargin{:});
       %retrieve relevant parameters
       model_types       =product.mdget('model_types');
       indir             =product.mdget('import_dir');
@@ -23,12 +10,13 @@ classdef gswarm
       max_degree        =product.mdget('max_degree');
       use_GRACE_C20     =product.mdget('use_GRACE_C20');
       delete_C00        =product.mdget('delete_C00');
+      delete_C20        =product.mdget('delete_C20');
       static_field      =product.mdget('static_model');
       %load all available data 
       [s,e]=gravity.load_dir(indir,model_format,date_parser,...
         'wilcarded_filename',wilcarded_filename,...
-        'start',p.Results.start,...
-        'stop',p.Results.stop,...
+        'start',obj.start,...
+        'stop',obj.stop,...
         'descriptor',product.name...
       );
       %enforce consistent GM and R
@@ -43,8 +31,9 @@ classdef gswarm
       end
       %set C20 coefficient
       if use_GRACE_C20
+        disp([product.str,': use_GRACE_C20'])
         %some sanity
-        if strcmpi(product.mdget('date_parser'),'static')
+        if strcmpi(func2str(date_parser),'static')
           error([mfilename,': there''s no point in replacing GRACE C20 coefficients in a static model.'])
         end
         %get C20 timeseries, interpolated to current time domain
@@ -72,9 +61,18 @@ classdef gswarm
       end
       %remove C00 bias
       if delete_C00
+        disp([product.str,': delete_C00'])
         for i=1:s.length
           s=s.setC(0,0,0);
           e=e.setC(0,0,0);
+        end
+      end
+      %remove C20 bias
+      if delete_C20
+        disp([product.str,': delete_C20'])
+        for i=1:s.length
+          s=s.setC(2,0,0);
+          e=e.setC(2,0,0);
         end
       end
       %remove static field (if requested)
@@ -87,265 +85,195 @@ classdef gswarm
           load([static_field,'.mat'])
         end
         %subtract it
-        s=s-static.data_get(static_field).signal;
+        s=s-static.data_get_scalar(datanames(static_field).set_field_path('signal'));
       end
       %propagate relevant data
       for i=1:numel(model_types)
         switch lower(model_types{i})
         case {'signal','sig','s'}
-          obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},s);
+          obj=obj.data_set(product.dataname.set_field_path(model_types{i}),s);
         case {'error','err','e'}
-          obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},e);
+          obj=obj.data_set(product.dataname.set_field_path(model_types{i}),e);
         otherwise
           error([mfilename,': unknown model type ''',model_types{i},'''.'])
         end
       end
     end
     function obj=smooth_models(obj,product,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired('product',@(i) isa(i,'dataproduct'));
-      p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
-      % parse it
-      p.parse(product,varargin{:});
       %retrieve relevant parameters
       smoothing_degree  =product.mdget('smoothing_degree');
       smoothing_method  =product.mdget('smoothing_method');
-      %patch model_types, if not given explicitly
-      if product.ismd_field('model_types')
-        model_types=product.mdget('model_types','always_cell_array',true);
-      else
-        model_types={product.dataname.sat};
-      end
+      model_types       =product.mdget('model_types','always_cell_array',true);
       %sanity
       assert(product.nr_sources==1,['Can only handle one source model, not ',num2str(product.nr_sources),'.'])
-      %gather model  
-      m=obj.data_get(product.sources(1).name);
-      %apply smoothing
-      if smoothing_degree>0
-        m=m.scale(smoothing_degree,smoothing_method);
-      end
-      %propagate relevant data
+      %loop over all models
       for i=1:numel(model_types)
+        %gather model
+        m=obj.data_get_scalar(product.sources(1).append_field_leaf(model_types{i}));
+        %branch on the type of model, do not smooth error models
         switch lower(model_types{i})
         case {'error','err','e'}
-          obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},e);
+          %do nothing
         otherwise
-          obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},m);
+          if smoothing_degree>0
+            %apply smoothing
+            m=m.scale(smoothing_degree,smoothing_method);
+          end
         end
+        %save the smoothed model
+        obj=obj.data_set(product.dataname.append_field_leaf(model_types{i}),m);
       end
     end
     function obj=combine_models(obj,product,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired('product',@(i) isa(i,'dataproduct'));
-      p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
-      % parse it
-      p.parse(product,varargin{:});
-      %check if data is already in matlab format
-      if ~product.isfile('data')
-        %retrieve relevant parameters
-        combination_type  =product.mdget('combination_type');
-        %patch model_types, if not given explicitly
-        if product.ismd_field('model_types')
-          model_types=product.mdget('model_types','always_cell_array',true);
-        else
-          model_types={product.dataname.sat};
-        end
-        %collect the models
-        s=cell(product.nr_sources,1);
-        e=cell(product.nr_sources,1);
-        for i=1:product.nr_sources
-          s{i}=obj.data_get([product.sources(i).name,'.signal']);
-          e{i}=obj.data_get([product.sources(i).name,'.error']);
-        end
-        %propagate relevant data
-        for i=1:numel(model_types)
-          switch lower(model_types{i})
-          case {'error','err','e'}
-            obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},...
-              gravity.combine(e,'mode',combination_type,'type','error')...
-            );
-          otherwise
-            obj=obj.sat_set(product.dataname.type,product.dataname.level,product.dataname.field,model_types{i},...
-              gravity.combine(s,'mode',combination_type,'type','signal')...
-            );
-          end
-        end
-        %save data
-        s=obj.data_get(product); %#ok<*NASGU>
-        save(char(product.file('data')),'s');
-        clear s
-      else
-        %load data
-        load(char(product.file('data')),'s');
-        obj=obj.data_set(product,s); %#ok<NODEF>
+      %retrieve relevant parameters
+      combination_type =product.mdget('combination_type');
+      model_type       =product.dataname.field_path{end};
+      %collect the models
+      m=cell(product.nr_sources,1);
+      for i=1:product.nr_sources
+        m{i}=obj.data_get_scalar(product.sources(i));
       end
+      %propagate relevant data
+      switch lower(model_type)
+      case {'error','err','e'}
+        obj=obj.data_set(product,gravity.combine(m,'mode',combination_type,'type','error'));
+      otherwise
+        obj=obj.data_set(product,gravity.combine(m,'mode',combination_type,'type','signal'));
+      end
+    end
+    function obj=stats(obj,product,varargin)
+      %retrieve relevant parameters
+      derived_quantity=product.mdget('derived_quantity');
+      functional      =product.mdget('functional');
+      stats           =product.mdget('stats');
+      stats_outlier   =product.mdget('stats_outlier');
+      stats_period    =product.mdget('stats_period');
+      stats_overlap   =product.mdget('stats_overlap');
+      %sanity
+      assert(product.nr_sources==1,['Can only handle one source model, not ',num2str(product.nr_sources),'.'])
+      %get the model
+      g=obj.data_get_scalar(product.sources(1)).scale(functional,'functional');
+      %compute cumulative amplitude time series
+      ts=g.derived(derived_quantity);
+      %derive statistics
+      s=ts.stats(...
+        'struct_fields',stats,...
+        'outlier',stats_outlier,...
+        'period', stats_period,...
+        'overlap',stats_overlap...
+      );
+      %add field with degree
+      s.degree=0:g.lmax;
+      %save data
+      obj=obj.data_set(product,s);
     end
     function obj=parametric_decomp(obj,product,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired('product',@(i) isa(i,'dataproduct'));
-      p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
-      % parse it
-      p.parse(product,varargin{:});
-      %check if data is already in matlab format
-      if ~product.isfile('data')
-        %sanity
-        assert(product.nr_sources==1,...
-          [mfilename,': can only operate on a single source, not ',num2str(product.nr_sources),'.']...
-        )
-        %patch model_types, if not given explicitly
-        if product.ismd_field('model_types','always_cell_array',true)
-          model_types=product.mdget('model_types');
-        else
-          model_types={product.dataname.sat};
-        end
-        %sanity
-        assert(numel(model_types)==1 && all(~strcmp(model_types,{'error','err','e'})),...
-          [mfilename,': can not operate on models of type ''error''.']...
-        )
-        polynomial =ones(1,product.mdget('polyorder')+1);
-        sinusoidal =time.num2duration(cell2mat(product.mdget('sin_period')),product.mdget('sin_period_unit'));
-        if product.ismd_field('t_mod_f')
-          t_mod_f=product.mdget('t_mod_f');
-        else
-          t_mod_f=1;
-        end
-        %decompose
-        s=obj.data_get(...
-          [product.sources(1).name,'.signal']...
-        ).parametric_decomposition(...
-          't_mod_f',t_mod_f,...
-          'polynomial',polynomial,...
-          'sinusoidal',sinusoidal...
-        );
-        %propagate relevant data
-        obj=obj.field_set(product.dataname.type,product.dataname.level,product.dataname.field,s);
-        %save data
-        s=obj.data_get(product); %#ok<*NASGU>
-        save(char(product.file('data')),'s');
-        clear s
-      else
-        %load data
-        load(char(product.file('data')),'s');
-        obj=obj.data_set(product,s); %#ok<NODEF>
-      end
+      %sanity
+      assert(product.nr_sources==1,...
+        [mfilename,': can only operate on a single source, not ',num2str(product.nr_sources),'.']...
+      )
+      %retrieve relevant parameters
+      model_type =product.dataname.field_path{end};
+      t_mod_f=product.mdget('t_mod_f','default',1);
+      %sanity
+      assert(numel(model_type)==1 && all(~strcmp(model_type,{'error','err','e'})),...
+        [mfilename,': can not operate on models of type ''error''.']...
+      )
+      polynomial =ones(1,product.mdget('polyorder')+1);
+      sinusoidal =time.num2duration(cell2mat(product.mdget('sin_period')),product.mdget('sin_period_unit'));
+      %decompose
+      s=obj.data_get_scalar(...
+        [product.sources(1).name,'.signal']...
+      ).parametric_decomposition(...
+        't_mod_f',t_mod_f,...
+        'polynomial',polynomial,...
+        'sinusoidal',sinusoidal...
+      );
+      %propagate relevant data
+      obj=obj.data_set(product,s);
     end
     function obj=plot_rms_ts(obj,product,varargin)
+      obj.log('@','in','product',product)
+      plot_functional =product.mdget('plot_functional');
+      derived_quantity=product.mdget('derived_quantity');
       p=inputParser;
       p.KeepUnmatched=true;
       %parse optional parameters as defined in the metadata
       p=product.plot_args(p,varargin{:});
-      %sanity on non-optional parameters
-      if ~isa(product,'dataproduct') && ~isscalar(product)
-        error([mfilename,': can only handle input ''product'' as scalars of class ''productdata'', not ''',class(in),'''.'])
-      end
-      %build filename sufix
-      if isempty(p.Results.plot_file_suffix)
-        suffix='';
-      else
-        suffix=['.',p.Results.plot_file_suffix];
-      end
-      %retrive data flow structure
-      [~,df]=obj.dataflow(product);
-      %gather list of daily data files
-      [~,startlist,stoplist]=product.file('data',varargin{:},'start',obj.start,'stop',obj.stop);
+      %retrieve plot elements (repetitive processing of parameters)
+      e=obj.plot_elements(p,product);
       %loop over all data
-      for t=1:numel(startlist)
-        for i=1:size(df.types,1)
-          for j=1:size(df.levels,1)
-            for k=1:size(df.fields,1)
-              for s=1:size(df.sats,1)
-                %get name of current column to plot
-                col_names=p.Results.plot_column_names;
-                if isempty(col_names)
-                  %pick the first input dataname
-                  col_names=obj.data_get(...
-                    datanames([obj.category,df.types(i,2),df.levels(j,2),df.fields(k,2),df.sats(s,2)])...
-                  ).labels;
-                end
-                %build output datanames
-                out_dn=datanames([obj.category,df.types(i,1),df.levels(j,1),df.fields(k,1),df.sats(s,1)]);
-                %plot filename arguments
-                filename_args=[obj.mdget(out_dn).file_args('plot'),{...
-                  'start',startlist(t),...
-                  'stop', stoplist(t),...
-                  'timestamp',true,...
-                  'remove_part','',...
-                  'prefix',p.Results.plot_file_prefix,...
-                  'suffix',suffix...
-                }];
-                %plot filename
-                filename=out_dn.file(filename_args{:});
-                if isempty(dir(filename))
-                  %build input datanames
-                  in_dn=cell(1,product.nr_sources);
-                  for l=1:product.nr_sources
-                    in_dn{l}=datanames([obj.category,df.types(i,l+1),df.levels(j,l+1),df.fields(k,l+1),df.sats(s,l+1)]);
-                  end
-                  %get the data for the current segment
-                  obj_curr=obj.trim(startlist(t),stoplist(t));
-                  %make sure there is data 
-                  if any(cell2mat(obj_curr.vector_sts('nr_valid',in_dn))>1)
-                    %remove C00 and C20
-                    for ci=1:numel(in_dn)
-                      obj_curr=obj_curr.data_set(in_dn{ci},...
-                        obj_curr.data_get(in_dn{ci}).setC([0 2],[0 0],[0 0])...
-                      );
-                    end
-                    %need all data to be in the same time domain
-                    assert(obj_curr.isteq(in_dn),...
-                      [mfilename,': the time domain of the input data is not in agreement.'])
-                    %build data array
-                    bardat=nan(obj_curr.data_get(in_dn{1}).length,numel(in_dn));
-                    for di=1:numel(in_dn)
-                      tmp=obj_curr.data_get(in_dn{di}).scale(product.mdget('plot_functional'),'functional').cumdrms;
-                      bardat(:,di)=tmp(:,end);
-                    end
-                    %plot it
-                    figure('visible',p.Results.plot_visible);
-                    h=bar(datenum(obj_curr.data_get(in_dn{1}).t),bardat);
-                    %enforce plot preferences
-                    product.enforce_plot
-                    %build plot annotation structure
-                    bh=cell(size(in_dn));
-                    for di=1:numel(in_dn)
-                      bh{di}=struct(...
-                        'mask',obj_curr.data_get(in_dn{di}).mask,...
-                        'y_mean',0,...
-                        'handle',bh(i),...
-                        'title',in_dn{di}.name,...
-                        'xlabel','time',...
-                        'ylabel',product.mdget('plot_functional'),...
-                        'y_units',gravity.functional_units(product.mdget('plot_functional')),...
-                        'legend',{{in_dn{di}.name}}...
-                      );
-                    end
-                    %annotate plot
-                    obj.plot_annotate(bh,product.dataname,in_dn,varargin{:})
-                    %make xticks show readable time
-                    datetick('x',product.mdget('plot_dateformat'))
-                    %remove outline
-                    set(h,'edgecolor','none')
-                    %save this plot
-                    saveas(gcf,filename)
-                    % user feedback
-                    if strcmp(p.Results.plot_visible,'off')
-                      disp(['gswarm.plot_rms_ts: plotted ',product.name,' to file ',filename])
-                    end
-                  else
-                    disp(['gswarm.plot_rms_ts: not enough data to plot ',product.name,' to file ',filename,' (skipped)'])
-                  end
-                end
-              end
+      for t=1:numel(e.startlist)
+        obj.log('@','iter','start',e.startlist(t),'stop',e.stoplist(t))
+        %plot filename arguments
+        filename_args=[product.file_args('plot'),{...
+          'start',e.startlist(t),...
+          'stop', e.stoplist(t),...
+          'timestamp',true,...
+          'remove_part','',...
+          'prefix',p.Results.plot_file_prefix,...
+          'suffix',e.suffix...
+        }];
+        %plot filename
+        filename=product.dataname.file(filename_args{:});
+        if isempty(dir(filename))
+          %get the data for the current segment
+          obj_curr=obj.trim('start',e.startlist(t),'stop',e.stoplist(t),'dn_list',e.sources);
+          %make sure there is data 
+          if any(cell2mat(obj_curr.vector_method_tr('all','nr_valid'))>1)
+%             %remove C00 and C20
+%             obj_curr=obj_curr.data_set('all',obj_curr.vector_method_tr('all','setC',[0 2],[0 0],[0 0]));
+            %need all data to be in the same time domain
+            assert(obj_curr.isteq('all'),...
+              [mfilename,': the time domain of the input data is not in agreement.'])
+            %build data array
+            bar_y=zeros(max(obj_curr.length('all')),numel(e.sources));
+            bar_t=zeros(max(obj_curr.length('all')),numel(e.sources));
+            for di=1:numel(e.sources)
+              tmp=obj_curr.data_get_scalar(e.sources{di}).scale(plot_functional,'functional').(derived_quantity);
+              bar_y(:,di)=tmp(:,end);
+              bar_t(:,di)=datenum(obj_curr.data_get_scalar(e.sources{1}).t);
             end
+            %filter out nans
+            good_idx=~all(isnan(bar_y),2);
+            %plot it
+            figure('visible',p.Results.plot_visible);
+            h=bar(bar_t(good_idx,:),bar_y(good_idx,:),'EdgeColor','none');
+            %enforce plot preferences
+            product.enforce_plot
+            %build plot annotation structure
+            bh=cell(size(e.sources));
+            for di=1:numel(e.sources)
+              bh{di}=struct(...
+                'mask',obj_curr.data_get_scalar(e.sources{di}).mask,...
+                'y_mean',0,...
+                'handle',h(di),...
+                'title',e.sources{di}.str,...
+                'xlabel','time',...
+                'ylabel',plot_functional,...
+                'y_units',gravity.functional_units(plot_functional),...
+                'legend',{{e.sources{di}.name}}...
+              );
+            end
+            %annotate plot
+            obj.plot_annotate(bh,product,e.sources,varargin{:})
+            %remove outline
+            set(h,'edgecolor','none')
+            %save this plot
+            saveas(gcf,filename)
+            obj.log('@','iter','plot saved',filename)
+            % user feedback
+            if strcmp(p.Results.plot_visible,'off')
+              disp(['gswarm.plot_rms_ts: plotted ',product.name,' to file ',filename])
+            end
+          else
+            disp(['gswarm.plot_rms_ts: not enough data to plot ',product.name,' to file ',filename,' (skipped)'])
           end
+        else
+          obj.log('@','iter','skipped',product,'file already exists',filename)
         end
       end
+      obj.log('@','out')
     end
     function filelist=icgem(obj,product,varargin)
       p=inputParser;
@@ -354,7 +282,7 @@ classdef gswarm
       % parse it
       p.parse(product,varargin{:});
       %retrieve relevant data
-      dat=obj.data_get(product);
+      dat=obj.data_get_scalar(product);
       %call exporting routine
       filelist=dat.signal.icgem(...
         'prefix',product.name,...

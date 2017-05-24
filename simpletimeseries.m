@@ -643,7 +643,7 @@ classdef simpletimeseries < simpledata
         for i=1:numel(in);
           filenames{i}=simpletimeseries.unwrap_datafiles(in{i},varargin{:});
         end
-        filenames=str.flatten(filenames);
+        filenames=cells.flatten(filenames);
         %remove empty entries
         filenames=filenames(~cellfun('isempty',filenames));
         return

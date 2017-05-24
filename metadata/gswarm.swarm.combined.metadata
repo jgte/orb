@@ -1,0 +1,7 @@
+method: gswarm.combine_models
+sources: [gswarm.swarm.aiub.aiub,gswarm.swarm.asu.ifg,gswarm.swarm.ifg.ifg]
+storage_period: global
+combination_type: mean
+plot_method: drms
+plot_xdate: false
+

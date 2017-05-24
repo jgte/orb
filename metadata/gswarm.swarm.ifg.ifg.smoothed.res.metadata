@@ -1,0 +1,6 @@
+method: datastorage.arithmetic
+sources: [gswarm.swarm.ifg.ifg.smoothed,gswarm.grace.gfz.rl05.smoothed]
+storage_period: global
+operation: minus
+plot_method: drms
+plot_xdate: false

@@ -2,7 +2,7 @@
   %static
   properties(Constant)
     %this is used to define when the date is not set (datenum(zero_date)=0), used for static fields
-    zero_date=datetime(0,'ConvertFrom','datenum');
+    zero_date=time.zero_date;
     %default value of some internal parameters
     default_list=struct(...
       'G',        6.67408e-11,...      % Gravitational constant [m3/kg/s2]
@@ -493,7 +493,7 @@
         else
           t=p.Results.date_parser(filelist{i});
           %skip if this t is outside the required range
-          if ~isempty(p.Results.start) && ~isempty(p.Results.stop) && (t<p.Results.start || p.Results.stop<t)
+          if time.isvalid(p.Results.start) && time.isvalid(p.Results.stop) && (t<p.Results.start || p.Results.stop<t)
             continue
           end
         end
@@ -1229,7 +1229,7 @@
       out=zeros(obj.length,obj.lmax+1);
       tri_now=obj.tri;
       for i=1:obj.length
-        %compute mean over each degre
+        %compute mean over each degree
         out(i,:) = mean(tri_now{i},2);
       end
     end
@@ -1273,6 +1273,16 @@
     % the output matrix is arranged as <das>.
     function out=cumdas(obj)
       out=cumsum(obj.das,2);
+    end
+    % created a timeseries object with the derived quantities above
+    function out=derived(obj,quantity)
+      out=simpletimeseries(...
+        obj.t,...
+        obj.(quantity),...
+        'labels',cellfun(@(i) ['deg. ',i],strsplit(num2str(0:obj.lmax)),'UniformOutput',false),...
+        'units',repmat({gravity.functional_units(obj.functional)},1,obj.lmax+1),...
+        'descriptor',[quantity,' of ',obj.descriptor]...
+      );
     end
     %% convert to grid
     function out=grid(obj,varargin)

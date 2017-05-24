@@ -1,0 +1,17 @@
+method: gswarm.plot_rms_ts
+sources: [
+  gswarm.swarm.aiub.aiub.smoothed.res,
+  gswarm.swarm.asu.ifg.smoothed.res,
+  gswarm.swarm.ifg.ifg.smoothed.res,
+  gswarm.swarm.combined.smoothed.res
+]
+plot_product: true
+derived_quantity: cumdas
+storage_period: global
+plot_xlimits: [2013-12-17,2016-09-15]
+plot_zeromean: false
+plot_xdateformat: mm/yy
+plot_functional: geoid
+plot_colormap: jet
+plot_legend_suppress: [smoothed,res]
+plot_title_suppress: [gswarm,swarm,smoothed,res,signal]
