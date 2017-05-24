@@ -1,0 +1,5 @@
+use_GRACE_C20: false
+delete_C20: false
+delete_C00: true
+max_degree: 20
+static_model: gswarm.grace.static.ggm05g

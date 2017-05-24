@@ -1,0 +1,17 @@
+method: datastorage.plot_auto
+sources: [
+  gswarm.swarm.aiub.aiub,
+  gswarm.swarm.asu.ifg,
+  gswarm.swarm.ifg.ifg,
+  gswarm.swarm.combined,
+  gswarm.grace.gfz.rl05
+]
+plot_product: true
+plot_method: timeseries
+storage_period: global
+plot_columns_together: false
+plot_columns: [4,5,6]
+plot_title_suppress: [gswarm,swarm]
+plot_xlimits: [2013-11-01,2016-12-31]
+plot_zeromean: false
+plot_xdateformat: mm/yy

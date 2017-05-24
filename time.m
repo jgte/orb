@@ -15,6 +15,10 @@ classdef time
       @(i) years(i*100)...
     };
   end    
+  properties(Constant)
+    zero_date=datetime(0,  'ConvertFrom','datenum');
+     inf_date=datetime(Inf,'ConvertFrom','datenum');
+  end
   methods(Static)
     function test
       fmt='%012.12g';
@@ -86,20 +90,26 @@ classdef time
       if ~isscalar(seconds)
         error([mfilename,': input must be scalar'])
       end
-      steps = [1,60,60*60,60*60*24,60*60*24*7,60*60*24*31,60*60*24*365];
-      units = ['s','m','h','d','w','m','y'];
-      out=[];
-      seconds = abs(seconds);
-      for i=numel(steps):-1:1
-        if (seconds > steps(i))
-          if i~=1
-            out = [out,num2str(floor(seconds/steps(i))),units(i),',']; %#ok<AGROW>
-          else
+      if isnan(seconds)
+        out='NaN';
+      elseif ~isfinite(seconds)
+        out='Inf';
+      else
+        steps = [1,60,60*60,60*60*24,60*60*24*7,60*60*24*31,60*60*24*365];
+        units = ['s','m','h','d','w','m','y'];
+        out=[];
+        seconds = abs(seconds);
+        for i=numel(steps):-1:1
+          if (seconds > steps(i))
+            if i~=1
+              out = [out,num2str(floor(seconds/steps(i))),units(i),',']; %#ok<AGROW>
+            else
+              out = [out,num2str(seconds,3),units(i)]; %#ok<AGROW>
+            end
+            seconds = rem(seconds,steps(i));
+          elseif (i==1)
             out = [out,num2str(seconds,3),units(i)]; %#ok<AGROW>
           end
-          seconds = rem(seconds,steps(i));
-        elseif (i==1)
-          out = [out,num2str(seconds,3),units(i)]; %#ok<AGROW>
         end
       end
     end
@@ -368,7 +378,11 @@ classdef time
       duniq     = unique(dvec(:, 1:2), 'rows');
       startlist = datetime(datenum(duniq(:,1), duniq(:,2), 1),'ConvertFrom','datenum');
       if nargout>1
-        stoplist = [startlist(2:end);dateshift(startlist(end),'end','month')+days(1)];
+        if numel(startlist)==1
+          stoplist = dateshift(startlist,'end','month')+days(1);
+        else
+          stoplist = [startlist(2:end);dateshift(startlist(end),'end','month')+days(1)];
+        end
       end
     end
     function [startlist,stoplist]=year_list(start,stop)
@@ -382,6 +396,20 @@ classdef time
       startlist = datetime(datenum(duniq(:,1), 1, 1),'ConvertFrom','datenum');
       if nargout>1
         stoplist = [startlist(2:end);dateshift(startlist(end),'end','year')+days(1)];
+      end
+    end
+    function out=isvalid(in)
+      if isempty(in)
+        out=false;
+      else
+        switch class(in)
+        case 'cell'
+          out=cellfun(@time.isvalid,in);
+        case 'datetime'
+          out= in~=time.zero_date;
+        otherwise
+          error([mfilename,': unsupported class ',class(in),'.'])
+        end
       end
     end
   end

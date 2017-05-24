@@ -4,6 +4,7 @@ classdef simpledata
     %NOTE: edit this if you add a new parameter
     parameter_list=struct(...
       'peeklength',struct('default',10,     'validation',@(i) isnumeric(i) && iscalar(i)),...
+      'peekwidth', struct('default',10,     'validation',@(i) isnumeric(i) && iscalar(i)),...
       'labels',    struct('default',{{''}}, 'validation',@(i) iscell(i)),...
       'y_units',   struct('default',{{''}}, 'validation',@(i) iscellstr(i)),...
       'x_units',   struct('default','',     'validation',@(i) ischar(i)),...
@@ -39,6 +40,7 @@ classdef simpledata
     x_units
     descriptor
     peeklength
+    peekwidth
   end
   methods(Static)
     function out=valid_x(x)
@@ -749,14 +751,26 @@ classdef simpledata
       obj.disp_field('nr gaps',    tab,sum(~obj.mask))
       obj.disp_field('first datum',tab,sum(obj.x(1)))
       obj.disp_field('last datum', tab,sum(obj.x(end)))
-      if obj.width<10
-        obj.disp_field('statistics', tab,[10,stats(obj,'mode','str-nl','tab',tab,'period',inf)])
+      if isempty(obj.peekwidth)
+        obj.peekwidth=simpledata.parameter_list.peekwidth.default;
       end
+      obj.disp_field('statistics', tab,[10,stats(obj,...
+        'mode','str-nl',...
+        'tab',tab,...
+        'period',seconds(inf),...
+        'columns',1:min([obj.peekwidth,obj.width])...
+      )])
       obj.peek
     end
     function disp_field(obj,field,tab,value)
       if ~exist('value','var') || isempty(value)
         value=obj.(field);
+        if isempty(obj.peekwidth)
+          obj.peekwidth=simpledata.parameter_list.peekwidth.default;
+        end
+        if isnumeric(value) || iscell(value)
+          value=value(1:min([numel(value),obj.peekwidth]));
+        end
       end
       disp([str.tabbed(field,tab),' : ',str.show(transpose(value(:)))])
     end
@@ -783,9 +797,11 @@ classdef simpledata
       else
         tab_x=tab;
       end
-      %
+      if isempty(obj.peekwidth)
+        obj.peekwidth=simpledata.parameter_list.peekwidth.default;
+      end
       for i=1:numel(idx)
-        out=cell(1,obj.width);
+        out=cell(1,min([obj.peekwidth,obj.width]));
         for j=1:numel(out)
           out{j}=str.tabbed(num2str(obj.y(idx(i),j)),tab,true);
         end
@@ -847,8 +863,8 @@ classdef simpledata
       case 'meanabs'; out=mean(abs(obj.y_masked([],columns)));
       case 'stdabs';  out=std( abs(obj.y_masked([],columns)));
       case 'rmsabs';  out=rms( abs(obj.y_masked([],columns)));
-      case 'length';  out=size(    obj.y_masked,1)*ones(1,obj.width);
-      case 'gaps';    out=sum(    ~obj.mask)*ones(1,obj.width);
+      case 'length';  out=size(    obj.y_masked,1)*ones(1,numel(columns));
+      case 'gaps';    out=sum(    ~obj.mask)*ones(1,numel(columns));
       %one line, two lines, three lines, many lines
       case {'str','str-2l','str-3l','str-nl'} 
         out=cell(size(p.Results.struct_fields));

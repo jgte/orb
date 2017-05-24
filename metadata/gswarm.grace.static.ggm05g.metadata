@@ -10,3 +10,4 @@ delete_C00: true
 max_degree: 20
 static_model: none
 plot_method: drms
+plot_xdate: false

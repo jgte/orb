@@ -81,6 +81,7 @@ classdef str
         out=strjoin(out,' ');
         return
       end
+      %branch on s
       %branch on scalar type
       switch class(in)
       case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double'}
@@ -96,9 +97,17 @@ classdef str
       case 'cell'
         out=str.show(in{1}); %non-scalar cells already handled above
       case 'datetime'
-        out=datestr(in);
+        if isnat(in)
+          out='NaT';
+        elseif ~isfinite(in)
+          out='Inf';
+        else
+          out=datestr(in);
+        end
       case 'duration'
         out=time.str(seconds(in));
+      case 'struct'
+        out=[10,'  ',strjoin(strsplit(structs.str(in),char(10)),[10,'  ']),10];
       otherwise
         try
           out=in.str;
@@ -203,22 +212,6 @@ classdef str
           'size of variable ''',inputname(2),''' (',num2str(numel(var2)),'). This is ilegal.'...
         ]))
       end
-    end
-    function y = flatten(x)
-      % https://github.com/ronw/ronw-matlab-tools/blob/master/celltools/flatten.m
-      if ~iscell(x)
-        y = {x};
-      else
-        y = {};
-        for n = 1:length(x)
-          tmp = str.flatten(x{n});
-          y = [y(:);tmp(:)];
-        end
-      end
-    end
-    function out=iscellequal(c1,c2)
-      %http://stackoverflow.com/questions/3231580/matlab-comparison-of-cell-arrays-of-string
-      out=isempty(setxor(c1,c2));
     end
     %first argument is field width, all remaining inputs are values to print.
     function out=tablify(w,varargin)
