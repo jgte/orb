@@ -9,5 +9,4 @@ plot_autoscale: true
 plot_automean: true
 plot_outlier: 3
 plot_zeromean: true
-plot_label_prefix_sat: GRACE-
 plot_title_suppress: [grace,csr]

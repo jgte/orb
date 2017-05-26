@@ -1,4 +1,4 @@
- classdef gravity < simpletimeseries
+i classdef gravity < simpletimeseries
   %static
   properties(Constant)
     %this is used to define when the date is not set (datenum(zero_date)=0), used for static fields

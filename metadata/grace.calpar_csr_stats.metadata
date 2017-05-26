@@ -12,4 +12,3 @@ plot_automean: true
 plot_outlier: 3
 plot_zeromean: false
 plot_title_suppress: [grace,calpar_csr_stats]
-plot_label_prefix_sat: GRACE-
