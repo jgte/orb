@@ -4,9 +4,6 @@ classdef datanames
     separator='.';
     separator_clean='_'; %needed to construct legal field names out of obj.name
   end
-  %read-write
-  properties
-  end
   %read only
   properties(SetAccess=private)
     name
@@ -87,9 +84,6 @@ classdef datanames
       assert(ischar(field_path_leaf),['input ''field_path_leaf'' must be a string, not a ',class(field_path_leaf),'.'])
       obj.field_path=[obj.field_path,{field_path_leaf}];
     end
-    function out=global_field_path(obj)
-      out=[{obj.name_clean},obj.field_path];
-    end
     function obj=set_field_path(obj,field_path)
       %handle shallow structures
       if ischar(field_path)
@@ -100,27 +94,41 @@ classdef datanames
       %assign
       obj.field_path=field_path;
     end
-    function obj=edit_field_part(obj,field_part,value)
-      idx=strcmp(obj.field_path,field_part);
-      if any(idx)
-        obj.field_path(idx)={value};
+    %input 'field_parts' can be a cell string, with possible values for a particular part.
+    function obj=edit_field_part(obj,field_parts,value)
+      %translate inputs
+      if ~iscell(field_parts)
+        field_parts={field_parts};
+      end
+      %sanity on type
+      assert(iscellstr(field_parts),'Can only handle cell strings.')
+      %loop over all current parts
+      for i=1:numel(obj.field_path)
+        %check if this part shows up in any entries of 'field_parts'
+        if any(strcmp(obj.field_path{i},field_parts))
+          %if so, assign input 'value' to it and bail
+          obj.field_path(i)={value};return
+        end
       end
     end
-    function out=field_path_str(obj)
-      out=strjoin(obj.field_path,'.');
-    end
-    function out=split(obj)
+    function out=split(obj)             %e.g. {'grace'    'calpar'    'csr'    'estim'    'AC0X'    'A'}
       out=cells.flatten({strsplit(obj.name,datanames.separator),obj.field_path});
     end
+    function out=global_field_path(obj) %e.g. {'grace_calpar_csr'    'estim'    'AC0X'    'A'}
+      out=[{obj.name_clean},obj.field_path];
+    end
     %% names
-    function out=filename(obj)
-      out=fullfile(obj.global_field_path{:});
+    function out=filename(obj)       %e.g. grace.calpar.csr.estim.AC0X.A
+      out=strjoin([{obj.name},obj.field_path],datanames.separator);
     end
-    function out=codename(obj)
-      out=['(''',strjoin(obj.global_field_path,''').('''),''')'];
+    function out=codename(obj)       %e.g. grace_calpar_csr.estim.AC0X.A
+      out=strjoin(obj.global_field_path,'.');
     end
-    function out=str(obj)
+    function out=str(obj)            %e.g. grace.calpar.csr/estim/AC0X/A
       out=fullfile(obj.name,obj.field_path{:});
+    end
+    function out=field_path_str(obj) %e.g.                  estim.AC0X.A
+      out=strjoin(obj.field_path,'.');
     end
     %% name operations
     function out=name_clean(obj)
@@ -138,7 +146,7 @@ classdef datanames
       p.addParameter('timestamp',         false,   @(i) islogical(i));
       p.addParameter('keeptsplaceholder', false,   @(i) islogical(i));
       p.addParameter('ensure_dir',        true,    @(i) islogical(i));
-      p.addParameter('remove_part',       '',      @(i) ischar(i))
+      p.addParameter('remove_part',       '',      @(i) ischar(i) || iscellstr(i))
       p.addParameter('prefix',            '',      @(i) ischar(i))
       p.addParameter('suffix',            '',      @(i) ischar(i))
 %       p.addParameter('full_path',         true,    @(i) islogical(i))

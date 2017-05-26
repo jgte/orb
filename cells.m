@@ -36,5 +36,11 @@ classdef cells
         out=iscell(in);
       end
     end
+    function out=isempty(in)
+      out=cellfun(@isempty,in);
+    end
+    function out=rm_empty(in)
+      out=in(~cells.isempty(in));
+    end
   end
 end

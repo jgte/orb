@@ -1,4 +1,4 @@
-classdef simpletimeseries < simpledata
+sx dclassdef simpletimeseries < simpledata
   %static
   properties(Constant,GetAccess=private)
     valid_formats=struct(...

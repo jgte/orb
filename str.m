@@ -45,27 +45,6 @@ classdef str
       end
       out=char(floor((ascii_stop-ascii_start)*rand(l,n)) + ascii_start);
     end
-%     function out=show(in)
-%       if isnumeric(in)
-%         out=num2str(in);
-%       elseif ischar(in)
-%         out=in;
-%       elseif islogical(in)
-%         if in
-%           out='T';
-%         else
-%           out='F';
-%         end
-%       elseif isdatetime(in)
-%         out=datestr(in,'yyyy-mm-dd HH:MM:SS.FFF');
-%       elseif isduration(in)
-%         out=char(in);
-%       elseif iscell(in)
-%         out=strjoin(cellfun(@(i)([str.show(i),'; ']),in,'UniformOutput',false));
-%       else
-%         error([mfilename,': cannot handle variables of class ',class(in),'.'])
-%       end
-%     end
     function out=show(in,fmt)
       %trivial call
       if ischar(in)
@@ -217,43 +196,28 @@ classdef str
     function out=tablify(w,varargin)
       %justification scheme
       mode='center';
+      %propagate all arguments (may need to edit them)
+      in=varargin;
       %expand scalar widths
       if isscalar(w)
-        w=ones(size(varargin))*w;
+        w=ones(size(in))*w;
       else
-        assert(numel(varargin)==numel(w),[mfilename,': ',...
-          'number of elements of vector input ''w'' (',numel(w),') must be the same as the ',...
-          'number of additional input arguments (',numel(varargin),').'])
+        assert(numel(in)==numel(w),[mfilename,': ',...
+          'number of elements of vector input ''w'' (',num2str(numel(w)),') must be the same as the ',...
+          'number of additional input arguments (',num2str(numel(in)),').'])
       end
-      out = cell(size(varargin));
-      c=0;
-      for i=1:numel(varargin)
-        for j=1:numel(varargin{i})
-          c=c+1;
-          out{c} = str.just(str.show(varargin{i}(j),['%',num2str(w(i)),'g']),w(i),'just',mode);
+      %make room for outputs (only an estimate, maybe there are non-scalar arguments)
+      out = cell(size(in)); c=0;
+      %loop over every argument
+      for i=1:numel(in)
+        %need to encapsulate strings in a cell array to avoid looping over all individual characters
+        if ischar(in{i})
+          in{i}=in(i);
         end
-%         switch class(varargin{i})
-%         case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double','logical'}
-%           if isscalar(varargin{i})
-%             out{i} = str.just(num2str(varargin{i},['%',num2str(w(i)),'g']),w(i),'just',mode);
-%           else
-%             out{i} = str.tablify(w(i),num2cell(varargin{i}));
-%           end
-%         case 'char'
-%           out{i} = str.just(varargin{i},w(i),'just',mode);
-%         case 'cell'
-%           out_now=cell(size(varargin{i}));
-%           for j=1:length(varargin{i})
-%             out_now{j} = str.tablify(w(i),varargin{i}{j});
-%           end
-%           out{i}=out_now;
-%         case 'datetime'
-%           out{i}=str.just(datestr(varargin{i}),w(i),'just',mode);
-%         case 'duration'
-%           out{i}=str.just(time.str(seconds(varargin{i})),w(i),'just',mode);
-%         otherwise
-%           error([mfilename,': class ''',class(varargin{i}),''' of the ',str.th(i),' input argument is not supported.'])
-%         end
+        %loop over every element of the current argument (even if scalar)
+        for j=1:numel(in{i})
+          c=c+1; out{c} = str.just(str.show(in{i}(j),['%',num2str(w(i)),'g']),w(i),'just',mode);
+        end
       end
       out=strjoin(out,' ');
     end
