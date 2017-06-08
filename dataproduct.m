@@ -28,6 +28,7 @@ classdef dataproduct
         'plot_title','',...
         'plot_title_suppress',{{}},...
         'plot_title_suffix','',...
+        'plot_title_prefix','',...
         'plot_grid',true,...
         'plot_line_width',2,...
         'plot_autoscale',false,... %y-scale is derived from the data (in dataproduct.enforce_plot)
@@ -36,13 +37,15 @@ classdef dataproduct
         'plot_colormap','',...
         'plot_outlier',0,...
         'plot_method','timeseries'...
-      )...
+      ),...
+      'debug_plot',false...
     );
     parameter_list=struct(...
       'metadata_dir',   struct('default',dataproduct.default_list.metadata_dir,   'validation',@(i) ischar(i)),...
       'plot_dir',       struct('default',dataproduct.default_list.plot_dir,       'validation',@(i) ischar(i)),...
       'data_dir',       struct('default',dataproduct.default_list.data_dir,       'validation',@(i) ischar(i)),...
-      'metadata',       struct('default',dataproduct.default_list.metadata,       'validation',@(i) isstruct(i))...
+      'metadata',       struct('default',dataproduct.default_list.metadata,       'validation',@(i) isstruct(i)),...
+      'debug_plot',     struct('default',dataproduct.default_list.debug_plot,     'validation',@(i) islogical(i))...
     );
     %this is the maximum depth of the structure inside on dataname, i.e. obj.data.(dataname.name)
     %this parameter is arbitrary but keep it as low as possible to prevent time-consuming searches.
@@ -52,15 +55,10 @@ classdef dataproduct
   properties
     dataname
     metadata
-  end
-  %read only
-  properties(SetAccess=private)
+    debug_plot
     metadata_dir
     data_dir
     plot_dir
-  end
-  %internal
-  properties(SetAccess=private)
   end
   %calculated only when asked for
   properties(Dependent)
@@ -176,31 +174,27 @@ classdef dataproduct
         obj=in;
         return
       end
-      %need to read YAML
-      addpath(genpath(fullfile(dataproduct.scriptdir,'yamlmatlab')));
-      %parse inputs
+      % parameter names
+      pn=dataproduct.parameters;
+      % input parsing
       p=inputParser;
       p.KeepUnmatched=true;
       %declare parameters
-      for j=1:numel(dataproduct.parameters)
-        %shorter names
-        pn=dataproduct.parameters{j};
+      for i=1:numel(pn)
         %declare parameters
-        p.addParameter(pn,dataproduct.parameter_list.(pn).default,dataproduct.parameter_list.(pn).validation)
+        p.addParameter(pn{i},dataproduct.parameter_list.(pn{i}).default,dataproduct.parameter_list.(pn{i}).validation)
       end
       % parse it
       p.parse(varargin{:});
       % call superclass constructor
       obj.dataname=datanames(in);
       % save parameters
-      for i=1:numel(dataproduct.parameters)
-        %shorter names
-        pn=dataproduct.parameters{i};
-        if ~isscalar(p.Results.(pn))
+      for i=1:numel(pn)
+        if ~isscalar(p.Results.(pn{i}))
           %vectors are always lines (easier to handle strings)
-          obj.(pn)=transpose(p.Results.(pn)(:));
+          obj.(pn{i})=transpose(p.Results.(pn{i})(:));
         else
-          obj.(pn)=p.Results.(pn);
+          obj.(pn{i})=p.Results.(pn{i});
         end
       end
       % load metadata
@@ -265,8 +259,16 @@ classdef dataproduct
       filename=obj.dataname.file(...
         typeargs{:},varargin{:},'keeptsplaceholder',p.Results.use_storage_period...
       );
-      %resolve time stamp
-      if p.Results.use_storage_period
+      %branch on requested behaviour
+      if p.Results.discover
+        %it doesn't make sense to ask for the start/stop list and request the list of existing files
+        assert(nargout==1,'when ''discover'' is true, outputs ''startlist'' and ''stoplist'' are ilegal.')
+        %discover existing files
+        out=file.wildcard(strrep(filename,'<TIMESTAMP>','*'),'disp',false);
+        %enforce the right kind of empty
+        if isempty(out);out={};end
+      %resolve time stamp 
+      elseif p.Results.use_storage_period
         switch lower(obj.mdget('storage_period'))
         case {'day','daily'}
           [startlist,stoplist]=time.day_list(p.Results.start,p.Results.stop);
@@ -296,18 +298,10 @@ classdef dataproduct
         otherwise
           error([mfilename,': cannot handle metadata key ''storage_period'' with value ''',obj.mdget('storage_period'),'''.'])
         end
-        %branch on requested behaviour
-        if p.Results.discover
-          %discover existing files
-          out=file.wildcard(strrep(filename,'<TIMESTAMP>','*'),'disp',false);
-          %enforce the right kind of empty
-          if isempty(out);out={};end
-        else
-          %build list of files
-          out=cell(size(startlist));
-          for i=1:numel(startlist)
-            out{i}=strrep(filename,'<TIMESTAMP>',datestr(startlist(i),timestamp_fmt));
-          end
+        %build list of files
+        out=cell(size(startlist));
+        for i=1:numel(startlist)
+          out{i}=strrep(filename,'<TIMESTAMP>',datestr(startlist(i),timestamp_fmt));
         end
       else
         out={filename};
@@ -361,7 +355,11 @@ classdef dataproduct
         'could not find the metadata for product ',obj.name,' (expecting ',obj.md_file,').'])
     end    
     function obj=metadata_load(obj)
+      %need to read YAML
+      addpath(genpath(fullfile(dataproduct.scriptdir,'yamlmatlab')));
+      %make sure the metadata files is there
       obj.md_file_check
+      %load and merge with default/existing metadata
       obj=obj.metadata_merge(ReadYaml(obj.md_file));
       %load sub-metadata files
       c=0;

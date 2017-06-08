@@ -1,4 +1,4 @@
-i classdef gravity < simpletimeseries
+classdef gravity < simpletimeseries
   %static
   properties(Constant)
     %this is used to define when the date is not set (datenum(zero_date)=0), used for static fields
@@ -74,10 +74,6 @@ i classdef gravity < simpletimeseries
     R
     functional
     source
-  end
-  %private (visible only to this object)
-  properties(GetAccess=private)
-
   end
   %calculated only when asked for
   properties(Dependent)
@@ -756,16 +752,17 @@ i classdef gravity < simpletimeseries
   methods
     %% constructor
     function obj=gravity(t,y,varargin)
+      % parameter names
+      pn=gravity.parameters;
+      % input parsing
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired( 't'); %this can be char, double or datetime
       p.addRequired( 'y',     @(i) simpledata.valid_y(i));
       %declare parameters
-      for j=1:numel(gravity.parameters)
-        %shorter names
-        pn=gravity.parameters{j};
+      for i=1:numel(pn)
         %declare parameters
-        p.addParameter(pn,gravity.parameter_list.(pn).default,gravity.parameter_list.(pn).validation)
+        p.addParameter(pn{i},gravity.parameter_list.(pn{i}).default,gravity.parameter_list.(pn{i}).validation)
       end
       % parse it
       p.parse(t,y,varargin{:});
@@ -778,14 +775,12 @@ i classdef gravity < simpletimeseries
         'units',units...
       );
       % save parameters
-      for i=1:numel(gravity.parameters)
-        %shorter names
-        pn=gravity.parameters{i};
-        if ~isscalar(p.Results.(pn))
+      for i=1:numel(pn)
+        if ~isscalar(p.Results.(pn{i}))
           %vectors are always lines (easier to handle strings)
-          obj.(pn)=transpose(p.Results.(pn)(:));
+          obj.(pn{i})=transpose(p.Results.(pn{i})(:));
         else
-          obj.(pn)=p.Results.(pn);
+          obj.(pn{i})=p.Results.(pn{i});
         end
       end
     end

@@ -1,31 +1,6 @@
-sx dclassdef simpletimeseries < simpledata
+classdef simpletimeseries < simpledata
   %static
   properties(Constant,GetAccess=private)
-    valid_formats=struct(...
-      'char',{{...
-        'yyyy-MM-dd hh:mm:ss.sss',...
-        'yyyyMMdd''T''hhmmss',...
-        'yyyyMMddhhmmss.sss',...
-        'yyyy MM dd hh mm ss.sss',...
-        'yyyy-MM-dd',...
-        'yyyyMMdd'...
-      }},...
-      'double',{{...
-        'datenum',...
-        'excel',...
-        'excel1904',...
-        'juliandate',...
-        'modifiedjuliandate',...
-        'posixtime',...
-        'yyyymmdd',...
-        'gpstime',...
-        'gpsweeksecond',...
-        'yeardoysec'...
-      }},...
-      'datetime',{{...
-        'datetime'...
-      }}...
-    );
     parameter_list=struct(...
       'format',    struct('default','modifiedjuliandate','validation',@(i) ischar(i)),...
       'units',     struct('default',{{''}},              'validation',@(i) iscellstr(i)),...
@@ -39,28 +14,7 @@ sx dclassdef simpletimeseries < simpledata
     compatible_parameter_list={'timesystem'};
   end
   properties(Constant)
-    % table of leap seconds since 6 Jan 1980:
-    leap_seconds=[...
-      datetime('1981-07-01'),... 1981  Jul.   1  - 1s
-      datetime('1982-07-01'),... 1982  Jul.   1  - 1s
-      datetime('1983-07-01'),... 1983  Jul.   1  - 1s
-      datetime('1985-07-01'),... 1985  Jul.   1  - 1s
-      datetime('1988-01-01'),... 1988  Jan.   1  - 1s
-      datetime('1990-01-01'),... 1990  Jan.   1  - 1s
-      datetime('1991-01-01'),... 1991  Jan.   1  - 1s
-      datetime('1992-07-01'),... 1992  Jul.   1  - 1s
-      datetime('1993-07-01'),... 1993  Jul.   1  - 1s
-      datetime('1994-07-01'),... 1994  Jul.   1  - 1s
-      datetime('1996-01-01'),... 1996  Jan.   1  - 1s
-      datetime('1997-07-01'),... 1997  Jul.   1  - 1s
-      datetime('1999-01-01'),... 1999  Jan.   1  - 1s
-      datetime('2006-01-01'),... 2006  Jan.   1  - 1s
-      datetime('2009-01-01'),... 2009  Jan.   1  - 1s
-      datetime('2012-07-01'),... 2012  Jul.   1  - 1s 
-      datetime('2015-07-01')...  2015  Jul.   1  - 1s 
-    ];
     valid_timesystems={'utc','gps'};
-    gps_zero_epoch='1980-01-06';
   end
   %read only
   properties(SetAccess=private)
@@ -268,275 +222,6 @@ sx dclassdef simpletimeseries < simpledata
         end
       end
     end
-    function out=gpssec2datetime(in,zero_epoch)
-      if ~exist('zero_epoch','var')
-        zero_epoch=simpletimeseries.gps_zero_epoch;
-      end
-      out=datetime(in,...
-        'convertfrom','epochtime',...
-        'epoch',zero_epoch...
-      );
-    end
-    function out=datetime2gpssec(in,zero_epoch)
-      if ~exist('zero_epoch','var')
-        zero_epoch=simpletimeseries.gps_zero_epoch;
-      end
-      out=seconds(in-datetime(zero_epoch));
-    end
-    function utc=gps2utc(gps)
-      utc=gps;
-      for i=1:numel(simpletimeseries.leap_seconds)
-        utc=utc-seconds(utc>simpletimeseries.leap_seconds(i));
-      end
-    end
-    function gps=utc2gps(utc)
-      gps=utc;
-      for i=1:numel(simpletimeseries.leap_seconds)
-        gps=gps+seconds(gps>simpletimeseries.leap_seconds(i));
-      end
-    end
-    %this function converts from many forms of date/time representations to
-    %matlab's 'datetime' class.
-    function [out,format_out]=ToDateTime(in,format_in,debug)
-      if ~exist('debug','var')
-        debug=simpletimeseries.parameter_list.debug.default;
-      end
-      if ~exist('format_in','var')
-        if ~isfield(simpletimeseries.valid_formats, class(in))
-          error([mfilename,': there is no default format for inputs of class ',class(in),'; optional input ''format'' must be given.'])
-        end
-        format_in='';
-      end
-      switch class(in)
-      case 'datetime'
-        out=in;
-        format_out='datetime'; %This is assumed to be UTC (no exceptions!)
-      case 'char'
-        if isempty(format_in)
-          out=NaN;
-          for i=simpletimeseries.valid_formats.(class(in))
-            try
-              out=datetime(in,'InputFormat',i{1});
-            catch
-              continue
-            end
-            %format is determined automatically, so set it
-            format_out=i{1};
-            break
-          end
-          if ~isdatetime(out)
-            error([mfilename,': can not understand time ',class(in),': ',in])
-          end
-        else
-          out=datetime(in,'InputFormat',format_in);
-          %keep format, it was not attributed automatically
-          format_out=format_in;
-        end
-      case 'double'
-        if isempty(format_in)
-          %assume no format is valid
-          out=NaN;
-          %loop over all known formats
-          for i=simpletimeseries.valid_formats.(class(in))
-            try
-              out=datetime(in,'ConvertFrom',i{1});
-            catch
-              continue
-            end
-            %format is determined automatically, so set it
-            format_out=i{1};
-            break
-          end
-          %catch when no format if found
-          if ~isdatetime(out)
-            error([mfilename,': can not understand time ',class(in),': ',num2str(in)])
-          end
-        else
-          switch format_in
-          case 'gpstime'
-            out=simpletimeseries.gps2utc(...
-              simpletimeseries.gpssec2datetime(in)...
-            );
-          case 'datevector'
-            out=datetime(in);
-          case 'gpsweeksecond'
-            cols=2;
-            if size(in,2)~=cols
-              error([mfilename,': when format is ''',format_in,''', need input to have ',num2str(cols),' columns, not ',num2str(size(in,2)),'.'])
-            end
-            if any(floor(in(:,1))~=in(:,1))
-              error([mfilename,': when format is ''',format_in,''', the first column must only contain integers.'])
-            end
-            out=datetime(time.gps2date(in(:,1),in(:,2)));
-          case 'yeardoysec'
-            cols=3;
-            if size(in,2)~=cols
-              error([mfilename,': when format is ''',format_in,''', need input to have ',num2str(cols),' columns, not ',num2str(size(in,2)),'.'])
-            end
-            if any(floor(in(:,1))~=in(:,1))
-              error([mfilename,': when format is ''',format_in,''', the first column must only contain integers.'])
-            end
-            if any(floor(in(:,2))~=in(:,2))
-              error([mfilename,': when format is ''',format_in,''', the second column must only contain integers.'])
-            end
-            tmp=datevec(datenum(in(:,1),1,1)+in(:,2)-1);       %year, month and day
-            tmp(:,4) = floor(in(:,3)/3600);                    %hours
-            tmp(:,5) = floor(in(:,3)/60 - tmp(:,4)*60);        %minutes
-            tmp(:,6) = in(:,3) - tmp(:,4)*3600 - tmp(:,5)*60;  %seconds
-            out=datetime(tmp);
-          otherwise
-            out=datetime(in,'ConvertFrom',format_in);
-          end
-          %keep format, it was not attributed automatically
-          format_out=format_in;
-        end          
-      otherwise
-        out=datetime(in);
-        format_out='default';
-      end
-      if ~isempty(format_in) && ~strcmp(format_out,format_in) && debug
-        disp(['WARNING: format changed from ''',format_in,''' to ''',format_out,'''.'])
-      end
-      if ~isdatetime(out)
-        error([mfilename,': output must be datetime, not ',class(out),'. Debug needed!'])
-      end
-    end
-    %this function performs the inverse convertion as 'ToDateTime'
-    function out=FromDateTime(in,format)
-      if ~isdatetime(in)
-        error([mfilename,': input must be datetime, not ',class(in),'. Debug needed!'])
-      end
-      if ~exist('format','var') || isempty(format)
-        format='default';
-      end
-      switch format
-      case {'datetime','default'};
-        out=in;
-      case 'datenum'
-        out=datenum(in);
-      case 'datevec'
-        out=datevec(in);
-      case 'excel'
-        out=exceltime(in,'1900');
-      case 'excel1904'
-        out=exceltime(in,'1904');
-      case {'juliandate','modifiedjuliandate'}
-        out=juliandate(in,format);
-      case 'posixtime'
-        out=posixtime(in);
-      case 'yyyymmdd'
-        out=yyyymmdd(in);
-      case 'gpstime'
-        out=simpletimeseries.utc2gps(...
-          simpletimeseries.datetime2gpssec(in)...
-        );
-      case 'gpsweeksecond'
-        [gps_week, gps_sow] = time.date2gps(simpletimeseries.FromDateTime(in,'datevec'));
-        out=[gps_week,gps_sow];
-      case 'yeardoysec'
-        gps_week_sow=simpletimeseries.FromDateTime(in,'gpsweeksecond');
-        [date, doy] = time.gps2date(gps_week_sow(:,1),gps_week_sow(:,2));
-        out=[date(:,1),doy,date(:,4)*3600+date(:,5)*60+date(:,6)];
-      otherwise
-        out=char(datetime(in,'Format',format));
-      end
-    end
-    %this function tests the reciprocity of From/ToDateTime 
-    function test_time(n,max_date,col_width)
-      if ~exist('n','var') || isempty(n)
-        n=100;
-      end
-      if ~exist('max_date','var') || isempty(max_date)
-        max_date=datetime([2100,12,31,23,59,59]);
-      end
-      if ~exist('tab_len','var') || isempty(col_width)
-        col_width=[0,24,0,10,0];
-      end
-      for i=simpletimeseries.valid_formats.double
-        switch i{1}
-        case 'yyyymmdd'
-          year_list=round(rand(n,1)*year( max_date));
-          month_list=ceil(rand(n,1)*month(max_date));
-          day_list=ceil(rand(n,1).*eomday(year_list,month_list));
-          in=year_list*10000+month_list*100+day_list;
-        case 'gpsweeksecond'
-          max_gpsweeksecond=simpletimeseries.FromDateTime(max_date,i{1});
-          in=[round(rand(n,1)*max_gpsweeksecond(1)),rand(n,1)*max_gpsweeksecond(2)];
-        case 'yeardoysec'
-          max_doy=simpletimeseries.FromDateTime(max_date,i{1});
-          in=[round(rand(n,1)*max_doy(1)),round(rand(n,1)*max_doy(2)),rand(n,1)*max_doy(3)];
-          in(in(:,2)==0,2)=1;
-          in(in(:,3)==0,3)=1;
-        otherwise
-          in=rand(n,1)*simpletimeseries.FromDateTime(max_date,i{1});
-        end
-        tic
-        [out,format_here]=simpletimeseries.ToDateTime(in,i{1});
-        in_check=simpletimeseries.FromDateTime(out,format_here);
-        dt=toc;
-        switch i{1}
-          case 'datenum'
-            crit=1e-9;
-          case 'excel'
-            crit=1e-10;
-          case 'excel1904'
-            crit=1e-10;
-          case 'juliandate'
-            crit=1e-9;
-          case 'modifiedjuliandate'
-            crit=1e-11;
-          case 'posixtime'
-            crit=1e-6;
-          case 'gpstime'
-            crit=1e-6;
-          otherwise
-            crit=0;
-        end
-        if any(abs(in-in_check)>crit)
-          idx=find(abs(in-in_check)>crit,1,'first');
-          error([mfilename,': test failed for format ',i{1},':',10,...
-            i{1},'  (in): ',num2str(in(idx,:)),10,...
-            i{1},' (out): ',num2str(in_check(idx,:)),10,...
-            'diff: ',num2str(abs(in(idx)-in_check(idx))),10,...
-            'date:',datestr(simpletimeseries.ToDateTime(in(idx,:),i{1}))...
-          ])
-        else
-          out={'Format',i{1},'ok',num2str(round(n/dt)),'ops/sec'};
-          j=2;out{j}=[out{j},repmat(' ',1,col_width(j)-length(out{j}))];
-          j=4;out{j}=[repmat(' ',1,col_width(j)-length(out{j})),out{j}];
-          disp(strjoin(out,' '))
-        end
-      end
-      
-      for i=simpletimeseries.valid_formats.char
-        year_list=round(rand(n,1)*year( max_date));
-        month_list=ceil(rand(n,1)*month(max_date));
-        day_list=ceil(rand(n,1).*eomday(year_list,month_list));
-        hour_list=floor(rand(n,1)*24);
-        minute_list=floor(rand(n,1)*60);
-        second_list=floor(rand(n,1)*60);
-        in=char(datetime('now','Format',i{1})+[...
-          year_list,...
-          month_list,...
-          day_list,...
-          hour_list,...
-          minute_list,...
-          second_list...
-        ]);
-        tic
-        [out,format_here]=simpletimeseries.ToDateTime(in,i{1});
-        in_check=simpletimeseries.FromDateTime(out,format_here);
-        dt=toc;
-        if ~strcmp(in,in_check)
-          error([mfilename,': test failed for format ',i{1},10,in(1,:),10,in_check(1,:),10,'debug needed'])
-        else
-          out={'Format',i{1},'ok',num2str(round(n/dt)),'ops/sec'};
-          j=2;out{j}=[out{j},repmat(' ',1,col_width(j)-length(out{j}))];
-          j=4;out{j}=[repmat(' ',1,col_width(j)-length(out{j})),out{j}];
-          disp(strjoin(out,' '))
-        end
-      end
-    end
     %general test for the current object
     function test(l,w)
       if ~exist('l','var') || isempty(l)
@@ -545,15 +230,13 @@ sx dclassdef simpletimeseries < simpledata
       if ~exist('w','var') || isempty(w)
         w=3;
       end
-%       %test the time conversions
-%       simpletimeseries.test_time(l)
       %test current object
       args=simpledata.test_parameters('args',l,w);
       now=juliandate(datetime('now'),'modifiedjuliandate');
                 
       i=0;      
       
-      a=simpletimeseries.test_parameters('all_T',l,w);
+      a=simpledata.test_parameters('all_T',l,w);
 %       i=i+1;h{i}=figure('visible','on'); a.plot('title', 'original')
       
       b=a.parametric_decomposition(...
@@ -630,12 +313,12 @@ sx dclassdef simpletimeseries < simpledata
     function filenames=unwrap_datafiles(in,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired(  'in',                                                    @(i) ischar(i) || iscellstr(i));
-      p.addParameter( 'start',       simpletimeseries.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
-      p.addParameter( 'stop',        simpletimeseries.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
-      p.addParameter( 'period',      days(1),                                  @(i) isscalar(i) && isduration(i));
-      p.addParameter( 'date_fmt',    'yyyy-mm-dd',                             @(i) ischar(i));
-      p.addParameter( 'only_existing',true,                                    @(i) islogical(i));
+      p.addRequired(  'in',                                        @(i) ischar(i) || iscellstr(i));
+      p.addParameter( 'start',       time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
+      p.addParameter( 'stop',        time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
+      p.addParameter( 'period',      days(1),                      @(i) isscalar(i) && isduration(i));
+      p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @(i) ischar(i));
+      p.addParameter( 'only_existing',true,                        @(i) islogical(i));
       p.parse(in,varargin{:})
       %loop over all inputs
       if iscellstr(in)
@@ -671,7 +354,7 @@ sx dclassdef simpletimeseries < simpledata
           error([mfilename,': input ''start'' (',datestr(p.Results.start),...
             ') is not after input ''stop'' (',datestr(p.Results.stop),').'])
         end
-        date_list=simpletimeseries.list(p.Results.start,p.Results.stop,p.Results.period);
+        date_list=time.list(p.Results.start,p.Results.stop,p.Results.period);
         filenames=cell(size(date_list));
         for i=1:numel(date_list)
           filenames{i}=strrep(in,'DATE_PLACE_HOLDER',datestr(date_list(i),p.Results.date_fmt));
@@ -812,7 +495,7 @@ sx dclassdef simpletimeseries < simpledata
         raw = textscan(fid,'%f %f %f %f %f %f %f','delimiter',' ','MultipleDelimsAsOne',1,'Headerlines',1);
         fclose(fid);
         %building time domain
-        t=simpletimeseries.utc2gps(datetime(raw{1},...
+        t=time.utc2gps(datetime(raw{1},...
           'convertfrom','epochtime',...
           'epoch','2000-01-01'...
         ));
@@ -855,7 +538,7 @@ sx dclassdef simpletimeseries < simpledata
           fmt='%d %d %d %s %s %d %f';
           units={'m/s^2',''};
           labels={str.clean(filename,{'file','grace','.'}),'Job ID','arc start'};
-          time_fh=@(raw) simpletimeseries.utc2gps(...
+          time_fh=@(raw) time.utc2gps(...
             datetime(...
               strcat(...
                 strrep(cellfun(@(x) [x(1:end-1),' '],raw{4},'UniformOutput',false),'.','/'),...
@@ -871,7 +554,7 @@ sx dclassdef simpletimeseries < simpledata
           fmt='%d %d %d %s %s %d %f %f';
           units={'m/s^2','','MJD days'};
           labels={str.clean(filename,{'file','grace','.'}),'Job ID','t_0','arc start'};
-          time_fh=@(raw) simpletimeseries.utc2gps(...
+          time_fh=@(raw) time.utc2gps(...
             datetime(...
               strcat(...
                 strrep(cellfun(@(x) [x(1:end-1),' '],raw{4},'UniformOutput',false),'.','/'),...
@@ -961,7 +644,7 @@ sx dclassdef simpletimeseries < simpledata
           end
         end
         %building time domain
-        t=simpletimeseries.gpssec2datetime(raw(:,1),gps_time_epoch);
+        t=time.gpssec2datetime(raw(:,1),gps_time_epoch);
         %gather data domain
         y=raw(:,2:4);
         %skip empty data files
@@ -992,7 +675,7 @@ sx dclassdef simpletimeseries < simpledata
           end
         end
         %building time domain
-        t=simpletimeseries.ToDateTime(raw(:,1:3),'yeardoysec');
+        t=time.ToDateTime(raw(:,1:3),'yeardoysec');
         %gather data domain
         y=raw(:,5:7)./unitfactor;
         %skip empty data files
@@ -1143,21 +826,22 @@ sx dclassdef simpletimeseries < simpledata
   methods
     %% constructor
     function obj=simpletimeseries(t,y,varargin)
+      % parameter names
+      pn=simpletimeseries.parameters;
+      % input parsing
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
       %declare parameters
-      for j=1:numel(simpletimeseries.parameters)
-        %shorter names
-        pn=simpletimeseries.parameters{j};
+      for i=1:numel(pn)
         %declare parameters
-        p.addParameter(pn,simpletimeseries.parameter_list.(pn).default,simpletimeseries.parameter_list.(pn).validation)
+        p.addParameter(pn{i},simpletimeseries.parameter_list.(pn{i}).default,simpletimeseries.parameter_list.(pn{i}).validation)
       end
       % parse it
       p.parse(t,y,varargin{:});
       % get datetime 
-      [t,f]=simpletimeseries.ToDateTime(t,p.Results.format);
+      [t,f]=time.ToDateTime(t,p.Results.format);
       %call superclass (create empty object, assignment comes later)
       obj=obj@simpledata(simpletimeseries.time2num(t),y,...
         'epoch', t(1),...
@@ -1168,18 +852,16 @@ sx dclassdef simpletimeseries < simpledata
       %save input format
       obj.format=f;
       % save parameters
-      for i=1:numel(simpletimeseries.parameters)
-        %shorter names
-        pn=simpletimeseries.parameters{i};
+      for i=1:numel(pn)
         %parameter 'units' has already been handled when calling simpledata constructor, so skip it
-        if strcmp(pn,'units')
+        if strcmp(pn{i},'units')
           continue
         end
-        if ~isscalar(p.Results.(pn))
+        if ~isscalar(p.Results.(pn{i}))
           %vectors are always lines (easier to handle strings)
-          obj.(pn)=transpose(p.Results.(pn)(:));
+          obj.(pn{i})=transpose(p.Results.(pn{i})(:));
         else
-          obj.(pn)=p.Results.(pn);
+          obj.(pn{i})=p.Results.(pn{i});
         end
       end
     end
@@ -1375,7 +1057,7 @@ sx dclassdef simpletimeseries < simpledata
       end
     end
     function obj=set.t_formatted(obj,t_now)
-      [obj.t,format_now]=simpletimeseries.ToDateTime(t_now,obj.format);
+      [obj.t,format_now]=time.ToDateTime(t_now,obj.format);
       if ~strcmp(format_now,format_in)
         obj.format=format_now;
       end
@@ -1383,7 +1065,7 @@ sx dclassdef simpletimeseries < simpledata
       obj.check_st(t_now)
     end
     function out=get.t_formatted(obj)
-      out=simpletimeseries.FromDateTime(obj.t,obj.format);
+      out=time.FromDateTime(obj.t,obj.format);
     end
     function out=t_masked(obj,mask)
       if ~exist('mask','var') || isempty(mask)
@@ -1421,7 +1103,7 @@ sx dclassdef simpletimeseries < simpledata
       if ~exist('mask','var') || isempty(mask)
         mask=true(size(obj.t));
       end
-      out=simpletimeseries.FromDateTime(obj.t(mask),'modifiedjuliandate');
+      out=time.FromDateTime(obj.t(mask),'modifiedjuliandate');
     end
     %% step methods
     function out=step_num(obj)
@@ -1965,5 +1647,3 @@ sx dclassdef simpletimeseries < simpledata
     end
   end
 end
-
-
