@@ -17,6 +17,7 @@ jobid_col: 2
 param_col: 1
 arclen_col: 3 #valid for estim
 t0_col: 3     #valid for aak,accatt
+arc_timeline_file: /Users/teixeira/data/csr/GraceAccCal/arctimeline.GraceAccCal
 storage_period: global
 plot_columns: [1]
 plot_together: [A,B]
@@ -24,5 +25,6 @@ plot_autoscale: true
 plot_automean: true
 plot_outlier: 0
 plot_zeromean: true
-plot_xdateformat: mm/yy
-plot_title_suppress: [grace,calpar_csr]
+plot_xdateformat: HH:MM dd/mm
+plot_title_suppress: [grace,calpar,csr]
+plot_visible: 'off'

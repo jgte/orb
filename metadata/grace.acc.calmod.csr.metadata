@@ -1,5 +1,8 @@
 method: csr.compute_calmod
-sources: [grace.calpar_csr,grace.acc.l1b.csr]
+sources: [grace.calpar.csr,grace.acc.l1b.csr]
+source_fields_from: grace.calpar.csr
+source_fields_max_depth: 1
+sats: [A,B]
 storage_period: none
 plot_columns: [1,2,3]
 plot_together: sat
@@ -10,4 +13,4 @@ plot_outlier: 0
 plot_zeromean: true
 plot_title_suppress: [grace,acc,calmod]
 plot_column_names: [X-axis,Y-axis,Z-axis]
-debug_plot: false
+plot_visible: 'off'
