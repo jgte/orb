@@ -157,8 +157,6 @@ classdef simpledata
       end
       %get third argument
       varargout(2)={ismembertol(x,x2,tol)};
-      %now we're done for sure
-      return
     end
     function [out,idx]=rm_outliers(in,varargin)
       % NOTE: greatly simplified the version of this routine described below:
@@ -643,36 +641,34 @@ classdef simpledata
   methods
     %% constructor
     function obj=simpledata(x,y,varargin)
+      % parameter names
+      pn=simpledata.parameters;
+      % input parsing
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired( 'x'      ,                  @(i) simpledata.valid_x(i));
       p.addRequired( 'y'      ,                  @(i) simpledata.valid_y(i));
       p.addParameter('mask'   ,true(size(x(:))), @(i) simpledata.valid_mask(i));
       %declare parameters
-      for j=1:numel(simpledata.parameters)
-        %shorter names
-        pn=simpledata.parameters{j};
-        %declare parameters
-        p.addParameter(pn,simpledata.parameter_list.(pn).default,simpledata.parameter_list.(pn).validation)
+      for i=1:numel(pn)
+        p.addParameter(pn{i},simpledata.parameter_list.(pn{i}).default,simpledata.parameter_list.(pn{i}).validation)
       end
       % parse it
       p.parse(x(:),y,varargin{:});
       % save parameters
-      for i=1:numel(simpledata.parameters)
-        %shorter names
-        pn=simpledata.parameters{i};
-        if ~isscalar(p.Results.(pn))
+      for i=1:numel(pn)
+        if ~isscalar(p.Results.(pn{i}))
           %vectors are always lines (easier to handle strings)
-          obj.(pn)=transpose(p.Results.(pn)(:));
+          obj.(pn{i})=transpose(p.Results.(pn{i})(:));
         else
-          obj.(pn)=p.Results.(pn);
+          obj.(pn{i})=p.Results.(pn{i});
         end
       end
       %assign (this needs to come before the parameter check, so that sizes are known)
       obj=obj.assign(y,'x',x,varargin{:});
       % check parameters
-      for i=1:numel(simpledata.parameters)
-        obj=check_annotation(obj,simpledata.parameters{i});
+      for i=1:numel(pn)
+        obj=check_annotation(obj,pn{i});
       end
     end
     function obj=assign(obj,y,varargin)
@@ -1500,9 +1496,31 @@ classdef simpledata
         idx1=[false(obj2.length,1);true( obj1.length,1)];
         idx2=[true( obj2.length,1);false(obj1.length,1)];
       else
-        error([mfilename,': cannot append object which are overlaping: ',10,...
-          'obj1: ',num2str(obj1.x(1)),' -> ',num2str(obj1.x(end)),10,...
-          'obj2: ',num2str(obj2.x(1)),' -> ',num2str(obj2.x(end))])
+        %retrieve union of time domains
+        [x_now,idx1,idx2] = simpledata.union(obj1.x,obj2.x);
+        %build appended data
+        y_now(idx1,:)=obj1.y;
+        y_now(idx2,:)=obj2.y;
+        %build mask
+        mask_now(idx1)=obj1.mask;
+        mask_now(idx2)=obj2.mask;
+        %get common data entries
+        ic=idx1 & idx2;
+        %check data integrity (on y and mask)
+        if any(ic)
+          %build mask
+          m1=true(numel(ic),1);m2=m1;
+          m1(idx1)=obj1.mask;
+          m2(idx2)=obj2.mask;
+          %retrieve common data
+          y1(idx1,:)=obj1.y;
+          y2(idx2,:)=obj2.y;
+          %mask common data entries
+          ic=ic & m1 & m2;
+          %check it
+          assert(all(all(y1(ic,:)==y2(ic,:))),...
+            'cannot append objects that have different values at common epochs')
+        end
       end
       %update object
       obj=obj1.assign(y_now,'x',x_now,'mask',mask_now);

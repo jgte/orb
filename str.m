@@ -243,5 +243,9 @@ classdef str
       end
       out=strjoin(out,separator);
     end
+    function say(varargin)
+      s=dbstack(1);
+      disp([s.name,': ',str.show(varargin)])
+    end
   end
 end

@@ -44,14 +44,64 @@ classdef csr
       if debug;disp(strjoin(msg(1:min([20,numel(msg)])),'\n')); else disp(msg{1}); end; 
       if log_flag;csr.log(msg);end
     end
+    function out=debug_parameters
+      %define start/stop pairs and level
+      i=0;out=struct([]);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2002-04-15 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2002-04-27 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2002-05-04 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2002-05-11 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2002-05-16 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2002-08-03 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2002-08-06 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2002-08-16 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2002-08-26 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2002-09-07 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2002-09-28 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2002-09-30 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2003-01-12 00:00:00'); out(i).stop=datetime('2003-01-15 23:59:59');
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2003-11-20 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2003-11-29 00:00:00'); out(i).stop=datetime('2003-12-02 23:59:59');
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
+      out(i).start=datetime('2006-06-03 00:00:00'); out(i).stop=datetime('2006-06-07 23:59:59');
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
+      out(i).start=datetime('2006-06-12 00:00:00'); out(i).stop=datetime('2006-06-19 23:59:59');
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2008-02-24 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2008-02-25 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2012-06-30 00:00:00'); out(i).stop=datetime('2012-07-03 23:59:59');
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2013-02-20 00:00:00'); out(i).stop=datetime('2013-02-26 23:59:59');
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2014-09-13 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2014-08-01 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
+
+    end
     function obj=import_calpar(obj,product,varargin)
       %open log file
       csr.log
-      % parse mandatory arguments
+      %parse optional arguments
       p=inputParser;
-      p.addRequired('product',  @(i) isa(i,'dataproduct'));
       p.addParameter('debugdate', [], @(i) ischar(i) || isempty(i));
-      p.parse(product);
+      p.parse(varargin);
       %get names of parameters and levels
       levels     =product.mdget('levels');
       fields     =product.mdget('fields');
@@ -320,6 +370,9 @@ classdef csr
             %start with first field
             field=[ac0y,field_part_list{f},'1'];
             ts_now=obj.data_get_scalar(product.dataname.set_field_path([levels(i),field,sats(s)]));
+            %rename the relevant object fields to remove the '1'
+            ts_now.labels=strrep(ts_now.labels,field,[ac0y,field_part_list{f}]);
+            ts_now.descriptor=strrep(ts_now.descriptor,field,[ac0y,field_part_list{f},'[1-8]']);
             %loop over all other fields
             for fpl=2:8
               field=[ac0y,field_part_list{f},num2str(fpl)];
@@ -474,203 +527,18 @@ classdef csr
         end
       end
     end
-    function import_calpar_debug_plots(debug,name)
-      if ~exist('debug','var') || isempty(debug)
-        debug=false;
-      end
-      if ~exist('name','var') || isempty(name)
-        name='grace.calpar.csr';
-      end
-      %create dir for plots
-      plot_dir=fullfile(dataproduct.default_list.plot_dir,'import_calpar_debug_plots',csr.gitversion);
-      if isempty(dir(plot_dir)); mkdir(plot_dir); end
-
-      %load calibration parameters
-      a=datastorage('debug',debug).init(name,'plot_dir',plot_dir);
-      %retrieve product info
-      sats=a.product_get(name).mdget('sats');
-      %define start/stop pairs and level
-      i=0;ssl=struct([]);
-      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
-      ssl(i).start=datetime('2002-08-06 00:00:00');
-      ssl(i).stop =datetime('2002-08-06 23:59:59');
-      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
-      ssl(i).start=datetime('2002-08-06 00:00:00');
-      ssl(i).stop =datetime('2002-08-06 23:59:59');
-      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
-      ssl(i).start=datetime('2002-08-16 00:00:00');
-      ssl(i).stop =datetime('2002-08-18 23:59:59');
-      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
-      ssl(i).start=datetime('2003-01-12 00:00:00');
-      ssl(i).stop =datetime('2003-01-15 00:00:00');
-      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
-      ssl(i).start=datetime('2003-11-29 00:00:00');
-      ssl(i).stop =datetime('2003-12-02 00:00:00');
-      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
-      ssl(i).start=datetime('2006-06-03 00:00:00');
-      ssl(i).stop =datetime('2006-06-07 00:00:00');
-      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
-      ssl(i).start=datetime('2006-06-12 00:00:00');
-      ssl(i).stop =datetime('2006-06-19 00:00:00');
-      i=i+1; ssl(i).field={'AC0X','AC0Y','AC0Z'};
-      ssl(i).start=datetime('2012-06-30 00:00:00');
-      ssl(i).stop =datetime('2012-07-03 00:00:00');
-      %loop over the data
-      for i=1:numel(ssl)
-        p=a.trim('start',ssl(i).start,'stop',ssl(i).stop);
-        for f=1:numel(ssl(i).field)
-          for s=1:numel(sats)
-            p.plot(...
-              datanames(name).set_field_path({'*',ssl(i).field{f},sats{s}}),...
-              'plot_together',{'aak','accatt','estim'}...
-            );
-          end
-        end
-      end
-    end
-    function obj=compute_calmod(obj,product,varargin)
-      % parse mandatory arguments
-      p=inputParser;
-      p.addRequired('product', @(i) isa(i,'dataproduct'));
-      p.parse(product);
-      %paranoid sanity
-      if product.nr_sources~=2
-        error([mfilename,': number of sources in product ',product.name,...
-          ' is expected to be 2, not ',num2str(product.nr_sources),'.'])
-      end
-      
-      keyboard
-      
-      %get sources
-      calparp=obj.mdget(product.sources(1));
-      l1baccp=obj.mdget(product.sources(2));
-      %retrieve relevant parameters
-      levels    =calparp.mdget('levels');
-      sats      =calparp.mdget('sats');
-      param_col =calparp.mdget('param_col');
-      coords    =calparp.mdget('coords');
-      for s=1:numel(sats)
-        %gather quantities
-        acc=obj.data_get_scalar(l1baccp.dataname.set_field_path([l1baccp.dataname.level,l1baccp.dataname.field,sats{s}]));
-        %loop over all levels
-        for l=1:numel(levels)
-          %handle exceptions (also deals with non-existing data)
-          if ~isa(acc,'simpletimeseries')
-            %patch nan calibration model
-            calmod=simpletimeseries(...
-              [obj.start;obj.stop],...
-              nan(2,numel(coords)),...
-              'descriptor',['calibration model ',levels{l},' GRACE-',upper(sats{s}),' (empty)']...
-            );
-            disp(['Skipping  the ',calmod.descriptor])
-          else
-            %init models container
-            calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coords))).copy_metadata(acc);
-            calmod.descriptor=['calibration model ',levels{l},' GRACE-',upper(sats{s})];
-            disp(['Computing the ',calmod.descriptor])
-            for c=1:numel(coords)
-              %retreive data
-              cal=struct(...
-                'ac0' ,obj.data_get_scalar(calparp.dataname.set_field_path({levels{l},['AC0',coords{c}    ],sats{s}})),...
-                'ac0d',obj.data_get_scalar(calparp.dataname.set_field_path({levels{l},['AC0',coords{c},'D'],sats{s}})),...
-                'ac0q',obj.data_get_scalar(calparp.dataname.set_field_path({levels{l},['AC0',coords{c},'Q'],sats{s}}))...
-              );
-              %get field names (too lazy to type)
-              fields=fieldnames(cal);
-              %loop over all fields
-              for f=1:numel(fields)
-                %interpolate to time domain of measurements
-                cal.(fields{f})=cal.(fields{f}).interp(acc.t);
-                %sanity
-                assert(~isempty(cal.(fields{f})),[mfilename,...
-                  ': ',(fields{f}),' data is not available to perform this operation.'])
-                %remove transient calpars, this is indicative of a gap (interpolation is done blindly over any gap length)
-                cal.(fields{f})=cal.(fields{f}).mask_and([cal.(fields{f}).mask(1);diff(cal.(fields{f}).y(:,1))==0]);
-                %retrieve time domain (it is the same for all cal pars)
-                if strcmp(levels{l},'estim')
-                  %start of day
-                  sod=dateshift(cal.(fields{f}).t,'start','day');
-                  %second of arc
-                  soa=sod+seconds(cal.(fields{f}).y(:,4));
-                  %time domain for the calibration model: units are days and zero epoch is the start of the arc
-                  t.(fields{f})=days(acc.t-soa);
-                else
-                  %TODO: é preciso arranjar isto, o start arc tem de ser definido algures (para aak e accatt)
-                  t.(fields{f})=days(acc.t-simpletimeseries.ToDateTime(cal.(fields{f}).y(:,end),'modifiedjuliandate'));
-                end
-              end
-              %paranoid sanity check
-              good_idx=~isnan(t.ac0);
-              if any(t.ac0(good_idx)~=t.ac0d(good_idx)) || any(t.ac0(good_idx)~=t.ac0q(good_idx))
-                error([mfilename,': calibration time domain inconsistent between parameters, debug needed!'])
-              end
-              %build calibration model
-              calmod=calmod.set_cols(c,...
-                cal.ac0.cols( param_col                 )+...
-                cal.ac0d.cols(param_col).times(t.ac0d   )+...
-                cal.ac0q.cols(param_col).times(t.ac0q.^2)...
-              );
-              %make debug plots
-              if product.mdget('debug_plot')
-                font_size_args={...
-                  'plot_fontsize_title',24,...
-                  'plot_fontsize_axis',18, ...
-                  'plot_fontsize_label',20 ...
-                };
-                filename=product.file('plot','start',obj.start,'stop',obj.stop,...
-                  'use_storage_period',false,'timestamp',true,...
-                  'suffix',[sats{s},'.',coords{c}]...
-                );
-                %add level
-                [p,f,e]=fileparts(filename{1});
-                filename=fullfile(p,levels{l},[f,e]);
-                if ~exist(fileparts(filename),'dir'); mkdir(fileparts(filename)); end
-                figure;
-                subplot(2,2,1)
-                for f=1:numel(fields)
-                  plot(acc.t,t.(fields{f})), hold on
-                end
-                grid on
-                title('time domain')
-                product.enforce_plot(font_size_args{:})
-                legend(fields)
-                for f=1:numel(fields)
-                  subplot(2,2,f+1)
-                  plot(acc.t,cal.(fields{f}).cols(param_col).y)
-                  title(cal.(fields{f}).labels(param_col))
-                  grid on
-                  product.enforce_plot(font_size_args{:})
-                end
-                disp(['Created plot ',filename])
-                saveas(gcf,filename)
-              end
-            end
-          end
-          %propagate it
-          obj=obj.data_set(product.dataname.set_field_path([product.dataname.level,levels(l),sats(s)]),calmod);
-        end
-      end
-    end
     function obj=import_acc_l1b(obj,product,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired('product',@(i) isa(i,'dataproduct'));
-      p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
-      % parse it
-      p.parse(product,varargin{:});
+      obj.log('@','in','product',product)
       % sanity
-      if isempty(p.Results.start) || isempty(p.Results.stop)
-        error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
-      end
+      assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
       %retrieve relevant parameters
       sats =product.mdget('sats');
       indir=product.mdget('import_dir');
       version=product.mdget('version');
       %gather list of daily data files
       [~,timestamplist]=product.file('data',varargin{:},...
-        'start',p.Results.start,...
-        'stop', p.Results.stop...
+        'start',obj.start,...
+        'stop', obj.stop...
       );
       %loop over the satellites
       for s=1:numel(sats)
@@ -683,28 +551,156 @@ classdef csr
           );
         end
         %load (and save the data in mat format, as handled by simpletimeseries.import
-        obj=obj.data_set(product.dataname.set_field_path({product.dataname.level,product.dataname.field,sats{s}}),...
+        obj=obj.data_set(product.dataname.set_field_path(sats(s)),...
           simpletimeseries.import(infile,'cut24hrs',false)...
         );
       end
-      %make sure start/stop options are honoured (if non-empty)
-      if ~isempty(obj)
-        obj.start=p.Results.start;
-        obj.stop= p.Results.stop;
+      obj.log('@','out')
+    end
+    function obj=compute_calmod(obj,product,varargin)
+      obj.log('@','in','product',product)
+      %sanity
+      assert(product.nr_sources==2,...
+        ['number of sources in product ',product.str,...
+        ' is expected to be 2, not ',num2str(product.nr_sources),'.'])
+      %get sources metadata
+      calparp=obj.product_get(product.sources(1));
+      l1baccp=obj.product_get(product.sources(2));
+      %retrieve relevant parameters
+      param_col =calparp.mdget('param_col');
+      coords    =calparp.mdget('coords');
+      sats      =product.mdget('sats');
+      for s=1:numel(sats)
+        %gather quantities, l1b acc data only contains the satellite names (located at the leafs of cal par data)
+        acc=obj.data_get_scalar(l1baccp.dataname.set_field_path(sats(s)));
+        %handle exceptions (also deals with non-existing data)
+        if ~isa(acc,'simpletimeseries')
+          %patch nan calibration model
+          calmod=simpletimeseries(...
+            [obj.start;obj.stop],...
+            nan(2,numel(coords)),...
+            'descriptor',['calibration model ',product.str,', GRACE-',sats{s},' (empty)']...
+          );
+          disp(['Skipping  the ',calmod.descriptor])
+          continue
+        end
+        %define field names (this is arbitrary but must have length 3)
+        fields={'bias','linear','quad'};
+        %gather calibratiom parameters
+        for c=1:numel(coords)
+          %retreive data
+          cal.(coords{c})=struct(...
+fields{1},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.field_path,{['AC0',coords{c}    ]},sats(s)])),...
+fields{2},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.field_path,{['AC0',coords{c},'D']},sats(s)])),...
+fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.field_path,{['AC0',coords{c},'Q']},sats(s)])) ...
+          );
+        end
+        %init models container
+        calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coords))).copy_metadata(acc);
+        calmod.descriptor=['calibration model ',product.str,', GRACE-',sats{s}];
+        disp(['Computing the ',calmod.descriptor])
+        for c=1:numel(coords)
+          obj.log('@','iter','product',product,'sat',sats{s},'coord',coords{c})
+          %loop over all fields
+          for f=1:numel(fields)
+            %interpolate to time domain of measurements
+            cal.(coords{c}).(fields{f})=cal.(coords{c}).(fields{f}).interp(acc.t);
+            obj.log('@','iter-interp',...
+              'coord',coords{c},...
+              [fields{f},' size'],cal.(coords{c}).(fields{f}).size,...
+              [fields{f},' gaps'],cal.(coords{c}).(fields{f}).nr_gaps...
+            )
+            %sanity
+            assert(~isempty(cal.(coords{c}).(fields{f})),[mfilename,...
+              ': ',(fields{f}),' data is not available to perform this operation.'])
+            %remove transient calpars, this is indicative of a gap (interpolation is done blindly over any gap length)
+            cal.(coords{c}).(fields{f})=cal.(coords{c}).(fields{f}).mask_and([...
+                   cal.(coords{c}).(fields{f}).mask(1);...
+              diff(cal.(coords{c}).(fields{f}).y(:,1))==0]...
+            );
+            obj.log('@','iter-fixed ',...
+              'coord',coords{c},...
+              [fields{f},' size'],cal.(coords{c}).(fields{f}).size,...
+              [fields{f},' gaps'],cal.(coords{c}).(fields{f}).nr_gaps...
+            )
+            %retrieve time domain (it is the same for all cal pars)
+            if any(strcmp(product.dataname.field_path,'estim'))
+              %start of day
+              sod=dateshift(cal.(coords{c}).(fields{f}).t,'start','day');
+              %second of arc
+              soa=sod+seconds(cal.(coords{c}).(fields{f}).y(:,4));
+              %time domain for the calibration model: units are days and zero epoch is the start of the arc
+              t.(fields{f})=days(acc.t-soa);
+            else
+              %TODO: é preciso arranjar isto, o start arc tem de ser definido algures (para aak e accatt)
+              t.(fields{f})=days(acc.t-simpletimeseries.ToDateTime(cal.(coords{c}).(fields{f}).y(:,end),'modifiedjuliandate'));
+            end
+          end
+          %paranoid sanity check
+          good_idx=~isnan(t.(fields{1}));
+          assert(...
+            ~any(t.(fields{1})(good_idx)~=t.(fields{2})(good_idx)) && ...
+            ~any(t.(fields{1})(good_idx)~=t.(fields{3})(good_idx)),...
+            'calibration time domain inconsistent between parameters, debug needed!')
+          %build calibration model
+          calmod=calmod.set_cols(c,...
+            cal.(coords{c}).(fields{1}).cols(param_col                        )+...
+            cal.(coords{c}).(fields{2}).cols(param_col).times(t.(fields{2})   )+...
+            cal.(coords{c}).(fields{3}).cols(param_col).times(t.(fields{3}).^2)...
+          );
+          %make debug plots
+          if product.debug_plot
+            font_size_args={...
+              'plot_fontsize_title',24,...
+              'plot_fontsize_axis',18, ...
+              'plot_fontsize_label',20 ...
+            };
+            %patch 
+            filename=product.file('plot',...
+              'start',obj.start,...
+              'stop',obj.stop,...
+              'use_storage_period',false,...
+              'timestamp',true,...
+              'suffix',[sats{s},'.',coords{c}]...
+            );
+            assert(numel(filename)==1,['expecting only one filename, not ',num2str(numel(filename)),'.'])
+            if  ~exist(filename{1},'file')
+              figure('visible',product.metadata.plot_visible);
+              subplot(2,2,1)
+              for f=1:numel(fields)
+                plot(acc.t,t.(fields{f})), hold on
+              end
+              grid on
+              title('time domain')
+              product.enforce_plot(font_size_args{:})
+              legend(fields)
+              for f=1:numel(fields)
+                subplot(2,2,f+1)
+                cal.(coords{c}).(fields{f}).plot(...
+                  'columns',param_col,...
+                  'zeromean',true,...
+                  'title',cal.(coords{c}).(fields{f}).labels{param_col})
+                h_label=get(gca,'YLabel');
+                set(h_label,'String',strrep(get(h_label,'String'),cal.(coords{c}).(fields{f}).labels{param_col},''))
+                grid on
+                product.enforce_plot(font_size_args{:})
+              end
+              saveas(gcf,filename{1})
+              disp(['Created plot ',filename{1}])
+            else
+              disp(['Skipped plot ',filename{1}])
+            end
+          end
+        end
+        %propagate it
+        obj=obj.data_set(product.dataname.set_field_path(sats(s)),calmod);
       end
+      obj.log('@','out')
     end
     function obj=import_acc_mod(obj,product,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired('product',@(i) isa(i,'dataproduct'));
-      p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
-      % parse it
-      p.parse(product,varargin{:});
+      obj.log('@','in','product',product)
       % sanity
-      if isempty(p.Results.start) || isempty(p.Results.stop)
-        error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
-      end
+      assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
       %retrieve relevant parameters
       sats =product.mdget('sats');
       indir=product.mdget('import_dir');
@@ -712,10 +708,7 @@ classdef csr
       gps_version =product.mdget('gps_version' );
       grav_version=product.mdget('grav_version');
       %gather list of daily data files
-      [~,timestamplist]=product.file('data',varargin{:},...
-        'start',p.Results.start,...
-        'stop', p.Results.stop...
-      );
+      [~,timestamplist]=product.file('data',varargin{:},'start',obj.start,'stop', obj.stop);
       %loop over the satellites
       for s=1:numel(sats)
         infile=cell(size(timestamplist));
@@ -727,16 +720,405 @@ classdef csr
             '_RL',acc_version,'_GPSRL',gps_version,'_RL',grav_version,'.*.acc']...
           );
         end
+        obj.log('@','iter','sat',sats{s},'files to load',infile)
         %load (and save the data in mat format, as handled by simpletimeseries.import)
-        obj=obj.data_set(product.dataname.set_field_path({product.dataname.level,product.dataname.field,sats{s}}),...
+        obj=obj.data_set(product.dataname.set_field_path(sats(s)),...
           simpletimeseries.import(infile,'cut24hrs',true)...
         );
       end
-      %make sure start/stop options are honoured (if non-empty)
-      if ~isempty(obj)
-        obj.start=p.Results.start;
-        obj.stop= p.Results.stop;
+      obj.log('@','out')
+    end
+    %atomic loading of calibration parameters
+    function out=estim_translate_param(in)
+      if ~isempty(strfind(in,'AC0'))
+        out=in;
+      elseif ~isempty(strfind(in,'AC'))
+        out=[in(1:2),'0',in(3:4)];
+      elseif ~isempty(strfind(in,'C0Y'))
+        out=['AC',in(3:4),in(1)];
+      elseif ~isempty(strfind(in,'CYD')) || ...
+             ~isempty(strfind(in,'CYQ'))
+        out=['AC0',in(3:4),in(1)];
+      elseif ~isempty(strfind(in,'S-T')) || ...
+             ~isempty(strfind(in,'C-T')) || ...
+             ~isempty(strfind(in,'S-N')) || ...
+             ~isempty(strfind(in,'C-N'))
+        switch numel(in)
+        case 4; out=[in(2),in(4),'0',in(1  )];
+        case 5; out=[in(3),in(5),    in(1:2)];
+        otherwise; error('singularity, debug needed!')
+        end
+      else
+        out=in;
       end
+    end
+    function out=estim_load(filename)
+      if exist([filename,'.mat'],'file')
+        load([filename,'.mat'])
+      else
+        %init the outputs
+        out=struct('A',[],'B',[]);
+        %open the file
+        fid=fopen(filename);
+        %load the data
+        dat=textscan(fid,'%5s%5s %f %f %f');
+        %close the file
+        fclose(fid);
+        %parse the data
+        for i=1:numel(dat{1})
+          fn=csr.estim_translate_param(dat{2}{i});
+          if ~isvarname(fn)
+            fn=['f',strrep(fn,'-','_')];
+          end
+          out.(strrep(dat{1}{i},'GRC-','')).(fn)=dat{5}(i);
+        end
+        save([filename,'.mat'],'out')
+      end
+    end
+    function ltb=ltb_load(bias_files)
+      sats={'A','B'};
+      for s=1:numel(sats)
+        ltb.(sats{s})=flipud(transpose(dlmread(bias_files{s})));
+      end
+    end
+    function calpars=calpars_add_ltb(calpars,startstop,ltb)
+      %get sats
+      sats=fieldnames(calpars);
+      %get fields
+      fields=fieldnames(calpars.(sats{1}));
+      %loop over all fields
+      for f=1:numel(fields)
+        for s=1:numel(sats)
+          %enforce the long-term biases
+          switch fields{f}
+          case 'AC0X'
+            lbt_idx=2;
+          case {'AC0Y1','AC0Y2','AC0Y3','AC0Y4','AC0Y5','AC0Y6','AC0Y7','AC0Y8'}
+            lbt_idx=3;
+          case 'AC0Z'
+            lbt_idx=4;
+          otherwise
+            lbt_idx=0;
+          end
+          if lbt_idx>0
+            %get time for polyval
+            t=time.mjd(startstop(1))-ltb.(sats{s})(2,1);
+            %get long-term biases
+            ltbv=polyval(ltb.(sats{s})(:,lbt_idx),t);
+            %add long-term biases
+            calpars.(sats{s}).(fields{f})=calpars.(sats{s}).(fields{f})+ltbv;
+          end
+        end
+      end
+    end
+    function T=arctimeline_load(filename)
+      %init the outputs
+      start=datetime;
+      stop =datetime;
+      %open the file
+      fid=fopen(filename);
+      %load the data
+      % 1  2  3  4    5  6  7   8       9
+      %14 04/13/04 2004 04 13 0.0 86400.0
+      dat=textscan(fid,'%f %f/%f/%f %f %f %f %f %f');
+      %close the file
+      fclose(fid);
+      %table names
+      arc=dat{1};
+      year=dat{5};
+      month=dat{6};
+      day=dat{7};
+      start=datetime([year,month,day])+seconds(dat{8});
+      stop =start                     +seconds(dat{9});
+      %create the table
+      T=table(year,month,day,arc,start,stop);
+    end
+    function startstop=arctimeline_startstop(arctimeline,year,month,arc)
+      startstop=arctimeline{...
+        arctimeline.year ==year  & ...
+        arctimeline.month==month & ...
+        arctimeline.arc  ==arc,...
+        {'start','stop'}...
+      };
+      %shave 1 second from stop time
+      startstop(2)=startstop(2)-seconds(1);
+      %some sanity
+      assert(~isempty(startstop),['No arc info for ',num2str(year),'/',num2str(month),'.'])
+      assert(dateshift(startstop(1),'start','day')==dateshift(startstop(2),'start','day') && ...
+             dateshift(startstop(1),'end',  'day')==dateshift(startstop(2),'end',  'day'), ...  
+        ['Arc ',num2str(arc),' of ',num2str(year),'/',num2str(month),' does not start and stop at the same day.'])
+    end
+    function arc=arc_timeseries(startstop,calpars)
+      %get persistent vars 
+      persistent prefix suffix units nr_sub_arcs periodicity
+      if isempty(prefix)
+        prefix='AC0';
+        suffix={'','D','Q'};
+        units={'m/s^2','m/s^2','m/s^2'}; %these units are wrong but they need to agree with each other to build the cal mod2
+        nr_sub_arcs=8;
+        periodicity=days(1)/nr_sub_arcs;
+      end
+      %get sats
+      sats=fieldnames(calpars);
+      %loop over all sats
+      for s=1:numel(sats)
+        %loop over all components
+        for c={'x','y','z'}
+          %branch on components
+          switch lower(c{1})
+          case {'x','z'}
+            t=startstop(:);
+            %loop over all suffixes
+            for i=1:numel(suffix)
+              %build field name
+              field=[prefix,upper(c{1}),suffix{i}];
+              %build ordinate
+              y=ones(2,1)*calpars.(sats{s}).(field);
+              %build timeseries object
+              arc.(sats{s}).(field)=simpletimeseries(t,y,...
+                'format','datetime',...
+                'labels',{field},...
+                'units',units(i),...
+                'timesystem','gps',...
+                'descriptor',field...
+              );
+            end
+          case 'y'
+            %loop over all suffixes
+            for i=1:numel(suffix)
+              %build field name
+              field=[prefix,upper(c{1}),suffix{i}];
+              %init loop parameters
+              stop_flag=false;
+              %loop over all sub-arcs
+              for day_loc=1:nr_sub_arcs
+                %get sub-arc starts/ends
+                t=[startstop(1)+periodicity*(day_loc-1);...
+                   startstop(1)+periodicity*(day_loc  )-seconds(1)];
+                %singularity
+                if t(2)>startstop(2)
+                  t(2)=startstop(2);
+                  stop_flag=true;
+                end
+                %build ordinate
+                y=ones(2,1)*calpars.(sats{s}).([field,num2str(day_loc)]);
+                %build timeseries object
+                ts=simpletimeseries(t,y,...
+                  'format','datetime',...
+                  'labels',{field},...
+                  'units',units(i),...
+                  'timesystem','gps',...
+                  'descriptor',field...
+                );
+                %init/append output
+                if day_loc==1
+                  arc.(sats{s}).(field)=ts;
+                else
+                  arc.(sats{s}).(field)=arc.(sats{s}).(field).append(ts);
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+    function calmod=arc_build(product,varargin)
+      %parse optional arguments
+      p=inputParser;
+      p.addParameter('estimfile','', @(i) ischar(i)    || isempty(i));
+      p.addParameter('year',     [], @(i) isnumeric(i) || isempty(i));
+      p.addParameter('month',    [], @(i) isnumeric(i) || isempty(i));
+      p.addParameter('arc',      [], @(i) isnumeric(i) || isempty(i));
+      p.parse(varargin{:});
+      %get names of parameters and levels
+      coords    =product.mdget('coords');
+      units=cell(size(coords));units(:)={'m/s^2'};
+      sats      =product.mdget('sats');
+      bias_files=product.mdget('bias_files');
+      atl_file  =product.mdget('arc_timeline_file');
+      %get start/stop of current arc
+      startstop=csr.arctimeline_startstop(...
+        csr.arctimeline_load(atl_file),...
+        p.Results.year,...
+        p.Results.month,...
+        p.Results.arc...
+      );
+      %load calpars and apply long-term biases
+      calpars=csr.calpars_add_ltb(...
+        csr.estim_load(p.Results.estimfile),...
+        startstop,...
+        csr.ltb_load(bias_files)...
+      );
+      %build calibration parameters time series
+      arc=csr.arc_timeseries(startstop,calpars);
+      %define field names (this is arbitrary but must have length 3)
+      fields={'bias','linear','quad'};
+      %set calibration model time domain
+      t=startstop(1):seconds(1):startstop(2);
+      %set the time domain in units compatible with the calibration parameters:
+      %units are days and zero epoch is the start of the arc
+      tc=days(t-startstop(1));
+      %loop over all satellites
+      for s=1:numel(sats)
+        %gather calibratiom parameters
+        for c=1:numel(coords)
+          %retreive data
+          cal.(coords{c})=struct(...
+            fields{1},arc.(sats{s}).(['AC0',coords{c}    ]).interp(t),...
+            fields{2},arc.(sats{s}).(['AC0',coords{c},'D']).interp(t),...
+            fields{3},arc.(sats{s}).(['AC0',coords{c},'Q']).interp(t) ...
+          );
+          %loop over all fields
+          for f=1:numel(fields)
+            %remove transient calpars, this is indicative of a gap (interpolation is done blindly over any gap length)
+            cal.(coords{c}).(fields{f})=cal.(coords{c}).(fields{f}).mask_and([...
+                   cal.(coords{c}).(fields{f}).mask(1);...
+              diff(cal.(coords{c}).(fields{f}).y(:,1))==0]...
+            );
+          end
+        end
+        %init calibration model time series
+        calmod.(sats{s})=simpletimeseries(t,zeros(numel(t),numel(coords)),...
+          'format','datetime',...
+          'labels',coords,...
+          'units',units,...
+          'timesystem','gps',...
+          'descriptor',['calibration model ',product.str,', GRACE-',sats{s}]...
+        );
+        %build calibration model
+        for c=1:numel(coords)
+          calmod.(sats{s})=calmod.(sats{s}).set_cols(c,...
+            cal.(coords{c}).(fields{1}).cols(1             )+...
+            cal.(coords{c}).(fields{2}).cols(1).times(tc   )+...
+            cal.(coords{c}).(fields{3}).cols(1).times(tc.^2)...
+          );
+        end
+      end
+    end
+    function out=arcs_build(product,varargin)
+      %parse optional arguments
+      p=inputParser;
+      p.addParameter('estimfile',{}, @(i) iscell(i));
+      p.addParameter('year',     {}, @(i) iscell(i));
+      p.addParameter('month',    {}, @(i) iscell(i));
+      p.addParameter('arc',      {}, @(i) iscell(i));
+      p.parse(varargin{:});
+      %handle scalar inputs
+      n=max([...
+        numel(p.Results.estimfile),...
+        numel(p.Results.year),...
+        numel(p.Results.month),...
+        numel(p.Results.arc)...
+      ]);
+      for i={'estimfile','year','month','arc'}
+        if numel(p.Results.(i{1}))==1
+          par.(i{1})=cell(1,n);
+          par.(i{1})(:)=p.Results.(i{1});
+        else
+          par.(i{1})=p.Results.(i{1});
+        end
+      end
+      %sanity: all inputs must have the same length
+      assert(all(cellfun(@(i) numel(par.(i)),{'estimfile','year','month','arc'})==n),...
+        'All inputs must have the same length.')
+      %loop over all inputs
+      s.msg='Assembling arcs';s.n=n;
+      for i=1:n
+        tmp=csr.arc_build(product,...
+          'estimfile',par.estimfile{i},...
+          'year',     par.year{i},...
+          'month',    par.month{i},...
+          'arc',      par.arc{i}...
+        );
+        if i==1
+          out=tmp;
+        else
+          out=structs.objmethod2('append',out,tmp);
+        end
+        s=time.progress(s);
+      end
+    end
+    function debug_plots(mode,debug)
+      if ~exist('debug','var') || isempty(debug)
+        debug=true;
+      end
+      if ~exist('mode','var') || isempty(mode)
+        mode='calpar';
+      end
+      %create dir for plots
+      plot_dir=fullfile(dataproduct.default_list.plot_dir,['debug_plots_',mode],csr.gitversion);
+      if isempty(dir(plot_dir)); mkdir(plot_dir); end
+      %get dates of plots
+      ssl=csr.debug_parameters;
+      %branch on mode
+      switch mode
+      case 'all'
+        for i={'import_calpar','compute_calmod','calpar'}
+          csr.debug_plots(i{1});
+          close all
+        end
+      case 'import_calpar'
+        name='grace.calpar.csr';
+        %load calibration parameters
+        a=datastorage('debug',debug).init(name,'plot_dir',plot_dir);
+        %retrieve product info
+        sats=a.product_get(name).mdget('sats');
+        %get dates of plots
+        ssl=csr.debug_parameters;
+        %loop over the data
+        for i=1:numel(ssl)
+          p=a.trim('start',ssl(i).start,'stop',ssl(i).stop);
+          for f=1:numel(ssl(i).field)
+            for s=1:numel(sats)
+              p.plot(...
+                datanames(name).set_field_path({'*',ssl(i).field{f},sats{s}}),...
+                'plot_together',{'aak','accatt','estim'}...
+              );
+            end
+          end
+        end
+      case 'compute_calmod'
+        name='grace.acc.calmod.csr';
+        for i=1:numel(ssl)
+          datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'debug_plot',true,'plot_dir',plot_dir);
+        end
+      case 'calpar'
+        name='grace.acc.cal.csr.plots';
+        for i=1:numel(ssl)
+          datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'plot_dir',plot_dir);
+        end
+      case 'calpar-gps'
+        start=datetime('2017-01-01');
+        stop =datetime('2017-01-02');
+        o=datastorage('start',start,'stop',stop,'debug',debug);
+        for p={'grace.acc.l1b.csr','grace.acc.calmod.csr','grace.acc.cal.csr','grace.acc.mod.nrtdm','grace.acc.mod.csr'}
+          o=o.init(p{1});
+        end
+      otherwise
+        error(['unknown mode ''',mode,'''.'])  
+      end
+    end
+    function out=test(mode,start)
+      if ~exist('mode','var') || isempty(mode)
+        mode='calacc';
+      end
+      if ~exist('start','var') || isempty(start)
+        start=datetime('2008-02-26');
+      end
+      stop =start+days(1)-seconds(1);
+      %translate modes to metadata names
+      switch mode
+      case 'calpar';        name='grace.calpar.csr';
+      case 'import_acc_l1b';name='grace.acc.l1b.csr';
+      case 'calmod';        name='grace.acc.calmod.csr';
+      case 'mod';           name='grace.acc.mod.csr';
+      case 'nrtdm';         name='grace.acc.mod.nrtdm';
+      case 'calacc';        name='grace.acc.cal.csr';
+      otherwise
+        error(['unknown mode ''',mode,'''.'])  
+      end
+      out=datastorage('debug',true,'start',start,'stop',stop).init(name);
+      out.peek
     end
     function obj=import_acc_resid_test(obj,product,varargin)
       p=inputParser;
@@ -838,7 +1220,7 @@ classdef csr
         datadir=fullfile(getenv('HOME'),'data','csr','GraceAccCal');
         system(['rm -fv ',fullfile(datadir,'to-delete','*.mat')])
         system(['mv -fv ',fullfile(datadir,'*.mat'),' ',fullfile(datadir,'to-delete')])
-      case {'import_calpar_debug_plots','calpar_debug_plots'}
+      case {'debug_plots_import_calpar','debug_plots_calpar'}
         plot_dir=fullfile('plot',lower(mode),csr.gitversion);
         disp(plot_dir)
         if ~isempty(dir(plot_dir))
@@ -850,58 +1232,6 @@ classdef csr
         dataproduct(mode,'metadata_dir',obj.metadata_dir).rm_data(varargin{:});
       end
     end
-    function calpar_debug_plots(debug)
-      if ~exist('debug','var') || isempty(debug)
-        debug=false;
-      end
-      %create dir for plots
-      plot_dir=fullfile('plot','calpar_debug_plots',csr.gitversion);
-      if isempty(dir(plot_dir)); mkdir(plot_dir); end
-      
-      %define list of days to plot
-      lod=datetime({...
-        '2008-02-24',...
-        '2008-02-25'...
-%         '2014-09-13',...
-%         '2014-09-14'...
-%         '2014-08-01',...
-%         '2014-08-02'...
-%         '2013-02-26',...
-%         '2013-02-25',...  
-%         '2013-02-24',...
-%         '2013-02-23',...
-%         '2013-02-22',...
-%         '2013-02-21'...
-%         '2013-02-20',...
-%         '2002-05-04',... %nominal
-%         '2002-05-11',...
-%         '2002-09-07',...
-%         '2002-04-15',... %exception
-%         '2002-05-16',...
-%         '2002-09-28',...
-%         '2002-09-30'...
-%         '2002-04-27',... %exception
-%         '2002-08-06',... %exception
-%         '2002-08-16','2002-08-17',...
-%         '2003-01-13','2003-01-14',...
-%         '2003-11-20',...
-%         '2006-06-14','2006-06-15',...
-%         '2002-04-15',...
-%         '2002-08-03',...
-%         '2002-08-26',...
-%         '2002-04-27',...
-%         '2002-09-30'...
-      });
-      %loop over all requested days
-      for i=1:numel(lod)
-        start=lod(i);
-        stop=lod(i)+days(1)-seconds(1);
-        %plot it
-        datastorage('debug',debug,'start',start,'stop',stop).init('grace.acc.cal_csr_plots','plot_dir',plot_dir);
-      end
-    end
-    function out=test
-      out=datastorage('debug',true).init('grace.calpar.csr');
-    end
+
   end
 end
