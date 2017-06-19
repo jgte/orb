@@ -244,8 +244,28 @@ classdef str
       out=strjoin(out,separator);
     end
     function say(varargin)
+      %default value for internal parameters
+      stack_delta=0;
+      %loop control
+      start_idx=1;
+      start_idx_old=0;
+      %pass parameters to this method as the first two arguments
+      while start_idx~=start_idx_old
+        %update loop controls
+        start_idx_old=start_idx;
+        %check if this is an internal parameter
+        switch varargin{start_idx}
+        case 'stack_delta'
+          stack_delta=varargin{start_idx+1};
+          start_idx=start_idx+2;
+        end
+      end
       s=dbstack(1);
-      disp([s.name,': ',str.show(varargin)])
+      if isempty(s)
+        disp(str.show(varargin(start_idx:end)))
+      else
+        disp([s(1+stack_delta).name,':',num2str(s(1+stack_delta).line),': ',str.show(varargin(start_idx:end))])
+      end
     end
   end
 end

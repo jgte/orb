@@ -71,11 +71,11 @@ classdef nrtdm
     function obj=nrtdm(product_name,time_start,time_stop,varargin)
       %inits
       obj.metadata=nrtdm_metadata(product_name);
-      obj.start=simpletimeseries.ToDateTime(time_start);
+      obj.start=time.ToDateTime(time_start);
       if ~exist('time_stop','var') || isempty(time_stop)
         obj.stop=obj.start+days(1)-seconds(1);
       else
-        obj.stop=simpletimeseries.ToDateTime(time_stop);
+        obj.stop=time.ToDateTime(time_stop);
       end
       %load data
       obj=obj.load(varargin{:});

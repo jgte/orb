@@ -328,7 +328,7 @@ classdef simpletimeseries < simpledata
         end
         filenames=cells.flatten(filenames);
         %remove empty entries
-        filenames=filenames(~cellfun('isempty',filenames));
+        filenames=cells.rm_empty(filenames);
         return
       end
       %need fileparts
@@ -386,7 +386,7 @@ classdef simpletimeseries < simpledata
           arch=true;
           filenames=untar(in,d);
           %get rid of PaxHeaders
-          filenames(~cellfun(@isempty,strfind(filenames,'PaxHeaders')))=[];
+          filenames(cells.iscellstrfind(filenames,'PaxHeaders'))=[];
         case {'.gz','.gzip'}
           arch=true;
           filenames=gunzip(in,d);
@@ -503,7 +503,7 @@ classdef simpletimeseries < simpledata
         y=[raw{5:7}];
         %determine coordinate
         coords={'AC0X','AC0Y','AC0Z'};
-        idx=cellfun(@(i) ~isempty(strfind(filename,i)),coords);
+        idx=cells.iscellstrfind(filename,coords);
         %sanity
         assert(sum(idx)==1,[mfilename,': the name for .resid files must include (one of) AC0X, AC0Y or AC0Z, not ''',...
           filename,'''.'])
@@ -548,6 +548,7 @@ classdef simpletimeseries < simpledata
           );
           data_fh=@(raw) [raw{7},double(raw{6})];
           timesystem='gps';
+          sanity_check=@(raw) true;
         end
         if ~isempty(regexp(filename,'AC0[XYZ][QD]\d?\.aak','once')) || ~isempty(regexp(filename,'AC0[XYZ][QD]\d?\.accatt','once'))
           % 2002 04 05 2002.4.4. 23.59.47.00000000 1498260002  0.1389481692269E-07 52368.99985
@@ -564,18 +565,20 @@ classdef simpletimeseries < simpledata
           );
           data_fh=@(raw) [raw{7},double(raw{6}),raw{8}];
           timesystem='gps';
+          sanity_check=@(raw) true;
         end
         if ~isempty(regexp(filename,'AC0[XYZ]\d?\.estim','once')) || ~isempty(regexp(filename,'AC0[XYZ][DQ]\d?\.estim','once'))
-          % 1    2  3  4  5  6  7     8 9   10      11       12                    13                     14
-          % 2002 04 05 04/05/02 52369 1 0.0 26400.0 1593715  3.774424464092000e-08 -3.585594302740665e-09 3.415865033817934e-08
-          fmt='%d %d %d %d/%d/%d %f %d %f %f %d %f %f %f';
-          units={'m/s^2','','sec','sec'};
-          labels={str.clean(filename,{'file','grace','.'}),'Job ID','arc duration','arc start'};
+          % 1    2  3  4  5  6  7     8 9   10      11       12                    13                     14                    15           16
+          % 2002 04 05 04/05/02 52369 1 0.0 26400.0 1593715  3.774424464092000e-08 -3.585594302740665e-09 3.415865033817934e-08 2.82822E-09  71279987.
+          fmt='%d %d %d %d/%d/%d %f %d %f %f %d %f %f %f %f %f';
+          units={'m/s^2','','sec','sec','mjd','','m/s^2'};
+          labels={str.clean(filename,{'file','grace','.'}),'Job ID','arc duration','arc start','arc t0','arc nr','TBD'};
           time_fh=@(raw) datetime(raw{7}+raw{9}/seconds(days(1)),...
             'ConvertFrom','modifiedjuliandate'...
           );
-          data_fh=@(raw) [raw{14},double(raw{11}),raw{10},raw{9}];
+          data_fh=@(raw) [raw{14},double(raw{11}),raw{10},raw{9},time.mjd(time.utc2gps(time.ToDateTime(double(raw{16}),'J2000sec'))),double(raw{8}),double(raw{15})];
           timesystem='gps';
+          sanity_check=@(raw) all(all([ raw{1}-2000==raw{6},raw{2}==raw{4},raw{3}==raw{5}]));
         end
 
         if isempty(fmt)
@@ -585,6 +588,8 @@ classdef simpletimeseries < simpledata
         fid = fopen(filename);
         raw = textscan(fid,fmt,'delimiter',' ','MultipleDelimsAsOne',1);
         fclose(fid);
+        %keep some sanity
+        assert(sanity_check(raw),['Failed sanity check on ',filename]);
         %building time domain
         t=time_fh(raw);
         %building data domain
@@ -1056,6 +1061,11 @@ classdef simpletimeseries < simpledata
         end
       end
     end
+    function out=isxavail(obj,t)
+      %need to overload isxavail so that calls from simpledata come through
+      %here and not through the function defined there
+      out=obj.istavail(t);
+    end
     function obj=set.t_formatted(obj,t_now)
       [obj.t,format_now]=time.ToDateTime(t_now,obj.format);
       if ~strcmp(format_now,format_in)
@@ -1370,6 +1380,10 @@ classdef simpletimeseries < simpledata
       while ~isempty(gap_idx)
         %create patch
         t_patch=transpose((obj.t(gap_idx(1))+obj.step):obj.step:(obj.t(gap_idx(1)+1)-obj.step));
+        %if t_patch is empty, then this loop goes forever
+        if isempty(t_patch)
+          t_patch=obj.t(gap_idx(1))+obj.step;
+        end
         %save data with patch (it gets deleted when assigning to x)
         y_patched=[obj.y(1:gap_idx(1),:);...
                    nan(numel(t_patch),obj.width);...
@@ -1385,6 +1399,8 @@ classdef simpletimeseries < simpledata
         %user feedback
         s=time.progress(s);
       end
+      %trim end (there might be a single epoch dangling at the end)
+      obj.stop=t_new(end);
       %sanitize
       obj.check_st(t_new);
       %additional output arguments
@@ -1558,6 +1574,13 @@ classdef simpletimeseries < simpledata
       %match step and epoch (checks for trivial call done inside)
       [obj1,obj2]=matchstep(obj1,obj2);
       [obj1,obj2]=matchepoch(obj1,obj2);
+    end
+    function obj1=glue(obj1,obj2)
+      %objects need to have the same epoch
+      assert(obj1.epoch==obj2.epoch,...
+        'Input objects do not share the same time domain.')
+      %call mother routine
+      obj1=glue@simpledata(obj1,obj2);
     end
     %% plot methots
     function out=plot(obj,varargin)

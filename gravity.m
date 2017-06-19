@@ -1451,7 +1451,7 @@ classdef gravity < simpletimeseries
       % build filenames
       for i=1:obj_now.length
         f={p.Results.prefix,datestr(obj_now.t(i),p.Results.timefmt),p.Results.suffix,'gfc'};
-        f=strjoin(f(~cellfun(@isempty,f)),p.Results.delim);
+        f=strjoin(cells.rm_empty(f),p.Results.delim);
         filelist{i}=fullfile(p.Results.path,f);
       end
       header={...

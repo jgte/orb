@@ -1,4 +1,4 @@
-import_dir: <getenv('HOME')>/data/csr/GraceAccCal
+import_dir: <getenv('HOME')>/data/csr/GraceAccCal/joined
 method: csr.import_calpar
 coords: [X,Y,Z]
 #levels: [aak,accatt,estim]

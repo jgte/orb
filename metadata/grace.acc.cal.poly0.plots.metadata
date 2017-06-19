@@ -1,5 +1,5 @@
 method: datastorage.plot_auto
-sources: [grace.acc.l1b.csr,grace.acc.calmod.csr,grace.acc.cal.csr,grace.acc.mod.nrtdm,grace.acc.mod.csr]
+sources: [grace.acc.l1b.csr,grace.acc.calmod.csr,grace.acc.calmod.poly0,grace.acc.mod.csr]
 storage_period: daily
 plot_columns: [1,2,3]
 plot_autoscale: true
