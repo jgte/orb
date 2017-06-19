@@ -42,5 +42,13 @@ classdef cells
     function out=rm_empty(in)
       out=in(~cells.isempty(in));
     end
+    function out=iscellstrfind(cellstrin,strin)
+      if iscellstr(strin) && ischar(cellstrin)
+        tmp=strin;
+        strin=cellstrin;
+        cellstrin=tmp;
+      end
+      out=~cellfun(@isempty,strfind(cellstrin,strin));
+    end
   end
 end

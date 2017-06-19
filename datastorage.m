@@ -70,26 +70,22 @@ classdef datastorage
       end
       %sanity on the nr of input arguments
       assert(mod(numel(varargin),2)==0,['the number of input arguments must be even, not ',num2str(numel(varargin)),'.'])
-      %get the stack
-      stack=dbstack(1);
       %make room for message
-      msg=cell((nargin-1)/2+1,1);
-      %first item is the calling function
-      msg{1}=stack.name;
+      msg=cell((nargin-1)/2,1);
       %loop over all arguments
-      for i=2:numel(msg)
-        idx0=2*(i-1)-1;
-        idx1=2*(i-1);
+      for i=1:numel(msg)
+        idx_name=2*i-1;
+        idx_value=2*i;
         %don't show empty arguments
-        if isempty(varargin{idx1})
+        if isempty(varargin{idx_value})
           continue;
         end
-        msg{i}=[varargin{idx0},':',str.show(varargin{idx1})];
+        msg{i}=[varargin{idx_name},':',str.show(varargin{idx_value})];
       end
       %clean up empty cells
-      msg=msg(cellfun(@(i)(~isempty(i)),msg));
+      msg=cells.rm_empty(msg);
       %show the debug message
-      disp(strjoin(msg,', '))
+      str.say('stack_delta',1,strjoin(msg,', '))
     end
     %% dataname operations (done at the root level of the obj.data structure)
     function obj=data_init(obj)
@@ -270,7 +266,11 @@ classdef datastorage
         else
           %check if this object responds to this 
           if structs.respondto(obj_list{i},method)
-            out{i}=obj_list{i}.(method)(varargin{:});
+            if numel(varargin)==0
+              out{i}=obj_list{i}.(method);
+            else
+              out{i}=obj_list{i}.(method)(varargin{:});
+            end
           end
         end
       end
@@ -306,9 +306,9 @@ classdef datastorage
     function obj=vector_obj_op2(obj,dn,obj2,f,varargin)
       %operate on the requested set
       values1=obj.data_get(dn);
-      validv1=cellfun(@(i)(~isempty(i)),values1);
+      validv1=cells.rm_empty(values1);
       values2=obj2.data_get(dn);
-      validv2=cellfun(@(i)(~isempty(i)),values2);
+      validv2=cells.rm_empty(values2);
       %sanity
       if numel(values1) ~= numel(values2)
         error([mfilename,': the given dataname list does not correspond to the same number of data entries in both input obj.'])
@@ -468,14 +468,18 @@ classdef datastorage
       if any(~product.isfile('data','start',obj.start,'stop',obj.stop,varargin{:}))
         % debug output
         success=false;
-        obj.log('@','out','no files to load for',product)
+        if isempty(file_list)
+          obj.log('@','out','no files to load for',product)
+        else
+          obj.log('@','out','file(s) missing for',[product.str,char(10),strjoin(file_list,char(10))])
+        end
         return
       end
       obj.log('nr of files to load',numel(file_list))
       %loop over all files
       for f=1:numel(file_list)
         % debug output
-        obj.log(['loading file ',num2str(f)],file_list{f})
+        obj.log(['loading file ',num2str(f),' '],[' ',file_list{f}])
         %load data in this file
         load(file_list{f},'s');
         if f==1
@@ -622,6 +626,9 @@ classdef datastorage
       if ~obj.debug
         str.say('initialized',product.str)
       end
+      %check if this product is too old for the requested start/stop dates
+      assert(obj.start<obj.stop,['Requested start/stop dates are incompatible with product ',dn.str,...
+        '; consider updating the data in that product.'])
     end
     function out=product_leafs(obj,product_list)
       if iscell(product_list)
@@ -783,7 +790,7 @@ classdef datastorage
       if ~isempty(h) && all(p.Results.plot_columns>0)
         h.y_units=d.y_units{p.Results.plot_columns(1)};
         for i=2:numel(p.Results.plot_columns)
-          if ~strcmp(h.y_units,d.y_units(p.Results.plot_columns(i)))
+          if ~isempty(h.y_units) && ~strcmp(h.y_units,d.y_units(p.Results.plot_columns(i)))
             error([mfilename,':BUG TRAP: y-units are not consistent in all plotted lines.'])
           end
         end

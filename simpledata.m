@@ -1000,6 +1000,18 @@ classdef simpledata
       %propagate to obj
       obj=obj.assign(y_total,'x',x_total,'mask',mask_total);
     end
+    function out=isxavail(obj,x)
+      if isscalar(x)
+        out=any(obj.x==x);
+      else
+        for i=1:numel(x)
+          %scalar call
+          out=obj.isxavail(x(i));
+          %no need to continue looping if found something
+          if out;break;end
+        end
+      end
+    end
     %% y methods
     function obj=cols(obj,columns)
       if ~isvector(columns)
@@ -1036,6 +1048,50 @@ classdef simpledata
         error([mfilename,': requested column indeces exceed object width.'])
       end
       out=obj.y(mask,columns);
+    end
+    function obj=set_at(obj,x,y,f)
+      if ~exist('f','var') || isempty(f)
+        f='assign';
+      end
+      switch f
+      case {'increment','add','+'}
+        f=@(i,j) i+j;
+      case {'decrement','minus','-'}
+        f=@(i,j) i-j;
+      case {'assign','equal','='}
+        f=@(i,j) j;
+      otherwise
+        error(['Cannot understand input ''f''with value ''',f,'''.'])
+      end
+      %get availability indeces
+      avail_idx=obj.isxavail(x);
+      %operate on the entries that are already there
+      if any(avail_idx)
+        %get the relevant indeces in the inputs
+        idx_in=find(avail_idx);
+        %get the relevant indeces in the object
+        idx_obj=obj.idx(x(idx_in));
+        %get the data
+        y_obj=obj.y;
+        %operate
+        y_obj(idx_obj,:)=f(y_obj(idx_obj,:),y(idx_in,:));
+        %back-propagate
+        obj=obj.assign(y_obj);
+      end
+      %append the new entries
+      if any(~avail_idx)
+        x=x(~avail_idx);
+        y=y(~avail_idx,:);
+        switch class(obj)
+        case 'simpledata'
+          obj_new=simpledata(x,y).copy_metadata(obj);
+        case 'simpletimeseries'
+          obj_new=simpletimeseries(obj.x2t(x),y).copy_metadata(obj);
+        otherwise
+          error(['Cannot handle object of class ''',class(obj),''', implementation needed (it''s quick, go and do it).'])
+        end  
+        obj=obj.append(obj_new);
+      end
     end
     %% mask methods
     %NOTICE: these functions only deal with *explicit* gaps, i.e. those in
@@ -1264,7 +1320,7 @@ classdef simpledata
       %propagate requested x-domain only (mask is rebuilt from NaNs in 
       obj=obj.assign(y_now,'x',x_now,'mask',mask_now);
     end
-    function obj_out=polyfit(obj,order)
+    function [obj_out,S]=polyfit(obj,order)
       %copy the data
       obj_out=obj;
       obj_out.descriptor=['order ',num2str(order),' polyfit of ',obj.descriptor];
@@ -1274,8 +1330,10 @@ classdef simpledata
       %make room for data
       y_polyfitted=zeros(size(y_now));
       %polyfit for all columns
+      S=struct([]);
       for i=1:obj.width
-        y_polyfitted(:,i)=polyval(polyfit(x_now,y_now(:,i),order),x_now);
+        [p,S(i)]=polyfit(x_now,y_now(:,i),order);
+        y_polyfitted(:,i)=polyval(p,x_now);
       end
       %propagate the data
       obj_out.y(obj_out.mask,:)=y_polyfitted;
@@ -1618,7 +1676,7 @@ classdef simpledata
         columns=1:obj1.width;
       end
       if any(columns>obj1.width) || any(columns>obj2.width)
-        error([mfilename,': requested column indeces exceed width.'])
+        error([mfilename,': requested column indices exceed width.'])
       end
       %assume objects are not equal
       out=false;
@@ -1632,6 +1690,15 @@ classdef simpledata
       end
       %they are the same
       out=true;
+    end
+    function obj1=glue(obj1,obj2)
+      %objects need to have the same time domain
+      assert(obj1.length==obj2.length && all(obj1.x==obj2.x),...
+        'Input objects do not share the same x-domain.')
+      %augment the data, labels and units
+      obj1=obj1.assign([obj1.y,obj2.y],'reset_width',true);
+      obj1.labels=[obj1.labels(:);obj2.labels(:)]';
+      obj1.y_units =[obj1.y_units(:); obj2.y_units(:) ]';
     end
     %% algebra
     function obj1=plus(obj1,obj2)
@@ -1794,6 +1861,9 @@ classdef simpledata
       y_now=zeros(numel(x_now),obj.width);
       %assign to output
       obj=obj.assign(y_now,'x',x_now);
+    end
+    function obj=cumsum(obj)
+      obj.y(obj.mask,:)=cumsum(obj.y_masked);
     end
     %% decomposition
     function out=parametric_decomposition(obj,varargin)

@@ -149,11 +149,21 @@ classdef datanames
       p.addParameter('remove_part',       '',      @(i) ischar(i) || iscellstr(i))
       p.addParameter('prefix',            '',      @(i) ischar(i))
       p.addParameter('suffix',            '',      @(i) ischar(i))
-%       p.addParameter('full_path',         true,    @(i) islogical(i))
+      p.addParameter('sub_dirs',          'none',  @(i)ischar(i))
       % parse it
       p.parse(varargin{:});
       %propagate dataname to filename
-      filename={obj.filename};
+      switch p.Results.sub_dirs
+      case 'none'
+        filename={obj.filename};
+      case 'single'
+        filename={fullfile(obj.filename,obj.filename)};
+      case 'deep'
+        filename=strsplit(obj.filename,datanames.separator);
+        filename={fullfile(filename{:},obj.filename)};
+      otherwise
+        error(['Cannot understand input ''sub_dirs'' with value ''',p.Results.sub_dirs,'''.'])
+      end
       %add prefix and suffix (if non-empty)
       if ~isempty(p.Results.prefix); filename=[{p.Results.prefix},filename]; end
       if ~isempty(p.Results.suffix); filename=[filename,{p.Results.suffix}]; end
@@ -177,7 +187,7 @@ classdef datanames
       end
       %make sure dir exists, if requested
       if p.Results.ensure_dir
-        if isempty(dir(fileparts(out)))
+        if ~exist(fileparts(out),'dir')
           mkdir(fileparts(out))
         end
       end

@@ -1,5 +1,6 @@
 classdef csr
   methods(Static)
+    %% utilities
     function timetag=gitversion
       %get current git version
       [status,timetag]=system(['git -C ',fileparts(which(mfilename)),' log -1 --format=%cd --date=iso-local ',mfilename,'.m']);
@@ -44,64 +45,166 @@ classdef csr
       if debug;disp(strjoin(msg(1:min([20,numel(msg)])),'\n')); else disp(msg{1}); end; 
       if log_flag;csr.log(msg);end
     end
+    %% debugging
     function out=debug_parameters
       %define start/stop pairs and level
       i=0;out=struct([]);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-04-15 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-04-27 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-05-04 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-05-11 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-05-16 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-08-03 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-08-06 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-08-16 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-08-26 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-09-07 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-09-28 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-09-30 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2003-01-12 00:00:00'); out(i).stop=datetime('2003-01-15 23:59:59');
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2003-11-20 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2003-11-29 00:00:00'); out(i).stop=datetime('2003-12-02 23:59:59');
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
-      out(i).start=datetime('2006-06-03 00:00:00'); out(i).stop=datetime('2006-06-07 23:59:59');
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
-      out(i).start=datetime('2006-06-12 00:00:00'); out(i).stop=datetime('2006-06-19 23:59:59');
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2008-02-24 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2008-02-25 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2012-06-30 00:00:00'); out(i).stop=datetime('2012-07-03 23:59:59');
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2013-02-20 00:00:00'); out(i).stop=datetime('2013-02-26 23:59:59');
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-04-15 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-04-27 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-05-04 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-05-11 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-05-16 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-08-03 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-08-06 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-08-16 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-08-26 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-09-07 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-09-28 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-09-30 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2003-01-12 00:00:00'); out(i).stop=datetime('2003-01-15 23:59:59');
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2003-11-20 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2003-11-21 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2003-11-29 00:00:00'); out(i).stop=datetime('2003-12-02 23:59:59');
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
+%       out(i).start=datetime('2006-06-03 00:00:00'); out(i).stop=datetime('2006-06-07 23:59:59');
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
+%       out(i).start=datetime('2006-06-12 00:00:00'); out(i).stop=datetime('2006-06-19 23:59:59');
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2008-02-24 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2008-02-25 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2012-06-30 00:00:00'); out(i).stop=datetime('2012-07-03 23:59:59');
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2013-02-20 00:00:00'); out(i).stop=datetime('2013-02-26 23:59:59');
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2014-08-01 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
       out(i).start=datetime('2014-09-13 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2014-08-01 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2015-08-14 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2017-01-07 00:00:00'); out(i).stop=out(i).start+days(3)-seconds(1);
 
     end
+    function out=debug_plots(mode,debug)
+      if ~exist('debug','var') || isempty(debug)
+        debug=true;
+      end
+      if ~exist('mode','var') || isempty(mode)
+        mode='estimate_poly_calmod';
+%         mode='import_calpar';
+      end
+      %create dir for plots
+      plot_dir=fullfile(dataproduct.default_list.plot_dir,['debug_plots_',mode],csr.gitversion);
+      if isempty(dir(plot_dir)); mkdir(plot_dir); end
+      %get dates of plots
+      ssl=csr.debug_parameters;
+      %branch on mode
+      switch mode
+      case 'all'
+        for i={'import_calpar','compute_calmod','calpar','calpar-gps'}
+          csr.debug_plots(i{1});
+          close all
+        end
+      case 'import_calpar'
+        name='grace.calpar.csr';
+        %load calibration parameters
+        out=datastorage('debug',debug).init(name,'plot_dir',plot_dir);
+        %retrieve product info
+        sats=out.product_get(name).mdget('sats');
+        %get dates of plots
+        ssl=csr.debug_parameters;
+        %loop over the data
+        for i=1:numel(ssl)
+          p=out.trim('start',ssl(i).start,'stop',ssl(i).stop);
+          for f=1:numel(ssl(i).field)
+            for s=1:numel(sats)
+              p.plot(...
+                datanames(name).set_field_path({'*',ssl(i).field{f},sats{s}}),...
+                'plot_together',{'aak','accatt','estim'}...
+              );
+            end
+          end
+        end
+      case 'compute_calmod'
+        name='grace.acc.calmod.csr';
+        for i=1:numel(ssl)
+          datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'debug_plot',true,'plot_dir',plot_dir);
+        end
+      case 'calpar'
+        name='grace.acc.cal.csr.plots';
+        for i=1:numel(ssl)
+          datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'plot_dir',plot_dir);
+        end
+      case 'calpar-gps'
+        start=datetime('2017-01-01');
+        stop =datetime('2017-01-02');
+        o=datastorage('start',start,'stop',stop,'debug',debug);
+        for p={'grace.acc.l1b.csr','grace.acc.calmod.csr','grace.acc.cal.csr','grace.acc.mod.nrtdm','grace.acc.mod.csr'}
+          o=o.init(p{1});
+        end
+      case 'estimate_poly_calmod'
+        name='grace.acc.cal.poly0.plots';
+        out=cell(size(ssl));
+        for i=1:numel(ssl)
+          out{i}=datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'plot_dir',plot_dir);
+        end
+      otherwise
+        error(['unknown mode ''',mode,'''.'])  
+      end
+    end
+    function out=test(mode,start)
+      if ~exist('mode','var') || isempty(mode)
+        mode='poly_calmod';
+        mode='calpar';
+      end
+      if ~exist('start','var') || isempty(start)
+%         start=datetime('2008-02-26');
+        start=datetime('2002-04-15');
+      end
+      stop =start+days(1)-seconds(1);
+      %translate modes to metadata names
+      switch mode
+      case 'calpar';        name='grace.calpar.csr';
+      case 'import_acc_l1b';name='grace.acc.l1b.csr';
+      case 'calmod';        name='grace.acc.calmod.csr';
+      case 'mod';           name='grace.acc.mod.csr';
+      case 'nrtdm';         name='grace.acc.mod.nrtdm';
+      case 'calacc';        name='grace.acc.cal.csr';
+      case 'poly_calmod';   name='grace.acc.calmod.poly0';
+      otherwise
+        error(['unknown mode ''',mode,'''.'])  
+      end
+      out=datastorage('debug',true,'start',start,'stop',stop).init(name,'recompute',true);
+      out.peek
+    end
+    %% constructors
     function obj=import_calpar(obj,product,varargin)
       %open log file
       csr.log
       %parse optional arguments
       p=inputParser;
+      p.KeepUnmatched=true;
       p.addParameter('debugdate', [], @(i) ischar(i) || isempty(i));
-      p.parse(varargin);
+      p.parse(varargin{:});
       %get names of parameters and levels
       levels     =product.mdget('levels');
       fields     =product.mdget('fields');
@@ -356,7 +459,7 @@ classdef csr
             obj=obj.data_set(product.dataname.set_field_path([levels(i),fields(j),sats(s)]),tmp.(sats{s}));     
           end
           %user feedback
-          disp(str.tablify([15,6,3,6],'loaded data for',levels{i},'and',fields{j}))
+          str.say(str.tablify([15,6,3,6],'loaded data for',levels{i},'and',fields{j}))
         end
       end
 
@@ -385,7 +488,7 @@ classdef csr
               %debug date report
               if ~isempty(p.Results.debugdate)
                 rep_date=datetime(p.Results.debugdate);
-                disp(['DEBUG DATE: merge AC0Y*:',levels{i},':',sats{s},':',field,' @ ',datestr(rep_date)]);
+                str.say('DEBUG DATE: merge AC0Y*:',levels{i},':',sats{s},':',field,' @ ',datestr(rep_date));
                 idx=ts_now.idx(rep_date);
                 ts_now.peek((idx-10):(idx+10));
               end
@@ -393,7 +496,7 @@ classdef csr
             %save the data
             obj=obj.data_set(product.dataname.set_field_path([levels(i),{[ac0y,field_part_list{f}]},sats(s)]),ts_now);
             %user feedback
-            disp(str.tablify([29,5,3,6,3,7],'merged cross-track parameter',[ac0y,field_part_list{f}],...
+            str.say(str.tablify([29,5,3,6,3,7],'merged cross-track parameter',[ac0y,field_part_list{f}],...
               'for',levels{i},'and',['GRACE-',sats{s}]))
           end
         end
@@ -424,7 +527,7 @@ classdef csr
             %debug date report
             if ~isempty(p.Results.debugdate)
               rep_date=datetime(p.Results.debugdate);
-              disp(['DEBUG DATE: with gaps:',levels{i},':',sats{s},':',fields_out{j},' @ ',datestr(rep_date)]);
+              str.say('DEBUG DATE: with gaps:',levels{i},':',sats{s},':',fields_out{j},' @ ',datestr(rep_date));
               idx=ts_now.idx(rep_date);
               obj.data_get_scalar(product.dataname.set_field_path([levels(i),fields_out(j),sats(s)])).peek((idx):(idx+20));
             end              
@@ -475,10 +578,10 @@ classdef csr
             for j=1:numel(fields_out)
               %some fields do not have t0
               if ~any(fields_out{j}(end)=='DQ') || ~isempty(strfind(fields_out{j},'Y'))
-                disp(str.tablify([8,32],'Skipping',product.str))
+                str.say(str.tablify([8,32],'Skipping',product.str))
                 continue
               end
-              disp(str.tablify([8,32],'Checking',product.str))
+              str.say(str.tablify([8,32],'Checking',product.str))
               %save time series into dedicated var
               ts_now=obj.data_get_scalar(product.dataname.set_field_path([levels(i),fields_out(j),sats(s)]));
               %forget about epochs that have been artificially inserted to represent gaps and end of arcs
@@ -501,10 +604,10 @@ classdef csr
             for j=1:numel(fields_out)
               %the Y parameter was constructed from multitple parameters and some fields do not have t0
               if ~any(fields_out{j}(end)=='DQ') || ~isempty(strfind(fields_out{j},'Y')) 
-                disp(str.tablify([8,32],'Skipping',product.str))
+                str.say(str.tablify([8,32],'Skipping',product.str))
                 continue
               end
-              disp(str.tablify([8,32],'Checking',product.str))
+              str.say(str.tablify([8,32],'Checking',product.str))
               %save time series into dedicated var
               ts_now=obj.data_get_scalar(product.dataname.set_field_path([levels(i),fields_out(j),sats(s)]));
               %forget about epochs that have been artificially inserted to represent forward steps
@@ -528,7 +631,7 @@ classdef csr
       end
     end
     function obj=import_acc_l1b(obj,product,varargin)
-      obj.log('@','in','product',product)
+      obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
       % sanity
       assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
       %retrieve relevant parameters
@@ -550,15 +653,19 @@ classdef csr
             ['ACC1B_',datestr(timestamplist(i),'yyyy-mm-dd'),'_',sats{s},'_',version,'.asc']...
           );
         end
-        %load (and save the data in mat format, as handled by simpletimeseries.import
-        obj=obj.data_set(product.dataname.set_field_path(sats(s)),...
-          simpletimeseries.import(infile,'cut24hrs',false)...
-        );
+        %load the data in mat format, as handled by simpletimeseries.import
+        out=simpletimeseries.import(infile,'cut24hrs',false);
+        %save the data, if not empty
+        if ~isempty(out)
+          obj=obj.data_set(product.dataname.set_field_path(sats(s)),out);
+        else
+          str.say('No data in file(s):',[char(10),strjoin(infile,char(10))])
+        end
       end
-      obj.log('@','out')
+      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
     end
     function obj=compute_calmod(obj,product,varargin)
-      obj.log('@','in','product',product)
+      obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
       %sanity
       assert(product.nr_sources==2,...
         ['number of sources in product ',product.str,...
@@ -581,7 +688,7 @@ classdef csr
             nan(2,numel(coords)),...
             'descriptor',['calibration model ',product.str,', GRACE-',sats{s},' (empty)']...
           );
-          disp(['Skipping  the ',calmod.descriptor])
+          str.say('Skipping  the ',calmod.descriptor)
           continue
         end
         %define field names (this is arbitrary but must have length 3)
@@ -598,7 +705,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         %init models container
         calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coords))).copy_metadata(acc);
         calmod.descriptor=['calibration model ',product.str,', GRACE-',sats{s}];
-        disp(['Computing the ',calmod.descriptor])
+        str.say('Computing the ',calmod.descriptor)
         for c=1:numel(coords)
           obj.log('@','iter','product',product,'sat',sats{s},'coord',coords{c})
           %loop over all fields
@@ -686,19 +793,154 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
                 product.enforce_plot(font_size_args{:})
               end
               saveas(gcf,filename{1})
-              disp(['Created plot ',filename{1}])
+              str.say('Created plot ',filename{1})
             else
-              disp(['Skipped plot ',filename{1}])
+              str.say('Skipped plot ',filename{1})
             end
           end
         end
         %propagate it
-        obj=obj.data_set(product.dataname.set_field_path(sats(s)),calmod);
+        obj=obj.data_set(product.dataname.append_field_leaf(sats{s}),calmod);
       end
-      obj.log('@','out')
+      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
+    end
+    function obj=estimate_poly_calmod(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
+      %sanity
+      assert(product.nr_sources==2,...
+        ['number of sources in product ',product.str,...
+        ' is expected to be 1, not ',num2str(product.nr_sources),'.'])
+      %get sources metadata
+      modaccp=obj.product_get(product.sources(1));
+      l1baccp=obj.product_get(product.sources(2));
+      %retrieve relevant parameters
+      coords          =product.mdget('coords');
+      sats            =product.mdget('sats');
+      arcs_per_day    =cell2mat(product.mdget('arcs_per_day'));
+      arcs_poly_order =cell2mat(product.mdget('arcs_poly_order'));
+      l1b_median_order=product.mdget('l1b_median_order');
+      arc_scheme      =product.mdget('arc_scheme');
+      atl_file        =product.mdget('arc_timeline_file');
+      %check if the product satellites include the one in the current product
+      sat_now=product.dataname.field_path;
+      if ~any(strcmp(sats,sat_now))
+        obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop,'sats',sats,'sat from product',sat_now)
+        %nothing to do
+        return
+      end
+      %ignore this warning
+      warning_id='MATLAB:polyfit:RepeatedPointsOrRescale';
+      %gather list of days to process
+      if dateshift(obj.stop,'start','day')==obj.stop
+        [t0,t1]=time.day_list(obj.start,obj.stop-days(1));
+      else
+        [t0,t1]=time.day_list(obj.start,obj.stop);
+      end
+      switch arc_scheme
+      case 'blind'
+        startstop=[t0,t1];
+      case 'csr'
+        startstop=[];
+        for i=1:numel(t0)
+          startstop=[startstop;...
+            csr.arctimeline_startstop(...
+              csr.arctimeline_load(atl_file),...
+              'year',  year(t0(i)),...
+              'month',month(t0(i)),...
+              'day',    day(t0(i))...
+            )...
+          ]; %#ok<AGROW>
+        end
+        %need to be sure all epochs are within the object start/stop
+        %(csr.arctimeline_startstop returns all entries which satisfy the logical union of the inputs)
+        startstop(startstop(:,1)<obj.start,1)=obj.start;
+        startstop(startstop(:,2)>obj.stop ,2)=obj.stop;
+      otherwise
+        error(['Cannot handle ''arc_scheme'' with value ''',arc_scheme,'''.'])
+      end
+      for d=1:size(startstop,1)
+        obj.log('@','startstop feedback',...
+          ['start(',num2str(d),')'],startstop(d,1),...
+          ['stop(',num2str(d),')'],startstop(d,2))
+      end
+      %gather quantities
+      l1b=obj.data_get_scalar(l1baccp.dataname.set_field_path(sat_now));
+      mod=obj.data_get_scalar(modaccp.dataname.set_field_path(sat_now));
+      %handle exceptions (also deals with non-existing data)
+      if ~isa(l1b,'simpletimeseries')
+        %patch nan calibration model
+        calmod=simpletimeseries(...
+          [obj.start;obj.stop],...
+          nan(2,numel(coords)),...
+          'descriptor',['calibration model ',product.str,' (empty)']...
+        );
+        str.say('Skipping  the ',calmod.descriptor)
+      else
+        str.say('Computing the calibration model ',product)
+        %loop over all coordinates
+        for c=1:numel(coords)
+          col_idx=find(cells.iscellstrfind({'X','Y','Z'},coords{c}));
+          %loop over all relevant (sub-) arcs
+          for d=1:size(startstop,1)
+            %retrieve (sub-) arcs
+            t=csr.subarc_startstop(startstop(d,:),arcs_per_day(c));
+            %loop over the number of arcs per day
+            for a=1:size(t,1)
+              obj.log('@','iter',...
+                'product',product,'coord',coords{c},...
+                'arc',startstop(d,:),...
+                'sub-arc',t(a,:),'sub-arc',a)
+              %get trimmed time series
+              arc_mod=mod.trim(t(a,1),t(a,2)).cols(c);
+              arc_l1b=l1b.trim(t(a,1),t(a,2)).cols(c).median(l1b_median_order).interp(arc_mod.t);
+              
+              %get calibration curve to fit
+              arc_cur=arc_mod+arc_l1b;
+              %compute calibration model
+              warning('off',warning_id)
+              arc_calmod=arc_cur.polyfit(arcs_poly_order(c));
+              warning('on',warning_id)
+              
+%               %get calibration curve to fit
+%               arc_cur1=arc_mod-arc_l1b;
+%               arc_cur2=arc_mod+arc_l1b;
+%               %compute calibration model
+%               warning('off',warning_msg)
+%               [arc_calmod1,S1]=arc_cur1.polyfit(arcs_poly_order(c));
+%               [arc_calmod2,S2]=arc_cur2.polyfit(arcs_poly_order(c));
+%               warning('on',warning_msg)
+%               %find which calibration curve works best
+%               if S1.normr>S2.normr
+%                 factor=-1;
+%                 arc_calmod=arc_calmod2;
+%               else
+%                 factor=1;
+%                 arc_calmod=arc_calmod1;
+%               end
+                            
+              %create/append daily data
+              if a==1; day_calmod=arc_calmod;
+              else     day_calmod=day_calmod.append(arc_calmod);
+              end
+            end
+            %create/append complete time domain
+            if d==1; coord_calmod=day_calmod;
+            else     coord_calmod=coord_calmod.append(day_calmod);
+            end
+          end
+          %create/glue all coordinates
+          if c==1; calmod=coord_calmod;
+          else     calmod=calmod.glue(coord_calmod);
+          end          
+        end
+        calmod.descriptor=['calibration model ',product.str];
+      end
+      %propagate it
+      obj=obj.data_set(product,calmod);
+      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
     end
     function obj=import_acc_mod(obj,product,varargin)
-      obj.log('@','in','product',product)
+      obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
       % sanity
       assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
       %retrieve relevant parameters
@@ -726,9 +968,9 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
           simpletimeseries.import(infile,'cut24hrs',true)...
         );
       end
-      obj.log('@','out')
+      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
     end
-    %atomic loading of calibration parameters
+    %% atomic loading of calibration parameters
     function out=estim_translate_param(in)
       if ~isempty(strfind(in,'AC0'))
         out=in;
@@ -833,89 +1075,130 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       %create the table
       T=table(year,month,day,arc,start,stop);
     end
-    function startstop=arctimeline_startstop(arctimeline,year,month,arc)
-      startstop=arctimeline{...
-        arctimeline.year ==year  & ...
-        arctimeline.month==month & ...
-        arctimeline.arc  ==arc,...
-        {'start','stop'}...
-      };
+    function startstop=arctimeline_startstop(arctimeline,varargin)
+      %parse optional arguments
+      p=inputParser;
+      p.addParameter('year', [], @(i) isnumeric(i) || isempty(i));
+      p.addParameter('month',[], @(i) isnumeric(i) || isempty(i));
+      p.addParameter('arc',  [], @(i) isnumeric(i) || isempty(i));
+      p.addParameter('day',  [], @(i) isnumeric(i) || isempty(i));
+      p.parse(varargin{:});
+      %init logic key
+      key=true(height(arctimeline),1);
+      %build logic key
+      for i={'year','month','arc','day'}
+        if ~isempty(p.Results.(i{1}))
+          key_now=false(size(key));
+          for j=1:numel(p.Results.(i{1}))
+            key_now=key_now| (arctimeline.(i{1})==p.Results.(i{1})(j));
+          end
+          key=key&key_now;
+        end
+      end
+      %warn if nothing is returned
+      if ~any(key)
+        startstop=[];
+        str.say('No arc found for',varargin{:})
+        return
+      end
+      startstop=arctimeline(key,{'start','stop'});
+      %reduce from table to datetime array
+      startstop=[startstop.start,startstop.stop];
       %shave 1 second from stop time
-      startstop(2)=startstop(2)-seconds(1);
+      startstop(:,2)=startstop(:,2)-seconds(1);
+    end
+    function t=subarc_startstop(startstop,nr_sub_arcs)
+      %short-circuit trivial calls
+      if nr_sub_arcs==1
+        t=startstop;
+      end
+      %vector mode
+      if size(startstop,1)>1
+        assert(size(startstop,2)==2,'In vector mode, can only handle input ''startstop'' with two columns.')
+        t=[];
+        for i=1:size(startstop,1)
+          t=[t;csr.subarc_startstop(startstop(i,:),nr_sub_arcs)]; %#ok<AGROW>
+        end
+        return
+      end
       %some sanity
-      assert(~isempty(startstop),['No arc info for ',num2str(year),'/',num2str(month),'.'])
-      assert(dateshift(startstop(1),'start','day')==dateshift(startstop(2),'start','day') && ...
-             dateshift(startstop(1),'end',  'day')==dateshift(startstop(2),'end',  'day'), ...  
-        ['Arc ',num2str(arc),' of ',num2str(year),'/',num2str(month),' does not start and stop at the same day.'])
+      assert(numel(startstop)==2,'In scalar mode, can only handle input ''startstop'' with two entries.')
+      %there are two instances where the arcs overshoot mid-night, fix those
+      if dateshift(startstop(1),'end','day')==dateshift(startstop(2),'start','day') && ...
+        startstop(2)-dateshift(startstop(1),'end','day')<minutes(10)
+        startstop(2)=dateshift(startstop(1),'end','day')-seconds(1);
+      end
+      %more sanity, MORE!
+      assert(...
+        dateshift(startstop(1),'start','day') ==  dateshift(startstop(2),'start','day') && ...
+        dateshift(startstop(1),'end',  'day') ==  dateshift(startstop(2),'end',  'day'),...
+        'Cannot handle input ''startstop'' that refers to different days')
+      %init loop parameters
+      t=[];
+      %trivial call
+      if startstop(1)==startstop(2)
+        t=[];
+        return
+      end
+      %determine sub-arc period
+      periodicity=days(1)/nr_sub_arcs;
+      %loop over all sub-arcs
+      for i=1:nr_sub_arcs
+        %get sub-arc starts/ends
+        t_now=[startstop(1)+periodicity*(i-1),...
+          min([startstop(1)+periodicity*(i  )-seconds(1),startstop(2)])...
+        ];
+        %singularity
+        if diff(t_now)<=0
+          return
+        end
+        %append
+        t=[t;t_now]; %#ok<AGROW>
+      end
     end
     function arc=arc_timeseries(startstop,calpars)
       %get persistent vars 
-      persistent prefix suffix units nr_sub_arcs periodicity
+      persistent prefix suffix units nr_sub_arcs
       if isempty(prefix)
         prefix='AC0';
         suffix={'','D','Q'};
         units={'m/s^2','m/s^2','m/s^2'}; %these units are wrong but they need to agree with each other to build the cal mod2
-        nr_sub_arcs=8;
-        periodicity=days(1)/nr_sub_arcs;
+        coords={'x','y','z'};
+        nr_sub_arcs=[1,8,1];
       end
       %get sats
       sats=fieldnames(calpars);
       %loop over all sats
       for s=1:numel(sats)
         %loop over all components
-        for c={'x','y','z'}
-          %branch on components
-          switch lower(c{1})
-          case {'x','z'}
-            t=startstop(:);
-            %loop over all suffixes
-            for i=1:numel(suffix)
-              %build field name
-              field=[prefix,upper(c{1}),suffix{i}];
-              %build ordinate
-              y=ones(2,1)*calpars.(sats{s}).(field);
+        for c=1:numel(coords)
+          %loop over all suffixes
+          for i=1:numel(suffix)
+            %build field name
+            field=[prefix,upper(coords{c}),suffix{i}];
+            %build ordinate: get sub-arc start/stop
+            t=csr.subarc_startstop(startstop,nr_sub_arcs(c));
+            %loop over all sub-arcs
+            for day_loc=1:size(t,1)
+              %retrieve (sub-) arc data
+              if nr_sub_arcs(c)==1
+                y=ones(2,1)*calpars.(sats{s}).(field);
+              else
+                y=ones(2,1)*calpars.(sats{s}).([field,num2str(day_loc)]);
+              end
               %build timeseries object
-              arc.(sats{s}).(field)=simpletimeseries(t,y,...
+              ts=simpletimeseries(transpose(t(day_loc,:)),y,...
                 'format','datetime',...
                 'labels',{field},...
                 'units',units(i),...
                 'timesystem','gps',...
                 'descriptor',field...
               );
-            end
-          case 'y'
-            %loop over all suffixes
-            for i=1:numel(suffix)
-              %build field name
-              field=[prefix,upper(c{1}),suffix{i}];
-              %init loop parameters
-              stop_flag=false;
-              %loop over all sub-arcs
-              for day_loc=1:nr_sub_arcs
-                %get sub-arc starts/ends
-                t=[startstop(1)+periodicity*(day_loc-1);...
-                   startstop(1)+periodicity*(day_loc  )-seconds(1)];
-                %singularity
-                if t(2)>startstop(2)
-                  t(2)=startstop(2);
-                  stop_flag=true;
-                end
-                %build ordinate
-                y=ones(2,1)*calpars.(sats{s}).([field,num2str(day_loc)]);
-                %build timeseries object
-                ts=simpletimeseries(t,y,...
-                  'format','datetime',...
-                  'labels',{field},...
-                  'units',units(i),...
-                  'timesystem','gps',...
-                  'descriptor',field...
-                );
-                %init/append output
-                if day_loc==1
-                  arc.(sats{s}).(field)=ts;
-                else
-                  arc.(sats{s}).(field)=arc.(sats{s}).(field).append(ts);
-                end
+              %init/append output
+              if day_loc==1
+                arc.(sats{s}).(field)=ts;
+              else
+                arc.(sats{s}).(field)=arc.(sats{s}).(field).append(ts);
               end
             end
           end
@@ -941,7 +1224,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         csr.arctimeline_load(atl_file),...
         p.Results.year,...
         p.Results.month,...
-        p.Results.arc...
+        'arc',p.Results.arc...
       );
       %load calpars and apply long-term biases
       calpars=csr.calpars_add_ltb(...
@@ -1038,88 +1321,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         s=time.progress(s);
       end
     end
-    function debug_plots(mode,debug)
-      if ~exist('debug','var') || isempty(debug)
-        debug=true;
-      end
-      if ~exist('mode','var') || isempty(mode)
-        mode='calpar';
-      end
-      %create dir for plots
-      plot_dir=fullfile(dataproduct.default_list.plot_dir,['debug_plots_',mode],csr.gitversion);
-      if isempty(dir(plot_dir)); mkdir(plot_dir); end
-      %get dates of plots
-      ssl=csr.debug_parameters;
-      %branch on mode
-      switch mode
-      case 'all'
-        for i={'import_calpar','compute_calmod','calpar'}
-          csr.debug_plots(i{1});
-          close all
-        end
-      case 'import_calpar'
-        name='grace.calpar.csr';
-        %load calibration parameters
-        a=datastorage('debug',debug).init(name,'plot_dir',plot_dir);
-        %retrieve product info
-        sats=a.product_get(name).mdget('sats');
-        %get dates of plots
-        ssl=csr.debug_parameters;
-        %loop over the data
-        for i=1:numel(ssl)
-          p=a.trim('start',ssl(i).start,'stop',ssl(i).stop);
-          for f=1:numel(ssl(i).field)
-            for s=1:numel(sats)
-              p.plot(...
-                datanames(name).set_field_path({'*',ssl(i).field{f},sats{s}}),...
-                'plot_together',{'aak','accatt','estim'}...
-              );
-            end
-          end
-        end
-      case 'compute_calmod'
-        name='grace.acc.calmod.csr';
-        for i=1:numel(ssl)
-          datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'debug_plot',true,'plot_dir',plot_dir);
-        end
-      case 'calpar'
-        name='grace.acc.cal.csr.plots';
-        for i=1:numel(ssl)
-          datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'plot_dir',plot_dir);
-        end
-      case 'calpar-gps'
-        start=datetime('2017-01-01');
-        stop =datetime('2017-01-02');
-        o=datastorage('start',start,'stop',stop,'debug',debug);
-        for p={'grace.acc.l1b.csr','grace.acc.calmod.csr','grace.acc.cal.csr','grace.acc.mod.nrtdm','grace.acc.mod.csr'}
-          o=o.init(p{1});
-        end
-      otherwise
-        error(['unknown mode ''',mode,'''.'])  
-      end
-    end
-    function out=test(mode,start)
-      if ~exist('mode','var') || isempty(mode)
-        mode='calacc';
-      end
-      if ~exist('start','var') || isempty(start)
-        start=datetime('2008-02-26');
-      end
-      stop =start+days(1)-seconds(1);
-      %translate modes to metadata names
-      switch mode
-      case 'calpar';        name='grace.calpar.csr';
-      case 'import_acc_l1b';name='grace.acc.l1b.csr';
-      case 'calmod';        name='grace.acc.calmod.csr';
-      case 'mod';           name='grace.acc.mod.csr';
-      case 'nrtdm';         name='grace.acc.mod.nrtdm';
-      case 'calacc';        name='grace.acc.cal.csr';
-      otherwise
-        error(['unknown mode ''',mode,'''.'])  
-      end
-      out=datastorage('debug',true,'start',start,'stop',stop).init(name);
-      out.peek
-    end
+    %% legacy (needs checking)
     function obj=import_acc_resid_test(obj,product,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -1222,16 +1424,13 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         system(['mv -fv ',fullfile(datadir,'*.mat'),' ',fullfile(datadir,'to-delete')])
       case {'debug_plots_import_calpar','debug_plots_calpar'}
         plot_dir=fullfile('plot',lower(mode),csr.gitversion);
-        disp(plot_dir)
         if ~isempty(dir(plot_dir))
           [status,result]=system(['rm -fvr "',plot_dir,'"']);
-          assert(status==0,['error removing ',mode,'.'])
-          disp(result)
+          assert(status==0,['error removing ',mode,': ',result])
         end
       otherwise
         dataproduct(mode,'metadata_dir',obj.metadata_dir).rm_data(varargin{:});
       end
     end
-
   end
 end

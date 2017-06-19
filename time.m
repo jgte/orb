@@ -1,8 +1,6 @@
 classdef time
   %static
   properties(Constant,GetAccess=private)
-    zero_date=datetime(0,  'ConvertFrom','datenum');
-     inf_date=datetime(Inf,'ConvertFrom','datenum');
     formt_list={'S.FFF','SS.FFF','HH:MM:SS','HH:MM','dd/mm HH:MM','dd/mm/yy','mm/yyyy' ,'yyyy'}
     units_list={'ms'   ,'s'     ,'min'     ,'hrs'  ,'days'       ,'mon'     ,'yrs'     ,'cent'};
     magnt_list=[0.01   ,60      ,3600      ,86400  ,2678400      ,31536000  ,3153600000,inf   ];
@@ -63,7 +61,11 @@ classdef time
       datetime('2017-01-01')...  2017  Jan.   1  - 1s 
     ];
     gps_zero_epoch='1980-01-06';
-  end    
+  end
+  properties(Constant)
+    zero_date=datetime(0,  'ConvertFrom','datenum');
+     inf_date=datetime(Inf,'ConvertFrom','datenum');
+  end
   methods(Static)
     function test
       fmt='%012.12g';
@@ -560,6 +562,11 @@ classdef time
           case 'gpstime'
             out=time.gps2utc(...
               time.gpssec2datetime(in)...
+            );
+          case 'J2000sec'
+            out=datetime(in,...
+              'convertfrom','epochtime',...
+              'epoch','2000-01-01'...
             );
           case 'datevector'
             out=datetime(in);
