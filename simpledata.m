@@ -1407,8 +1407,6 @@ classdef simpledata
       if nargout>1 && any(any(y_data(obj.mask,:)+y_outliers(obj.mask,:)~=obj.y_masked))
         error([mfilename,':Warning: failed the consistency check: obj.y=y_data+y_outliers. Debug needed!'])
       end
-      %propagate (mask is updated inside)
-      obj=obj.assign(y_data);
       %optional outputs
       if nargout>1        
         %copy object to preserve metadata
@@ -1416,13 +1414,15 @@ classdef simpledata
         %propagate gaps
         y_outliers(~obj.mask,:)=NaN;
         %propatate (mask is derived from gaps in y_outliers)
-        outliers=outliers.assign(y_outliers,'x',outliers.x,'mask',true(size(outliers.mask)));
+        outliers=outliers.assign(y_outliers,'x',outliers.x,'mask',all(y_outliers~=0,2));
         %update descriptor
         outliers.descriptor=['outliers of ',obj.descriptor];
         %do not plot zeros, since they refer to other components, not the
         %component where the outlier was detected
         outliers.plot_zeros=false;
       end
+      %propagate (mask is updated inside)
+      obj=obj.assign(y_data,'mask',all(y_data~=0,2));
     end
     function obj=medfilt(obj,n)
       %NOTICE: this function does not decimate the data, it simply applies

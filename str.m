@@ -267,5 +267,29 @@ classdef str
         disp([s(1+stack_delta).name,':',num2str(s(1+stack_delta).line),': ',str.show(varargin(start_idx:end))])
       end
     end
+    function log(filename,msg,varargin)
+      % parse mandatory arguments
+      p=inputParser;
+      p.addRequired( 'filename',    @(i) ischar(i));
+      p.addRequired( 'msg',         @(i) iscellstr(i) || ischar(i));
+      p.addParameter('clear',false, @(i) islogical(i));
+      p.parse(filename,msg,varargin{:});
+      if p.Results.clear && exist(filename,'file')
+        delete(filename)
+      end
+      if isempty(msg)
+        return
+      end
+      if ischar(msg)
+        tmp=cell(size(msg,1),1);
+        for i=1:size(msg,1)
+          tmp{i}=msg(i,:);
+        end
+        msg=tmp;
+      end
+      fid = fopen(filename,'a');  
+      fprintf(fid,[strjoin(msg,'\n'),'\n']);
+      fclose(fid);
+    end
   end
 end
