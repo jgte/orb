@@ -549,7 +549,8 @@ classdef dataproduct
         %gather plotted data
         dat=cell(size(line_handles));
         for i=1:numel(line_handles)
-          dat{i}=get(line_handles(i),'ydata');
+          tmp=get(line_handles(i),'ydata');
+          dat{i}=transpose(tmp(:));
         end
         dat=[dat{:}];
         dat=dat(~isnan(dat(:)));

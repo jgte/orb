@@ -68,12 +68,9 @@ classdef segmentedfreqseries < simplefreqseries
         start=stop-seg_overlap;
       end
       %remove empty entries
-      for i=n:-1:1
-        if isempty(out{i})
-          out=out(1:i-1);
-          idx=idx(1:i-1);
-        end
-      end
+      empty_idx=cells.isempty(out);
+      out=out(~empty_idx);
+      idx=idx(~empty_idx);
     end
     %general test for the current object
     function out=test_parameters(field,l,w)
