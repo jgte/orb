@@ -49,34 +49,34 @@ classdef csr
     function out=debug_parameters
       %define start/stop pairs and level
       i=0;out=struct([]);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-04-15 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-04-27 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-05-04 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-05-11 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-05-16 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-08-03 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-08-06 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-08-16 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-08-26 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-09-07 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-09-28 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2002-09-30 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2003-01-12 00:00:00'); out(i).stop=datetime('2003-01-15 23:59:59');
-      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-      out(i).start=datetime('2003-11-20 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-04-15 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-04-27 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-05-04 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-05-11 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-05-16 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-08-03 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-08-06 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-08-16 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-08-26 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-09-07 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-09-28 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2002-09-30 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2003-01-12 00:00:00'); out(i).stop=datetime('2003-01-15 23:59:59');
+%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+%       out(i).start=datetime('2003-11-20 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
       out(i).start=datetime('2003-11-21 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
@@ -1057,19 +1057,23 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       stop =datetime;
       %open the file
       fid=fopen(filename);
+      assert(fid>0,['Cannot find file ''',filename,'''.'])
       %load the data
-      % 1  2  3  4    5  6  7   8       9
-      %14 04/13/04 2004 04 13 0.0 86400.0
-      dat=textscan(fid,'%f %f/%f/%f %f %f %f %f %f');
+      % 1  2  3  4     5       6       7
+      %18 12/17/03 52990 49700.0 36700.0
+      dat=textscan(fid,'%f %f/%f/%f %f %f %f');
       %close the file
       fclose(fid);
       %table names
       arc=dat{1};
-      year=dat{5};
-      month=dat{6};
-      day=dat{7};
-      start=datetime([year,month,day])+seconds(dat{8});
-      stop =start                     +seconds(dat{9});
+      month=dat{2};
+      day=dat{3};
+      year=2000+dat{4};
+      date=datetime([year,month,day]);
+      mjd=dat{5};
+      assert(all(mjd==time.mjd(date)),['Discrepancy between date and MJD in the file ''',filename,'''.'])
+      start=date+ seconds(dat{6});
+      stop =start+seconds(dat{7});
       %create the table
       T=table(year,month,day,arc,start,stop);
     end

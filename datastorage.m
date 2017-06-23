@@ -108,15 +108,40 @@ classdef datastorage
         dn_list=dn_list(~empty_idx);
       end
     end
-    function peek(obj,dn)
+    function peek(obj,dn_list,info_methods,tab)
       if obj.isempty
         return
       end
-      if ~exist('dn','var') || isempty(dn)
-        dn='all';
+      if ~exist('dn','var') || isempty(dn_list)
+        dn_list='all';
       end
-      dn=obj.data_list(dn);
-      cellfun(@(i) disp(str.tablify([32,6],i.codename,obj.data_get_scalar(i).size)),dn)
+      if ~exist('info_methods','var') || isempty(info_methods)
+        info_methods={'size','nr_gaps','start','stop'};
+      end
+      if ~exist('tab','var') || isempty(tab)
+        tab=[32,20];
+      end
+      %show header
+      disp(str.tablify(tab,'product',info_methods))
+      %retrieve global field path list
+      obj_list=obj.data_get(dn_list);
+      dn_list=obj.data_list(dn_list);
+      %loop over all retrieved objects
+      for i=1:numel(obj_list)
+        msg=cell(size(info_methods));
+        if isempty(obj_list{i})
+          msg(:)={'-'};
+        else
+          for m=1:numel(info_methods)
+            if ismethod(obj_list{i},info_methods{m}) || isprop(obj_list{i},info_methods{m})
+              msg{m}=obj_list{i}.(info_methods{m});
+            else
+              msg{m}='N/A';
+            end
+          end        
+        end
+        disp(str.tablify(tab,dn_list{i}.str,msg))
+      end
     end
     %% value operations (basically wraps some methods in the structs object)
     function out=value_get(obj,dn)
@@ -139,13 +164,17 @@ classdef datastorage
       );
     end
     %% data operations
-    function out=isdata_leaf(obj,dn)
+    function out=isdata_leaf(obj,dn,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('only_non_empty',false,@(i) islogical(i) && isscalar(i));
+      p.parse(varargin{:});
       %reduce dataname to common object
       dn=datanames(dn);
-      %determine leafness
-      out=~isfield(obj.data,dn.name_clean) || structs.isleaf(obj.data.(dn.name_clean),dn.field_path);
+      %determine leafness (structs.isleaf returns empty structures as leafs by default, only_non_empty changes that)
+      out=~isfield(obj.data,dn.name_clean) || structs.isleaf(obj.data.(dn.name_clean),dn.field_path,p.Results.only_non_empty);
     end
-    function dn_list=data_list(obj,dn)
+    function dn_list=data_list(obj,dn,varargin)
       if numel(dn)==0
         %trivial call
         dn_list={};
@@ -175,7 +204,7 @@ classdef datastorage
       end
       %scalar mode
       %check if this dataname is a leaf product
-      if obj.isdata_leaf(dn)
+      if obj.isdata_leaf(dn,varargin{:})
         field_path_list={dn.field_path};
       else
         %get all field names under dn.field_path
@@ -421,10 +450,15 @@ classdef datastorage
       end
       %retrieve global field path list
       obj_list=obj.data_get(dn);
+      dn_list=obj.data_list(dn);
       %loop over all retrieved objects
       for i=1:numel(obj_list)
-        disp(obj_list{i}.descriptor)
-        obj_list{i}.print(varargin{:});
+        disp(dn_list{i}.str)
+        if isempty(obj_list{i})
+          disp('empty')
+        else
+          obj_list{i}.print(varargin{:});
+        end
       end
     end
     %% metadata interface
@@ -451,16 +485,6 @@ classdef datastorage
     function [obj,success]=load(obj,product,varargin)
       %type sanity
       assert(isa(product,'dataproduct'),['input ''product'' has to be of class ''dataproduct'', not ''',class(product),'''.'])
-%       %operate on leaves
-%       if ~obj.isdata_leaf(product)
-%         product_leafs=product.field_path_expand(obj.data_list(product));
-%         success=true(size(product_leafs));
-%         for i=1:numel(product_leafs)
-%           [obj,success(i)]=obj.load(product_leafs{i},varargin{:});
-%         end
-%         success=all(success);
-%         return
-%       end
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
       % get the file list
       file_list=product.file('data','discover',false,'start',obj.start,'stop',obj.stop,varargin{:});
@@ -507,14 +531,6 @@ classdef datastorage
     function save(obj,product,varargin)
       %type sanity
       assert(isa(product,'dataproduct'),['input ''product'' has to be of class ''dataproduct'', not ''',class(product),'''.'])
-%       %operate on leaves
-%       if ~obj.isdata_leaf(product)
-%         product_leafs=product.field_path_expand(obj.data_list(product));
-%         for i=1:numel(product_leafs)
-%           obj.save(product_leafs{i},varargin{:});
-%         end
-%         return
-%       end
       %ignore plot products, file saving is done inside the init method
       if product.ismd_field('plot_product') && product.mdget('plot_product')
         return
@@ -587,7 +603,7 @@ classdef datastorage
         product_list=dataproduct.unwrap_product({product});
       elseif product.nr_sources>0
         %expand to source leafs (avoids having to declare 'levelX_name/vals' in all downstream products)
-        product_list=obj.source_leafs({product});
+        product_list=obj.product_from_source_leafs({product});
       else
         %expand existing leafs in this product (should generally return itself, since this product has not yet been initialized)
         product_list=obj.product_leafs({product});
@@ -630,86 +646,120 @@ classdef datastorage
       assert(obj.start<obj.stop,['Requested start/stop dates are incompatible with product ',dn.str,...
         '; consider updating the data in that product.'])
     end
-    function out=product_leafs(obj,product_list)
+    function out=product_leafs(obj,product_list,varargin)
       if iscell(product_list)
-        out=cells.flatten(cellfun(@obj.product_leafs,product_list,'UniformOutput',false));
+        out=cells.flatten(cellfun(@(i) obj.product_leafs(i,varargin{:}),product_list,'UniformOutput',false));
       else
-        out=product_list.field_path_expand(obj.data_list(product_list));
+        out=product_list.field_path_expand(obj.data_list(product_list,varargin{:}));
       end
     end
-    function product_list=source_leafs(obj,product_list)
+    function source_list=source_leafs(obj,product_list)
       if iscell(product_list)
         product_list=cells.flatten(cellfun(@obj.source_leafs,product_list,'UniformOutput',false));
-      else
-        %branch on the existence of sources
-        if product_list.nr_sources>0
-          %go over all sources and collect their leafs, store each list of datanames in a cell array
-          source_inventory=cell(1,product_list.nr_sources);
-          for i=1:product_list.nr_sources
+        return
+      end
+      obj.log('@','in','product_list',product_list)
+      %easier names
+      field_path_now=product_list.dataname.field_path;
+      n=numel(field_path_now);
+      %results containers
+      source_inventory=cell(1,product_list.nr_sources);
+      %go over all sources to collect their leafs
+      for i=1:product_list.nr_sources
+        %search for existing data: start by checking the complete field_path (k=n-1,j=1:1,field_path_now(1:n))
+        for k=n-1:-1:0
+          for j=1:n-k
             source_inventory{i}=obj.data_list(...
-              product_list.sources(i).set_field_path(product_list.dataname.field_path)...
-            );
+              product_list.sources(i).set_field_path(field_path_now(j:j+k)),...
+            'only_non_empty',true);
+            %update bail flag
+            bail_flag=~isempty(source_inventory{i});
+            %are we there yet?
+            if bail_flag,break,end
           end
-          %some products simply copy the field paths from sources
-          if product_list.ismd_field('source_fields_from')
-            source_idx=find(strcmp(...
-              cellfun(@(i) i.name, product_list.source_list,'UniformOutput',false),...
-              product_list.mdget('source_fields_from')...
-            ));
-            % limit the depth of the products
-            if product_list.ismd_field('source_fields_max_depth')
-              source_depth=product_list.mdget('source_fields_max_depth');
-            else
-              source_depth=-1;
-            end
-          %most products operate on a one-to-one basis in the field paths
-          else
-            %get strings with field paths for all source
-            field_path_str=cellfun(...
-              @(i) cellfun(@(j) j.field_path_str,i,'UniformOutput',false),...
-            source_inventory,'UniformOutput',false);
-            %make sure all sources have the same leafs (otherwise can't really do anything)
-            for i=2:numel(source_inventory)
-              assert(cells.isequal(field_path_str{1},field_path_str{i}),[...
-                'The data names under ',product_list.sources(1).str,...
-                ' (i.e. ',strjoin(field_path_str{1},', '),') ',...
-                ' are in not agreement with those under ',product_list.sources(i).str,...
-                ' (i.e. ',strjoin(field_path_str{i},', '),').',...
-              ])
-            end
-            source_idx=1;
-            source_depth=-1;
-          end
-          %reduce source inventory
-          source_inventory=source_inventory{source_idx};
-          %retrieve only the required depth (this is untested for source_depths>1
-          if source_depth>0
-            source_inventory_out={source_inventory{1}.set_field_path({})};
-            for i=1:source_depth
-              %get unique field names for this depth
-              source_depth_now=unique(cellfun(@(dn) dn.field_path{i},source_inventory,'UniformOutput',false));
-              %save current source inventory
-              source_inventory_now=source_inventory_out;
-              %make room for updated source inventory
-              source_inventory_out=cell(1,numel(source_depth_now)*numel(source_inventory_now));
-              %loop over all sources at current depth and number of current sources in inventory
-              for j=1:numel(source_depth_now)
-                for k=1:numel(source_inventory_now)
-                  source_inventory_out{k+numel(source_inventory_now)*(j-1)}=...
-                    source_inventory_now{k}.append_field_leaf(source_depth_now{j});
-                end
-              end
-            end
-            %propagate data 
-            source_inventory=source_inventory_out;
-          end
-          %expand this product list
-          product_list=product_list.field_path_expand(source_inventory);
-        else
-          %need implementation
-          error('implementation needed')
+          if bail_flag,break,end
         end
       end
+      %convert to product
+      source_list=cellfun(@(i) dataproduct(i), cells.flatten(cells.rm_empty(source_inventory)),'UniformOutput',false);
+      obj.log('@','out','source_list',source_list)
+    end
+    function product_list=product_from_source_leafs(obj,product_list)
+      if iscell(product_list)
+        product_list=cells.flatten(cellfun(@obj.product_from_source_leafs,product_list,'UniformOutput',false));
+        return
+      end
+      obj.log('@','in','product_list',product_list)
+      %ensure existence of sources
+      assert(product_list.nr_sources>0,'need positive number of sources')
+      %go over all sources and collect their leafs, store each list of datanames in a cell array
+      source_inventory=cell(1,product_list.nr_sources);
+      for i=1:product_list.nr_sources
+        source_inventory{i}=obj.data_list(...
+          product_list.sources(i).set_field_path(product_list.dataname.field_path)...
+        );
+      end
+      obj.log('@','1','source_inventory',source_inventory)
+      %some products simply copy the field paths from sources
+      if product_list.ismd_field('source_fields_from')
+        source_idx=find(strcmp(...
+          cellfun(@(i) i.name, product_list.source_list,'UniformOutput',false),...
+          product_list.mdget('source_fields_from')...
+        ));
+        % limit the depth of the products
+        if product_list.ismd_field('source_fields_max_depth')
+          source_depth=product_list.mdget('source_fields_max_depth');
+        else
+          source_depth=-1;
+        end
+      %most products operate on a one-to-one basis in the field paths
+      else
+        %get strings with field paths for all source
+        field_path_str=...
+          cellfun(@(i) ...
+            cellfun(@(j) ...
+              j.field_path_str,...
+            i,'UniformOutput',false),...
+          source_inventory,'UniformOutput',false);
+        %make sure all sources have the same leafs (otherwise can't really do anything)
+        for i=2:numel(source_inventory)
+          assert(cells.isequal(field_path_str{1},field_path_str{i}),[...
+            'The data names under ',product_list.sources(1).str,...
+            ' (i.e. ',strjoin(field_path_str{1},', '),') ',...
+            ' are in not agreement with those under ',product_list.sources(i).str,...
+            ' (i.e. ',strjoin(field_path_str{i},', '),').',...
+          ])
+        end
+        source_idx=1;
+        source_depth=-1;
+      end
+      obj.log('@','2','source_idx',source_idx,'source_depth',source_depth)
+      %reduce source inventory
+      source_inventory=source_inventory{source_idx};
+      %retrieve only the required depth (this is untested for source_depths>1
+      if source_depth>0
+        source_inventory_out={source_inventory{1}.set_field_path({})};
+        for i=1:source_depth
+          %get unique field names for this depth
+          source_depth_now=unique(cellfun(@(dn) dn.field_path{i},source_inventory,'UniformOutput',false));
+          %save current source inventory
+          source_inventory_now=source_inventory_out;
+          %make room for updated source inventory
+          source_inventory_out=cell(1,numel(source_depth_now)*numel(source_inventory_now));
+          %loop over all sources at current depth and number of current sources in inventory
+          for j=1:numel(source_depth_now)
+            for k=1:numel(source_inventory_now)
+              source_inventory_out{k+numel(source_inventory_now)*(j-1)}=...
+                source_inventory_now{k}.append_field_leaf(source_depth_now{j});
+            end
+          end
+        end
+        %propagate data 
+        source_inventory=source_inventory_out;
+      end
+      %convert to dataproduct
+      product_list=product_list.field_path_expand(source_inventory);
+      obj.log('@','out','product_list',product_list)
     end
     function obj=init_sources(obj,product,varargin)
       p=inputParser;
@@ -921,7 +971,7 @@ classdef datastorage
         e.suffix=['.',p.Results.plot_file_suffix];
       end
       %need the source list
-      e.sources=product.source_list;
+      e.sources=obj.source_leafs(product);
       %need the labels of the columns
       e.col_names=p.Results.plot_column_names;
       if isempty(e.col_names)

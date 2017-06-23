@@ -180,11 +180,18 @@ classdef structs
         Sout=structs.set_value(Sout,fl{i},Oout);
       end
     end
-    function out=isleaf(S,field_path)
+    function out=isleaf(S,field_path,non_empty)
       if ~exist('field_path','var')
         field_path={};
       end
-      out=~isstruct(structs.get_value(S,field_path));
+      if ~exist('non_empty','var')||isempty(non_empty)
+        non_empty=false;
+      end
+      val=structs.get_value(S,field_path);
+      out=~isstruct(val);
+      if non_empty
+        out=out && ~isempty(val);
+      end
     end
   end
 end
