@@ -184,10 +184,15 @@ classdef dataproduct
         %declare parameters
         p.addParameter(pn{i},dataproduct.parameter_list.(pn{i}).default,dataproduct.parameter_list.(pn{i}).validation)
       end
+      p.addParameter('field_path','',@(i) ischar(i) || iscell(i));
       % parse it
       p.parse(varargin{:});
       % call superclass constructor
-      obj.dataname=datanames(in);
+      if ~isempty(p.Results.field_path)
+        obj.dataname=datanames(in,p.Results.field_path);
+      else
+        obj.dataname=datanames(in);
+      end
       % save parameters
       for i=1:numel(pn)
         if ~isscalar(p.Results.(pn{i}))
@@ -616,9 +621,6 @@ classdef dataproduct
           out{i}.metadata.sources{j}=out{i}.metadata.sources{j}.set_field_path(dn_list{i}.field_path);
         end
       end
-    end
-    function out=field_path_expand_sources(obj)
-      out=obj.field_path_expand(obj.sources);
     end
   end
 end

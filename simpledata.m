@@ -1330,7 +1330,7 @@ classdef simpledata
       %make room for data
       y_polyfitted=zeros(size(y_now));
       %polyfit for all columns
-      S=struct([]);
+      S(obj.width)=struct('R',[],'df',[],'normr',[]);
       for i=1:obj.width
         [p,S(i)]=polyfit(x_now,y_now(:,i),order);
         y_polyfitted(:,i)=polyval(p,x_now);
