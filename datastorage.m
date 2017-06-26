@@ -723,13 +723,21 @@ classdef datastorage
           source_inventory,'UniformOutput',false);
         %make sure all sources have the same leafs (otherwise can't really do anything)
         for i=2:numel(source_inventory)
-          assert(cells.isequal(field_path_str{1},field_path_str{i}),[...
-            'The data names under ',product_list.sources(1).str,...
-            ' (i.e. ',strjoin(field_path_str{1},', '),') ',...
-            ' are in not agreement with those under ',product_list.sources(i).str,...
-            ' (i.e. ',strjoin(field_path_str{i},', '),').',...
-          ])
+          if ~cells.isequal(field_path_str{1},field_path_str{i})
+            disp(['WARNING: ',...
+              'The data names under ',product_list.sources(1).str,...
+              ' (i.e. ',strjoin(field_path_str{1},', '),') ',...
+              ' are in not agreement with those under ',product_list.sources(i).str,...
+              ' (i.e. ',strjoin(field_path_str{i},', '),').',...
+            ])
+            %get common field_path
+            field_path_str{1}=intersect(field_path_str{1},field_path_str{i});
+            field_path_str{i}=field_path_str{1};
+          end
         end
+        %check if field paths have vanished
+        assert(all(~cells.isempty(field_path_str)),'Found empty field paths, possibly these sources are not compatible.')
+        %any source will do and do not limit the depth of products
         source_idx=1;
         source_depth=-1;
       end
@@ -806,6 +814,7 @@ classdef datastorage
       p=inputParser;
       p.KeepUnmatched=true;
       p.addParameter('dn_reference',dn, @(i) isa(i,'datanames'));
+      p.addParameter('plot_psd',false,  @(i) islogical(i));
       p=obj.product_get(dn).plot_args(p,varargin{:});
       %if dn_reference is not the default, parse plot arguments from that product
       if ~strcmp(p.UsingDefaults,'dn_reference')
@@ -813,6 +822,10 @@ classdef datastorage
       end
       %retrieve the requested data
       d=obj.data_get_scalar(dn);
+      %transmute to frequency series object if requested
+      if p.Results.plot_psd
+        d=simplefreqseries.transmute(d);
+      end
       %checking data class
       switch class(d)
       case 'gravity'
@@ -824,6 +837,12 @@ classdef datastorage
         );
       case 'simpletimeseries'
         h=d.plot(...
+          'columns', p.Results.plot_columns,...
+          'outlier', p.Results.plot_outlier,...
+          'zeromean',p.Results.plot_zeromean...
+        );
+      case 'simplefreqseries'
+        h=d.plot_psd(...
           'columns', p.Results.plot_columns,...
           'outlier', p.Results.plot_outlier,...
           'zeromean',p.Results.plot_zeromean...
@@ -1006,7 +1025,7 @@ classdef datastorage
       %parse optional parameters as defined in the metadata
       p=product.plot_args(p,varargin{:});
       %if columns are not to be plotted together, need to expand the calls to obj.plot to include each column
-      if ~p.Results.plot_columns_together
+      if ~p.Results.plot_column_together
         %retrieve column names (a.o.)
         e=obj.plot_elements(p,product,varargin{:});
         %make room for handles
@@ -1028,7 +1047,7 @@ classdef datastorage
             varargin{:},...
             'plot_file_suffix', strjoin([e.col_names(p.Results.plot_columns(i)),{p.Results.plot_file_suffix}], '.'),...
             'plot_title_suffix',strjoin([e.col_names(p.Results.plot_columns(i)),{p.Results.plot_title_suffix}],' '),...
-            'plot_columns_together',true,...
+            'plot_column_together',true,...
             'plot_columns',p.Results.plot_columns(i)...
           );
         end
@@ -1087,23 +1106,14 @@ classdef datastorage
         end
         plot_columns=tmp;
       end
-      %get current product
-      product=obj.product_get(dn);
-      %parse optional
-      p=inputParser;
-      p.KeepUnmatched=true;
-      %parse optional parameters as defined in the first metadata
-      p=product.plot_args(p,varargin{:});
-      %create list with plot parameters for dn_now
-      dn_now_plot_args_list=product.plot_args_list;
       %make room for outputs
       h=cell(size(dn_list));
       %loop over all datanames
       for i=1:numel(dn_list)
         h{i}=obj.justplot(dn_list{i},...
           varargin{:},...
-          dn_now_plot_args_list{:},... %otherwise the justplot method picks the plot_* parameters define in dn_list{i}
-          'plot_columns_together',true,...
+          'dn_reference',dn,... %otherwise the justplot method picks the plot_* parameters define in dn_list{i}
+          'plot_column_together',true,...
           'plot_columns',plot_columns{i}... 
         );
       end
@@ -1130,7 +1140,7 @@ classdef datastorage
       %parse optional parameters as defined in the metadata
       p=product.plot_args(p,varargin{:});
       %retrieve plot elements (repetitive processing of parameters)
-      e=obj.plot_elements(p,product);
+      e=obj.plot_elements(p,product,varargin{:});
       %loop over all data
       for t=1:numel(e.startlist)
         %loop over all columns to plot

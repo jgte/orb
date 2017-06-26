@@ -4,7 +4,7 @@ sources: [grace.acc.calmod.csr,grace.acc.l1b.csr]
 storage_period: daily
 plot_columns: [1,2,3]
 plot_together: fields
-plot_columns_together: false
+plot_column_together: false
 plot_autoscale: true
 plot_automean: true
 plot_outlier: 0

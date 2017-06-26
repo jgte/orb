@@ -1,0 +1,17 @@
+method: datastorage.plot_auto
+sources: [grace.acc.l1b.csr,grace.acc.mod.csr]
+storage_period: daily
+plot_columns: [1,2,3]
+plot_autoscale: false
+plot_automean: false
+plot_outlier: 0
+plot_zeromean: false
+plot_title_suppress: [grace,acc,csr]
+plot_column_names: [X-axis,Y-axis,Z-axis]
+plot_ylabel: '[m/s^2]'
+plot_title_prefix: GRACE
+plot_product: true
+plot_visible: 'off'
+plot_psd: true
+plot_xlimits: [1e-5,1e-1]
+plot_ylimits: [1e-18,1e-8]

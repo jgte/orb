@@ -1,12 +1,13 @@
 classdef simpletimeseries < simpledata
   %static
   properties(Constant,GetAccess=private)
+    %NOTE: edit this if you add a new parameter
     parameter_list=struct(...
       'format',    struct('default','modifiedjuliandate','validation',@(i) ischar(i)),...
       'units',     struct('default',{{''}},              'validation',@(i) iscellstr(i)),...
-      't_tol',     struct('default',1e-6,                'validation',@(i) isnumeric(i) && iscalar(i)),...
+      't_tol',     struct('default',1e-6,                'validation',@(i) isnumeric(i) && isscalar(i)),...
       'timesystem',struct('default','utc',               'validation',@(i) ischar(i)),...
-      'debug',     struct('default',false,               'validation',@(i) islogical(i) && iscalar(i))...
+      'debug',     struct('default',false,               'validation',@(i) islogical(i) && isscalar(i))...
     );
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -16,11 +17,18 @@ classdef simpletimeseries < simpledata
   properties(Constant)
     valid_timesystems={'utc','gps'};
   end
-  %read only
+  %NOTE: edit this if you add a new parameter (if read only)
   properties(SetAccess=private)
     step
     debug
     timesystem
+  end
+ %These parameters should not modify the data in any way; they should
+  %only describe the data or the input/output format of it.
+  %NOTE: edit this if you add a new parameter (if read/write)
+  properties(GetAccess=public,SetAccess=public)
+    format
+    t_tol
   end
   %private (visible only to this object)
   properties(GetAccess=private)
@@ -34,13 +42,6 @@ classdef simpletimeseries < simpledata
     start
     stop
     tsys
-  end
-  %These parameters should not modify the data in any way; they should
-  %only describe the data or the input/output format of it.
-  %NOTE: if you add something here, update simpletimeseries.parameter_list
-  properties(GetAccess=public,SetAccess=public)
-    format
-    t_tol
   end
   methods(Static)
     function out=timescale(in)
@@ -131,6 +132,21 @@ classdef simpletimeseries < simpledata
     end
     function out=parameters
       out=fieldnames(simpletimeseries.parameter_list);
+    end
+    function out=transmute(in)
+      if isa(in,'simpletimeseries')
+        %trivial call
+        out=in;
+      else
+        %transmute into this object
+        if isprop(in,'t')
+          out=simpletimeseries(in.t,in.y,in.metadata{:});
+        elseif isprop(in,'x')
+          out=simpletimeseries(in.x,in.y,in.metadata{:});
+        else
+          error('Cannot find ''t'' or ''x''. Cannot continue.')
+        end
+      end
     end
     function out=timestep(in,varargin)
       p=inputParser;
@@ -235,24 +251,7 @@ classdef simpletimeseries < simpledata
       now=juliandate(datetime('now'),'modifiedjuliandate');
                 
       i=0;      
-      
-      a=simpledata.test_parameters('all_T',l,w);
-%       i=i+1;h{i}=figure('visible','on'); a.plot('title', 'original')
-      
-      b=a.parametric_decomposition(...
-        'polynomial',ones(size(simpledata.test_parameters('y_poly_scale'))),...
-        'sinusoidal',simpledata.test_parameters('T',l)...
-      );
-      i=i+1;h{i}=figure('visible','on'); 
-      a.plot('title', 'original','columns',1)
-      fn=fields(b.ts);
-      for i=1:numel(fn);
-        b.ts.(fn{i}).plot('columns',1)
-      end
-      legend('original',fn{:})
-      
-      return
-      
+            
       lines1=cell(w,1);lines1(:)={'-o'};
       lines2=cell(w,1);lines2(:)={'-x'};
       lines3=cell(w,1);lines3(:)={'-+'};
@@ -305,9 +304,32 @@ classdef simpletimeseries < simpledata
       );
       i=i+1;h{i}=figure('visible','off'); a.plot('title','delete')
       
+      a=simpledata.test_parameters('all_T',l,w);
+      i=i+1;h{i}=figure('visible','off'); a.plot('title', 'parametric decomposition','columns',1)
+      b=a.parametric_decomposition(...
+        'polynomial',ones(size(simpledata.test_parameters('y_poly_scale'))),...
+        'sinusoidal',simpledata.test_parameters('T',l)...
+      );
+      fn=fields(b);tot=[];legend_str={};
+      for i=1:numel(fn);
+        if ~isempty(strfind(fn{i},'ts_'))
+          legend_str{end+1}=fn{i}; %#ok<*AGROW>
+          b.(fn{i}).plot('columns',1)
+          if isempty(tot)
+            tot=b.(fn{i});
+          else
+            tot=tot+b.(fn{i});
+          end
+        end
+      end
+      tot.plot('columns',1)
+      legend_str=strrep(legend_str,'_','\_');
+      legend('original',legend_str{:},'sum')
+      
       for i=numel(h):-1:1
         set(h{i},'visible','on')
       end
+
     end
     %% import methods
     function filenames=unwrap_datafiles(in,varargin)
@@ -912,6 +934,18 @@ classdef simpletimeseries < simpledata
       for i=1:numel(parameters)
         if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
           obj.(parameters{i})=obj_in.(parameters{i});
+        end
+      end
+    end
+    function out=metadata(obj)
+      %call superclass
+      out=metadata@simpledata(obj);
+      %build cell array with parameters of this object
+      parameters=simpletimeseries.parameters;
+      for i=1:numel(parameters)
+        if isprop(obj,parameters{i})
+          out{end+1}=parameters{i};
+          out{end+1}=obj.(parameters{i});
         end
       end
     end

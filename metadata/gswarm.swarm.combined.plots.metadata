@@ -9,7 +9,7 @@ sources: [
 plot_product: true
 plot_method: timeseries
 storage_period: global
-plot_columns_together: false
+plot_column_together: false
 plot_columns: [4,5,6]
 plot_title_suppress: [gswarm,swarm]
 plot_xlimits: [2013-11-01,2016-12-31]
