@@ -1,15 +1,26 @@
 classdef simplefreqseries < simpletimeseries
   %static
   properties(Constant,GetAccess=private)
-    %default value of some internal parameters
-    default_list=struct(...
-      'psd_method',      'periodogram',...
-      'bandpass_method', 'fft' ...
+    %NOTE: edit this if you add a new parameter
+    parameter_list=struct(...
+      'psd_method',     struct('default','periodogram','validation',@(i) ischar(i)),...
+      'bandpass_method',struct('default','fft',        'validation',@(i) ischar(i))...
     );
+    %These parameter are considered when checking if two data sets are
+    %compatible (and only these).
+    %NOTE: edit this if you add a new parameter (if relevant)
+    compatible_parameter_list={};
   end
-  %read only
+  %NOTE: edit this if you add a new parameter (if read only)
   properties(SetAccess=private)
     nyquist
+    bandpass_method
+    psd_method
+  end
+  %These parameters should not modify the data in any way; they should
+  %only describe the data or the input/output format of it.
+  %NOTE: edit this if you add a new parameter (if read/write)
+  properties(GetAccess=public,SetAccess=public)
   end
   %private (visible only to this object)
   properties(GetAccess=private)
@@ -23,6 +34,24 @@ classdef simplefreqseries < simpletimeseries
   methods(Static)
     function out=default
       out=simplefreqseries.default_list;
+    end
+    function out=parameters
+      out=fieldnames(simplefreqseries.parameter_list);
+    end
+    function out=transmute(in)
+      if isa(in,'simplefreqseries')
+        %trivial call
+        out=in;
+      else
+        %transmute into this object
+        if isprop(in,'t')
+          out=simplefreqseries(in.t,in.y,in.metadata{:});
+        elseif isprop(in,'x')
+          out=simplefreqseries(in.x,in.y,in.metadata{:});
+        else
+          error('Cannot find ''t'' or ''x''. Cannot continue.')
+        end
+      end
     end
     function idx=get_freq_idx(ff,Wn,mode)
       switch mode
@@ -93,7 +122,7 @@ classdef simplefreqseries < simpletimeseries
         'format','modifiedjuliandate'...
       );
     
-      %TODO: fft_bandpass doesn't work if there are gaps in the time domain
+      %TODO: fft_bandpass doesn't work if there are explicit gaps in the time domain
       %(which is something uncommon anyway)
       a=a.fill;
 
@@ -112,13 +141,15 @@ classdef simplefreqseries < simpletimeseries
       d.plot_psd('columns',1)
       s.plot_psd('columns',1)
       legend('original','despiked','spikes')
-      
-      %smoothing
+      title('despiking')
+      return
+      %PSD-smoothing
       
       figure
       a.psd_refresh('smooth',false).plot_psd('columns',1)
       a.psd_refresh('smooth',true ).plot_psd('columns',1)
-      legend('original','smoothed')
+      legend('original PSD','smoothed PSD')
+      title('PSD smoothing')
      
       %different PSD computation methods
 
@@ -133,33 +164,59 @@ classdef simplefreqseries < simpletimeseries
       
       %band-pass filtering
       
-      h{1}=figure; a.plot('columns',1);
-      h{2}=figure; a.plot_psd('columns',1)
+      b=a.fft_bandpass(simplefreqseries.test_parameters('Wn',t,w));
+      figure
+      subplot(2,1,1)
+      a.plot('columns',1);
+      b.plot('columns',1);
+      legend('original','filtered')
       
-      a=a.fft_bandpass(simplefreqseries.test_parameters('Wn',t,w));
-      
-      figure(h{1}); a.plot('columns',1);     legend('original','filtered'), title('band-pass filtering')
-      figure(h{2}); a.plot_psd('columns',1); legend('original','filtered'), title('band-pass filtering')
+      subplot(2,1,2)
+      a.plot_psd('columns',1)
+      b.plot_psd('columns',1)
+      legend('original','filtered')
+      title('band-pass filtering')
 
     end
   end
   methods
     %% constructor
     function obj=simplefreqseries(t,y,varargin)
+      % parameter names
+      pn=simplefreqseries.parameters;
+      % input parsing
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 't',     @(i)                 ~isscalar(i)); %this can be char, double or datetime
+      p.addRequired( 't',     @(i)          ~isscalar(i)); %this can be char, double or datetime
       p.addRequired( 'y',     @(i) simpledata.valid_y(i));
+      %declare parameters
+      for i=1:numel(pn)
+        %declare parameters
+        p.addParameter(pn{i},simplefreqseries.parameter_list.(pn{i}).default,simplefreqseries.parameter_list.(pn{i}).validation)
+      end
       % parse it
       p.parse(t,y,varargin{:});
       %call superclass
       obj=obj@simpletimeseries(p.Results.t,p.Results.y,varargin{:});
+      % save parameters
+      for i=1:numel(pn)
+        %parameter 'units' has already been handled when calling simpledata constructor, so skip it
+        if strcmp(pn{i},'units')
+          continue
+        end
+        if ~isscalar(p.Results.(pn{i}))
+          %vectors are always lines (easier to handle strings)
+          obj.(pn{i})=transpose(p.Results.(pn{i})(:));
+        else
+          obj.(pn{i})=p.Results.(pn{i});
+        end
+      end
       %initialize internal records
       obj.psdi=[];
       %save delta frequency
       obj.nyquist=2/obj.step_num;
       %no need to sanitize, since psdi is still empty
-    end   
+    end
     function obj=assign(obj,y,varargin)
       %pass it upstream
       obj=assign@simpletimeseries(obj,y,varargin{:});
@@ -170,13 +227,25 @@ classdef simplefreqseries < simpletimeseries
     function obj=copy_metadata(obj,obj_in)
       %call superclass
       obj=copy_metadata@simpletimeseries(obj,obj_in);
-%TODO: fix this if there is relevant metadata in this object
-%       parameters=fields(simpletimeseries.parameter_list);
-%       for i=1:numel(parameters)
-%         if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
-%           obj.(parameters{i})=obj_in.(parameters{i});
-%         end
-%       end
+      %propagate parameters of this object
+      parameters=simplefreqseries.parameters;
+      for i=1:numel(parameters)
+        if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
+          obj.(parameters{i})=obj_in.(parameters{i});
+        end
+      end
+    end
+    function out=metadata(obj)
+      %call superclass
+      out=metadata@simpletimeseries(obj);
+      %build cell array with parameters of this object
+      parameters=simplefreqseries.parameters;
+      for i=1:numel(parameters)
+        if isprop(obj,parameters{i})
+          out{end+1}=parameters{i};          %#ok<AGROW>
+          out{end+1}=obj.(parameters{i}); %#ok<AGROW>
+        end
+      end
     end
     %% psd methods
     function out=get.f(obj)
@@ -220,7 +289,7 @@ classdef simplefreqseries < simpletimeseries
       p=inputParser;
       p.KeepUnmatched=true;
       % add stuff as needed
-      p.addParameter('method',  simplefreqseries.default.psd_method,@(i) ischar(i));
+      p.addParameter('method',  obj.psd_method,@(i) ischar(i));
       p.addParameter('resample',false,@(i)islogical(i) && isscalar(i));
       p.addParameter('detrend', true, @(i)islogical(i) && isscalar(i));
       p.addParameter('despike', false,@(i)islogical(i) && isscalar(i));
@@ -497,7 +566,7 @@ classdef simplefreqseries < simpletimeseries
       p.KeepUnmatched=true;
       % add stuff as needed
       p.addParameter('Wn',NaN,@(i) isnumeric(i) && numel(i)==2);
-      p.addParameter('method',simplefreqseries.default.bandpass_method,@(i) ischar(i));
+      p.addParameter('method',obj.bandpass_method,@(i) ischar(i));
       % parse it
       p.parse(varargin{:});
       %sanity
@@ -598,4 +667,3 @@ classdef simplefreqseries < simpletimeseries
     end
   end
 end
-

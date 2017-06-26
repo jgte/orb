@@ -10,7 +10,7 @@ arc_scheme: csr
 arc_timeline_file: /Users/teixeira/data/csr/GraceAccCal/arctimeline.GraceAccCal
 plot_columns: [1,2,3]
 plot_together: sat
-plot_columns_together: false
+plot_column_together: false
 plot_autoscale: true
 plot_automean: true
 plot_outlier: 0

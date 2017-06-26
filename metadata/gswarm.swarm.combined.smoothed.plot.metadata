@@ -7,7 +7,7 @@ sources: [
   gswarm.grace.gfz.rl05.smoothed
 ]
 storage_period: global
-plot_columns_together: false
+plot_column_together: false
 plot_columns: [3,4,5]
 plot_title_suppress: [gswarm,swarm]
 plot_xlimits: [2013-11-01,2016-12-31]

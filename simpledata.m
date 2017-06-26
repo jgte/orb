@@ -3,8 +3,8 @@ classdef simpledata
   properties(Constant,GetAccess=private)
     %NOTE: edit this if you add a new parameter
     parameter_list=struct(...
-      'peeklength',struct('default',10,     'validation',@(i) isnumeric(i) && iscalar(i)),...
-      'peekwidth', struct('default',10,     'validation',@(i) isnumeric(i) && iscalar(i)),...
+      'peeklength',struct('default',10,     'validation',@(i) isnumeric(i) && isscalar(i)),...
+      'peekwidth', struct('default',10,     'validation',@(i) isnumeric(i) && isscalar(i)),...
       'labels',    struct('default',{{''}}, 'validation',@(i) iscell(i)),...
       'y_units',   struct('default',{{''}}, 'validation',@(i) iscellstr(i)),...
       'x_units',   struct('default','',     'validation',@(i) ischar(i)),...
@@ -76,6 +76,21 @@ classdef simpledata
     end
     function out=parameters
       out=fieldnames(simpledata.parameter_list);
+    end
+    function out=transmute(in)
+      if isa(in,'simpledata')
+        %trivial call
+        out=in;
+      else
+        %transmute into this object
+        if isprop(in,'t')
+          out=simpledata(simpletimeseries.time2num(in.t),in.y,in.metadata{:});
+        elseif isprop(in,'x')
+          out=simpledata(in.x,in.y,in.metadata{:});
+        else
+          error('Cannot find ''t'' or ''x''. Cannot continue.')
+        end
+      end
     end
     function out=vararginclean(in,parameters)
       out=in;
@@ -722,6 +737,16 @@ classdef simpledata
       for i=1:numel(parameters)
         if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
           obj.(parameters{i})=obj_in.(parameters{i});
+        end
+      end      
+    end
+    function out=metadata(obj)
+      parameters=fieldnames(simpledata.parameter_list);
+      out=cell(0);
+      for i=1:numel(parameters)
+        if isprop(obj,parameters{i})
+          out{end+1}=parameters{i};          %#ok<AGROW>
+          out{end+1}=obj.(parameters{i}); %#ok<AGROW>
         end
       end      
     end

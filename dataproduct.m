@@ -8,7 +8,7 @@ classdef dataproduct
       'metadata',struct(...
         'plot_columns',{{-1}},...
         'plot_column_names',{{}},...
-        'plot_columns_together',true,...
+        'plot_column_together',true,...
         'plot_together','',...
         'plot_file_prefix','',...
         'plot_file_suffix','',...
@@ -474,12 +474,17 @@ classdef dataproduct
         if isempty(strfind(mdf{i},'plot_'))
           continue
         end
-        %declare this plot parameter as optional argument to this function
-        p.addParameter(...
-          mdf{i},...
-          num.cell(obj.metadata.(mdf{i})),...
-          @(i) iscell(i) || ischar(i) || isnumeric(i) || islogical(i)... %pretty generic validation needed to let anything in
-        )
+        %declare this plot parameter as optional argument to this function (if not already)
+        if ~any(cells.iscellstrfind(p.Parameters,mdf{i}))
+          p.addParameter(...
+            mdf{i},...
+            num.cell(obj.metadata.(mdf{i})),...
+            @(i) iscell(i) || ischar(i) || isnumeric(i) || islogical(i)... %pretty generic validation needed to let anything in
+          )
+        else
+          %if already declared, append it to varargin (so that its value is propagated)
+          varargin=[mdf(i),{obj.mdget(mdf{i})},varargin];            %#ok<AGROW>
+        end
       end
       % parse arguments
       p.parse(varargin{:});
@@ -521,18 +526,23 @@ classdef dataproduct
       line_handles=plotting.line_handles(p.Results.axis_handle);
       for i=1:numel(line_handles)		
         set(line_handles(i),'LineWidth',p.Results.plot_line_width)		
-      end		
-      % enforce x-limits
+      end
+      % start with current axis
       v=axis(p.Results.axis_handle);
-      if p.Results.plot_xdate
+      % enforce x-limits
+      xl=zeros(1,2);
+      for i=1:2
+        if iscell(p.Results.plot_xlimits(i))
+          xl(i)=p.Results.plot_xlimits{i};
+        else
+          xl(i)=p.Results.plot_xlimits(i);
+        end
+      end
+      %check if dates are requested
+      if p.Results.plot_xdate && ~p.Results.plot_psd
         for i=1:2
-          if iscell(p.Results.plot_xlimits(i))
-            xl=p.Results.plot_xlimits{i};
-          else
-            xl=p.Results.plot_xlimits(i);
-          end
-          if isfinite(   xl)
-            v(i)=datenum(xl);
+          if isfinite(xl(i))
+            v(i)=datenum(xl(i));
           end
         end
         if ~strcmp(datestr(v(1),'yyyymmdd'),datestr(v(2),'yyyymmdd')) && ...
@@ -542,6 +552,12 @@ classdef dataproduct
           xlabel(datestr(v(1)))
         end
         datetick('x',p.Results.plot_xdateformat)
+      else
+        for i=1:2
+          if isfinite(xl(i))
+            v(i)=xl(i);
+          end
+        end
       end
       % enforce reasonable y-limits
       for i=1:2
