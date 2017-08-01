@@ -104,22 +104,22 @@ classdef nrtdm_metadata
     function out=get.dimension(obj)
       out=str2double(obj.entries.('dimension'));
     end
-    function out=get.fields(obj)
+    function out=get.units(obj)
       out=cell(1,obj.dimension);
       for i=1:numel(out)
-        out{i}=obj.entries.(['field_',num2str(i,'%02i')]);
-      end
-    end
-    function out=get.units(obj)
-      f=obj.fields;
-      out=cell(size(f));
-      for i=1:numel(f)
-        idx=[strfind(f{i},'('),strfind(f{i},')')];
-        if numel(idx) ~= 2
-          out{i}='?';
+        if isfield(obj.entries,['field_',num2str(i,'%02i'),'_unit'])
+          out{i}=obj.entries.(['field_',num2str(i,'%02i'),'_unit']);
         else
-          out{i}=f{i}(idx(1)+1:idx(2)-1);
+          desc=obj.entries.(['field_',num2str(i,'%02i')]);
+          idx=[strfind(desc,'('),strfind(desc,')')];
+          if numel(idx) ~= 2
+            out{i}='?';
+          else
+            out{i}=desc(idx(1)+1:idx(2)-1);
+          end
         end
+      end
+      for i=1:numel(out)
         %translate '/s/s' to /s^2'
         idx=strfind(out{i},'/s/s');
         if ~isempty(idx)
@@ -128,15 +128,19 @@ classdef nrtdm_metadata
       end
     end
     function out=get.fields_no_units(obj)
-      f=obj.fields;
-      out=cell(size(f));
-      for i=1:numel(f)
-        idx=strfind(f{i},'(');
-        switch numel(idx)
-        case 0
-          out{i}=f{i};
-        otherwise
-          out{i}=f{i}(1:min(idx)-1);
+      out=cell(1,obj.dimension);
+      for i=1:numel(out)
+        if isfield(obj.entries,['field_',num2str(i,'%02i'),'_descr'])
+          out{i}=obj.entries.(['field_',num2str(i,'%02i'),'_descr']);
+        else
+          desc=obj.entries.(['field_',num2str(i,'%02i')]);
+          idx=strfind(desc,'(');
+          switch numel(idx)
+          case 0
+            out{i}=desc;
+          otherwise
+            out{i}=desc(1:min(idx)-1);
+          end
         end
       end
     end

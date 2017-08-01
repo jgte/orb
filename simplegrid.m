@@ -635,7 +635,7 @@ classdef simplegrid < simpletimeseries
 %       %TODO
 %     end
     %% map add-ons
-  function h=coast(varargin)
+    function h=coast(varargin)
       p=inputParser;
       p.addParameter('line_color','k',@(i) ischaracter(i));
       p.addParameter('line_width',1.5,  @(i) isscalar(i) && isnumeric(i));

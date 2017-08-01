@@ -313,7 +313,7 @@ classdef simpletimeseries < simpledata
       fn=fields(b);tot=[];legend_str={};
       for i=1:numel(fn);
         if ~isempty(strfind(fn{i},'ts_'))
-          legend_str{end+1}=fn{i}; %#ok<*AGROW>
+          legend_str{end+1}=fn{i}; %#ok<AGROW>
           b.(fn{i}).plot('columns',1)
           if isempty(tot)
             tot=b.(fn{i});
@@ -513,7 +513,7 @@ classdef simpletimeseries < simpledata
       %branch on extension/format ID
       switch e
       case '.resid'
-        fid=fopen(filename);
+        fid=file.open(filename);
         raw = textscan(fid,'%f %f %f %f %f %f %f','delimiter',' ','MultipleDelimsAsOne',1,'Headerlines',1);
         fclose(fid);
         %building time domain
@@ -538,7 +538,7 @@ classdef simpletimeseries < simpledata
           'descriptor',['model response from file ',filename]...
          );
       case '.sigma'
-        fid=fopen(filename);
+        fid=file.open(filename);
         raw = textscan(fid,'%d %d %d %d %d %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f','delimiter',' ','MultipleDelimsAsOne',1);
         fclose(fid);
         %building time domain
@@ -607,7 +607,7 @@ classdef simpletimeseries < simpledata
           error([mfilename,': cannot handle the GraceAccCal file ''',filename,'''.'])
         end
         %reading data
-        fid = fopen(filename);
+        fid = file.open(filename);
         raw = textscan(fid,fmt,'delimiter',' ','MultipleDelimsAsOne',1);
         fclose(fid);
         %keep some sanity
@@ -944,8 +944,8 @@ classdef simpletimeseries < simpledata
       parameters=simpletimeseries.parameters;
       for i=1:numel(parameters)
         if isprop(obj,parameters{i})
-          out{end+1}=parameters{i};
-          out{end+1}=obj.(parameters{i});
+          out{end+1}=parameters{i}; %#ok<AGROW>
+          out{end+1}=obj.(parameters{i}); %#ok<AGROW>
         end
       end
     end
@@ -980,7 +980,7 @@ classdef simpletimeseries < simpledata
       s.msg=['deriving segment-wise statistics for ',str.clean(obj.descriptor,'file')]; s.n=numel(ts);
       for i=1:numel(ts)
         %call upstream procedure
-        dat(i)=stats@simpledata(obj.trim(ts{i}(1),ts{i}(end)),varargin{:},'mode','struct'); %#ok<AGROW>
+        dat(i)=stats@simpledata(obj.trim(ts{i}(1),ts{i}(end)),varargin{:},'mode','struct');  %#ok<AGROW>
         % inform about progress
         s=time.progress(s,i);
       end
@@ -1505,11 +1505,17 @@ classdef simpletimeseries < simpledata
       end
     end
     function [obj1,obj2]=interp2(obj1,obj2,varargin)
+      %trivial call
+      if isteq(obj1,obj2)
+        return
+      end
       %extends the t-domain of both objects to be in agreement
       %with the each other. The resulting t-domains possibly have
       %numerous gaps, which are interpolated over (interpolation
       %scheme and other options can be set in varargin).
       %handle default optional arguments
+      %NOTE: no interpolation is done between the objects, only
+      %      the time domain is made in agreement between then
       if ~exist('varargin','var') || isempty(varargin)
         varargin={...
           'interp_over_gaps_narrower_than',3*min([obj1.step,obj2.step]),...
@@ -1620,19 +1626,6 @@ classdef simpletimeseries < simpledata
     function out=plot(obj,varargin)
       %call superclass
       out=plot@simpledata(obj,varargin{:});
-%       %using internal Matlab representation for dates
-%       lines_now=get(gca,'children');
-%       for i=1:numel(lines_now)
-%         for i=1:numel(out.handle)
-%           if out.handle{i}==lines_now(i)
-%             lines_now(i).XData=datenum(obj.x2t(lines_now(i).XData));
-%           end
-%         end
-%       end
-%       if strcmpi(get(gca,'XTick'),'auto')
-%         set(gca,'XTick',datenum(obj.t));
-%         datetick('x',time.format(seconds(obj.span)))
-%       end
       %annotate
       out.xlabel='time';
       xlabel(out.xlabel)
@@ -1642,61 +1635,111 @@ classdef simpletimeseries < simpledata
       end
     end
     %% export methods
-    function ascii(obj,filename,varargin)
-      default_header=[...
+    function export(obj,filename,filetype,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired( 'filename',             @(i) ischar(i));
+      p.addRequired( 'filetype',             @(i) ischar(i));
+      p.addParameter('header',  '',          @(i) ischar(i));
+      p.addParameter('columns', 1:obj.width, @(i) isnumeric(i));
+      p.addParameter('sat_name','',          @(i) ischar(i));
+      % parse it
+      p.parse(filename,filetype,varargin{:});
+      if isempty(dir(filename))
+        disp([datestr(now),': start exporting ',filename])
+        %open the file (sanity done inside)
+        fid=file.open(filename,'w');
+        %branch on type of file
+        switch filetype
+        case 'ascii'
+          default_header=[...
 '# Column 1:    Date (yyyy-mm-dd)',10,...
 '# Column 2:    Time (hh:mm:ss.sss)',10,...
 '# Column 3:    Time system (',obj.timesystem,')',10,...
 '# Column 4:    Modified Julian Day (including fraction of day)',10];
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired( 'filename',             @(i) ischar(i));
-      p.addParameter('header',  '',          @(i) ischar(i));
-      p.addParameter('columns', 1:obj.width, @(i)isnumeric(i));
-      % parse it
-      p.parse(filename,varargin{:});
-      if isempty(dir(filename))
-        disp([datestr(now),': start exporting ',filename])
-        %open the file
-        [fid,msg]=fopen(filename,'w');
-        if fid <=0
-          error([mfilename,': error opening ',filename,': ',msg])
-        end
-        %write the header
-        if isempty(p.Results.header)
-          %use default header, none was specified
-          header=default_header;
-          %build rest of the default header
-          for i=1:numel(p.Results.columns)
-            header=[header,...
-              '# Column ',num2str(i+4),':    ',...
-                obj.labels{p.Results.columns(i)},' (',...
-                obj.y_units{p.Results.columns(i)},')',10]; %#ok<AGROW>
+          %write the header
+          if isempty(p.Results.header)
+            %use default header, none was specified
+            header=default_header;
+            %build rest of the default header
+            for i=1:numel(p.Results.columns)
+              header=[header,...
+                '# Column ',num2str(i+4),':    ',...
+                  obj.labels{p.Results.columns(i)},' (',...
+                  obj.y_units{p.Results.columns(i)},')',10];  %#ok<AGROW>
+            end
+          else
+            header=p.Results.header;
           end
-        else
-          header=p.Results.header;
-        end
-        fprintf(fid,'%s',header);
-        %build time vectors
-        time_str=datestr(obj.t_idx(obj.mask),'yyyy-mm-dd HH:MM:SS.FFF');
-        mjd=obj.mjd(obj.mask);
-        %build format string
-        fmt='%s UTC %14.8f';
-        for i=1:numel(p.Results.columns)
-          fmt=[fmt,' %16.8e']; %#ok<AGROW>
-        end
-        fmt=[fmt,'\n'];
-        %build output data
-        y=obj.y(obj.mask,p.Results.columns);
-        %sanity
-        if size(time_str,1)~=size(y,1)
-          error([mfilename,': discrepancy in the sizes of time_str and y. Debug needed.'])
-        end
-        %save the data
-        s.msg=['exporting ',obj.descriptor];s.n=size(time_str,1);
-        for i=1:size(time_str,1)
-          fprintf(fid,fmt,time_str(i,:),mjd(i),y(i,:));
-          s=time.progress(s,i);
+          fprintf(fid,'%s',header);
+          %build time vectors
+          time_str=datestr(obj.t_masked,'yyyy-mm-dd HH:MM:SS.FFF');
+          mjd=obj.mjd(obj.mask);
+          %build format string
+          fmt=['%s UTC %14.8f',repmat(' %16.8e',1,numel(p.Results.columns)),'\n'];
+          %build output data
+          y=obj.y_masked([],p.Results.columns);
+          %sanity
+          if size(time_str,1)~=size(y,1)
+            error([mfilename,': discrepancy in the sizes of time_str and y. Debug needed.'])
+          end
+          %save the data
+          s.msg=['exporting ',obj.descriptor];s.n=size(time_str,1);
+          for i=1:size(time_str,1)
+            fprintf(fid,fmt,time_str(i,:),mjd(i),y(i,:));
+            s=time.progress(s,i);
+          end
+        case 'ACC1B'
+          gps_zero_epoch=datetime('2000-01-01 12:00:00');
+          default_header=[...
+'PRODUCER AGENCY               : UTexas',10,...
+'PRODUCER INSTITUTION          : CSR',10,...
+'FILE TYPE ipACC1BF            : 8',10,...
+'FILE FORMAT 0=BINARY 1=ASCII  : 1',10,...
+'NUMBER OF HEADER RECORDS      : 23',10,...
+'SOFTWARE VERSION              : N/A',10,...
+'SOFTWARE LINK TIME            : N/A',10,...
+'REFERENCE DOCUMENTATION       : N/A',10,...
+'SATELLITE NAME                : ',p.Results.sat_name,10,...
+'SENSOR NAME                   : ACC',10,...
+'TIME EPOCH (GPS TIME)         : ',datestr(gps_zero_epoch,'yyyy-mm-dd HH:MM:SS.FFF'),10,...
+'TIME FIRST OBS(SEC PAST EPOCH): ',num2str(time.datetime2gpssec(obj.start,gps_zero_epoch)),...
+  ' (',datestr(obj.start,'yyyy-mm-dd HH:MM:SS.FFF'),')',10,...
+'TIME LAST OBS(SEC PAST EPOCH) : ',num2str(time.datetime2gpssec(obj.stop,gps_zero_epoch)),...
+  ' (',datestr(obj.stop,'yyyy-mm-dd HH:MM:SS.FFF'),')',10,...
+'NUMBER OF DATA RECORDS        : ',num2str(obj.length),10,...
+'PRODUCT CREATE START TIME(UTC): ',datestr(datetime('now')),' by jgte',10,...
+'PRODUCT CREATE END TIME(UTC)  : N/A',10,...
+'FILESIZE (BYTES)              : N/A',10,...
+'FILENAME                      : ',filename,10,...
+'PROCESS LEVEL (1A OR 1B)      : 1B',10,...
+'INPUT FILE NAME               : N/A',10,...
+'INPUT FILE TIME TAG (UTC)     : N/A',10,...
+'INPUT FILE NAME               : N/A',10,...
+'INPUT FILE TIME TAG (UTC)     : N/A',10,...
+'END OF HEADER',10];
+          %write the header
+          if isempty(p.Results.header)
+            %use default header, none was specified
+            header=default_header;
+          else
+            header=p.Results.header;
+          end
+          fprintf(fid,'%s',header);
+          %build time vectors
+          time_str=time.datetime2gpssec(obj.t_masked,gps_zero_epoch);
+          %build format string
+          fmt=['%d ',strrep(p.Results.sat_name,'GRACE ',''),...
+            repmat(' %21.15e',1,numel(p.Results.columns)),...
+            repmat(' 0.0000000000000000000',1,9-numel(p.Results.columns)),'  00000000\n'];
+          %build output data
+          y=obj.y_masked([],p.Results.columns);
+          %put everything together
+          o=[num2cell(transpose(time_str));num2cell(transpose(y))];
+          %fprintf it
+          fprintf(fid,fmt,o{:});
+        otherwise
+          error(['Cannot handle exporting time series to files of type ''',filetype,'''.'])  
         end
         fclose(fid);
       end

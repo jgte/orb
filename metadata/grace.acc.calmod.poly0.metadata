@@ -7,7 +7,9 @@ arcs_per_day: [1,8,1]
 arcs_poly_order: [2,2,2]
 l1b_median_order: 10
 arc_scheme: csr
-arc_timeline_file: /Users/teixeira/data/csr/GraceAccCal/arctimeline.GraceAccCal
+arc_timeline_file: <getenv('HOME')>/data/csr/GraceAccCal/arctimeline.GraceAccCal
+export_dir: <getenv('HOME')>/data/csr/export/poly0
+version: '61'
 plot_columns: [1,2,3]
 plot_together: sat
 plot_column_together: false

@@ -745,7 +745,7 @@ classdef simpledata
       out=cell(0);
       for i=1:numel(parameters)
         if isprop(obj,parameters{i})
-          out{end+1}=parameters{i};          %#ok<AGROW>
+          out{end+1}=parameters{i};       %#ok<AGROW>
           out{end+1}=obj.(parameters{i}); %#ok<AGROW>
         end
       end      
@@ -1543,6 +1543,8 @@ classdef simpledata
       %with the each other. The resulting x-domains possibly have
       %numerous gaps, which are interpolated over (interpolation
       %scheme and other options can be set in varargin).
+      %NOTE: no interpolation is done between the objects, only
+      %      the x-domain is made in agreement between then
       compatible(obj1,obj2,varargin{:})
       %trivial call
       if isxequal(obj1,obj2)

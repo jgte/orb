@@ -438,6 +438,28 @@ classdef datastorage
         end
       end
     end
+    function obj=interp(obj,dn)
+      %trivial call
+      if obj.isteq(dn)
+        return
+      end
+      %retrieve global field path list
+      global_field_path_list=obj.data_list(dn);
+      %use the first object as reference
+      obj_ref=obj.data_get_scalar(global_field_path_list{1});
+      %loop over all remaining objects (do it twice to be sure all time domains are the same)
+      for j=0:1
+        %the last object is for sure already merged on the second run, skip that
+        for i=2:numel(global_field_path_list)-j
+          %interpolate (with merging the time domains)
+          obj=obj.data_set(global_field_path_list{i},...
+            obj.data_get_scalar(global_field_path_list{i}).interp2(obj_ref)...
+          );
+        end
+      end
+      %sanity
+      assert(obj.isteq(dn),'Could not merge all time domains. Debug needed.')
+    end
     %% length operations
     function out=length(obj,dn)
       out=cell2mat(obj.vector_method_tr(dn,'length'));
@@ -867,12 +889,17 @@ classdef datastorage
       obj.log('@','out','dn',dn,'start',obj.start,'stop',obj.stop)
     end
     function plot_legend(~,p,h,dn_list,varargin)
+      %get number of plotted lines
+      data_width=sum(cellfun(@(i) numel(i.handle),h));
       %add legend only if there are multiple lines
-      if numel(h)>1
+      if data_width>1
         %add the legend given as input, if there
         if ~isempty(p.Results.plot_legend)
           %some sanity
-          str.sizetrap(h,p.Results.plot_legend)
+          assert(data_width==numel(p.Results.plot_legend),[...
+            'The number of legend entries (',num2str(numel(p.Results.plot_legend)),...
+            ') is not in agreement with the number of plotted lines (',num2str(data_width),').'...
+          ])
           %propagate
           legend_str=p.Results.plot_legend;
         else
@@ -1126,6 +1153,8 @@ classdef datastorage
       obj.log('@','in','dn_or_prod',dn_or_prod,'start',obj.start,'stop',obj.stop)
       %handle both datanames and dataproduct objects
       switch class(dn_or_prod)
+      case 'char'
+        product=obj.product_get(datanames(dn_or_prod));
       case 'datanames'
         product=obj.product_get(dn_or_prod);
       case 'dataproduct'

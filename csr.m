@@ -16,7 +16,7 @@ classdef csr
           system(['mv -v ',logname,' ',strrep(logname,'.log',''),'.',datestr(datetime('now'),30),'.log']);
         end
       else
-        fid = fopen(logname,'a');  
+        fid = file.open(logname,'a');  
         fprintf(fid,[strjoin(msg,'\n'),'\n']);
         fclose(fid);
       end
@@ -81,40 +81,46 @@ classdef csr
 %       out(i).start=datetime('2003-11-21 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
 %       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
 %       out(i).start=datetime('2003-11-29 00:00:00'); out(i).stop=datetime('2003-12-02 23:59:59');
-%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
-%       out(i).start=datetime('2006-06-03 00:00:00'); out(i).stop=datetime('2006-06-07 23:59:59');
-%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
-%       out(i).start=datetime('2006-06-12 00:00:00'); out(i).stop=datetime('2006-06-19 23:59:59');
-%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-%       out(i).start=datetime('2008-02-24 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-%       out(i).start=datetime('2008-02-25 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
-%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-%       out(i).start=datetime('2012-06-30 00:00:00'); out(i).stop=datetime('2012-07-03 23:59:59');
-%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-%       out(i).start=datetime('2013-02-20 00:00:00'); out(i).stop=datetime('2013-02-26 23:59:59');
-%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-%       out(i).start=datetime('2014-08-01 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
-%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-%       out(i).start=datetime('2014-09-13 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
-%       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
-%       out(i).start=datetime('2015-08-14 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
+      out(i).start=datetime('2006-06-03 00:00:00'); out(i).stop=datetime('2006-06-07 23:59:59');
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z','AC0XD','AC0YD','AC0ZD','AC0XQ','AC0YQ','AC0ZQ'};
+      out(i).start=datetime('2006-06-12 00:00:00'); out(i).stop=datetime('2006-06-19 23:59:59');
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2008-02-24 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2008-02-25 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2012-06-30 00:00:00'); out(i).stop=datetime('2012-07-03 23:59:59');
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2013-02-20 00:00:00'); out(i).stop=datetime('2013-02-26 23:59:59');
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2014-08-01 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2014-09-13 00:00:00'); out(i).stop=out(i).start+days(2)-seconds(1);
+      i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
+      out(i).start=datetime('2015-08-14 00:00:00'); out(i).stop=out(i).start+days(1)-seconds(1);
       i=i+1; out(i).field={'AC0X','AC0Y','AC0Z'};
       out(i).start=datetime('2017-01-07 00:00:00'); out(i).stop=out(i).start+days(3)-seconds(1);
 
     end
-    function out=debug_plots(mode,debug)
+    function out=debug_plots(mode,debug,plot_dir)
       if ~exist('debug','var') || isempty(debug)
         debug=true;
       end
       if ~exist('mode','var') || isempty(mode)
          mode='import_calpar';
       end
+      if ~exist('plot_dir','var') || isempty(plot_dir)
+         plot_dir=fullfile(plot_dir,['debug_plots_',mode],csr.gitversion);
+      end
       %create dir for plots
-      plot_dir=fullfile(dataproduct.default_list.plot_dir,['debug_plots_',mode],csr.gitversion);
       if isempty(dir(plot_dir)); mkdir(plot_dir); end
       %get dates of plots
       ssl=csr.debug_parameters;
+      %outputs
+      out=cell(size(ssl));
+      %additional arguments
+      args={};
       %branch on mode
       switch mode
       case 'all'
@@ -122,14 +128,14 @@ classdef csr
           csr.debug_plots(i{1});
           close all
         end
+        %done
+        return
       case 'import_calpar'
         name='grace.calpar.csr';
         %load calibration parameters
         out=datastorage('debug',debug).init(name,'plot_dir',plot_dir);
         %retrieve product info
         sats=out.product_get(name).mdget('sats');
-        %get dates of plots
-        ssl=csr.debug_parameters;
         %loop over the data
         for i=1:numel(ssl)
           p=out.trim('start',ssl(i).start,'stop',ssl(i).stop);
@@ -142,31 +148,26 @@ classdef csr
             end
           end
         end
-      case 'compute_calmod'
-        name='grace.acc.calmod.csr';
-        for i=1:numel(ssl)
-          datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'debug_plot',true,'plot_dir',plot_dir);
-        end
-      case 'calpar'
-        name='grace.acc.cal.csr.plots';
-        for i=1:numel(ssl)
-          datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'plot_dir',plot_dir);
-        end
+        %done
+        return
       case 'calpar-gps'
         start=datetime('2017-01-01');
         stop =datetime('2017-01-02');
-        o=datastorage('start',start,'stop',stop,'debug',debug);
+        out=datastorage('start',start,'stop',stop,'debug',debug);
         for p={'grace.acc.l1b.csr','grace.acc.calmod.csr','grace.acc.cal.csr','grace.acc.mod.nrtdm','grace.acc.mod.csr'}
-          o=o.init(p{1});
+          out=out.init(p{1});
         end
-      case 'estimate_poly_calmod'
-        name='grace.acc.cal.poly0.plots';
-        out=cell(size(ssl));
-        for i=1:numel(ssl)
-          out{i}=datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'plot_dir',plot_dir);
-        end
+        %done
+        return
+      case 'calpar';               name='grace.acc.cal.csr.plots';
+      case 'compute_calmod';       name='grace.acc.calmod.csr';       args={'debug_plot',true};
+      case 'estimate_poly_calmod'; name='grace.acc.cal.poly0.plots';
+      case 'psd';                  name='grace.acc.psd.plots';
       otherwise
         error(['unknown mode ''',mode,'''.'])  
+      end
+      for i=1:numel(ssl)
+        out{i}=datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'plot_dir',plot_dir,args{:});
       end
     end
     function out=test(mode,start)
@@ -662,6 +663,38 @@ classdef csr
       end
       obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
     end
+    function outfile=export_acc_l1b(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
+      % sanity
+      assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
+      %retrieve relevant parameters
+      sats =product.mdget('sats');
+      outdir=product.mdget('export_dir');
+      version=product.mdget('version');
+      %gather list of daily data files
+      [~,startlist,stoplist]=product.file('data',varargin{:},...
+        'start',obj.start,...
+        'stop', obj.stop...
+      );
+      %outputs
+      outfile=cell(size(startlist)*2);
+      %loop over the satellites
+      for s=1:numel(sats)
+        %save the data, if not empty
+        out=obj.data_get_scalar(product.dataname.set_field_path(sats(s)));
+        %loop over all dates
+        for i=1:numel(startlist)
+          idx=(s-1)*numel(startlist)+i;
+          %build input data filename
+          outfile{idx}=fullfile(outdir,datestr(startlist(i),'yy'),'acc','asc',...
+            ['ACC1B_',datestr(startlist(i),'yyyy-mm-dd'),'_',sats{s},'_',version,'.asc']...
+          );
+          %save the data in ACC1B format, as handled by simpletimeseries.export
+          out.trim(startlist(i),stoplist(i)).export(outfile{idx},'ACC1B','sat_name',['GRACE ',sats{s}]);
+        end
+      end
+      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
+    end
     function obj=compute_calmod(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
       %sanity
@@ -999,7 +1032,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         %init the outputs
         out=struct('A',[],'B',[]);
         %open the file
-        fid=fopen(filename);
+        fid=file.open(filename);
         %load the data
         dat=textscan(fid,'%5s%5s %f %f %f');
         %close the file
@@ -1056,8 +1089,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       start=datetime;
       stop =datetime;
       %open the file
-      fid=fopen(filename);
-      assert(fid>0,['Cannot find file ''',filename,'''.'])
+      fid=file.open(filename);
       %load the data
       % 1  2  3  4     5       6       7
       %18 12/17/03 52990 49700.0 36700.0

@@ -1,0 +1,13 @@
+nrtdm_data_dir: <getenv('NRTDM')>/data/
+method: datastorage.init_nrtdm
+nrtdm_product: Basic/Orbit_Geo
+sats: [A,B]
+nrtdm_sats: [GA,GB]
+storage_period: direct
+plot_columns: [1]
+plot_autoscale: true
+plot_automean: true
+plot_outlier: 0
+plot_zeromean: false
+plot_title_suppress: [basic,orbit_geo]
+plot_ylabel: '[m]'

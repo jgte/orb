@@ -1,0 +1,14 @@
+nrtdm_data_dir: <getenv('NRTDM')>/data/
+method: datastorage.init_nrtdm
+nrtdm_product: Basic/Quat_SCAATT
+sats: [A,B]
+nrtdm_sats: [GA,GB]
+storage_period: direct
+plot_columns: [1,2,3,4]
+plot_autoscale: false
+plot_automean: false
+plot_outlier: 0
+plot_zeromean: false
+plot_title_suppress: [basic,quat_scaatt]
+plot_legend: [q_1,q_2,q_3,s]
+plot_ylabel: '[ ]'

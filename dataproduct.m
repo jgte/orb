@@ -234,14 +234,14 @@ classdef dataproduct
       switch lower(mode)
       case 'data'
         out={...
-          'use_storage_period',true,...
+          'use_storage_period',true,... % I think this can be removed
           'dir',obj.data_dir,...
           'sub_dirs','single',...
           'ext','mat'...
         };
       case 'plot'
         out={...
-          'use_storage_period',false,...
+          'use_storage_period',false,... % I think this can be removed
           'dir',obj.plot_dir,...
           'sub_dirs','none',...
           'ext','png'...
@@ -508,6 +508,7 @@ classdef dataproduct
       p.KeepUnmatched=true;
       p.addParameter('fig_handle',  gcf,  @(i) ishandle(i));
       p.addParameter('axis_handle', gca,  @(i) ishandle(i));
+      p.addParameter('plot_psd',  false,  @(i) ishandle(i));
       %get plot parameters already defined in the metadata and parse them
       p=obj.plot_args(p,varargin{:});
       % sanity
@@ -530,19 +531,19 @@ classdef dataproduct
       % start with current axis
       v=axis(p.Results.axis_handle);
       % enforce x-limits
-      xl=zeros(1,2);
+      xl=cell(1,2);
       for i=1:2
         if iscell(p.Results.plot_xlimits(i))
-          xl(i)=p.Results.plot_xlimits{i};
+          xl{i}=p.Results.plot_xlimits{i};
         else
-          xl(i)=p.Results.plot_xlimits(i);
+          xl{i}=p.Results.plot_xlimits(i);
         end
       end
       %check if dates are requested
       if p.Results.plot_xdate && ~p.Results.plot_psd
         for i=1:2
-          if isfinite(xl(i))
-            v(i)=datenum(xl(i));
+          if isfinite(xl{i})
+            v(i)=datenum(xl{i});
           end
         end
         if ~strcmp(datestr(v(1),'yyyymmdd'),datestr(v(2),'yyyymmdd')) && ...
@@ -554,8 +555,8 @@ classdef dataproduct
         datetick('x',p.Results.plot_xdateformat)
       else
         for i=1:2
-          if isfinite(xl(i))
-            v(i)=xl(i);
+          if isfinite(xl{i})
+            v(i)=datenum(xl{i});
           end
         end
       end

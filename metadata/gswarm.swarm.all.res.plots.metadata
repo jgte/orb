@@ -1,14 +1,17 @@
 method: gswarm.plot_rms_ts
 sources: [
   gswarm.swarm.aiub.aiub.smoothed.res,
+  gswarm.swarm.asu.aiub.smoothed.res,
   gswarm.swarm.asu.ifg.smoothed.res,
+  gswarm.swarm.asu.tud.smoothed.res,
+  gswarm.swarm.ifg.aiub.smoothed.res,
   gswarm.swarm.ifg.ifg.smoothed.res,
-  gswarm.swarm.combined.smoothed.res
+  gswarm.swarm.ifg.tud.smoothed.res
 ]
 plot_product: true
-derived_quantity: cumdas
+derived_quantity: cumdrms
 storage_period: global
-plot_xlimits: [2013-12-17,2016-09-15]
+plot_xlimits: [2013-12-17,2016-12-30]
 plot_zeromean: false
 plot_xdateformat: mm/yy
 plot_functional: geoid

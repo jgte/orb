@@ -1,6 +1,3 @@
-method: datastorage.arithmetic
 sources: [gswarm.swarm.combined.smoothed,gswarm.grace.gfz.rl05.smoothed]
-storage_period: global
-operation: minus
-plot_method: drms
-plot_xdate: false
+submetadata1: model.residual.submetadata
+submetadata2: model.plotting.submetadata

@@ -87,6 +87,22 @@ classdef gswarm
         %subtract it
         s=s-static.data_get_scalar(datanames(static_field).set_field_path('signal'));
       end
+      %append extremeties, if requested
+      if product.ismd_field('model_span')
+        startstop=product.mdget('model_span');
+        if startstop{1}<s.start
+          s=s.append(gravity.nan(s.lmax,'t',startstop{1},'R',s.R,'GM',s.GM));
+        end
+        if startstop{2}>s.stop
+          s=s.append(gravity.nan(s.lmax,'t',startstop{2},'R',s.R,'GM',s.GM));
+        end
+        if startstop{1}<e.start
+          e=e.append(gravity.nan(s.lmax,'t',startstop{1},'R',s.R,'GM',s.GM));
+        end
+        if startstop{2}>e.stop
+          e=e.append(gravity.nan(s.lmax,'t',startstop{2},'R',s.R,'GM',s.GM));
+        end
+      end
       %propagate relevant data
       for i=1:numel(model_types)
         switch lower(model_types{i})
@@ -221,11 +237,8 @@ classdef gswarm
           obj_curr=obj.trim('start',e.startlist(t),'stop',e.stoplist(t),'dn_list',e.sources);
           %make sure there is data 
           if any(cell2mat(obj_curr.vector_method_tr('all','nr_valid'))>1)
-%             %remove C00 and C20
-%             obj_curr=obj_curr.data_set('all',obj_curr.vector_method_tr('all','setC',[0 2],[0 0],[0 0]));
             %need all data to be in the same time domain
-            assert(obj_curr.isteq('all'),...
-              [mfilename,': the time domain of the input data is not in agreement.'])
+            obj_curr=obj_curr.interp('all');
             %build data array
             bar_y=zeros(max(obj_curr.length('all')),numel(e.sources));
             bar_t=zeros(max(obj_curr.length('all')),numel(e.sources));
@@ -256,7 +269,7 @@ classdef gswarm
               );
             end
             %annotate plot
-            obj.plot_annotate(bh,product,e.sources,varargin{:})
+            obj.plot_annotate(bh,product,datanames.transmute(e.sources),varargin{:})
             %remove outline
             set(h,'edgecolor','none')
             %save this plot

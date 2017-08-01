@@ -1,10 +1,7 @@
 import_dir: <getenv('HOME')>/data/gswarm/asu/gravity/ASU-Swarm-nmax40-orbits_IfG-gfc/
-storage_period: direct
-method: gswarm.load_models
 model_types: [signal,error]
 wilcarded_filename: asu-swarm-*-nmax40.gfc
 model_format: gfc
 date_parser: gravity.parse_epoch_asu
 submetadata1: model.processing.submetadata
-plot_method: drms
-plot_xdate: false
+submetadata2: model.plotting.submetadata
