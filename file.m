@@ -23,7 +23,10 @@ classdef file
         frewind(fid);
       end
     end
-    function [fid,filename,close_file]=open(filename)
+    function [fid,filename,close_file]=open(filename,perm)
+      if ~exist('perm','var') || isempty(perm)
+        perm = 'r';
+      end
       %open the file (if a filename is given)
       if file.isfid(filename)
         %rename input
@@ -33,8 +36,15 @@ classdef file
         %don't close this file afterwards
         close_file=false;
       else
-        %'filename' is an actual filename, so open it
-        fid = fopen(filename,'r');
+        %make sure dir exists
+        d=fileparts(filename);
+        if ~exist(d,'dir')
+          [st,msg]=mkdir(d);
+          assert(st,['error creating directory ''',d,''': ',msg])
+        end
+        %open the file
+        [fid,msg]=fopen(filename,perm);
+        assert(fid>0,['error opening ',filename,': ',msg])
         %close this file afterwards
         close_file=true;
       end

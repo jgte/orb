@@ -374,6 +374,9 @@ classdef gravity < simpletimeseries
     function obj=unit_randn(lmax,varargin)
       obj=gravity.unit(lmax,'scale_per_coeff',randn(lmax+1),varargin{:});
     end
+    function obj=nan(lmax,varargin)
+      obj=gravity.unit(lmax,'scale',nan,varargin{:});
+    end
     function [m,e]=load(filename,format,time)
       %default type
       if ~exist('format','var') || isempty(format)
@@ -512,6 +515,9 @@ classdef gravity < simpletimeseries
             disp(['Ignoring ',f,' because this epoch was already loaded from model ',f_saved,'.'])
             c=c+1;
           else
+            %ensure R and GM are compatible
+            m1=m1.scale(m);
+            e1=e1.scale(e);
             %append to output objects
             m=m.append(m1);
             e=e.append(e1);
@@ -1017,7 +1023,11 @@ classdef gravity < simpletimeseries
     end
     % radius scaling
     function s=scale_R(obj,r)
-      s=(obj.R/r).^((0:obj.lmax)+1);
+      if obj.R==r
+        s=1; %quicker downstream
+      else
+        s=(obj.R/r).^((0:obj.lmax)+1);
+      end
     end
     % functional scaling
     function s=scale_functional(obj,functional_new)
@@ -1153,18 +1163,22 @@ classdef gravity < simpletimeseries
     end
     function obj=scale(obj,s,method)
       if ~exist('method','var') || isempty(method)
+        %handle object-to-object operations
+        if isa(s,'gravity')
+          %scale to object 's' values of R and GM
+          obj=obj.setR(s.R);
+          obj=obj.setGM(s.GM);
+          %done!
+          return
+        end
+        %trivial call
+        if all(s==1)
+          return
+        end
         switch numel(s)
         case obj.lmax+1
           %get unit model, scaled per degree and get y-representation
           s=gravity.unit(obj.lmax,'scale_per_degree',s).y;
-
-%           %per-degree scaling
-%           tri_now=obj.tri;
-%           scale_mat=s(:)*ones(size(tri_now,2),1);
-%           for i=1:obj.length
-%             tri_now{i}=tri_now{i}.*(scale_mat*ones(1,size(tri_now{i},2)));
-%           end
-%           obj.tri=tri_now;
         case 1
           %global scaling: already handled downstream
         case obj.width
@@ -1322,7 +1336,7 @@ classdef gravity < simpletimeseries
       end
     end
     function [obj1,obj2]=merge(obj1,obj2,varargin)
-      %match the minimum degree (truncate
+      %match the minimum degree (truncate)
       if obj1.lmax<obj2.lmax
         obj2.lmax=obj1.lmax;
       else
@@ -1486,10 +1500,8 @@ classdef gravity < simpletimeseries
       for i=1:obj_now.length
         %check if file is already available
         if ~exist(filelist{i},'file')
-          %create dir if needed
-          if ~exist(fileparts(filelist{i}),'dir'); mkdir(fileparts(filelist{i})); end
           %open file
-          fid=fopen(filelist{i},'w');
+          fid=file.open(filelist{i},'w');
           %update the header
           header{1}=['model_epoch                 ',datestr(obj_now.t(i),   p.Results.timefmt)];
           header{2}=['exported_at                 ',datestr(datetime('now'),p.Results.timefmt)];
@@ -1522,7 +1534,7 @@ function [m,e]=load_gsm(filename,time)
     time=datetime('now');
   end
   %open file
-  fid=fopen(filename);
+  fid=file.open(filename);
   modelname=''; GM=0; radius=0; Lmax=0; %Mmax=0;
   % Read header
   s=fgets(fid);
@@ -1612,7 +1624,7 @@ function [m,e]=load_csr(filename,time)
     time=datetime('now');
   end
   %open file
-  fid=fopen(filename);
+  fid=file.open(filename);
   modelname=''; GM=0; radius=0; Lmax=0; %Mmax=0;
   % Read header
   s=fgets(fid);
@@ -1743,7 +1755,7 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
     time=datetime('now');
   end
   %open file
-  fid=fopen(filename);
+  fid=file.open(filename);
   % init header
   header=struct(...
       'product_type',           '',...
@@ -1922,7 +1934,7 @@ function [m,e]=load_mod(filename,time)
     time=datetime('now');
   end
   %loading data
-  [mi,headerstr]=textscanh(filename);
+  [mi,headerstr]=file.textscan(filename);
   %init constants
   header=struct(...
     'GM',gravity.default_list.GM,...
@@ -1968,84 +1980,6 @@ end
 function out=grep_nr_occurences(filename,pattern)
    [~, result] =system(['grep -c ',pattern,' ',filename]);
    out=str2double(result);
-end
-function [data,header] = textscanh(filename)
-  %sanity
-  if isempty(filename)
-      error([mfilename,': cannot handle empty filenames.'])
-  end
-  %open file
-  fid = fopen_disp(filename,[],true);
-  %maximum number of lines to scan for header
-  max_header_len = 50;
-  %init header
-  header_flag = zeros(max_header_len,1);
-  header=cell(size(header_flag));
-  %determining number of header lines
-  for i=1:max_header_len
-    header{i} = fgetl(fid);
-    header_flag(i) = isnumstr(header{i});
-  end
-  %checking for number of header lines > max_header_len
-  if ~isnumstr(fgetl(fid))
-      error([mfilename,': file ',fopen(fid),' has more header lines than max search value (',num2str(max_header_len),').']);
-  end
-  %counting number of header lines and cropping
-  if isempty(header)
-    header_lines = 0;
-    header=[];
-  else
-    header_lines = find(diff(header_flag)==1,1,'last');
-    if ~isempty(header_lines)
-      header=header(1:header_lines);
-    else
-      header_lines=0;
-    end
-  end
-  %disp([mfilename,':debug: header contains ',num2str(header_lines),' lines.'])
-  frewind(fid);
-  %try to read one byte
-  if fseek(fid,1,'bof') ~= 0
-    error([mfilename,': file ',fopen(fid),' is empty.'])
-  end
-  frewind(fid);
-  %load the data
-  data  = textscan(fid,'',nlines,'headerlines',header_lines,...
-                     'returnonerror',0,'emptyvalue',0);
-  %close the file
-  fclose(fid);
-  %need to be sure that all columns have equal length
-  min_len = 1/eps;
-  for i=1:length(data)
-    min_len = min(size(data{i},1),min_len);
-  end
-  %cropping so that is true
-  for i=1:length(data)
-    data{i} = data{i}(1:min_len,:);
-  end
-  %numerical output, so transforming into numerical array
-  data=[data{:}];
-end
-function out = isnumstr(in)
-  %Determines if the input string holds only numerical data. The test that is
-  %made assumes that numerical data includes only the characters defined in
-  %<num_chars>.
-  if isnumeric(in)
-      out=true;
-      return
-  end
-  %characters that are allowed in numerical strings
-  num_chars = ['1234567890.-+EeDd:',9,10,13,32];
-  %deleting the numerical chars from <in>
-  for i=1:length(num_chars)
-      num_idx = strfind(in,num_chars(i));
-      if ~isempty(num_idx)
-          %flaging this character
-          in(num_idx)='';
-      end
-  end
-  %now <in> must be empty (if only numerical data)
-  out = isempty(in);
 end
 
 %% Spherical Harmonic synthesis
@@ -2198,7 +2132,7 @@ function [t,s,e]=GetGraceC20(varargin)
     [t,s,e]=GetGraceC20('mode','get');
   case 'get'
     %open the file
-    fid=fopen(p.Results.file);
+    fid=file.open(p.Results.file);
     %sanity
     if fid<=0
       error([mfilename,': cannot open the data file ''',p.Results.file,'''.'])
@@ -2217,7 +2151,7 @@ function [t,s,e]=GetGraceC20(varargin)
     s=d{3};
     e=d{5}*1e-10;
   case 'set'
-    fid=fopen(p.Results.file,'w+');
+    fid=file.open(p.Results.file,'w+');
     fprintf(fid,'%s',urlread(p.Results.url));
     fclose(fid);
   otherwise

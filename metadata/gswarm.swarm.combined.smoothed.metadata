@@ -1,6 +1,6 @@
 method: gswarm.combine_models
 sources: [gswarm.swarm.aiub.aiub.smoothed,gswarm.swarm.asu.ifg.smoothed,gswarm.swarm.ifg.ifg.smoothed]
-storage_period: global
+storage_period: monthly
 combination_type: mean
 plot_method: drms
 plot_xdate: false

@@ -1,10 +1,3 @@
-method: gswarm.smooth_models
 sources: [gswarm.swarm.asu.ifg]
-storage_period: global
-model_types: [signal,error]
-level1_vals: [spline,trunc,gauss]
-level1_name: smoothing_method
-level2_vals: [10,11,12,13,14,15,16,17,18,19,20]
-level2_name: smoothing_degree
-plot_method: drms
-plot_xdate: false
+submetadata1: model.smoothing.submetadata
+submetadata2: model.plotting.submetadata

@@ -1,0 +1,3 @@
+method: datastorage.arithmetic
+storage_period: monthly
+operation: minus

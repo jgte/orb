@@ -1,12 +1,7 @@
 import_dir: <getenv('HOME')>/data/gswarm/ifg/gravity/delft/
-storage_period: direct
-method: gswarm.load_models
 model_types: [signal,error]
 wilcarded_filename: coeff-*-SaSbSc-Delft.gfc
 model_format: gfc
 date_parser: gravity.parse_epoch_ifg
-use_GRACE_C20: true
-delete_C00: true
-max_degree: 20
-static_model: gswarm.grace.static.ggm05g
-plot_method: drms
+submetadata1: model.processing.submetadata
+submetadata2: model.plotting.submetadata

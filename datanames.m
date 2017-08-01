@@ -43,6 +43,13 @@ classdef datanames
         out{i}=setdiff(dn_array{i}.split,common,'stable');
       end
     end
+    function out=transmute(in) 
+      if iscell(in)
+        out=cellfun(@datanames.transmute,in,'UniformOutput',false);
+      else
+        out=in.dataname;
+      end
+    end
   end
   methods
     %% constructor

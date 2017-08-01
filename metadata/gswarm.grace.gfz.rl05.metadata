@@ -1,10 +1,7 @@
 import_dir: <getenv('HOME')>/data/grace/L2/GFZ/RL05
-storage_period: direct
-method: gswarm.load_models
 model_types: [signal,error]
 wilcarded_filename: GSM-2_*.gsm
 model_format: gsm
 date_parser: gravity.parse_epoch_grace
 submetadata1: model.processing.submetadata
-plot_method: drms
-plot_xdate: false
+submetadata2: model.plotting.submetadata

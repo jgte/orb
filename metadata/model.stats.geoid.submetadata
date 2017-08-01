@@ -1,3 +1,4 @@
+storage_period: global
 method: gswarm.stats
 derived_quantity: cumdas
 functional: geoid
