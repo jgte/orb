@@ -108,47 +108,105 @@ classdef datastorage
         dn_list=dn_list(~empty_idx);
       end
     end
-    function peek(obj,dn_list,info_methods,tab)
+    function peek(obj,dn_list,varargin)
       if obj.isempty
         return
       end
+      %look at all datanames by default
       if ~exist('dn','var') || isempty(dn_list)
         dn_list='all';
       end
-      if ~exist('info_methods','var') || isempty(info_methods)
-        info_methods={'size','nr_gaps','start','stop'};
-      end
-      if ~exist('tab','var') || isempty(tab)
-        tab=[32,20];
-      end
+      %parse optional arguments
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('info_methods',{'size','nr_gaps','start','stop'}, @(i) ischar(i) || iscellstr(i));
+      p.addParameter('tab',[32,20], @(i) isnumeric(i));
+      p.parse(varargin{:});
       %show header
-      disp(str.tablify(tab,'product',info_methods))
+      disp(str.tablify(p.Results.tab,'product',p.Results.info_methods))
       %retrieve global field path list
       obj_list=obj.data_get(dn_list);
       dn_list=obj.data_list(dn_list);
       %loop over all retrieved objects
       for i=1:numel(obj_list)
-        msg=cell(size(info_methods));
+        msg=cell(size(p.Results.info_methods));
         if isempty(obj_list{i})
           msg(:)={'-'};
         else
-          for m=1:numel(info_methods)
-            if ismethod(obj_list{i},info_methods{m}) || isprop(obj_list{i},info_methods{m})
-              msg{m}=obj_list{i}.(info_methods{m});
+          for m=1:numel(p.Results.info_methods)
+            if ismethod(obj_list{i},p.Results.info_methods{m}) || isprop(obj_list{i},p.Results.info_methods{m})
+              msg{m}=obj_list{i}.(p.Results.info_methods{m});
             else
               msg{m}='N/A';
             end
           end        
         end
-        disp(str.tablify(tab,dn_list{i}.str,msg))
+        disp(str.tablify(p.Results.tab,dn_list{i}.str,msg))
+      end
+    end
+    function da(obj,dn_list,varargin)
+      if obj.isempty
+        return
+      end
+      %look at all datanames by default
+      if ~exist('dn','var') || isempty(dn_list)
+        dn_list='all';
+      end
+      %parse optional arguments
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('info_method','nr_gaps', @(i) ischar(i));
+      p.addParameter('tab',[32,11], @(i) isnumeric(i));
+      p.addParameter('period',days(1), @(i) isduration(i));
+      p.addParameter('group',10, @(i) isscalar(i) && isnumeric(i));
+      p.parse(varargin{:});
+      %gather list of periods
+      [startlist,stoplist]=time.list(obj.start,obj.stop,p.Results.period);
+      %split list of periods into groups of 10 (otherwise it' difficult to see anything in the screen)
+      n=ceil(numel(startlist)/p.Results.group);
+      list0=cell(1,n);
+      list1=cell(1,n);
+      for i=1:n
+        start_idx=(i-1)*p.Results.group+1;
+        stop_idx=min([i*p.Results.group,numel(startlist)]);
+        list0{i}=startlist(start_idx:stop_idx);
+        list1{i}=stoplist( start_idx:stop_idx);
+      end
+      %show header
+      disp(['Showing ',p.Results.info_method,' for periods of ',str.show(p.Results.period),'.'])
+      for l=1:n
+        disp(str.tablify(p.Results.tab,'product',list0{l}))
+        %retrieve global field path list
+        obj_list=obj.data_get(dn_list);
+        dn_list=obj.data_list(dn_list);
+        %loop over all retrieved objects
+        for i=1:numel(obj_list)
+          msg=cell(size(list0{l}));
+          if isempty(obj_list{i})
+            msg(:)={'-'};
+          else
+            for m=1:numel(list0{l})
+              %try to get the requested information
+              try
+                %get the requested info for the current data period
+                 msg{m}=obj_list{i}.trim(list0{l}(m),list1{l}(m)).(p.Results.info_method);
+              catch
+                %patch with N/A
+                msg{m}='N/A';
+              end
+            end        
+          end
+          disp(str.tablify(p.Results.tab,dn_list{i}.str,msg))
+        end
       end
     end
     %% value operations (basically wraps some methods in the structs object)
     function out=value_get(obj,dn)
       %reduce dataname to common object
       dn=datanames(dn);
-      %retrieve value
-      out=structs.get_value(obj.data.(dn.name_clean),dn.field_path);
+      %retrieve value ('true' allows for structs.get_value to loop along dn.field_path
+      %                until it refers to field available in obj.data.(dn.name_clean))
+      out=structs.get_value(obj.data.(dn.name_clean),dn.field_path,true);
     end
     function obj=value_set(obj,dn,value)
       %reduce dataname to common object
@@ -701,6 +759,10 @@ classdef datastorage
           end
           if bail_flag,break,end
         end
+%         %if nothing was found, save all leafs of this source
+%         if isempty(source_inventory{i})
+%           source_inventory{i}=obj.data_list(product_list.sources(i));
+%         end
       end
       %convert to product
       source_list=cellfun(@(i) dataproduct(i), cells.flatten(cells.rm_empty(source_inventory)),'UniformOutput',false);
@@ -734,9 +796,13 @@ classdef datastorage
         else
           source_depth=-1;
         end
+      %other products have explicit field paths
+      elseif product_list.ismd_field('source_field_path')
+        %TODO: not sure how to handle this...
+        keyboard
       %most products operate on a one-to-one basis in the field paths
       else
-        %get strings with field paths for all source
+        %get strings with field paths for all sources
         field_path_str=...
           cellfun(@(i) ...
             cellfun(@(j) ...
@@ -766,7 +832,7 @@ classdef datastorage
       obj.log('@','2','source_idx',source_idx,'source_depth',source_depth)
       %reduce source inventory
       source_inventory=source_inventory{source_idx};
-      %retrieve only the required depth (this is untested for source_depths>1
+      %retrieve only the required depth (this is untested for source_depth>1
       if source_depth>0
         source_inventory_out={source_inventory{1}.set_field_path({})};
         for i=1:source_depth

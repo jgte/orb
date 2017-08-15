@@ -450,11 +450,11 @@ classdef time
       p.parse(start,stop,period)
       switch period
       case days(1)
-        [startlist,stoplist]=day_list(start,stop);
+        [startlist,stoplist]=time.day_list(start,stop);
       case years(1)/12
-        [startlist,stoplist]=month_list(start,stop);
+        [startlist,stoplist]=time.month_list(start,stop);
       case years(1)
-        [startlist,stoplist]=year_list(start,stop);
+        [startlist,stoplist]=time.year_list(start,stop);
       otherwise
         startlist=start:period:stop;
         stoplist=startlist+period;
@@ -651,6 +651,14 @@ classdef time
       otherwise
         out=char(datetime(in,'Format',format));
       end
+    end
+    function out=sod(in)
+      % Converts the date to second of day.
+      out=seconds(in-dateshift(in,'start','day'));
+    end
+    function out=doy(in)
+      % Converts the date to second of day.
+      out=days(in-dateshift(in,'start','year')+1);
     end
     %shortcuts
     function out=mjd(in)

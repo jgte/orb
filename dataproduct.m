@@ -409,7 +409,7 @@ classdef dataproduct
       p.addRequired( 'metadatafieldname',            @(i) ischar(i));
       p.addParameter('return_empty_if_missing',false,@(i) islogical(i));
       p.addParameter('always_cell_array',      false,@(i) islogical(i));
-      p.addParameter('default',                '',   @true); %anything goes
+      p.addParameter('default',                '',   @(i) true); %anything goes
       % parse it
       p.parse(metadatafieldname,varargin{:});
       % check for existence (unless return_empty_if_missing)

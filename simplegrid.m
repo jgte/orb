@@ -638,10 +638,17 @@ classdef simplegrid < simpletimeseries
     function h=coast(varargin)
       p=inputParser;
       p.addParameter('line_color','k',@(i) ischaracter(i));
-      p.addParameter('line_width',1.5,  @(i) isscalar(i) && isnumeric(i));
+      p.addParameter('line_width',1.5,  @(i)  isscalar(i) && isnumeric(i));
+      p.addParameter('lon',[-180,180],  @(i) ~isscalar(i) && isnumeric(i));
+      p.addParameter('lat',[ -90, 90],  @(i) ~isscalar(i) && isnumeric(i));
       p.parse(varargin{:});
       coast = load('coast');
-      h=plot(coast.long,coast.lat,'LineWidth',p.Results.line_width,'Color',p.Results.line_color);
+      keep_idx=find(...
+        ( coast.long<=max(p.Results.lon) & coast.long>=min(p.Results.lon) & ...    
+          coast.lat <=max(p.Results.lat) & coast.lat >=min(p.Results.lat) ) | ...
+        isnan(coast.lat) | isnan(coast.long)  ...
+      );
+      h=plot(coast.long(keep_idx),coast.lat(keep_idx),'LineWidth',p.Results.line_width,'Color',p.Results.line_color);
   end
     %% tests
     %general test for the current object
@@ -1275,6 +1282,8 @@ classdef simplegrid < simpletimeseries
       p.addParameter('t', obj.t_masked(1), @(i) simpletimeseries.valid_t(i));
       p.addParameter('show_coast',   true, @(i) islogical(i));
       p.addParameter('show_colorbar',true, @(i) islogical(i));
+      p.addParameter('cb_loc','SouthOutside',@(i) ischar(i));
+      p.addParameter('cb_title',       '', @(i) ischar(i));
       p.addParameter('bias',            0, @(i) isscalar(i) && isnumeric(i));
       p.addParameter('boxes',          {}, @(i) isstruct(i));
       p.parse(varargin{:});
@@ -1289,16 +1298,26 @@ classdef simplegrid < simpletimeseries
         obj_interp.map(:,lon_idx,:)...
       );hold on
       axis xy
+      axis equal
+      axis tight
       %labels
       xlabel(['lon [',obj.sp_units,']'])
       ylabel(['lat [',obj.sp_units,']'])
       %ploting coastline
       if p.Results.show_coast
-        out.coast_handle=simplegrid.coast;
+        out.coast_handle=simplegrid.coast('lon',lon_now);
       end
       %add colorbar
       if p.Results.show_colorbar
-        out.colorbar_handle=colorbar;
+        out.colorbar_handle=colorbar('location',p.Results.cb_loc);
+        if ~isempty(p.Results.cb_title)
+          switch lower(p.Results.cb_loc)
+          case {'north','south','northoutside','southoutside'}
+            set(get(out.colorbar_handle,'xlabel'),'string',p.Results.cb_title);
+          case {'east','west','eastoutside','westoutside'}
+            set(get(out.colorbar_handle,'ylabel'),'string',p.Results.cb_title);
+          end
+        end
       end
       %add boxes
       if ~isempty(p.Results.boxes)
