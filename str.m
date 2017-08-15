@@ -147,6 +147,12 @@ classdef str
         s=strrep(s,mode,'');
       end
     end
+    function s=rep(s,varargin)
+      assert(mod(numel(varargin),2)==0,'Need pairs of input arguments following ''s''.')
+      for i=1:numel(varargin)/2
+        s=strrep(s,varargin{2*i-1},varargin{2*i});
+      end
+    end
     function out=ispresent(parser,field)
       %sanity
       if iscell(field)

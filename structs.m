@@ -43,16 +43,25 @@ classdef structs
       out=strjoin(out,char(10));
     end
     %'field_path' is cell array with the sub-field path to the value to be retrieved from structure in 'in'
-    function out=get_value(S,field_path)
+    function out=get_value(S,field_path,search_flag)
       if ~exist('field_path','var') || isempty(field_path)
         out=S;
         return
       end
+      if ~exist('search_flag','var')||isempty(search_flag)
+        %do not search by default, otherwise isleaf fails (possibly others)
+        search_flag=false;
+      end
       %check if this field exists
       if ~isfield(S,field_path{1})
-        out=[];
+        if search_flag
+          %climb down the field_path list, maybe a valid field appears later
+          out=structs.get_value(S,field_path(2:end),true);
+        else
+           out=[];
+        end
       else
-        out=structs.get_value(S.(field_path{1}),field_path(2:end));
+        out=structs.get_value(S.(field_path{1}),field_path(2:end),search_flag);
       end
     end
     %'field_path' is cell array with the sub-field path to the value to be set in structure in 'in'
@@ -187,7 +196,7 @@ classdef structs
       if ~exist('non_empty','var')||isempty(non_empty)
         non_empty=false;
       end
-      val=structs.get_value(S,field_path);
+      val=structs.get_value(S,field_path,false);
       out=~isstruct(val);
       if non_empty
         out=out && ~isempty(val);

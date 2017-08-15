@@ -189,6 +189,10 @@ classdef file
       %
       % Optional 'prefer_non_mat_files' as true will skip looking for corresponding .mat
       % files (default is false).
+      %
+      % Optional 'scalar_as_strings' returns strings (instead of cell arrays) when the
+      % result is scalar (default is false). In case the result is non-scalar and this
+      % parameter is true, an error is triggered.
 
       % Created by J.Encarnacao <J.deTeixeiradaEncarnacao@tudelft.nl>
       p=inputParser;
@@ -197,6 +201,7 @@ classdef file
       p.addParameter('strict_mat_search'   ,false, @(i) islogical(i) && isscalar(i));
       p.addParameter('prefer_non_mat_files',false, @(i) islogical(i) && isscalar(i));
       p.addParameter('disp',                true,  @(i) islogical(i) && isscalar(i));
+      p.addParameter('scalar_as_strings',   false, @(i) islogical(i) && isscalar(i));
       % parse it
       p.parse(in,varargin{:});
       %wildcard character '*' needs to be translated to '.*' (if not already)
@@ -255,6 +260,11 @@ classdef file
       %inform user
       if p.Results.disp
         disp([mfilename,': found ',num2str(numel(out)),' filenames in wildcarded string ''',in,'''.'])
+      end
+      %convert to string if requested
+      if p.Results.scalar_as_strings
+        assert(numel(out)==1,['If ''scalar_as_strings'' is true, then results must be scalar, not with length ',numel(out),'.'])
+        out=out{1};
       end
     end
   end

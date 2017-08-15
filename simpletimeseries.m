@@ -655,7 +655,8 @@ classdef simpletimeseries < simpledata
             'labels',labels,...
             'units',units,...
             'timesystem',timesystem,...
-            'descriptor',filename...
+            'descriptor',filename,...
+            'monotonize','remove'...
           );
         end
       case 'ACC1B'
@@ -758,31 +759,6 @@ classdef simpletimeseries < simpledata
       if out(end)>stop
         out=out(1:end-1);
       end
-    end
-    function [t,y]=monotonize(t,y)
-      %get delta time
-      dt=diff(t(:));
-      %trivial call
-      if all(dt>0)
-        return
-      end
-      %sorting needed?
-      if any(dt<0)
-        error('implementation needed')
-      end
-      %get index of duplicates (last one is not duplicate by definition)
-      idx0=[(dt==0); false];
-      %get index+1 of duplicates
-      idx1=circshift(idx0,1,1);
-      %make sure the values are the same
-      for i=1:size(y,2)
-        if any(y(idx0,i)~=y(idx1,i))
-          error([mfilename,': cannot monotonize the data because column ',num2str(i),' has different data in common epochs.'])
-        end
-      end
-      %throw away duplicate epochs
-      t=t(~idx0);
-      y=y(~idx0,:);
     end
     function out=stats2(obj1,obj2,varargin)
       p=inputParser;
@@ -895,9 +871,9 @@ classdef simpletimeseries < simpledata
     function obj=assign(obj,y,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'y'      ,          @(i) simpledata.valid_y(i));
-      p.addParameter('t'      ,obj.t,    @(i) simpletimeseries.valid_t(i));
-      p.addParameter('epoch'  ,obj.epoch,@(i) simpletimeseries.valid_epoch(i));
+      p.addRequired( 'y'         ,          @(i) simpledata.valid_y(i));
+      p.addParameter('t'         ,obj.t,    @(i) simpletimeseries.valid_t(i));
+      p.addParameter('epoch'     ,obj.epoch,@(i) simpletimeseries.valid_epoch(i));
       % parse it
       p.parse(y,varargin{:});
       % simpler names
@@ -1169,7 +1145,7 @@ classdef simpletimeseries < simpledata
       %set epoch
       obj.epochi=epoch;
       %shift x
-      obj=obj.x_set(simpletimeseries.time2num(t_old,epoch));
+      obj=obj.assign_x(simpletimeseries.time2num(t_old,epoch));
       %sanity
       if any(~simpletimeseries.ist('==',t_old,obj.t,obj.t_tol))
         error([mfilename,': changing epoch cause the time domain to also change.'])
@@ -1386,7 +1362,7 @@ classdef simpletimeseries < simpledata
     end
     function [obj,idx]=fill(obj)
       %NOTICE: this method is similar to resample in the sense it creates a complete time domain
-      %        but it differs since the added time entries are set as explicit gaps.
+      %        but it differs because the added time entries are set as explicit gaps.
       %TODO: handle non-homogeneous time domains
       %trivial call
       if obj.ishomogeneous
@@ -1441,6 +1417,13 @@ classdef simpletimeseries < simpledata
       if nargout > 1
         [~,idx]=simpledata.union(t_old,t_new);
       end
+    end
+    function obj=resample_full(obj)
+      % this function is a special case of resample
+      obj=obj.interp(obj.t_domain,...
+        'interp_over_gaps_narrower_than',0,...
+        'interp1_args',{'linear'}...
+      );
     end
     function obj=fstep(obj,step_prev)
       %adds data entries that are equal to the preceeding value, but one
@@ -1689,7 +1672,7 @@ classdef simpletimeseries < simpledata
             fprintf(fid,fmt,time_str(i,:),mjd(i),y(i,:));
             s=time.progress(s,i);
           end
-        case 'ACC1B'
+        case 'ACC1B' %expecting sat_name to be 'GRACE A' or 'GRACE B'
           gps_zero_epoch=datetime('2000-01-01 12:00:00');
           default_header=[...
 'PRODUCER AGENCY               : UTexas',10,...
@@ -1728,7 +1711,7 @@ classdef simpletimeseries < simpledata
           fprintf(fid,'%s',header);
           %build time vectors
           time_str=time.datetime2gpssec(obj.t_masked,gps_zero_epoch);
-          %build format string
+          %build format string (there's a lot of zeros because most of the original data is now lost)
           fmt=['%d ',strrep(p.Results.sat_name,'GRACE ',''),...
             repmat(' %21.15e',1,numel(p.Results.columns)),...
             repmat(' 0.0000000000000000000',1,9-numel(p.Results.columns)),'  00000000\n'];
@@ -1738,6 +1721,52 @@ classdef simpletimeseries < simpledata
           o=[num2cell(transpose(time_str));num2cell(transpose(y))];
           %fprintf it
           fprintf(fid,fmt,o{:});
+        case 'msodp' %expecting sat_name to be '1201 GRACEA' or '1202 GRACEB'
+          %need gap-less data
+          obj=obj.resample_full;
+          unitfacor=0.1e4; 
+          default_header=[...
+'%grace.acc version 1.1  revision 2.1 ',datestr(datetime('now'),'yyyy mm dd HH:MM'),' CSR/UT    Joao Encarnacao',10,...
+'+satellite    ',p.Results.sat_name,10,...
+'+data_____ tim acl',10,...
+'+reference gps ifx',10,...
+'+first____ ',datestr(obj.start,'yyyy mm dd HH MM SS.FFF'),10,...
+'+last_____ ',datestr(obj.stop, 'yyyy mm dd HH MM SS.FFF'),10,...
+'+interval_ ',num2str(seconds(obj.step)),10,...
+'+datarecor ',num2str(obj.nr_valid),10,...
+'+unitfacor ',num2str(unitfacor,'%7.1e'),10,...
+'+format___ (I4,1X,I3,1X,I5,1X,I7,3(1X,F18.15),1X,I8)',10,...
+'*calibration parameters',10,...
+'+acl_k0___ 0.0000000000 0.0000000000 0.0000000000 1',10,...
+'+acl_k1___ 1.0000000000 1.0000000000 1.0000000000 1',10,...
+'+acl_k2___ 0.0000000000 0.0000000000 0.0000000000 1',10,...
+'+aca_k0___ 0.0000000000 0.0000000000 0.0000000000 0',10,...
+'+aca_k1___ 1.0000000000 1.0000000000 1.0000000000 0',10,...
+'+aca_k2___ 0.0000000000 0.0000000000 0.0000000000 0',10,...
+'+eoh______',10];
+          %write the header
+          if isempty(p.Results.header)
+            %use default header, none was specified
+            header=default_header;
+          else
+            header=p.Results.header;
+          end
+          fprintf(fid,'%s',header);
+          %build time vectors
+          sod=time.sod(obj.t);
+          sod_floor=floor(sod);
+          sod_fraction=sod-sod_floor;
+          time_str=[year(obj.t),floor(time.doy(obj.t)),sod_floor,sod_fraction];
+          %build format string (translated from header)
+          fmt='%4d %3d %5d %7d %18.15f %18.15f %18.15f        0\n';
+          %build output data
+          y=obj.y(:,p.Results.columns)*unitfacor;
+          %put everything together
+          o=[num2cell(transpose(time_str));num2cell(transpose(y))];
+          %fprintf it
+          fprintf(fid,fmt,o{:});
+          %eof
+          fprintf(fid,'%s','%eof');
         otherwise
           error(['Cannot handle exporting time series to files of type ''',filetype,'''.'])  
         end

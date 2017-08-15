@@ -663,14 +663,32 @@ classdef csr
       end
       obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
     end
-    function outfile=export_acc_l1b(obj,product,varargin)
+    function outfile=export_acc(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
+      %parse optional arguments
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('format','ACC1B', @(i) ischar(i));
+      p.parse(varargin{:});
+      %branch on output format
+      switch p.Results.format
+        case 'ACC1B'
+          outdir_default=fullfile('YY','acc','asc');
+          filename='ACC1B_YYYY-MM-DD_SAT_VERSION.asc';
+          sat_name='GRACE SAT';
+        case 'msodp'
+          outdir_default=fullfile('YY','acc','dat');
+          filename='grace.YYYY-MM-DD_SAT_VERSION.acc.pre';
+          sat_name='GRACESAT';
+        otherwise
+          error([mfilename,': cannot handle format ''',p.Results.format,'''.'])
+      end
       % sanity
       assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
       %retrieve relevant parameters
       sats =product.mdget('sats');
-      outdir=product.mdget('export_dir');
-      version=product.mdget('version');
+      outdir=product.mdget('export_dir','default',outdir_default);
+      version=num2str(product.mdget('version'));
       %gather list of daily data files
       [~,startlist,stoplist]=product.file('data',varargin{:},...
         'start',obj.start,...
@@ -681,16 +699,25 @@ classdef csr
       %loop over the satellites
       for s=1:numel(sats)
         %save the data, if not empty
-        out=obj.data_get_scalar(product.dataname.set_field_path(sats(s)));
+        out=obj.data_get_scalar(product.dataname.append_field_leaf(sats{s}));
         %loop over all dates
         for i=1:numel(startlist)
           idx=(s-1)*numel(startlist)+i;
           %build input data filename
-          outfile{idx}=fullfile(outdir,datestr(startlist(i),'yy'),'acc','asc',...
-            ['ACC1B_',datestr(startlist(i),'yyyy-mm-dd'),'_',sats{s},'_',version,'.asc']...
+          outfile{idx}=str.rep(fullfile(outdir,filename),...
+            'YYYY',datestr(startlist(i),'yyyy'),...
+            'YY',  datestr(startlist(i),'yy'  ),...
+            'MM',  datestr(startlist(i),'mm'  ),...
+            'DD',  datestr(startlist(i),'dd'  ),...
+            'SAT', sats{s},...
+            'VERSION',version ...
           );
           %save the data in ACC1B format, as handled by simpletimeseries.export
-          out.trim(startlist(i),stoplist(i)).export(outfile{idx},'ACC1B','sat_name',['GRACE ',sats{s}]);
+          out.trim(...
+            startlist(i),stoplist(i)...
+          ).export(...
+            outfile{idx},p.Results.format,'sat_name',strrep(sat_name,'SAT',sats{s})...
+          );
         end
       end
       obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)

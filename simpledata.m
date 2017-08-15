@@ -46,7 +46,13 @@ classdef simpledata
     function out=valid_x(x)
       out=isnumeric(x) && ~isempty(x) && isvector(x);
     end
-    function [x,y,mask]=monotonic(x,y,mask)
+    function [x,y,mask]=monotonic(x,y,mask,mode,debug)
+      if ~exist('mode','var') || isempty(mode)
+        mode='check';
+      end
+      if ~exist('debug','var') || isempty(debug)
+        debug=true;
+      end
       if ~issorted(x)
         [x,idx]=sort(x);
         y=y(idx,:);
@@ -54,10 +60,55 @@ classdef simpledata
           mask=mask(idx);
         end
       end
-      %TODO: diff(x) should be one entry smaller than x
-      bad_idx=diff(x)<=0;
+      %data should be soft monotonic now
+      assert(~any(diff(x)<0),'sorting failed')
+      %get index of duplicates (last one is not duplicate by definition)
+      bad_idx=[diff(x)==0;false];
       if any(bad_idx)
-        disp([mfilename,': WARNING: need to remove ',num2str(sum(bad_idx)),' epoch(s) to make abcissae monotonic.'])
+        switch lower(mode)
+        case 'check'
+          %get index+1 of duplicates
+          bad_idx1=circshift(bad_idx,1,1);
+          %make sure the values are the same: check along columns
+          for i=1:size(y,2)
+            assert(~any(y(bad_idx,i)~=y(bad_idx1,i)),['cannot monotonize the data because column ',...
+              num2str(i),' has different data in common epochs.'])
+          end
+        case {'remove','clear','clean'}
+          disp([mfilename,': WARNING: blindly removing ',num2str(sum(bad_idx)),' epoch(s) to make abcissae monotonic.'])
+          %this is done below and is valid for all modes
+        case {'average','mean'}
+          disp([mfilename,': WARNING: need to average ',num2str(sum(bad_idx)),' epoch(s) to make abcissae monotonic.'])
+          %convert logical array to indexes
+          bi=find(bad_idx);
+          %loop over all indexes
+          for i=1:numel(bi)
+            %find idx in the data that have the same x-values
+            idx=find(x==x(bi(i)));
+            %get the index of the data entry where the average is going to be save into (c of 'collapsed')
+            cidx=setdiff(idx,bi);
+            %compute the collapsed y values
+            cy=mean(y(idx,:));
+            %noisy debug
+            if debug
+              tab=20;
+              disp('DEBUG: from the following bad_idx:')
+              disp(str.tablify(tab,bi(i),x(bi(i)),y(bi(i),:)))
+              disp(['DEBUG: from bad_idx(',num2str(i),')=',num2str(bi(i)),', averaged the following data:'])
+              disp(str.tablify(tab,'idx','x(idx)','y(idx)'))
+              for j=1:numel(idx)
+                disp(str.tablify(tab,idx(j),x(idx(j)),y(idx(j),:)))
+              end
+              disp('DEBUG: into the following single epoch:')
+              disp(str.tablify(tab,cidx,x(cidx),cy))
+            end
+            %save the averaged y value
+            y(cidx,:)=cy;
+          end
+        otherwise
+          error(['unknown mode ''',mode,'''.'])
+        end
+        %remove duplicate epochs
         x=x(~bad_idx);
         y=y(~bad_idx,:);
         if ~isempty(mask)
@@ -686,6 +737,25 @@ classdef simpledata
         obj=check_annotation(obj,pn{i});
       end
     end
+    %NOTICE: this method blindly assigns data
+    function obj=assign_x(obj,x)
+      %propagate x
+      obj.x=x(:);
+      %update length
+      obj.length=numel(obj.x);
+    end
+    %NOTICE: this method blindly assigns data
+    function obj=assign_y(obj,y)
+      %propagate y
+      obj.y=y;
+      %update width
+      obj.width=size(y,2);
+    end
+    %NOTICE: this method blindly assigns data
+    function obj=assign_mask(obj,mask)
+      obj.mask=mask;
+    end
+    %NOTICE: unlike the assign_* methods above, this method does some checking
     function obj=assign(obj,y,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -693,6 +763,7 @@ classdef simpledata
       p.addParameter('x'          ,obj.x,   @(i) simpledata.valid_x(i));
       p.addParameter('mask'       ,obj.mask,@(i) simpledata.valid_mask(i));
       p.addParameter('reset_width',false,   @(i) isscalar(i));
+      p.addParameter('monotonize','none',   @(i) ischar(i));
       % parse it
       p.parse(y,varargin{:});
       % ---- x ----
@@ -701,9 +772,7 @@ classdef simpledata
           ') must be the same as the number of rows of input ''y'' (',num2str(size(y,1)),').'])
       end
       %propagate x
-      obj.x=p.Results.x(:);
-      %update length
-      obj.length=numel(obj.x);
+      obj=obj.assign_x(p.Results.x(:));
       % ---- y ----
       if ~logical(p.Results.reset_width) && ~isempty(obj.width) && size(y,2) ~= obj.width
         error([mfilename,': data width changed from ',num2str(obj.width),' to ',num2str(size(y,2)),'.'])
@@ -712,10 +781,8 @@ classdef simpledata
         error([mfilename,': data length different than size(y,2), i.e. ',...
           num2str(obj.length),' ~= ',num2str(size(y1m)),'.'])
       end
-      %update width
-      obj.width=size(y,2);
       %propagate y
-      obj.y=y;
+      obj=obj.assign_y(y);
       % ---- mask ----
       %check if explicit mask was given
       if ~any(strcmp(p.UsingDefaults,'mask'))
@@ -724,13 +791,20 @@ classdef simpledata
           'number of elements of input ''mask'' (',num2str(numel(p.Results.mask)),...
           ') must be the same as the data length (',num2str(obj.length),').'])
         %propagate mask
-        obj.mask=p.Results.mask(:);
+        obj=obj.assign_mask(p.Results.mask(:));
       else
         %using existing mask (the default), data length may have changed: set mask from y
         obj=obj.mask_reset;
       end
       %sanitize done inside mask_update
       obj=mask_update(obj);
+      %monotonize the data if requested
+      switch lower(p.Results.monotonize)
+      case 'none'
+        %do nothing
+      otherwise
+        obj=obj.monotonize(p.Results.monotonize);
+      end
     end
     function obj=copy_metadata(obj,obj_in)
       parameters=fieldnames(simpledata.parameter_list);
@@ -966,12 +1040,6 @@ classdef simpledata
         mask=obj.mask;
       end
       out=obj.x(mask);
-    end
-    function obj=x_set(obj,in)
-      if ~simpledata.valid_x(in) || numel(in) ~= obj.length
-        error([mfilename,': invalid input ''in''.'])
-      end
-      obj.x=in;
     end
     function out=idx(obj,x_now,varargin)
       % sanity
@@ -1274,6 +1342,13 @@ classdef simpledata
       if ~check
         error([mfilename,': discrepancy in between length of ',annotation_name,' and of width of y'])
       end 
+    end
+    function obj=monotonize(obj,mode)
+      [x_now,y_now,mask_now]=simpledata.monotonic(obj.x,obj.y,obj.mask,mode);
+      %need blind assigns since this method can be called during initialization
+      obj=obj.assign_y(y_now);
+      obj=obj.assign_x(x_now);
+      obj=obj.assign_mask(mask_now);
     end
     %% edit methods
     function obj=remove(obj,rm_mask)

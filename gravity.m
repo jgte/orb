@@ -380,9 +380,13 @@ classdef gravity < simpletimeseries
     function [m,e]=load(filename,format,time)
       %default type
       if ~exist('format','var') || isempty(format)
-        [~,~,format]=fileparts(filename);
+        [~,fn,format]=fileparts(filename);
         %get rid of the dot
         format=format(2:end);
+        %check if this is CSR format
+        if strcmp(fn,'GEO')
+          format='csr';
+        end
       end
       %default time
       if ~exist('time','var') || isempty(time)
@@ -1417,7 +1421,7 @@ classdef gravity < simpletimeseries
         end
         grid on
         xlabel('SH degree')
-        ylabel([obj.functional,' [',obj.y_units{1},']'])
+        ylabel([obj.functional,' ',obj.y_units])
         if p.Results.showlegend
           legend(datestr(obj.t))
         end
@@ -1660,7 +1664,7 @@ function [m,e]=load_csr(filename,time)
 %     d=str2num(s( 7: 9))+1;
     d=str.num(s(7:9))+1;
 %     o=str2num(s(10:12))+1;
-    o=str.num(s(10:12));
+    o=str.num(s(10:12))+1;
 %     mi.C(d,o)=str2num(s(13:33));
     mi.C(d,o)=str.num(s(13:33));
 %     mi.S(d,o)=str2num(s(34:54));
