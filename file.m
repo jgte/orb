@@ -267,6 +267,14 @@ classdef file
         out=out{1};
       end
     end
+    function out=ensuredir(filename)
+      d=fileparts(filename);
+      if ~exist(d,'dir')
+        out=mkdir(d);
+      else
+        out=true;
+      end
+    end
   end
 end
 

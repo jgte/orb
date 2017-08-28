@@ -270,7 +270,6 @@ classdef csr
               arc_starts=tmp.(sats{s}).t;
               %build arc ends (arc duration given explicitly)
               arc_ends=arc_starts+seconds(tmp.(sats{s}).y(:,arclen_col))-seconds(1);
-
               %patch missing arc durations
               idx=find(isnat(arc_ends));
               %report edge cases
@@ -282,25 +281,7 @@ classdef csr
               if ~isempty(idx);
                 arc_ends(idx)=dateshift(arc_starts(idx),'end','day')-seconds(1);
               end
-%                 
-%                 %get seconds-of-day of arc ends
-%                 sod_arc_ends=seconds(arc_ends-dateshift(arc_ends,'start','day'));
-%                 %find the 24hrs arcs (those that have ~0 seconds of days)
-%                 idx=find(sod_arc_ends<tmp.(sats{s}).t_tol);
-%                 %push those arcs to midnight and remove 1 second TODOL this was 'start'
-%                 arc_ends(idx)=dateshift(arc_ends(idx),'end','day')-seconds(1);
-%                 %check for ilegal arc durations
-%                 idx=find(sod_arc_ends>86400);
-%                 csr.report(obj.debug,idx,'Arcs ending after midnight',f,...
-%                   {'arc start','arc end','sod arc end'},...
-%                   {arc_starts,arc_ends,sod_arc_ends}...
-%                 )
-%                 %fix it
-%                 if ~isempty(idx)
-%                   arc_ends(idx)=dateshift(arc_ends(idx),'start','day')-seconds(1);
-%                 end
             end
-
             %bug trap
             assert(all(~isnat(arc_starts)),...
               [mfilename,': found NaT in the arc starts'])
@@ -308,7 +289,6 @@ classdef csr
             %compute arc day start and end
             day_starts=dateshift(arc_starts,'start','day');
             day_ends  =dateshift(arc_starts,'end',  'day');
-
             %arc ends cannot go over day boundaries
             idx=find(arc_ends>=day_ends);
             csr.report(obj.debug,idx,'Arc ends over day boundary',f,...
@@ -319,13 +299,6 @@ classdef csr
             if ~isempty(idx)
               arc_ends(idx)=day_ends(idx)-seconds(1);
             end
-
-%               %fix NaTs in arc ends
-%               idx=find(isnat(arc_ends));
-%               %fix it
-%               if ~isempty(idx)
-%                 arc_ends(idx)=day_ends(idx)-seconds(1);
-%               end
             %bug trap
             assert(all(~isnat(arc_ends)),...
               [mfilename,': found NaT in the arc starts/ends'])
@@ -385,13 +358,7 @@ classdef csr
               arc_starts=sub_arc_starts;
                 arc_ends=sub_arc_ends;
             end
-
-%               %arc ends cannot be at day starts (that's the next arc start)
-%               idx=find(arc_ends==day_ends);
-%               if ~isempty(idx)
-%                 arc_ends(idx)=arc_ends(idx)-seconds(1);
-%               end
-
+            
             %propagate data
             arc_start_y=tmp.(sats{s}).y;
               arc_end_y=tmp.(sats{s}).y;
@@ -424,12 +391,6 @@ classdef csr
                  },...
               false)
             end
-
-%               % set the arc length to zero for arc ends
-%               switch levels{i}
-%               case 'estim'
-%                 arc_end_y(:,arclen_col)=0;
-%               end
 
             %build timeseries with arc starts
             arc_start_ts=simpletimeseries(arc_starts,arc_start_y,...
@@ -507,29 +468,44 @@ classdef csr
       for i=1:numel(levels)
         for j=1:numel(fields_out)
           for s=1:numel(sats)
-            tmp=obj.data_get_scalar(product.dataname.set_field_path([levels(i),fields_out(j),sats(s)]));
-            end_arc_idx=[false;diff(tmp.y(:,1))==0];
-                gap_idx=[diff(tmp.t)>seconds(1)+tmp.t_tol;false];
-            gap_t=tmp.t(end_arc_idx & gap_idx)+seconds(1);
+            ts_now=obj.data_get_scalar(product.dataname.set_field_path([levels(i),fields_out(j),sats(s)]));
+            %debug date report
+            if ~isempty(p.Results.debugdate)
+              rep_date=datetime(p.Results.debugdate);
+              str.say('DEBUG DATE: w/out gaps:',levels{i},':',sats{s},':',fields_out{j},' @ ',datestr(rep_date));
+              idx=ts_now.idx(rep_date);
+              ts_now.peek((idx-10):(idx+10));
+            end
+            %get end of arcs and non-consecutive time indexes
+            end_arc_idx=[false;diff(ts_now.y(:,1))==0];
+                gap_idx=[diff(ts_now.t)>seconds(1)+ts_now.t_tol;false];
+            %extend calibration parameters 1 minute into the gap
+            ext_len=seconds(60);
+            gap_start_idx=find(end_arc_idx & gap_idx);
+            gap_stop_idx=gap_start_idx+1;
+            extension=min( ts_now.t(gap_stop_idx)-ts_now.t(gap_start_idx),ext_len*ones(size(gap_start_idx))*2 )/2;
+            ts_now.t(gap_start_idx)=ts_now.t(gap_start_idx)+extension-seconds(1);
+            ts_now.t(gap_stop_idx )=ts_now.t(gap_stop_idx )-extension;
             %build timeseries with arc ends
-            gaps=simpletimeseries(gap_t,nan(numel(gap_t),tmp.width),...
+            gap_t=ts_now.t(gap_start_idx)+seconds(1);
+            gaps=simpletimeseries(gap_t,nan(numel(gap_t),ts_now.width),...
               'format','datetime',...
-              'labels',tmp.labels,...
-              'units',tmp.y_units,...
-              'timesystem',tmp.timesystem,...
-              'descriptor',['gaps for ',tmp.descriptor]...
+              'labels',ts_now.labels,...
+              'units',ts_now.y_units,...
+              'timesystem',ts_now.timesystem,...
+              'descriptor',['gaps for ',ts_now.descriptor]...
             );
-            %augment and save
-            obj=obj.data_set(product.dataname.set_field_path([levels(i),fields_out(j),sats(s)]),...
-              tmp.augment(gaps,'old',true,'new',true)...
-            );  
+            %augment (keep it separate from saving, so that date report works as expected)
+            ts_now=ts_now.augment(gaps,'old',true,'new',true);
             %debug date report
             if ~isempty(p.Results.debugdate)
               rep_date=datetime(p.Results.debugdate);
               str.say('DEBUG DATE: with gaps:',levels{i},':',sats{s},':',fields_out{j},' @ ',datestr(rep_date));
               idx=ts_now.idx(rep_date);
-              obj.data_get_scalar(product.dataname.set_field_path([levels(i),fields_out(j),sats(s)])).peek((idx):(idx+20));
+              ts_now.peek((idx-10):(idx+10));
             end              
+            %save
+            obj=obj.data_set(product.dataname.set_field_path([levels(i),fields_out(j),sats(s)]),ts_now);  
           end
         end
       end
