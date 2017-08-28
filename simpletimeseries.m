@@ -1628,14 +1628,16 @@ classdef simpletimeseries < simpledata
       p.addParameter('sat_name','',          @(i) ischar(i));
       % parse it
       p.parse(filename,filetype,varargin{:});
-      if isempty(dir(filename))
+      if ~exist(filename,'file')
         disp([datestr(now),': start exporting ',filename])
+        %make sure this directory exists
+        assert(file.ensuredir(filename),['Error creating directory of file ',filename,'.'])
         %open the file (sanity done inside)
         fid=file.open(filename,'w');
         %branch on type of file
         switch filetype
         case 'ascii'
-          default_header=[...
+          dh=[...
 '# Column 1:    Date (yyyy-mm-dd)',10,...
 '# Column 2:    Time (hh:mm:ss.sss)',10,...
 '# Column 3:    Time system (',obj.timesystem,')',10,...
@@ -1643,7 +1645,7 @@ classdef simpletimeseries < simpledata
           %write the header
           if isempty(p.Results.header)
             %use default header, none was specified
-            header=default_header;
+            header=dh;
             %build rest of the default header
             for i=1:numel(p.Results.columns)
               header=[header,...
@@ -1674,7 +1676,7 @@ classdef simpletimeseries < simpledata
           end
         case 'ACC1B' %expecting sat_name to be 'GRACE A' or 'GRACE B'
           gps_zero_epoch=datetime('2000-01-01 12:00:00');
-          default_header=[...
+          dh=[...
 'PRODUCER AGENCY               : UTexas',10,...
 'PRODUCER INSTITUTION          : CSR',10,...
 'FILE TYPE ipACC1BF            : 8',10,...
@@ -1704,7 +1706,7 @@ classdef simpletimeseries < simpledata
           %write the header
           if isempty(p.Results.header)
             %use default header, none was specified
-            header=default_header;
+            header=dh;
           else
             header=p.Results.header;
           end
@@ -1722,36 +1724,52 @@ classdef simpletimeseries < simpledata
           %fprintf it
           fprintf(fid,fmt,o{:});
         case 'msodp' %expecting sat_name to be '1201 GRACEA' or '1202 GRACEB'
-          %need gap-less data
-          obj=obj.resample_full;
+          %translate satellite name: ACCREAD.f is very picky with this stuff
+          switch lower(str.rep(p.Results.sat_name,'-','',' ','','_','','.',''))
+          %                             I7X                 A20  
+          case 'gracea'; sat_name='1201    GRACEA';
+          case 'graceb'; sat_name='1202    GRACEB';
+          otherwise; error(['unrecognized sat_name value ''',p.Results.sat_name,'''.'])
+          end
+          %need only valid data
+          obj=obj.masked;
           unitfacor=0.1e4; 
-          default_header=[...
-'%grace.acc version 1.1  revision 2.1 ',datestr(datetime('now'),'yyyy mm dd HH:MM'),' CSR/UT    Joao Encarnacao',10,...
-'+satellite    ',p.Results.sat_name,10,...
-'+data_____ tim acl',10,...
-'+reference gps ifx',10,...
-'+first____ ',datestr(obj.start,'yyyy mm dd HH MM SS.FFF'),10,...
-'+last_____ ',datestr(obj.stop, 'yyyy mm dd HH MM SS.FFF'),10,...
-'+interval_ ',num2str(seconds(obj.step)),10,...
-'+datarecor ',num2str(obj.nr_valid),10,...
-'+unitfacor ',num2str(unitfacor,'%7.1e'),10,...
-'+format___ (I4,1X,I3,1X,I5,1X,I7,3(1X,F18.15),1X,I8)',10,...
-'*calibration parameters',10,...
-'+acl_k0___ 0.0000000000 0.0000000000 0.0000000000 1',10,...
-'+acl_k1___ 1.0000000000 1.0000000000 1.0000000000 1',10,...
-'+acl_k2___ 0.0000000000 0.0000000000 0.0000000000 1',10,...
-'+aca_k0___ 0.0000000000 0.0000000000 0.0000000000 0',10,...
-'+aca_k1___ 1.0000000000 1.0000000000 1.0000000000 0',10,...
-'+aca_k2___ 0.0000000000 0.0000000000 0.0000000000 0',10,...
-'+eoh______',10];
+          dh=cell(13,1);i=0;
+%FORMAT (A10,X,A12,X,A12,X,I4,X,I2,X,I2,X,I2,X,I2,X,A9,X,A16)
+%                    A10X         A12X         A12X  I4XI2XI2XI2XI2X       A9X             A16
+i=i+1;dh{i}= '%grace.acc version 1.1  revision 2.1 2016 02 18 09:36 CSR/UT    Rick Pastor     ';
+%FORMAT (A10,X,I7,X,A20)
+%                    A10X
+i=i+1;dh{i}=['+satellite ',sat_name];
+%FORMAT (A10,10(X,A3))
+%                    A10X A3X A3X
+i=i+1;dh{i}= '+data_____ tim acl';
+i=i+1;dh{i}= '+reference gps ifx';
+%FORMAT (A10,X,I4,X,I2,X,I2,X,I2,X,I2,X,F10.7)
+%                    A10X                       I4XI2XI2XI2XI2    X                              F10.7
+i=i+1;dh{i}=['+first____ ',datestr(obj.start,'yyyy mm dd HH MM'),' ',num2str(second(obj.start),'%10.7e')];
+i=i+1;dh{i}=['+last_____ ',datestr(obj.stop, 'yyyy mm dd HH MM'),' ',num2str(second(obj.stop ),'%10.7e')];
+%FORMAT (A10X,I6)
+i=i+1;dh{i}=['+interval_ ',num2str(seconds(obj.step),'%6i')];
+i=i+1;dh{i}=['+datarecor ',num2str(obj.nr_valid,'%6i')];
+%FORMAT (A10,X,E7.1)
+i=i+1;dh{i}=['+unitfacor ',num2str(unitfacor,'%7.1e')];
+%FORMAT (A10,X,A121)
+i=i+1;dh{i}= '+format___ (I4,1X,I3,1X,I5,1X,I7,3(1X,F18.15),1X,I8)';
+%FORMAT (A10,X,E7.3)
+i=i+1;dh{i}= '+scmass___ 500.000';
+%FORMAT (A10,X,A40)
+i=i+1;dh{i}=['+software_ http://github.com/jgte/orb, data exported on ',...
+  datestr(datetime('now'),'yyyy-mm-dd HH:MM:SS'),' by Joao Encarnacao'];
+i=i+1;dh{i}= '+eoh______';
           %write the header
           if isempty(p.Results.header)
             %use default header, none was specified
-            header=default_header;
+            header=strjoin(dh,char(10));
           else
             header=p.Results.header;
           end
-          fprintf(fid,'%s',header);
+          fprintf(fid,'%s\n',header);
           %build time vectors
           sod=time.sod(obj.t);
           sod_floor=floor(sod);

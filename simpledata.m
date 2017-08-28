@@ -1273,10 +1273,12 @@ classdef simpledata
     function obj=masked(obj,mask)
       if ~exist('mask','var') || isempty(mask)
         mask=obj.mask;
+      else
+        mask=obj.mask&&mask;
       end
-      obj=obj.assign(obj.y_masked(mask),'x',obj.x_masked(mask));
+      obj=obj.assign(obj.y(mask,:),'x',obj.x(mask));
       %sanity
-      assert(all(obj.mask) || ~any(isnan(obj.y(:))),...
+      assert(all(obj.mask) && ~any(isnan(obj.y(:))),...
         [mfilename,': making operation failed: found non-unitary mask entries and/or NaNs in the data.'])
     end
     %% invalid methods
@@ -1966,6 +1968,9 @@ classdef simpledata
     end
     function obj=cumsum(obj)
       obj.y(obj.mask,:)=cumsum(obj.y_masked);
+    end
+    function obj=abs(obj)
+      obj.y(obj.mask,:)=abs(obj.y_masked);
     end
     %% decomposition
     function out=parametric_decomposition(obj,varargin)
