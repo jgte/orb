@@ -1,4 +1,8 @@
 classdef csr
+  %static
+  properties(Constant)
+    arc_timeline_file='/Users/teixeira/data/csr/GraceAccCal/arctimeline.GraceAccCal';
+  end
   methods(Static)
     %% utilities
     function timetag=gitversion
@@ -214,6 +218,7 @@ classdef csr
       jobid_col  =product.mdget('jobid_col');
       arclen_col =product.mdget('arclen_col');
       t0_col     =product.mdget('t0_col');
+
       %need to get long-term biases
       for s=1:numel(sats)
         ltb.(sats{s})=flipud(transpose(dlmread(bias_files{s})));
@@ -479,13 +484,14 @@ classdef csr
             %get end of arcs and non-consecutive time indexes
             end_arc_idx=[false;diff(ts_now.y(:,1))==0];
                 gap_idx=[diff(ts_now.t)>seconds(1)+ts_now.t_tol;false];
-            %extend calibration parameters 1 minute into the gap
-            ext_len=seconds(60);
+            %extend calibration parameters into the gap
             gap_start_idx=find(end_arc_idx & gap_idx);
             gap_stop_idx=gap_start_idx+1;
-            extension=min( ts_now.t(gap_stop_idx)-ts_now.t(gap_start_idx),ext_len*ones(size(gap_start_idx))*2 )/2;
-            ts_now.t(gap_start_idx)=ts_now.t(gap_start_idx)+extension-seconds(1);
-            ts_now.t(gap_stop_idx )=ts_now.t(gap_stop_idx )-extension;
+%             ext_len=minutes(10);
+%             extension=min( ts_now.t(gap_stop_idx)-ts_now.t(gap_start_idx),ext_len*ones(size(gap_start_idx))*2 )/2;
+            extension=ts_now.t(gap_stop_idx)-ts_now.t(gap_start_idx);
+            ts_now.t(gap_start_idx)=ts_now.t(gap_start_idx)+time.round_seconds(extension/2);
+            ts_now.t(gap_stop_idx )=ts_now.t(gap_start_idx)+seconds(1);
             %build timeseries with arc ends
             gap_t=ts_now.t(gap_start_idx)+seconds(1);
             gaps=simpletimeseries(gap_t,nan(numel(gap_t),ts_now.width),...
@@ -692,7 +698,8 @@ classdef csr
           out.trim(...
             startlist(i),stoplist(i)...
           ).export(...
-            outfile{idx},p.Results.format,'sat_name',strrep(sat_name,'SAT',sats{s})...
+            outfile{idx},p.Results.format,'sat_name',strrep(sat_name,'SAT',sats{s}),...
+            varargin{:}...
           );
         end
       end
@@ -711,6 +718,9 @@ classdef csr
       param_col =calparp.mdget('param_col');
       coords    =calparp.mdget('coords');
       sats      =product.mdget('sats');
+       t_scale  =1/str.num(product.mdget('t' ,'default',1)); %str.num also handles 'inf'
+      t2_scale  =1/str.num(product.mdget('t2','default',1)); %str.num also handles 'inf'
+
       for s=1:numel(sats)
         %gather quantities, l1b acc data only contains the satellite names (located at the leafs of cal par data)
         acc=obj.data_get_scalar(l1baccp.dataname.set_field_path(sats(s)));
@@ -773,7 +783,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
               %time domain for the calibration model: units are days and zero epoch is the start of the arc
               t.(fields{f})=days(acc.t-soa);
             else
-              %TODO: é preciso arranjar isto, o start arc tem de ser definido algures (para aak e accatt)
+              %TODO: ? preciso arranjar isto, o start arc tem de ser definido algures (para aak e accatt)
               t.(fields{f})=days(acc.t-simpletimeseries.ToDateTime(cal.(coords{c}).(fields{f}).y(:,end),'modifiedjuliandate'));
             end
           end
@@ -785,9 +795,9 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
             'calibration time domain inconsistent between parameters, debug needed!')
           %build calibration model
           calmod=calmod.set_cols(c,...
-            cal.(coords{c}).(fields{1}).cols(param_col                        )+...
-            cal.(coords{c}).(fields{2}).cols(param_col).times(t.(fields{2})   )+...
-            cal.(coords{c}).(fields{3}).cols(param_col).times(t.(fields{3}).^2)...
+            cal.(coords{c}).(fields{1}).cols(param_col                                 )+...
+            cal.(coords{c}).(fields{2}).cols(param_col).times(t.(fields{2})   * t_scale)+...
+            cal.(coords{c}).(fields{3}).cols(param_col).times(t.(fields{3}).^2*t2_scale)...
           );
           %make debug plots
           if product.debug_plot
@@ -877,16 +887,19 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         startstop=[];
         for i=1:numel(t0)
           startstop=[startstop;...
-            csr.arctimeline_startstop(...
-              csr.arctimeline_load(atl_file),...
-              'year',  year(t0(i)),...
-              'month',month(t0(i)),...
-              'day',    day(t0(i))...
+            cells.c2m(...
+              csr.arctimeline_get(...
+                'arc_timeline_file',atl_file,...
+                'year',  year(t0(i)),...
+                'month',month(t0(i)),...
+                'day',    day(t0(i)),...
+                'out',{'start','stop'}...
+              )...
             )...
           ]; %#ok<AGROW>
         end
         %need to be sure all epochs are within the object start/stop
-        %(csr.arctimeline_startstop returns all entries which satisfy the logical union of the inputs)
+        %(csr.arctimeline_get returns all entries which satisfy the logical union of the inputs)
         startstop(startstop(:,1)<obj.start,1)=obj.start;
         startstop(startstop(:,2)>obj.stop ,2)=obj.stop;
       otherwise
@@ -1028,9 +1041,22 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         out=in;
       end
     end
+    function out=estim_filename(varargin)
+      %parse optional arguments
+      p=inputParser;p.KeepUnmatched=true;
+      p.addParameter('estimdir', '', @(i) ischar(i)    && ~isempty(i));
+      p.addParameter('arc',      [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i));
+      p.parse(varargin{:});
+      out=file.wildcard(fullfile(p.Results.estimdir,...
+        ['R.common.arc',num2str(p.Results.arc),'.to.arc',num2str(p.Results.arc),'.*.estim']));
+      assert(numel(out)==1,['Can only handle one estim file at a time, not ',num2str(numel(out)),':',10,strjoin(out(:),char(10))])
+      out=out{1};
+    end
     function out=estim_load(filename)
       if exist([filename,'.mat'],'file')
         load([filename,'.mat'])
+      elseif strcmp(filename(end-3:end),'.mat')
+        load(filename)
       else
         %init the outputs
         out=struct('A',[],'B',[]);
@@ -1112,37 +1138,54 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       %create the table
       T=table(year,month,day,arc,start,stop);
     end
-    function startstop=arctimeline_startstop(arctimeline,varargin)
+    function out=arctimeline_get(varargin)
       %parse optional arguments
       p=inputParser;
-      p.addParameter('year', [], @(i) isnumeric(i) || isempty(i));
-      p.addParameter('month',[], @(i) isnumeric(i) || isempty(i));
-      p.addParameter('arc',  [], @(i) isnumeric(i) || isempty(i));
-      p.addParameter('day',  [], @(i) isnumeric(i) || isempty(i));
+      p.addParameter('arc_timeline_file',csr.arc_timeline_file, @(i) ischar(i) && ~isempty(i));
+      p.addParameter('year', [], @(i) iscell(i) || isnumeric(i)  ||  isempty(i));
+      p.addParameter('month',[], @(i) iscell(i) || isnumeric(i)  ||  isempty(i));
+      p.addParameter('arc',  [], @(i) iscell(i) || isnumeric(i)  ||  isempty(i));
+      p.addParameter('day',  [], @(i) iscell(i) || isnumeric(i)  ||  isempty(i));
+      p.addParameter('start',[], @(i) iscell(i) || isdatetime(i) ||  isempty(i));
+      p.addParameter('stop', [], @(i) iscell(i) || isdatetime(i) ||  isempty(i));
+      p.addParameter('out',  {}, @(i) iscell(i)                  && ~isempty(i));
       p.parse(varargin{:});
+      %load the arc timeline
+      arctimeline=csr.arctimeline_load(p.Results.arc_timeline_file);
+      %may need to change parameters, so need to get them out of the parser object
+      par=p.Results;
       %init logic key
       key=true(height(arctimeline),1);
       %build logic key
-      for i={'year','month','arc','day'}
-        if ~isempty(p.Results.(i{1}))
+      for i={'year','month','arc','day','start','stop'}
+        if ~isempty(par.(i{1}))
+          %make cells into matrices
+          par.(i{1})=cells.c2m(par.(i{1}));
           key_now=false(size(key));
-          for j=1:numel(p.Results.(i{1}))
-            key_now=key_now| (arctimeline.(i{1})==p.Results.(i{1})(j));
+          for j=1:numel(par.(i{1}))
+            key_now=key_now| (arctimeline.(i{1})==par.(i{1})(j));
           end
           key=key&key_now;
         end
       end
       %warn if nothing is returned
       if ~any(key)
-        startstop=[];
-        str.say('No arc found for',varargin{:})
+        out=[];
+        str.say('No arc found for',strjoin(varargin,' '))
         return
       end
-      startstop=arctimeline(key,{'start','stop'});
-      %reduce from table to datetime array
-      startstop=[startstop.start,startstop.stop];
-      %shave 1 second from stop time
-      startstop(:,2)=startstop(:,2)-seconds(1);
+      relevant=arctimeline(key,par.out);
+      %reduce from table to fields requested in par.out
+      out=cell(size(par.out));
+      for i=1:numel(par.out)
+        out{i}=relevant.(par.out{i});
+        %special handling
+        switch par.out{i}
+        case 'stop'
+          %shave 1 second from stop time
+          out{i}=out{i}-seconds(1);
+        end
+      end
     end
     function t=subarc_startstop(startstop,nr_sub_arcs)
       %short-circuit trivial calls
@@ -1195,7 +1238,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
     end
     function arc=arc_timeseries(startstop,calpars)
       %get persistent vars 
-      persistent prefix suffix units nr_sub_arcs
+      persistent prefix suffix units coords nr_sub_arcs
       if isempty(prefix)
         prefix='AC0';
         suffix={'','D','Q'};
@@ -1244,11 +1287,11 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
     end
     function calmod=arc_build(product,varargin)
       %parse optional arguments
-      p=inputParser;
-      p.addParameter('estimfile','', @(i) ischar(i)    || isempty(i));
-      p.addParameter('year',     [], @(i) isnumeric(i) || isempty(i));
-      p.addParameter('month',    [], @(i) isnumeric(i) || isempty(i));
-      p.addParameter('arc',      [], @(i) isnumeric(i) || isempty(i));
+      p=inputParser;p.KeepUnmatched=true;
+      p.addParameter('estimdir', '', @(i) ischar(i)    && ~isempty(i));
+      p.addParameter('year',     [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i));
+      p.addParameter('month',    [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i));
+      p.addParameter('arc',      [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i));
       p.parse(varargin{:});
       %get names of parameters and levels
       coords    =product.mdget('coords');
@@ -1257,15 +1300,18 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       bias_files=product.mdget('bias_files');
       atl_file  =product.mdget('arc_timeline_file');
       %get start/stop of current arc
-      startstop=csr.arctimeline_startstop(...
-        csr.arctimeline_load(atl_file),...
-        p.Results.year,...
-        p.Results.month,...
-        'arc',p.Results.arc...
+      startstop=cells.c2m(...
+          csr.arctimeline_get(...
+            'arc_timeline_file',atl_file,...
+            'year', p.Results.year,...
+            'month',p.Results.month,...
+            'arc',  p.Results.arc,...
+            'out',{'start','stop'}...
+        )...
       );
       %load calpars and apply long-term biases
       calpars=csr.calpars_add_ltb(...
-        csr.estim_load(p.Results.estimfile),...
+        csr.estim_load(csr.estim_filename(varargin{:})),...
         startstop,...
         csr.ltb_load(bias_files)...
       );
@@ -1318,36 +1364,50 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
     function out=arcs_build(product,varargin)
       %parse optional arguments
       p=inputParser;
-      p.addParameter('estimfile',{}, @(i) iscell(i));
-      p.addParameter('year',     {}, @(i) iscell(i));
-      p.addParameter('month',    {}, @(i) iscell(i));
-      p.addParameter('arc',      {}, @(i) iscell(i));
+      p.addParameter('estimdir',{}, @(i)                 ischar(i) && ~isempty(i));
+      p.addParameter('year',    {}, @(i) iscell(i) || isnumeric(i) && ~isempty(i));
+      p.addParameter('month',   {}, @(i) iscell(i) || isnumeric(i) && ~isempty(i));
+      p.addParameter('day',     {}, @(i) iscell(i) || isnumeric(i) || isempty(i));
+      p.parse(varargin{:});
+      %translate days into arcs (estim files are arc-wise)
+      if ~isempty(p.Results.day)
+        %get arcs of current day
+        arcs=cells.c2m(csr.arctimeline_get(...
+          'arc_timeline_file',product.mdget('arc_timeline_file'),...
+          'year', p.Results.year,...
+          'month',p.Results.month,...
+          'day',  p.Results.day,...
+          'out',{'arc'}...
+        ));
+      else
+        arcs=[];
+      end
+      %add arcs, which now default to the arcs of the given day (if given)
+      p.addParameter('arc',arcs, @(i) iscell(i) || isnumeric(i) || isempty(i));
       p.parse(varargin{:});
       %handle scalar inputs
       n=max([...
-        numel(p.Results.estimfile),...
         numel(p.Results.year),...
         numel(p.Results.month),...
+        numel(p.Results.day),...
         numel(p.Results.arc)...
       ]);
-      for i={'estimfile','year','month','arc'}
-        if numel(p.Results.(i{1}))==1
-          par.(i{1})=cell(1,n);
-          par.(i{1})(:)=p.Results.(i{1});
-        else
-          par.(i{1})=p.Results.(i{1});
-        end
+      for i={'year','month','day','arc'}
+        par.(i{1})=cells.deal(p.Results.(i{1}),[n,1]);
+        disp(i{1})
+        disp(par.(i{1}))
       end
       %sanity: all inputs must have the same length
-      assert(all(cellfun(@(i) numel(par.(i)),{'estimfile','year','month','arc'})==n),...
-        'All inputs must have the same length.')
+      assert(all(cellfun(@(i) numel(par.(i)),{'year','month','day','arc'})==n),...
+        'All time parameters must have the same length, debug needed!')
       %loop over all inputs
       s.msg='Assembling arcs';s.n=n;
       for i=1:n
         tmp=csr.arc_build(product,...
-          'estimfile',par.estimfile{i},...
+          'estimdir', p.Results.estimdir,...
           'year',     par.year{i},...
           'month',    par.month{i},...
+          'day',      par.day{i},...
           'arc',      par.arc{i}...
         );
         if i==1

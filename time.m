@@ -760,5 +760,8 @@ classdef time
         end
       end
     end
+    function out=round_seconds(in)
+      out=seconds(round(seconds(in)));
+    end
   end
 end

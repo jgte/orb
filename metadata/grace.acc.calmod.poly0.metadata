@@ -11,7 +11,6 @@ arc_timeline_file: <getenv('HOME')>/data/csr/GraceAccCal/arctimeline.GraceAccCal
 export_dir: <getenv('HOME')>/data/csr/export/poly0
 version: '61'
 plot_columns: [1,2,3]
-plot_together: sat
 plot_column_together: false
 plot_autoscale: true
 plot_automean: true

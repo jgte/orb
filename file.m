@@ -202,6 +202,8 @@ classdef file
       p.addParameter('prefer_non_mat_files',false, @(i) islogical(i) && isscalar(i));
       p.addParameter('disp',                true,  @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',   false, @(i) islogical(i) && isscalar(i));
+      p.addParameter('directories_only',    false, @(i) islogical(i) && isscalar(i));
+      p.addParameter('files_only',          false, @(i) islogical(i) && isscalar(i));
       % parse it
       p.parse(in,varargin{:});
       %wildcard character '*' needs to be translated to '.*' (if not already)
@@ -216,7 +218,15 @@ classdef file
       %fetching directory listing
       f=dir(a);
       f=struct2cell(f);
-      f=f(1,:);
+      %branch on options
+      if p.Results.directories_only
+        idx=[f{4,:}];
+      elseif p.Results.files_only
+        idx=~[f{4,:}];
+      else
+        idx=true(1,size(f,2));
+      end
+      f=f(1,idx);
       %greping
       f1=reduce_cell_array(regexp([f(:)],['^',f_in,'$'],'match'));
       %branch on options
@@ -273,6 +283,14 @@ classdef file
         out=mkdir(d);
       else
         out=true;
+      end
+    end
+    function [out,s]=find(varargin)
+      [s,r]=system(['find ',strjoin(varargin,' ')]);
+      if s~=0
+        out={};
+      else
+        out=cells.rm_empty(strsplit(r,char(10)));
       end
     end
   end

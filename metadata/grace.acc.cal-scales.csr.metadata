@@ -1,7 +1,7 @@
 method: datastorage.arithmetic
 operation: plus
-sources: [grace.acc.calmod.csr,grace.acc.l1b.csr]
-source_fields_from: grace.acc.calmod.csr
+sources: [grace.acc.calmod-scales.csr,grace.acc.l1b.csr]
+source_fields_from: grace.acc.calmod-scales.csr
 storage_period: daily
 plot_columns: [1,2,3]
 plot_column_together: false

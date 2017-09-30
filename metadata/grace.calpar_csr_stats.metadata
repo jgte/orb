@@ -6,7 +6,6 @@ stats_outlier: 0
 stats_period: <years(1)/12>
 stats_overlap: <seconds(0)>
 plot_columns: [1]
-plot_together: level
 plot_autoscale: true
 plot_automean: true
 plot_outlier: 3
