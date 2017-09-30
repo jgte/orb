@@ -413,7 +413,7 @@ classdef dataproduct
       % parse it
       p.parse(metadatafieldname,varargin{:});
       % check for existence (unless return_empty_if_missing)
-      if ~p.Results.return_empty_if_missing && ~isempty(p.Results.default)
+      if ~p.Results.return_empty_if_missing && isempty(p.Results.default)
         obj.md_field_check(metadatafieldname)
       end
       % check if default is to be returned

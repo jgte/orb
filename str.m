@@ -134,6 +134,12 @@ classdef str
         s=str.clean(strrep(s,'.',' '),'succ_blanks');
       case 'title'
         s=strrep(s,'_','\_');
+      case 'fieldname'
+        s=strrep(strrep(strrep(strrep(s,...
+          '-',''),...
+          ' ',''),...
+          '.',''),...
+          '+','');
       case 'grace'
         sats={'A','B'};
         names={'gr<SAT>.','gr<SAT>.','G<SAT>_','G<SAT>_'};
@@ -228,6 +234,8 @@ classdef str
       out=strjoin(out,' ');
     end
     function out=num(in)
+      %trivial call
+      if isnumeric(in); out=in; return; end
       out1=regexprep(in,'(\d)[Dd]([-+\d])','$1e$2');  %replace D and d exponents in scientific notation with e
       out2=strsplit(out1);                            %split string along blank characters
       out3=out2(cellfun(@(i) ~isempty(i),out2));      %remove empty cells

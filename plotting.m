@@ -194,7 +194,7 @@ classdef plotting
     function font_size(fs,axis_handle)
       % handle inputs
       if ~exist('fs','var') || isempty(fs)
-          fs=14;
+          fs=18;
       end
       if ~exist('axis_handle','var') || isempty(axis_handle)
           axis_handle = gca;
@@ -206,6 +206,18 @@ classdef plotting
         set(get(h,'XLabel'),'FontSize',round(fs*1.1));
         set(get(h,'YLabel'),'FontSize',round(fs*1.2));
       end
+    end
+    function size(s,fig_handle)
+      % handle inputs
+      if ~exist('s','var') || isempty(s)
+        s=200+[0,0,21,9]*50;
+      end
+      if ~exist('fig_handle','var') || isempty(fig_handle)
+          fig_handle = gcf;
+      end
+      set(fig_handle, 'Position',      s,...
+                      'PaperUnits',    'points',...
+                      'PaperPosition', s);
     end
   end
 end

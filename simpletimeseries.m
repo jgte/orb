@@ -1626,9 +1626,10 @@ classdef simpletimeseries < simpledata
       p.addParameter('header',  '',          @(i) ischar(i));
       p.addParameter('columns', 1:obj.width, @(i) isnumeric(i));
       p.addParameter('sat_name','',          @(i) ischar(i));
+      p.addParameter('force',   false,       @(i) islogical(i));
       % parse it
       p.parse(filename,filetype,varargin{:});
-      if ~exist(filename,'file')
+      if ~exist(filename,'file') || p.Results.force
         disp([datestr(now),': start exporting ',filename])
         %make sure this directory exists
         assert(file.ensuredir(filename),['Error creating directory of file ',filename,'.'])

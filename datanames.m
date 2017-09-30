@@ -87,9 +87,18 @@ classdef datanames
     end
     %% field_path operations
     function obj=append_field_leaf(obj,field_path_leaf)
+      %some trivial translation
+      if isscalar(field_path_leaf) && iscell(field_path_leaf); field_path_leaf=field_path_leaf{1}; end
       %some sanity
       assert(ischar(field_path_leaf),['input ''field_path_leaf'' must be a string, not a ',class(field_path_leaf),'.'])
       obj.field_path=[obj.field_path,{field_path_leaf}];
+    end
+    function obj=prepend_field_root(obj,field_path_root)
+      %some trivial translation
+      if isscalar(field_path_root) && iscell(field_path_root); field_path_root=field_path_root{1}; end
+      %some sanity
+      assert(ischar(field_path_root),['input ''field_path_root'' must be a string, not a ',class(field_path_root),'.'])
+      obj.field_path=[{field_path_root},obj.field_path];
     end
     function obj=set_field_path(obj,field_path)
       %handle shallow structures
@@ -139,7 +148,10 @@ classdef datanames
     end
     %% name operations
     function out=name_clean(obj)
-      out=strrep(obj.name,'.',datanames.separator_clean);
+      out=str.rep(obj.name,...
+        '.',datanames.separator_clean,...
+        '-',datanames.separator_clean...
+      );
     end
     %% filename builders
     function out=file(obj,varargin)

@@ -101,11 +101,11 @@ classdef datastorage
         out=isempty(structs.get_value(obj.data.(dn.name_clean),dn.field_path));
       end
     end
-    function dn_list=datanames(obj,non_empty)
-      dn_list=datanames.array(fieldnames(obj.data));
+    function out=dataname_list(obj,non_empty)
+      out=datanames.array(fieldnames(obj.data));
       if exist('non_empty','var') && non_empty
-        empty_idx=cellfun(@(i) isempty(obj.data.(i.name)),dn_list);
-        dn_list=dn_list(~empty_idx);
+        empty_idx=cellfun(@(i) isempty(obj.data.(i.name)),out);
+        out=out(~empty_idx);
       end
     end
     function peek(obj,dn_list,varargin)
@@ -239,7 +239,7 @@ classdef datastorage
         return
       elseif ischar(dn) && strcmp(dn,'all')
         %handle named inputs
-        dn_list=obj.data_list(obj.datanames(true));
+        dn_list=obj.data_list(obj.dataname_list(true));
         return
       elseif numel(dn)>1 && ~ischar(dn)
         %vector mode
@@ -681,6 +681,24 @@ classdef datastorage
       if product.is_wrapped
         %unwarp products in this list and feed output to input, to unwrap multitple wrapped parts
         product_list=dataproduct.unwrap_product({product});
+        %maybe need to prepend some source fields
+        if product.ismd_field('source_fields_from')
+          %get field path to prepend (from specified source product)
+          prepend_product=product_from_source_leafs(obj,{product});
+          %make room for outputs
+          product_list_out=cell(numel(product_list),numel(prepend_product));
+          %prepend the field path of the prepend_product to all elements of the product list
+          for i=1:numel(product_list)
+            for j=1:numel(prepend_product)
+              product_list_out{i,j}=product_list{i};
+              product_list_out{i,j}.dataname=product_list{i}.dataname.prepend_field_root(...
+                prepend_product{j}.dataname.field_path...
+              );
+            end
+          end
+          %assign outputs
+          product_list=product_list_out(:);
+        end
       elseif product.nr_sources>0
         %expand to source leafs (avoids having to declare 'levelX_name/vals' in all downstream products)
         product_list=obj.product_from_source_leafs({product});
@@ -790,6 +808,9 @@ classdef datastorage
           cellfun(@(i) i.name, product_list.source_list,'UniformOutput',false),...
           product_list.mdget('source_fields_from')...
         ));
+        %make sure source_fields_from points to a valid source
+        assert(~isempty(source_idx),['The value of the metadata field ''source_fields_from'' (',...
+          product_list.mdget('source_fields_from'),') is not part of the ''sources''.'])
         % limit the depth of the products
         if product_list.ismd_field('source_fields_max_depth')
           source_depth=product_list.mdget('source_fields_max_depth');
@@ -861,12 +882,14 @@ classdef datastorage
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired('product',@(i) isa(i,'dataproduct'));
+      p.addParameter('force',    false,@(i) islogical(i) && isscalar(i));
+      p.addParameter('recompute',false,@(i) islogical(i) && isscalar(i));
       % parse it
       p.parse(product,varargin{:});
       %loop over all source data
       for i=1:product.nr_sources
         %load this source if it is empty (use obj.init explicitly to re-load or reset data)
-        if obj.isdata_empty(product.sources(i))
+        if obj.isdata_empty(product.sources(i)) || p.Results.force || p.Results.recompute
           obj=obj.init(product.sources(i),varargin{:});
         end
       end
