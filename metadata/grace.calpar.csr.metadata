@@ -12,7 +12,7 @@ fields_out: [AC0X,AC0XD,AC0XQ,
 AC0Y,AC0YD,AC0YQ,
 AC0Z,AC0ZD,AC0ZQ]
 sats: [A,B]
-bias_files: [<getenv('HOME')>/data/csr/corral-tacc/input/bsA2003,<getenv('HOME')>/data/csr/corral-tacc/input/bsB2003]
+submetadata1: grace.calpar.csr.ltb.submetadata
 jobid_col: 2
 param_col: 1
 arclen_col: 3 #valid for estim

@@ -38,9 +38,12 @@ classdef csr
       for k=1:numel(idx)
         msg_data=cell(1,numel(data));
         for l=1:numel(data)
-          if numel(data{l})==numel(idx)
+          switch numel(data{l})
+          case 1
+            msg_data{l}=data{l};
+          case numel(idx)
             msg_data{l}=data{l}(k);
-          else
+          otherwise
             msg_data{l}=data{l}(idx(k));
           end
         end
@@ -199,6 +202,92 @@ classdef csr
       out=datastorage('debug',true,'start',start,'stop',stop).init(name,'recompute',true);
       out.peek
     end
+    %% long-term biases
+    function out=ltb_data(filename)
+      %original:
+      %  52640.00
+      % -0.54818E-06 -0.24827E-10
+      %  0.86557E-05  0.17811E-08
+      % -0.77612E-06  0.49781E-10
+      %internal:
+      % MJD        AC0X         AC0Y*        AC0Z
+      % 0         -0.24827E-10  0.17811E-08  0.49781E-10  %linear term
+      % 52640.00  -0.54818E-06  0.86557E-05 -0.77612E-06  %bias term
+      out=flipud(transpose(dlmread(filename)));
+    end
+    function out=ltb(t,sat,field,scl,fn)
+      %defaults
+      if ~exist('field','var') || isempty(field)
+        field='all';
+      end
+      if ~exist('scl','var') || isempty(scl)
+        scl=1;
+      end
+      if ~exist('filename','var') || isempty(fn)
+        switch sat
+        case 'A'; fn=[getenv('HOME'),'/data/csr/corral-tacc/input/bsA2003'];
+        case 'B'; fn=[getenv('HOME'),'/data/csr/corral-tacc/input/bsB2003'];
+        otherwise; error(['Unknown sat ''',sat,'''.'])
+        end
+      elseif iscellstr(fn)
+        switch sat
+        case 'A'; fn=fn{1};
+        case 'B'; fn=fn{2};
+        otherwise; error(['Unknown sat ''',sat,'''.'])  
+        end
+      end
+      %translate field to data index
+      switch upper(field)
+      case {'X','AC0X'}
+        lbt_idx=2;
+      case {'Y','AC0Y1','AC0Y2','AC0Y3','AC0Y4','AC0Y5','AC0Y6','AC0Y7','AC0Y8'}
+        lbt_idx=3;
+      case {'Z','AC0Z'}
+        lbt_idx=4;
+      case {'ALL','-ALL'}
+        %if mode is '-all', then "remove" the long-term bias
+        if strcmpi(field,'-ALL');scl=-scl;end
+        x=csr.ltb(t,sat,'x',scl,fn);
+        y=csr.ltb(t,sat,'y',scl,fn);
+        z=csr.ltb(t,sat,'z',scl,fn)';
+        out=x.glue(...
+            y.glue(....
+            z));
+        out.descriptor=['LTB read from ',str.clean(fn,'file')];
+        return
+      otherwise
+        out=[];
+        return
+      end
+      %get the data
+      ltb_data=csr.ltb_data(fn);
+      %number of day since reference epoch (in the ltb file)
+      d=time.mjd(t)-ltb_data(2,1);
+      %create timeseries object
+      out=simpletimeseries(...
+        t,...
+        scl*polyval(ltb_data(:,lbt_idx),d),...
+        'format','datetime',...
+        'timesystem','gps',...
+        'labels',{field},...
+        'units',{'m/s^2'},...
+        'descriptor',[field,' LTB read from ',str.clean(fn,'file')]...
+      );
+    end
+    function out=ltb_apply(product,in,sat,field)
+      %get relevant parameters
+        bias_files=product.mdget('bias_files');
+      calpar_scale=product.mdget('calpar_scale','default',1);
+         ltb_scale=product.mdget(   'ltb_scale','default',1);
+      %get long-term biases
+      ltb=csr.ltb(in.t,sat,field,ltb_scale,bias_files);
+      %add long-term biases (unless ltb is empty, which means this field had no ltb)
+      if isempty(ltb)
+        out=in;
+      else
+        out=in.scale(calpar_scale)+ltb;
+      end
+    end
     %% constructors
     function obj=import_calpar(obj,product,varargin)
       %open log file
@@ -213,52 +302,23 @@ classdef csr
       fields     =product.mdget('fields');
       fields_out =product.mdget('fields_out');
       sats       =product.mdget('sats');
-      bias_files =product.mdget('bias_files');
       param_col  =product.mdget('param_col');
       jobid_col  =product.mdget('jobid_col');
       arclen_col =product.mdget('arclen_col');
       t0_col     =product.mdget('t0_col');
 
-      %need to get long-term biases
-      for s=1:numel(sats)
-        ltb.(sats{s})=flipud(transpose(dlmread(bias_files{s})));
-      end
       %load data
       for i=1:numel(levels)
         for j=1:numel(fields)
           tmp=struct('A',[],'B',[]);
-          %read data
           for s=1:numel(sats)
+            %read L1B data
             f=fullfile(product.mdget('import_dir'),['gr',sats{s},'.',fields{j},'.',levels{i},'.GraceAccCal']);
             tmp.(sats{s})=simpletimeseries.import(f,'cut24hrs',false);
-            %enforce the long-term biases
-            switch fields{j}
-            case 'AC0X'
-              lbt_idx=2;
-            case {'AC0Y1','AC0Y2','AC0Y3','AC0Y4','AC0Y5','AC0Y6','AC0Y7','AC0Y8'}
-              lbt_idx=3;
-            case 'AC0Z'
-              lbt_idx=4;
-            otherwise
-              lbt_idx=0;
-            end
-            if lbt_idx>0
-              switch levels{i}
-              case {'aak','accatt'}
-                %need to ensure timestamps are in agreement with t0
-                assert(tmp.(sats{s}).width < t0_col || all(tmp.(sats{s}).mjd==tmp.(sats{s}).y(:,t0_col)),[mfilename,':',...
-                  'discrepancy between time domain and t0.'])
-              end
-              %add long-term biases
-              t=tmp.(sats{s}).mjd-ltb.(sats{s})(2,1);
-              tmp.(sats{s})=tmp.(sats{s}).assign(...
-                [tmp.(sats{s}).y(:,param_col)+polyval(...
-                  ltb.(sats{s})(:,lbt_idx),t),...
-                  tmp.(sats{s}).y(:,[1:param_col-1,param_col+1:end])...
-                ]...
-              );
-            end
-
+            %apply long-term bias
+            tmp.(sats{s})=tmp.(sats{s}).set_cols(param_col,...
+              csr.ltb_apply(product,tmp.(sats{s}).get_cols(param_col),sats{s},fields{j})...
+            );
             %additional processing: add end of arcs
             switch levels{i}
             case {'aak','accatt'}
@@ -651,6 +711,7 @@ classdef csr
       p=inputParser;
       p.KeepUnmatched=true;
       p.addParameter('format','ACC1B', @(i) ischar(i));
+      p.addParameter('rm_ltb',true,    @(i) islogical(i));
       p.parse(varargin{:});
       %branch on output format
       switch p.Results.format
@@ -694,13 +755,19 @@ classdef csr
             'SAT', sats{s},...
             'VERSION',version ...
           );
-          %save the data in ACC1B format, as handled by simpletimeseries.export
-          out.trim(...
-            startlist(i),stoplist(i)...
-          ).export(...
-            outfile{idx},p.Results.format,'sat_name',strrep(sat_name,'SAT',sats{s}),...
-            varargin{:}...
-          );
+          %trim only today
+          tmp=out.trim(startlist(i),stoplist(i));
+          if ~isempty(tmp)
+            %remove long-term biases, if requested
+            if p.Results.rm_ltb
+              tmp=csr.ltb_apply(product,tmp,sats{s},'-all');
+            end
+            %save the data in ACC1B format, as handled by simpletimeseries.export
+            tmp.export(...
+              outfile{idx},p.Results.format,'sat_name',strrep(sat_name,'SAT',sats{s}),...
+              varargin{:}...
+            );
+          end
         end
       end
       obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
@@ -945,7 +1012,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
               arc_cur=arc_mod+arc_l1b;
               %compute calibration model
               warning('off',warning_id)
-              arc_calmod=arc_cur.polyfit(arcs_poly_order(c));
+              arc_calmod=arc_cur.scale(-1).polyfit(arcs_poly_order(c));
               warning('on',warning_id)
               
 %               %get calibration curve to fit
@@ -1077,42 +1144,6 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         save([filename,'.mat'],'out')
       end
     end
-    function ltb=ltb_load(bias_files)
-      sats={'A','B'};
-      for s=1:numel(sats)
-        ltb.(sats{s})=flipud(transpose(dlmread(bias_files{s})));
-      end
-    end
-    function calpars=calpars_add_ltb(calpars,startstop,ltb)
-      %get sats
-      sats=fieldnames(calpars);
-      %get fields
-      fields=fieldnames(calpars.(sats{1}));
-      %loop over all fields
-      for f=1:numel(fields)
-        for s=1:numel(sats)
-          %enforce the long-term biases
-          switch fields{f}
-          case 'AC0X'
-            lbt_idx=2;
-          case {'AC0Y1','AC0Y2','AC0Y3','AC0Y4','AC0Y5','AC0Y6','AC0Y7','AC0Y8'}
-            lbt_idx=3;
-          case 'AC0Z'
-            lbt_idx=4;
-          otherwise
-            lbt_idx=0;
-          end
-          if lbt_idx>0
-            %get time for polyval
-            t=time.mjd(startstop(1))-ltb.(sats{s})(2,1);
-            %get long-term biases
-            ltbv=polyval(ltb.(sats{s})(:,lbt_idx),t);
-            %add long-term biases
-            calpars.(sats{s}).(fields{f})=calpars.(sats{s}).(fields{f})+ltbv;
-          end
-        end
-      end
-    end
     function T=arctimeline_load(filename)
       %init the outputs
       start=datetime;
@@ -1170,8 +1201,21 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       end
       %warn if nothing is returned
       if ~any(key)
-        out=[];
-        str.say('No arc found for',strjoin(varargin,' '))
+        %try to patch things up
+        if ~isempty(par.year) && ~isempty(par.month) && ~isempty(par.day)
+          out=cell(size(par.out));
+          for i=1:numel(par.out)
+            switch par.out{i}
+            case 'start'; out{i}=datetime(par.year,par.month,par.day,0,0,0);
+            case 'stop';  out{i}=datetime(par.year,par.month,par.day,23,59,59);
+            case 'arc';   out{i}=[];
+            end
+          end
+          str.say('Patched default arc for',str.show(varargin))
+        else
+          out=[];
+          str.say('No arc found for',str.show(varargin))
+        end
         return
       end
       relevant=arctimeline(key,par.out);
@@ -1297,7 +1341,6 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       coords    =product.mdget('coords');
       units=cell(size(coords));units(:)={'m/s^2'};
       sats      =product.mdget('sats');
-      bias_files=product.mdget('bias_files');
       atl_file  =product.mdget('arc_timeline_file');
       %get start/stop of current arc
       startstop=cells.c2m(...
@@ -1309,12 +1352,8 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
             'out',{'start','stop'}...
         )...
       );
-      %load calpars and apply long-term biases
-      calpars=csr.calpars_add_ltb(...
-        csr.estim_load(csr.estim_filename(varargin{:})),...
-        startstop,...
-        csr.ltb_load(bias_files)...
-      );
+      %load calpars
+      calpars=csr.estim_load(csr.estim_filename(varargin{:}));
       %build calibration parameters time series
       arc=csr.arc_timeseries(startstop,calpars);
       %define field names (this is arbitrary but must have length 3)
@@ -1359,6 +1398,8 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
             cal.(coords{c}).(fields{3}).cols(1).times(tc.^2)...
           );
         end
+        %apply long-term biases
+        calmod.(sats{s})=csr.ltb_apply(product,calmod.(sats{s}),sats{s},'all');
       end
     end
     function out=arcs_build(product,varargin)
@@ -1394,8 +1435,6 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       ]);
       for i={'year','month','day','arc'}
         par.(i{1})=cells.deal(p.Results.(i{1}),[n,1]);
-        disp(i{1})
-        disp(par.(i{1}))
       end
       %sanity: all inputs must have the same length
       assert(all(cellfun(@(i) numel(par.(i)),{'year','month','day','arc'})==n),...

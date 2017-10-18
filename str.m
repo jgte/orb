@@ -105,7 +105,7 @@ classdef str
         out=str.just(in,tab,'just','left');
       end
     end
-    function s=clean(s,mode)
+    function s=clean(s,mode,alt_char)
       if iscellstr(mode)
         for i=1:numel(mode)
         	s=str.clean(s,mode{i});
@@ -124,22 +124,26 @@ classdef str
       case 'file'
         [~,s]=fileparts(s);
       case 'succ_blanks'
-        while ~isempty(strfind(s,'  '))
-          s=strrep(s,'  ',' ');
+        s=str.clean(s,'succ',' ');
+      case 'succ'
+        assert(exist('alt_char','var')~=0,['If mode is ''',mode,''', then need ''alt_char'' input arg.'])
+        while ~isempty(strfind(s,[alt_char,alt_char]))
+          s=strrep(s,[alt_char,alt_char],alt_char);
         end
-        s=strtrim(s);
-      case '_'
-        s=str.clean(strrep(s,'_',' '),'succ_blanks');
-      case '.'
-        s=str.clean(strrep(s,'.',' '),'succ_blanks');
+        if alt_char==' '
+          s=strtrim(s);
+        end
       case 'title'
         s=strrep(s,'_','\_');
       case 'fieldname'
-        s=strrep(strrep(strrep(strrep(s,...
-          '-',''),...
-          ' ',''),...
-          '.',''),...
-          '+','');
+        if ~exist('alt_char','var') || isempty(alt_char)
+          alt_char='';
+        end
+        s=str.rep(s,...
+          '-',alt_char,...
+          ' ',alt_char,...
+          '.',alt_char,...
+          '+',alt_char);
       case 'grace'
         sats={'A','B'};
         names={'gr<SAT>.','gr<SAT>.','G<SAT>_','G<SAT>_'};

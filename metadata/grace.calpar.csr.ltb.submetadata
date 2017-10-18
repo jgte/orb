@@ -1,0 +1,3 @@
+calpar_scale: 1
+ltb_scale: 1
+bias_files: [<getenv('HOME')>/data/csr/corral-tacc/input/bsA2003,<getenv('HOME')>/data/csr/corral-tacc/input/bsB2003]
