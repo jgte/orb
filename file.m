@@ -286,6 +286,7 @@ classdef file
       end
     end
     function [out,s]=find(varargin)
+      disp(['find ',strjoin(varargin,' ')])
       [s,r]=system(['find ',strjoin(varargin,' ')]);
       if s~=0
         out={};

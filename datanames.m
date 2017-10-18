@@ -148,10 +148,7 @@ classdef datanames
     end
     %% name operations
     function out=name_clean(obj)
-      out=str.rep(obj.name,...
-        '.',datanames.separator_clean,...
-        '-',datanames.separator_clean...
-      );
+      out=str.clean(obj.name,'fieldname',datanames.separator_clean);
     end
     %% filename builders
     function out=file(obj,varargin)
