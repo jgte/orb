@@ -1,0 +1,11 @@
+import_dir: <getenv('HOME')>/data/grace/
+method: csr.import_l1b
+format: AHK1B
+sats: [A,B]
+storage_period: daily
+plot_columns: [1,2,3,4]
+plot_autoscale: false
+plot_automean: true
+plot_outlier: 3
+plot_zeromean: true
+plot_title_suppress: [grace]

@@ -2,13 +2,14 @@ classdef simpletimeseries < simpledata
   %static
   properties(Constant,GetAccess=private)
     %NOTE: edit this if you add a new parameter
-    parameter_list=struct(...
-      'format',    struct('default','modifiedjuliandate','validation',@(i) ischar(i)),...
-      'units',     struct('default',{{''}},              'validation',@(i) iscellstr(i)),...
-      't_tol',     struct('default',1e-6,                'validation',@(i) isnumeric(i) && isscalar(i)),...
-      'timesystem',struct('default','utc',               'validation',@(i) ischar(i)),...
-      'debug',     struct('default',false,               'validation',@(i) islogical(i) && isscalar(i))...
-    );
+    parameter_list={...
+      'units',     {''},                @(i) iscellstr(i);... %this parameters is not a property of this object:
+                                                              %it gets translated into y_units at init
+      'format',    'modifiedjuliandate',@(i) ischar(i);...
+      't_tol',     1e-6,                @(i) isnumeric(i) && isscalar(i);...
+      'timesystem','utc',               @(i) ischar(i);...
+      'debug',     false,               @(i) islogical(i) && isscalar(i);...
+    };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
@@ -20,8 +21,6 @@ classdef simpletimeseries < simpledata
   %NOTE: edit this if you add a new parameter (if read only)
   properties(SetAccess=private)
     step
-    debug
-    timesystem
   end
  %These parameters should not modify the data in any way; they should
   %only describe the data or the input/output format of it.
@@ -29,6 +28,8 @@ classdef simpletimeseries < simpledata
   properties(GetAccess=public,SetAccess=public)
     format
     t_tol
+    timesystem
+    debug
   end
   %private (visible only to this object)
   properties(GetAccess=private)
@@ -44,6 +45,39 @@ classdef simpletimeseries < simpledata
     tsys
   end
   methods(Static)
+    function out=parameters(i,method)
+      persistent v parameter_names
+      if isempty(v)
+        v=varargs(simpletimeseries.parameter_list);
+        parameter_names=v.Parameters;
+      end
+      if ~exist('i','var') || isempty(i)
+        if ~exist('method','var') || isempty(method)
+          out=parameter_names(:);
+        else
+          switch method
+          case 'obj'
+            out=v;
+          otherwise
+            out=v.(method);
+          end
+        end
+      else
+        if ~exist('method','var') || isempty(method)
+          method='name';
+        end
+        if strcmp(method,'name') && isnumeric(i)
+          out=parameter_names{i};
+        else
+          switch method
+          case varargs.template_fields
+            out=v.get(i).(method);
+          otherwise
+            out=v.(method);
+          end
+        end
+      end
+    end
     function out=timescale(in)
       out=seconds(in);
     end
@@ -74,33 +108,34 @@ classdef simpletimeseries < simpledata
       out=epoch+simpletimeseries.timescale(in);
     end
     function out=ist(mode,t1,t2,tol)
-      switch mode
-      case {'=','==','equal'}
-        if numel(t1)==numel(t2) 
-          out=seconds(t1(:)-t2(:)).^2<tol.^2;
-        elseif isscalar(t1)
-          out=seconds(t1-t2(:)).^2<tol.^2;
-        elseif isscalar(t2)
-          out=seconds(t1(:)-t2).^2<tol.^2;
-        else
-          out=false;
-        end
-        return
-      case {'<','less','smaller'}
-        out=t1<t2;
-        out(simpletimeseries.ist('==',t1,t2,tol))=false;
-      case {'<=','lessorequal'}
-        out=t1<t2;
-        out(simpletimeseries.ist('==',t1,t2,tol))=true;
-      case {'>','more','larger'}
-        out=t1>t2;
-        out(simpletimeseries.ist('==',t1,t2,tol))=false;
-      case {'>=','moreorequal','largerorequal'}
-        out=t1>t2;
-        out(simpletimeseries.ist('==',t1,t2,tol))=true;
-      otherwise
-        error([mfilename,': unknown mode ''',mode,'''.'])
-      end
+      out=simpledata.isx(mode,seconds(t1-t2),0,tol);
+%       switch mode
+%       case {'=','==','equal'}
+%         if numel(t1)==numel(t2) 
+%           out=seconds(t1(:)-t2(:)).^2<tol.^2;
+%         elseif isscalar(t1)
+%           out=seconds(t1-t2(:)).^2<tol.^2;
+%         elseif isscalar(t2)
+%           out=seconds(t1(:)-t2).^2<tol.^2;
+%         else
+%           out=false;
+%         end
+%         return
+%       case {'<','less','smaller'}
+%         out=t1<t2;
+%         out(simpletimeseries.ist('==',t1,t2,tol))=false;
+%       case {'<=','lessorequal'}
+%         out=t1<t2;
+%         out(simpletimeseries.ist('==',t1,t2,tol))=true;
+%       case {'>','more','larger'}
+%         out=t1>t2;
+%         out(simpletimeseries.ist('==',t1,t2,tol))=false;
+%       case {'>=','moreorequal','largerorequal'}
+%         out=t1>t2;
+%         out(simpletimeseries.ist('==',t1,t2,tol))=true;
+%       otherwise
+%         error([mfilename,': unknown mode ''',mode,'''.'])
+%       end
     end
     function presence=ispresent(parser,fields)
       % defaults
@@ -129,9 +164,6 @@ classdef simpletimeseries < simpledata
           error([mfilename,': cannot handle both inputs ''x'' and ''t''.'])
         end
       end
-    end
-    function out=parameters
-      out=fieldnames(simpletimeseries.parameter_list);
     end
     function out=transmute(in)
       if isa(in,'simpletimeseries')
@@ -196,7 +228,7 @@ classdef simpletimeseries < simpledata
             '. Reducing NSIGMA from ',num2str(p.Results.nsigma),' to ',num2str(nsigma_new),'.'])
         end
         %recursive call
-        vararginnow=simpledata.vararginclean(varargin,{'nsigma','curr_iter','disp_flag'});
+        vararginnow=cells.vararginclean(varargin,{'nsigma','curr_iter','disp_flag'});
         out=simpletimeseries.timestep(in,...
           'nsigma',nsigma_new,...
           'curr_iter',p.Results.curr_iter+1,...
@@ -206,7 +238,7 @@ classdef simpletimeseries < simpledata
         %dead end, sigma was reduced too much and all data is flagged as
         %outliers: nothing to do but to give some estimated of the previous
         %sigma (rounded to micro-seconds to avoid round off errors)
-        vararginnow=simpledata.vararginclean(varargin,{'nsigma'});
+        vararginnow=cells.vararginclean(varargin,{'nsigma'});
         outdiff=simpledata.rm_outliers(tdiff,...
           'nsigma',p.Results.nsigma*p.Results.sigma_iter,...
           vararginnow{:});
@@ -461,7 +493,7 @@ classdef simpletimeseries < simpledata
         for i=1:numel(filename)
           disp([mfilename,': reading data from file ',filename{i}])
           %read the data from a single file
-          obj_now=simpletimeseries.import(filename{i});
+          obj_now=simpletimeseries.import(filename{i},varargin{:});
           %skip if empty
           if isempty(obj_now)
             continue
@@ -504,7 +536,11 @@ classdef simpletimeseries < simpledata
         return
       end
       %some files have the format ID in front
-      for i={'ACC1B','SCA1B','KBR1B','GNV1B','grc[AB]_gps_orb_.*\.acc'}
+      for i={...
+        'ACC1B','AHK1B','GNV1B','KBR1B','MAS1B','SCA1B','THR1B','CLK1B',...
+        'GPS1B','IHK1B','MAG1B','TIM1B','TNK1B','USO1B','VSL1B',...
+        'grc[AB]_gps_orb_.*\.acc'...
+      }
         if ~isempty(regexp(filename,i{1},'once'))
           e=i{1};
           break
@@ -690,6 +726,63 @@ classdef simpletimeseries < simpledata
             'descriptor',strjoin(header,'\n')...
            ).fill;
         end
+      case 'AHK1B'
+        %inits
+        l='';
+        %define header details to be retrieved
+        header_anchors={...
+          'TIME EPOCH (GPS TIME)         : ',...
+          'NUMBER OF DATA RECORDS        : ',...
+          'SATELLITE NAME                : '...
+        };
+      	header_values=cell(numel(header_anchors));
+        %open the file
+        fid = file.open(filename);
+        %run through the header and retrieve relevant parameters
+        while isempty(strfind(l ,'END OF HEADER'))
+        	l=fgetl(fid);
+          for i=1:numel(header_anchors)
+            if ~isempty(strfind(l,header_anchors{i}))
+              header_values{i}=strrep(l,header_anchors{i},'');
+            end
+          end
+        end
+        %init data vector and counter
+        raw=cell(ceil(str2double(header_values{2})/7),22); c=0;
+        %loop until the end
+        while ~feof(fid)
+          l=fgetl(fid);
+          %get only the lines with temperature data
+          if ~isempty(strfind(l,'00000111111111111111111111000000'))
+            c=c+1;
+%        1       2  3  4         5                                  6                  7           8               9              10              11              12            13              14         15          16          17          18           19          20          21          22           23          24           25        26     27
+%222177690  893506  G  A  00000100   00000111111111111111111111000000  10.15329807017275 4.917429447 9.723482464e-09 2.481763683e-09 1.039316011e-08 1.959635476e-08 5.4534528e-09 5.740073306e-09 33.2671051 55.12400055 26.62501335 14.92129993 -14.91238022 5.074500084 21.62319946 14.02499962 -14.03499985 50.17699814 -50.44900131  00000001  60282
+            ll=strsplit(strtrim(l),' ');
+            raw(c,:)=[{[ll{1},'.',ll{2}]},ll(7:end)];
+          end
+        end
+        fclose(fid);
+        %convert string array to double
+        raw=str2double(raw);        
+        %building time domain
+        t=time.gpssec2datetime(raw(:,1),header_values{1});
+        %gather data domain
+        y=raw(:,[10,12,11,16]);
+        %skip empty data files
+        if isempty(t) || isempty(y)
+          disp([mfilename,': this file has no data  ',filename])
+          skip_save_mat=true;
+          obj=[];
+        else
+          %building object
+          obj=simpletimeseries(t,y,...
+            'format','datetime',...
+            'y_units',{'deg C','deg C','deg C','deg C'},...
+            'labels', {'SU','core','ICU','ADC'},...
+            'timesystem','gps',...
+            'descriptor',[strtrim(header_values{3}),' temperature (AHK1B)']...
+           ).resample;
+        end
       case 'grc[AB]_gps_orb_.*\.acc'
         %load data
         [raw,header]=file.textscan(filename,'%f %f %f %f %f %f %f %f',[],'%');
@@ -721,11 +814,9 @@ classdef simpletimeseries < simpledata
             'descriptor',strjoin(header,'\n')...
            ).fill;
         end
-      case 'SCA1B'
+      case {'GNV1B','KBR1B','MAS1B','SCA1B','THR1B','CLK1B','GPS1B','IHK1B','MAG1B','TIM1B','TNK1B','USO1B','VSL1B'}
         error([mfilename,': implementation needed'])
-      case 'KBR1B'
-        error([mfilename,': implementation needed'])
-      case 'GNV1B'
+      case 'msodp-acc'
         error([mfilename,': implementation needed'])
       otherwise
         error([mfilename,': cannot handle files of type ''',e,'''.'])
@@ -825,24 +916,28 @@ classdef simpletimeseries < simpledata
         );
       end
     end
+    %constructors
+    function out=unitc(t,width,varargin)
+      out=simpletimeseries(t(:),ones(numel(t),width),...
+        varargin{:}...
+      );
+    end
+    function out=randn(t,width,varargin)
+      out=simpletimeseries(t(:),randn(numel(t),width),...
+        varargin{:}...
+      );
+    end
   end
   methods
     %% constructor
     function obj=simpletimeseries(t,y,varargin)
-      % parameter names
-      pn=simpletimeseries.parameters;
       % input parsing
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
-      %declare parameters
-      for i=1:numel(pn)
-        %declare parameters
-        p.addParameter(pn{i},simpletimeseries.parameter_list.(pn{i}).default,simpletimeseries.parameter_list.(pn{i}).validation)
-      end
-      % parse it
-      p.parse(t,y,varargin{:});
+      %create argument object, declare and parse parameters, save them to obj
+      [v,p]=varargs.wrap('parser',p,'sources',{simpletimeseries.parameters([],'obj')},'mandatory',{t,y},varargin{:});
       % get datetime 
       [t,f]=time.ToDateTime(t,p.Results.format);
       %call superclass (create empty object, assignment comes later)
@@ -852,21 +947,10 @@ classdef simpletimeseries < simpledata
         'y_units',p.Results.units,...
         varargin{:}...
       );
-      %save input format
+      % save the arguments v into this object
+      obj=v.save(obj);
+      %save input format (can be different from p.Results.format)
       obj.format=f;
-      % save parameters
-      for i=1:numel(pn)
-        %parameter 'units' has already been handled when calling simpledata constructor, so skip it
-        if strcmp(pn{i},'units')
-          continue
-        end
-        if ~isscalar(p.Results.(pn{i}))
-          %vectors are always lines (easier to handle strings)
-          obj.(pn{i})=transpose(p.Results.(pn{i})(:));
-        else
-          obj.(pn{i})=p.Results.(pn{i});
-        end
-      end
     end
     function obj=assign(obj,y,varargin)
       p=inputParser;
@@ -902,28 +986,19 @@ classdef simpletimeseries < simpledata
       %sanitize (don't pass t, since it can be deliberatly changed)
       obj.check_st
     end
-    function obj=copy_metadata(obj,obj_in)
-      %call superclass
-      obj=copy_metadata@simpledata(obj,obj_in);
-      %propagate parameters of this object
-      parameters=simpletimeseries.parameters;
-      for i=1:numel(parameters)
-        if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
-          obj.(parameters{i})=obj_in.(parameters{i});
-        end
+    function obj=copy_metadata(obj,obj_in,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
       end
+      %call superclass
+      obj=copy_metadata@simpledata(obj,obj_in,[simpletimeseries.parameters;more_parameters(:)]);
     end
-    function out=metadata(obj)
-      %call superclass
-      out=metadata@simpledata(obj);
-      %build cell array with parameters of this object
-      parameters=simpletimeseries.parameters;
-      for i=1:numel(parameters)
-        if isprop(obj,parameters{i})
-          out{end+1}=parameters{i}; %#ok<AGROW>
-          out{end+1}=obj.(parameters{i}); %#ok<AGROW>
-        end
+    function out=metadata(obj,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
       end
+      %call superclass
+      out=metadata@simpledata(obj,[simpletimeseries.parameters;more_parameters(:)]);
     end
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
@@ -1273,17 +1348,28 @@ classdef simpletimeseries < simpledata
     %the detrend method can be called directly
     %the outlier method can be called directly
     %the medfilt method can be called directly
-    function obj=median(obj,n)
-      %save current time domain and step
-      t_now=obj.t;
-%       step_now=obj.step;
+    function obj=median(obj,n,keet_time_domain)
+      if ~exist('keet_time_domain','var') || isempty(keet_time_domain)
+        keet_time_domain=false;
+      end
+      if keet_time_domain
+        %save current time domain 
+        t_now=obj.t;
+      end
+      %handle periods
+      if isduration(n)
+        %compute (average) number of epochs within the requested t_span
+        n=round(n/obj.step);
+      end
       %call superclass
       obj=median@simpledata(obj,n);
-      %resample (if needed, which is checked inside resample)
-      obj=obj.interp(t_now,...
-        'interp_over_gaps_narrower_than',0,...
-        'interp1_args',{'linear'}...
-      );
+      if keet_time_domain
+        %resample (if needed, which is checked inside resample)
+        obj=obj.interp(t_now,...
+          'interp_over_gaps_narrower_than',0,...
+          'interp1_args',{'linear'}...
+        );
+      end
     end
     %% edit methods (specific to this class)
     function obj=extend(obj,nr_epochs)
@@ -1605,6 +1691,22 @@ classdef simpletimeseries < simpledata
       %call mother routine
       obj1=glue@simpledata(obj1,obj2);
     end
+    %% wrappers
+    function obj=smooth(obj,varargin)
+      if strcmp(varargin{1},'t_span')
+        %compute (average) number of epochs within the requested t_span
+        span=round(varargin{2}/obj.step);
+        %clean varargin
+        varargin=varargin(3:end);
+      elseif numel(varargin)>0 && isnumeric(varargin{1});
+        span=varargin{1};
+        varargin=varargin(2:end);
+      else
+        assert(numel(varargin)==0,'First argument must be ''t_span'' or numeric')
+      end
+      %call mother routine
+      obj=smooth@simpledata(obj,span,varargin{:});
+    end
     %% plot methots
     function out=plot(obj,varargin)
       %call superclass
@@ -1618,6 +1720,16 @@ classdef simpletimeseries < simpledata
       end
     end
     %% export methods
+    function out=pluck(obj,t_now)
+      assert(isscalar(t_now),'Input T_now must be a scalar.')
+      if isdatetime(t_now)
+        x_now=obj.t2x(t_now);
+      else
+        x_now=t_now;
+      end
+      %call mother routine
+      out=pluck@simpledata(obj,x_now);
+    end
     function export(obj,filename,filetype,varargin)
       p=inputParser;
       p.KeepUnmatched=true;

@@ -9,12 +9,6 @@ classdef datanames
     name
     field_path
   end
-  %internal
-  properties(SetAccess=private)
-  end
-  %calculated only when asked for
-  properties(Dependent)
-  end
   methods(Static)
     function out=array(in,field_path)
       assert(iscell(in),[mfilename,': cannot handle input ''in'' of class ',class(in),', expecting a cell array.'])
@@ -57,7 +51,13 @@ classdef datanames
       %sanity
       assert(~isempty(in),'cannot handle empty input ''in''.')
       if ischar(in)
-        obj.name=in;
+        if ~isempty(strfind(in,filesep))
+          in=strsplit(in,filesep);
+          obj.name=in{1};
+          obj=obj.set_field_path(in(2:end));
+        else
+          obj.name=in;
+        end
       % handle non-scalar inputs
       elseif ~isscalar(in) 
         error([mfilename,': cannot handle non-scalar inputs.'])
@@ -67,7 +67,7 @@ classdef datanames
         case 'datanames'
           obj=in;
         case 'cell'
-          obj=datanames(in{1});
+          obj=datanames(in{1}); %already known to be scalar
         case 'dataproduct'
           obj=in.dataname;
         otherwise
@@ -203,7 +203,7 @@ classdef datanames
       end
       %make sure dir exists, if requested
       if p.Results.ensure_dir
-        if ~exist(fileparts(out),'dir')
+        if ~exist(fileparts(out),'dir') && ~isempty(fileparts(out))
           mkdir(fileparts(out))
         end
       end

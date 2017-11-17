@@ -2,10 +2,10 @@ classdef segmentedfreqseries < simplefreqseries
   %static
   properties(Constant,GetAccess=private)
     %default value of input parameters
-    parameter_list=struct(...
-      'seg_length', struct('default',days(1), 'validation',@(i) isduration(i) && isscalar(i)),...
-      'seg_overlap',struct('default',hours(3),'validation',@(i) isduration(i) && isscalar(i))...
-    );
+    parameter_list={...
+      'seg_length', days(1), @(i) isduration(i) && isscalar(i);...
+      'seg_overlap',hours(3),@(i) isduration(i) && isscalar(i);...
+    };
   end
   %read only
   properties(SetAccess=private)
@@ -21,8 +21,38 @@ classdef segmentedfreqseries < simplefreqseries
     y_merged
   end
   methods(Static)
-    function out=parameters
-      out=fieldnames(segmentedfreqseries.parameter_list);
+    function out=parameters(i,method)
+      persistent v parameter_names
+      if isempty(v)
+        v=varargs(segmentedfreqseries.parameter_list);
+        parameter_names=v.Parameters;
+      end
+      if ~exist('i','var') || isempty(i)
+        if ~exist('method','var') || isempty(method)
+          out=parameter_names(:);
+        else
+          switch method
+          case 'obj'
+            out=v;
+          otherwise
+            out=v.(method);
+          end
+        end
+      else
+        if ~exist('method','var') || isempty(method)
+          method='name';
+        end
+        if strcmp(method,'name') && isnumeric(i)
+          out=parameter_names{i};
+        else
+          switch method
+          case varargs.template_fields
+            out=v.get(i).(method);
+          otherwise
+            out=v.(method);
+          end
+        end
+      end
     end
     function [out,idx]=time_segmented(time,seg_length,seg_overlap)
       if ~isdatetime(time)
@@ -158,45 +188,32 @@ classdef segmentedfreqseries < simplefreqseries
     function obj=segmentedfreqseries(t,y,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 't',     @(i)                 ~isscalar(i)); %this can be char, double or datetime
+      p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y',     @(i) isnumeric(i) && ~isscalar(i));
-      %declare parameters
-      for j=1:numel(segmentedfreqseries.parameters)
-        %shorter names
-        pn=segmentedfreqseries.parameters{j};
-        %declare parameters
-        p.addParameter(pn,segmentedfreqseries.parameter_list.(pn).default,segmentedfreqseries.parameter_list.(pn).validation)
-      end
-      % parse it
-      p.parse(t,y,varargin{:});
+      %create argument object, declare and parse parameters, save them to obj
+      [v,p]=varargs.wrap('parser',p,'sources',{segmentedfreqseries.parameters([],'obj')},'mandatory',{t,y},varargin{:});
       %call superclass
-      obj=obj@simplefreqseries(p.Results.t,p.Results.y,varargin{:});
-      % save parameters
-      for i=1:numel(segmentedfreqseries.parameters)
-        %shorter names
-        pn=segmentedfreqseries.parameters{i};
-        if ~isscalar(p.Results.(pn))
-          %vectors are always lines (easier to handle strings)
-          obj.(pn)=transpose(p.Results.(pn)(:));
-        else
-          obj.(pn)=p.Results.(pn);
-        end
-      end
+      obj=obj@simplefreqseries(t,y,varargin{:});
+      % save the arguments v into this object
+      obj=v.save(obj);
       % remove mask from varargin
-      args=simpledata.vararginclean(varargin,{'mask'});
+      args=cells.vararginclean(varargin,{'mask'});
       % cut into segments
       obj=obj.segmentate(p.Results.seg_length,p.Results.seg_overlap,args{:});
     end
-    function obj=copy_metadata(obj,obj_in)
-      %call superclass
-      obj=copy_metadata@simplefreqseries(obj,obj_in);
-      %propagate parameters of this object
-      parameters=fields(segmentedfreqseries.parameter_list);
-      for i=1:numel(parameters)
-        if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
-          obj.(parameters{i})=obj_in.(parameters{i});
-        end
+    function obj=copy_metadata(obj,obj_in,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
       end
+      %call superclass
+      obj=copy_metadata@simplefreqseries(obj,obj_in,[segmentedfreqseries.parameters;more_parameters(:)]);
+    end
+    function out=metadata(obj,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
+      end
+      %call superclass
+      out=metadata@simplefreqseries(obj,[segmentedfreqseries.parameters;more_parameters(:)]);
     end
     %% seg methods
     function obj=segmentate(obj,seg_length,seg_overlap,varargin)

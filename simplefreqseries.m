@@ -2,10 +2,10 @@ classdef simplefreqseries < simpletimeseries
   %static
   properties(Constant,GetAccess=private)
     %NOTE: edit this if you add a new parameter
-    parameter_list=struct(...
-      'psd_method',     struct('default','periodogram','validation',@(i) ischar(i)),...
-      'bandpass_method',struct('default','fft',        'validation',@(i) ischar(i))...
-    );
+    parameter_list={...
+      'psd_method',     'periodogram',@(i) ischar(i);...
+      'bandpass_method','fft',        @(i) ischar(i);...
+    };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
@@ -17,11 +17,6 @@ classdef simplefreqseries < simpletimeseries
     bandpass_method
     psd_method
   end
-  %These parameters should not modify the data in any way; they should
-  %only describe the data or the input/output format of it.
-  %NOTE: edit this if you add a new parameter (if read/write)
-  properties(GetAccess=public,SetAccess=public)
-  end
   %private (visible only to this object)
   properties(GetAccess=private)
     psdi
@@ -32,11 +27,38 @@ classdef simplefreqseries < simpletimeseries
     f
   end
   methods(Static)
-    function out=default
-      out=simplefreqseries.default_list;
-    end
-    function out=parameters
-      out=fieldnames(simplefreqseries.parameter_list);
+    function out=parameters(i,method)
+      persistent v parameter_names
+      if isempty(v)
+        v=varargs(simplefreqseries.parameter_list);
+        parameter_names=v.Parameters;
+      end
+      if ~exist('i','var') || isempty(i)
+        if ~exist('method','var') || isempty(method)
+          out=parameter_names(:);
+        else
+          switch method
+          case 'obj'
+            out=v;
+          otherwise
+            out=v.(method);
+          end
+        end
+      else
+        if ~exist('method','var') || isempty(method)
+          method='name';
+        end
+        if strcmp(method,'name') && isnumeric(i)
+          out=parameter_names{i};
+        else
+          switch method
+          case varargs.template_fields
+            out=v.get(i).(method);
+          otherwise
+            out=v.(method);
+          end
+        end
+      end
     end
     function out=transmute(in)
       if isa(in,'simplefreqseries')
@@ -182,35 +204,17 @@ classdef simplefreqseries < simpletimeseries
   methods
     %% constructor
     function obj=simplefreqseries(t,y,varargin)
-      % parameter names
-      pn=simplefreqseries.parameters;
       % input parsing
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 't',     @(i)          ~isscalar(i)); %this can be char, double or datetime
+      p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y',     @(i) simpledata.valid_y(i));
-      %declare parameters
-      for i=1:numel(pn)
-        %declare parameters
-        p.addParameter(pn{i},simplefreqseries.parameter_list.(pn{i}).default,simplefreqseries.parameter_list.(pn{i}).validation)
-      end
-      % parse it
-      p.parse(t,y,varargin{:});
+      %create argument object, declare and parse parameters, save them to obj
+      v=varargs.wrap('parser',p,'sources',{simplefreqseries.parameters([],'obj')},'mandatory',{t,y},varargin{:});
       %call superclass
-      obj=obj@simpletimeseries(p.Results.t,p.Results.y,varargin{:});
-      % save parameters
-      for i=1:numel(pn)
-        %parameter 'units' has already been handled when calling simpledata constructor, so skip it
-        if strcmp(pn{i},'units')
-          continue
-        end
-        if ~isscalar(p.Results.(pn{i}))
-          %vectors are always lines (easier to handle strings)
-          obj.(pn{i})=transpose(p.Results.(pn{i})(:));
-        else
-          obj.(pn{i})=p.Results.(pn{i});
-        end
-      end
+      obj=obj@simpletimeseries(t,y,varargin{:});
+      % save the arguments v into this object
+      obj=v.save(obj);
       %initialize internal records
       obj.psdi=[];
       %save delta frequency
@@ -224,28 +228,19 @@ classdef simplefreqseries < simpletimeseries
       obj=obj.psd_init;
       obj.nyquist=2/obj.step_num;
     end
-    function obj=copy_metadata(obj,obj_in)
-      %call superclass
-      obj=copy_metadata@simpletimeseries(obj,obj_in);
-      %propagate parameters of this object
-      parameters=simplefreqseries.parameters;
-      for i=1:numel(parameters)
-        if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
-          obj.(parameters{i})=obj_in.(parameters{i});
-        end
+    function obj=copy_metadata(obj,obj_in,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
       end
+      %call superclass
+      obj=copy_metadata@simpletimeseries(obj,obj_in,[simplefreqseries.parameters;more_parameters(:)]);
     end
-    function out=metadata(obj)
-      %call superclass
-      out=metadata@simpletimeseries(obj);
-      %build cell array with parameters of this object
-      parameters=simplefreqseries.parameters;
-      for i=1:numel(parameters)
-        if isprop(obj,parameters{i})
-          out{end+1}=parameters{i};          %#ok<AGROW>
-          out{end+1}=obj.(parameters{i}); %#ok<AGROW>
-        end
+    function out=metadata(obj,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
       end
+      %call superclass
+      out=metadata@simpletimeseries(obj,[simplefreqseries.parameters;more_parameters(:)]);
     end
     %% psd methods
     function out=get.f(obj)
@@ -589,13 +584,13 @@ classdef simplefreqseries < simpletimeseries
       p=inputParser;
       p.KeepUnmatched=true;
       % add stuff as needed
-      p.addRequired('cutoff',                          @(i) isnumeric(i) && numel(i)==1);
-      p.addParameter('nSigma',simpledata.default.nSigma,@(i) isnumeric(i));
+      p.addRequired('cutoff',                           @(i) isnumeric(i) && numel(i)==1);
+      p.addParameter('outlier_sigma',obj.outlier_sigma, @(i) isnumeric(i));
       p.addParameter('debug_plot',false,                @(i) islogical(i) && isscalar(i));
       % parse it
       p.parse(cutoff,varargin{:});
       % clear varargin of some parameters
-      varargin=simpledata.vararginclean(varargin,{'debug_plot'});
+      varargin=cells.vararginclean(varargin,{'debug_plot'});
       % apply low-pass filter
       smoothed=obj.bandpass('Wn',[0,cutoff],varargin{:});
       % get high-frequency signal

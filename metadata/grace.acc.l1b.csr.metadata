@@ -1,5 +1,6 @@
 import_dir: <getenv('HOME')>/data/csr/corral-tacc/
-method: csr.import_acc_l1b
+method: csr.import_l1b
+format: acc-ascii
 sats: [A,B]
 storage_period: daily
 version: '61'

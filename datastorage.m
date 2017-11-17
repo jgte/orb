@@ -2,22 +2,21 @@ classdef datastorage
   %static
   properties(Constant)
     %default value of some internal parameters
-    parameter_list=struct(...
-      'start',          struct('default',time.zero_date,'validation',@(i) isdatetime(i)),...
-      'stop',           struct('default',time.inf_date, 'validation',@(i) isdatetime(i)),...
-      'debug',          struct('default',false,         'validation',@(i) islogical(i)),...
-      'metadata_dir',   struct('default',dataproduct.default_list.metadata_dir,'validation',@(i) ischar(i))...
-    );
+    parameter_list={...
+      'start',          time.zero_date,@(i) isdatetime(i);...
+      'stop',           time.inf_date, @(i) isdatetime(i);...
+      'debug',          false,         @(i) islogical(i);...
+%       'metadata_dir',   dataproduct.parameters('metadata_dir','value'),@(i) ischar(i);...
+    };
   end
   %public
   properties(GetAccess=public,SetAccess=public)
     debug
+%     metadata_dir
   end
   %read only
   properties(SetAccess=private)
-    par
     data
-    metadata_dir
   end
   %private (visible only to this object)
   properties(GetAccess=private)
@@ -30,34 +29,65 @@ classdef datastorage
     stop
   end
   methods(Static)
-    function out=parameters
-      out=fieldnames(datastorage.parameter_list);
+    function out=parameters(i,method)
+      persistent v parameter_names
+      if isempty(v)
+        v=varargs(datastorage.parameter_list);
+        parameter_names=v.Parameters;
+      end
+      if ~exist('i','var') || isempty(i)
+        if ~exist('method','var') || isempty(method)
+          out=parameter_names(:);
+        else
+          switch method
+          case 'obj'
+            out=v;
+          otherwise
+            out=v.(method);
+          end
+        end
+      else
+        if ~exist('method','var') || isempty(method)
+          method='name';
+        end
+        if strcmp(method,'name') && isnumeric(i)
+          out=parameter_names{i};
+        else
+          switch method
+          case varargs.template_fields
+            out=v.get(i).(method);
+          otherwise
+            out=v.(method);
+          end
+        end
+      end
     end
+%     function out=id(in,data_type,varargin)
+%       switch lower(data_type)
+%       case {'dataname','datanames','dn'}
+%         assert(numel(varargin)==1,['If datastorage.id is called with ''data_type'' as ''',data_type,...
+%           ''', then can only handle one optional input argument, not ',num2str(numel(varargin)),'.'])
+%         out=datanames(in,varargin{:});
+%       case {'product','products','dp'}
+%         out=dataproduct(in,varargin{:});
+%       otherwise
+%         assert(numel(varargin)==0,['If datastorage.id is called with ''data_type'' as ''',data_type,...
+%           ''', then can not handle any optional input argument (while ',num2str(numel(varargin)),' were given).'])
+%         out=datanames(in);
+%         out=out.(data_type);
+%       end
+%     end
   end
   methods
     %% constructor
     function obj=datastorage(varargin)
       obj.log('@','in','varargin',varargin)
-      % parameter names
-      pn=datastorage.parameters;
-      % input parsing
-      p=inputParser;
-      p.KeepUnmatched=true;
-      % declare parameters
-      for i=1:numel(pn)
-        p.addParameter(pn{i},datastorage.parameter_list.(pn{i}).default,datastorage.parameter_list.(pn{i}).validation)
-      end
-      % parse it
-      p.parse(varargin{:});
       % reset data type list
       obj=obj.data_init;
-      % save parameters
-      for i=1:numel(pn)
-        obj.(pn{i})=transpose(p.Results.(pn{i})(:));
-        obj.log('@','iter',pn{i},obj.(pn{i}),['p.Results.(',pn{i},')'],p.Results.(pn{i}))
-      end
-      obj.log('@','out')
+      %create argument object, declare and parse parameters, save them to obj
+      [~,~,obj]=varargs.wrap('sinks',{obj},'sources',{datastorage.parameters([],'obj')},varargin{:});
       % data is added to this initialized object with the 'init' method (see below)
+      obj.log('@','out')
     end
     function out=isempty(obj)
       out=isempty(obj.data);
@@ -139,7 +169,7 @@ classdef datastorage
             else
               msg{m}='N/A';
             end
-          end        
+          end
         end
         disp(str.tablify(p.Results.tab,dn_list{i}.str,msg))
       end
@@ -194,7 +224,7 @@ classdef datastorage
                 %patch with N/A
                 msg{m}='N/A';
               end
-            end        
+            end
           end
           disp(str.tablify(p.Results.tab,dn_list{i}.str,msg))
         end
@@ -319,7 +349,7 @@ classdef datastorage
       end
     end
     %% vector data operations, done over multiple datanames and all corresponding 'field_path's
-    % Applies the function f to all data entries and returns the result, 
+    % Applies the function f to all data entries and returns the result,
     % so it transforms (tr) a list of objects into something else.
     function out=vector_func_tr(obj,dn,f,varargin)
       %collapse requested data into cell array and operate on the cell array
@@ -337,12 +367,12 @@ classdef datastorage
       %propagate cell array back to object
       obj=obj.data_set(dn,values);
     end
-    % Retrieves the values of particular field or a method from the 
+    % Retrieves the values of particular field or a method from the
     % object stored at the leaves of all data entries (used to be called vector_sts)
     function [out,dn_list]=vector_method_tr(obj,dn,method,varargin)
       %get data entries under 'dn'
       dn_list=obj.data_list(dn);
-      %retrieve list of objects, i.e. the values given by obj.data_get 
+      %retrieve list of objects, i.e. the values given by obj.data_get
       obj_list=obj.data_get(dn_list);
       %make room for outputs
       out=cell(size(obj_list));
@@ -351,7 +381,7 @@ classdef datastorage
         if isempty(obj_list{i})
           out{i}=[];
         else
-          %check if this object responds to this 
+          %check if this object responds to this
           if structs.respondto(obj_list{i},method)
             if numel(varargin)==0
               out{i}=obj_list{i}.(method);
@@ -370,17 +400,17 @@ classdef datastorage
       %propagate cell array back to object
       obj=obj.data_set(dn_list,values);
     end
-    % Sets the values of particular field or zero-input method of the 
-    % object stored at the leaves of all data entries 
+    % Sets the values of particular field or zero-input method of the
+    % object stored at the leaves of all data entries
     function obj=vector_method_set(obj,dn,method,value)
       %get data entries under 'dn'
       dn_list=obj.data_list(dn);
-      %retrieve list of objects, i.e. the values given by obj.data_get 
+      %retrieve list of objects, i.e. the values given by obj.data_get
       obj_list=obj.data_get(dn_list);
       %loop over all objects
       for i=1:numel(obj_list)
         if ~isempty(obj_list{i})
-          %check if this object responds to this 
+          %check if this object responds to this
           if structs.respondto(obj_list{i},method)
             obj_list{i}.(method)=value;
           end
@@ -487,7 +517,7 @@ classdef datastorage
       out=true;
       %use the first object as reference
       obj1=obj.data_get_scalar(global_field_path_list{1});
-      %loop over all remaining objects 
+      %loop over all remaining objects
       for i=2:numel(global_field_path_list)
         %check of the time domains agree
         if ~obj1.isteq(obj.data_get_scalar(global_field_path_list{i}))
@@ -541,35 +571,29 @@ classdef datastorage
         end
       end
     end
-    %% metadata interface
-    function obj=product_set(obj,dn,varargin)
-      %reduce dataname to common object
-      dn=datanames(dn);
-      %set the requested metadata
-      obj.par.(dn.name_clean)=dataproduct(dn,...
-        'metadata_dir',obj.metadata_dir,... %add more metadata-relevant parameters here
-        varargin{:}...
-      );
+    %% product interface
+    function obj=product_set(obj,id,varargin)
+      error('this is not used any more')
+      %don't use obj.product_get here, this method is used for initialization
+      product=datastorage.id(id,'product',varargin{:});
+      out=datanames(in,varargin{:});
     end
-    function md=product_get(obj,dn)
-      %reduce dataname to common object
-      dn=datanames(dn);
-      %some sanity
-      assert(isfield(obj.par,dn.name_clean),['cannot find product ',dn.name,'. ',...
-          'Have you called obj.init(''',dn.name,''')? ',...
-          'Maybe the requested product is not sourced in any of the products already loaded.'])
-      %retrieve the requested metadata
-      md=obj.par.(dn.name_clean);
+    function product=product_get(~,id,varargin)
+      product=dataproduct(id,varargin{:});
+%       product=datastorage.id(id,'product');
     end
     %% load/save operations
     function [obj,success]=load(obj,product,varargin)
-      %type sanity
-      assert(isa(product,'dataproduct'),['input ''product'' has to be of class ''dataproduct'', not ''',class(product),'''.'])
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
+      if product.mdget('plot_product')
+        product_type='plot';
+      else
+        product_type='data';
+      end
       % get the file list
-      file_list=product.file('data','discover',false,'start',obj.start,'stop',obj.stop,varargin{:});
+      file_list=product.file(product_type,'discover',false,'start',obj.start,'stop',obj.stop,varargin{:});
       % check if any file is missing
-      if any(~product.isfile('data','start',obj.start,'stop',obj.stop,varargin{:}))
+      if any(~product.isfile(product_type,'start',obj.start,'stop',obj.stop,varargin{:}))
         % debug output
         success=false;
         if isempty(file_list)
@@ -580,39 +604,40 @@ classdef datastorage
         return
       end
       obj.log('nr of files to load',numel(file_list))
-      %loop over all files
-      for f=1:numel(file_list)
-        % debug output
-        obj.log(['loading file ',num2str(f),' '],[' ',file_list{f}])
-        %load data in this file
-        load(file_list{f},'s');
-        if f==1
-          %move to cumulative variable
-          s_out=s;
-        else
-          %%append to cumulative data
-          if isstruct(s_out)
-            %do that for all fields in this structure
-            s_out=structs.objmethod2('append',s_out,s);
+      %if this is a plot product, then skip loading data
+      if ~product.mdget('plot_product')
+        %loop over all files
+        for f=1:numel(file_list)
+          % debug output
+          obj.log(['loading file ',num2str(f),' '],[' ',file_list{f}])
+          %load data in this file
+          load(file_list{f},'s');
+          if f==1
+            %move to cumulative variable
+            s_out=s;
           else
-            %simple call
-            s_out=s_out.append(s);
+            %%append to cumulative data
+            if isstruct(s_out)
+              %do that for all fields in this structure
+              s_out=structs.objmethod2('append',s_out,s);
+            else
+              %simple call
+              s_out=s_out.append(s);
+            end
           end
         end
+        % save the data in the object
+        obj=obj.data_set(product,s_out);
+        % update start/stop
+        obj=obj.startstop_retrieve_update(product);
       end
-      % save the data in the object
-      obj=obj.data_set(product,s_out);
-      % update start/stop
-      obj=obj.startstop_retrieve_update(product);
       % debug output
       success=true;
       obj.log('@','out','product',product)
     end
     function save(obj,product,varargin)
-      %type sanity
-      assert(isa(product,'dataproduct'),['input ''product'' has to be of class ''dataproduct'', not ''',class(product),'''.'])
       %ignore plot products, file saving is done inside the init method
-      if product.ismd_field('plot_product') && product.mdget('plot_product')
+      if product.mdget('plot_product')
         return
       end
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
@@ -657,22 +682,21 @@ classdef datastorage
       obj.log('@','out','product',product)
     end
     %% datatype initialization
-    function obj=init(obj,dn,varargin)
+    function obj=init(obj,id,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
       p.addParameter('force',    false,@(i) islogical(i) && isscalar(i));
       p.addParameter('recompute',false,@(i) islogical(i) && isscalar(i));
+      p.addParameter('subcat',   '',   @(i) ischar(i));
       % parse it
       p.parse(varargin{:});
-      %reduce dataname to common object
-      dn=datanames(dn);
       %update start/stop if given in inputs
       obj=obj.startstop_update(varargin{:});
-      obj.log('@','in','dataname',dn,'varargin',varargin,'start',obj.start,'stop',obj.stop)
-      % load the metadata for this product
-      obj=obj.product_set(dn,varargin{:});
+      obj.log('@','in','id',id,'varargin',varargin,'start',obj.start,'stop',obj.stop)
+%       % load the metadata for this product
+%       obj=obj.product_set(id,varargin{:});
       %retrieve product info
-      product=obj.product_get(dn);
+      product=obj.product_get(id,varargin{:});
       % make sure all data sources are loaded
       obj=obj.init_sources(product,varargin{:});
       % get init method
@@ -682,7 +706,7 @@ classdef datastorage
         %unwarp products in this list and feed output to input, to unwrap multitple wrapped parts
         product_list=dataproduct.unwrap_product({product});
         %maybe need to prepend some source fields
-        if product.ismd_field('source_fields_from')
+        if product.ismdfield('source_fields_from')
           %get field path to prepend (from specified source product)
           prepend_product=product_from_source_leafs(obj,{product});
           %make room for outputs
@@ -703,6 +727,10 @@ classdef datastorage
         %expand to source leafs (avoids having to declare 'levelX_name/vals' in all downstream products)
         product_list=obj.product_from_source_leafs({product});
       else
+        %enforce sub-category, if requested
+        if ~isempty(p.Results.subcat)
+          product.dataname=product.dataname.append_field_leaf(p.Results.subcat);
+        end
         %expand existing leafs in this product (should generally return itself, since this product has not yet been initialized)
         product_list=obj.product_leafs({product});
       end
@@ -735,13 +763,13 @@ classdef datastorage
           obj.log('@','iter: data already loaded')
         end
       end
-      obj.log('@','out','dataname',dn,'start',obj.start,'stop',obj.stop)
+      obj.log('@','out','id',id,'start',obj.start,'stop',obj.stop)
       %user feedback
       if ~obj.debug
         str.say('initialized',product.str)
       end
       %check if this product is too old for the requested start/stop dates
-      assert(obj.start<obj.stop,['Requested start/stop dates are incompatible with product ',dn.str,...
+      assert(obj.start<obj.stop,['Requested start/stop dates are incompatible with product ',product.str,...
         '; consider updating the data in that product.'])
     end
     function out=product_leafs(obj,product_list,varargin)
@@ -751,12 +779,14 @@ classdef datastorage
         out=product_list.field_path_expand(obj.data_list(product_list,varargin{:}));
       end
     end
-    function source_list=source_leafs(obj,product_list)
-      if iscell(product_list)
-        product_list=cells.flatten(cellfun(@obj.source_leafs,product_list,'UniformOutput',false));
+    function source_list=source_leafs(obj,id_list)
+      if iscell(id_list)
+        id_list=cells.flatten(cellfun(@obj.source_leafs,id_list,'UniformOutput',false));
         return
       end
-      obj.log('@','in','product_list',product_list)
+      obj.log('@','in','id_list',id_list)
+      %type conversion
+      product_list=obj.product_get(id_list);
       %easier names
       field_path_now=product_list.dataname.field_path;
       n=numel(field_path_now);
@@ -803,7 +833,7 @@ classdef datastorage
       end
       obj.log('@','1','source_inventory',source_inventory)
       %some products simply copy the field paths from sources
-      if product_list.ismd_field('source_fields_from')
+      if product_list.ismdfield('source_fields_from')
         source_idx=find(strcmp(...
           cellfun(@(i) i.name, product_list.source_list,'UniformOutput',false),...
           product_list.mdget('source_fields_from')...
@@ -812,13 +842,13 @@ classdef datastorage
         assert(~isempty(source_idx),['The value of the metadata field ''source_fields_from'' (',...
           product_list.mdget('source_fields_from'),') is not part of the ''sources''.'])
         % limit the depth of the products
-        if product_list.ismd_field('source_fields_max_depth')
+        if product_list.ismdfield('source_fields_max_depth')
           source_depth=product_list.mdget('source_fields_max_depth');
         else
           source_depth=-1;
         end
       %other products have explicit field paths
-      elseif product_list.ismd_field('source_field_path')
+      elseif product_list.ismdfield('source_field_path')
         %TODO: not sure how to handle this...
         keyboard
       %most products operate on a one-to-one basis in the field paths
@@ -871,7 +901,7 @@ classdef datastorage
             end
           end
         end
-        %propagate data 
+        %propagate data
         source_inventory=source_inventory_out;
       end
       %convert to dataproduct
@@ -899,20 +929,26 @@ classdef datastorage
       % sanity
       assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
       %retrieve relevant parameters
-      sats         =product.mdget('sats'); 
+      sats         =product.mdget('sats');
       indir        =product.mdget('nrtdm_data_dir');
-      nrtdm_sats   =product.mdget('nrtdm_sats'); 
+      nrtdm_sats   =product.mdget('nrtdm_sats');
       nrtdm_product=product.mdget('nrtdm_product');
       %sanity
       str.sizetrap(sats,nrtdm_sats)
       %loop over the satellites
       for s=1:numel(sats)
+        %a little tweaking
+        if dateshift(obj.stop,'start','day')==obj.stop
+          stop_now=dateshift(obj.stop,'end','day');
+        else
+          stop_now=obj.stop;
+        end
         %load the data
-        tmp=nrtdm([nrtdm_sats{s},'_',nrtdm_product],obj.start,obj.stop,'data_dir',indir);
+        tmp=nrtdm([nrtdm_sats{s},'_',nrtdm_product],obj.start,stop_now,'data_dir',indir);
         %get and save the data
         obj=obj.data_set(product.dataname.set_field_path(sats(s)),tmp.ts);
       end
-        obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)  
+        obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
     %% plot utils
     function h=justplot(obj,dn,varargin)
@@ -924,12 +960,13 @@ classdef datastorage
       %parse optional parameters as defined in the metadata
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('dn_reference',dn, @(i) isa(i,'datanames'));
-      p.addParameter('plot_psd',false,  @(i) islogical(i));
-      p=obj.product_get(dn).plot_args(p,varargin{:});
+      p.addParameter('dn_reference',    dn,    @(i) isa(i,'datanames'));
+      p.addParameter('plot_psd',        false, @(i) islogical(i));
+      p.addParameter('plot_check_units',true,  @(i) islogical(i));
+      p=obj.product_get(dn,varargin{:}).plot_args(p,varargin{:});
       %if dn_reference is not the default, parse plot arguments from that product
       if ~strcmp(p.UsingDefaults,'dn_reference')
-        p=obj.product_get(p.Results.dn_reference).plot_args(p,varargin{:});
+        p=obj.product_get(p.Results.dn_reference,varargin{:}).plot_args(p,varargin{:});
       end
       %retrieve the requested data
       d=obj.data_get_scalar(dn);
@@ -937,27 +974,13 @@ classdef datastorage
       if p.Results.plot_psd
         d=simplefreqseries.transmute(d);
       end
+      plot_args=dataproduct.parse_commands(structs.fieldname_strip(structs.filter(p.Results,'plot_'),'plot_'));
       %checking data class
       switch class(d)
-      case 'gravity'
-        h=d.plot(...
-          'method',  p.Results.plot_method,...
-          'columns', p.Results.plot_columns,...
-          'outlier', p.Results.plot_outlier,...
-          'zeromean',p.Results.plot_zeromean...
-        );
-      case 'simpletimeseries'
-        h=d.plot(...
-          'columns', p.Results.plot_columns,...
-          'outlier', p.Results.plot_outlier,...
-          'zeromean',p.Results.plot_zeromean...
-        );
+      case {'gravity','simpletimeseries'}
+        h=d.plot(plot_args);
       case 'simplefreqseries'
-        h=d.plot_psd(...
-          'columns', p.Results.plot_columns,...
-          'outlier', p.Results.plot_outlier,...
-          'zeromean',p.Results.plot_zeromean...
-        );
+        h=d.plot_psd(plot_args);
       otherwise
         if isempty(d)
           str.say('Skip plotting empty data',dn.name)
@@ -967,7 +990,7 @@ classdef datastorage
         end
       end
       %check units
-      if ~isempty(h) && all(p.Results.plot_columns>0)
+      if ~isempty(h) && all(p.Results.plot_columns>0) && p.Results.plot_check_units
         h.y_units=d.y_units{p.Results.plot_columns(1)};
         for i=2:numel(p.Results.plot_columns)
           if ~isempty(h.y_units) && ~strcmp(h.y_units,d.y_units(p.Results.plot_columns(i)))
@@ -978,50 +1001,78 @@ classdef datastorage
       obj.log('@','out','dn',dn,'start',obj.start,'stop',obj.stop)
     end
     function plot_legend(~,p,h,dn_list,varargin)
-      %get number of plotted lines
-      data_width=sum(cellfun(@(i) numel(i.handle),h));
-      %add legend only if there are multiple lines
-      if data_width>1
-        %add the legend given as input, if there
-        if ~isempty(p.Results.plot_legend)
-          %some sanity
-          assert(data_width==numel(p.Results.plot_legend),[...
-            'The number of legend entries (',num2str(numel(p.Results.plot_legend)),...
-            ') is not in agreement with the number of plotted lines (',num2str(data_width),').'...
-          ])
-          %propagate
-          legend_str=p.Results.plot_legend;
-        else
-          %get unique parts in datanames 
-          prefixes=datanames.unique(dn_list);
-          % paranoid sanity
-          str.sizetrap(h,prefixes)
-          %get how many lines have been plotted
-          n=0;
-          for j=1:numel(h)
-            if ~isempty(h{j}) && isfield(h{j}, 'handle')
-              n=n+numel(h{j}.handle);
+      %if there's only one data source, then leave legend as it is
+      if numel(dn_list)==1
+        legend_str=get(legend,'String');
+      else
+        %get number of plotted lines
+        data_width=sum(cellfun(@(i) numel(i.handle),h));
+        %add legend only if there are multiple lines
+        if data_width>1
+          %add the legend given as input, if there
+          if ~isempty(p.Results.plot_legend)
+            %some sanity
+            assert(data_width==numel(p.Results.plot_legend),[...
+              'The number of legend entries (',num2str(numel(p.Results.plot_legend)),...
+              ') is not in agreement with the number of plotted lines (',num2str(data_width),').'...
+            ])
+            %propagate
+            legend_str=p.Results.plot_legend;
+          else
+            %get unique parts in datanames
+            prefixes=datanames.unique(dn_list);
+            %join the dataname parts
+            prefixes=cellfun(@(i) strjoin(i,' '),prefixes,'UniformOutput',false);
+            %pad with blanks
+            prefixes=str.cellpad(prefixes);
+            % paranoid sanity
+            str.sizetrap(h,prefixes)
+            %get how many lines have been plotted
+            n=0;
+            for j=1:numel(h)
+              if ~isempty(h{j}) && isfield(h{j}, 'handle')
+                n=n+numel(h{j}.handle);
+              end
             end
-          end
-          %make room for legend strings
-          legend_str=cell(1,n);
-          %loop over all legend entries
-          c=0;
-          for j=1:numel(h)
-            if ~isempty(h{j})
-              for k=1:numel(h{j}.handle)
-                %define sufix, add y_mean if lines have zero mean
-                if isfield(h{j}, 'y_mean') && p.Results.plot_zeromean
-                  suffix=num2str(h{j}.y_mean{k});
-                else
-                  suffix='';
+            %make room for legend strings
+            legend_str=cell(1,n);
+            %loop over all legend entries to add y_mean
+            c=0;
+            for j=1:numel(h)
+              if ~isempty(h{j})
+                for k=1:numel(h{j}.handle)
+                  %add y_mean if lines have zero mean
+                  if isfield(h{j}, 'y_mean') && p.Results.plot_zeromean
+                    y_mean=num2str(h{j}.y_mean{k},3);
+                    if h{j}.y_mean{k}>0
+                      y_mean=['+',y_mean]; %#ok<AGROW>
+                    end
+                  else
+                    y_mean='';
+                  end
+                  %build legend strings
+                  c=c+1;
+                  legend_str{c}=[prefixes{j},' ',y_mean];
                 end
-                %build legend strings
-                c=c+1;
-                legend_str{c}=str.clean(...
-                  strjoin([prefixes{j};{suffix}],' '),...
-                  {'title','succ_blanks'}...
-                );
+              end
+            end
+            %pad with blanks
+            legend_str=str.cellpad(legend_str);
+            c=0;
+            %loop over all legend entries to add y_scale
+            for j=1:numel(h)
+              if ~isempty(h{j})
+                for k=1:numel(h{j}.handle)
+                  %add scale if lines have been normalized
+                  if isfield(h{j}, 'y_scale') && p.Results.plot_normalize
+                    y_scale=['\times',num2str(h{j}.y_scale{k},3)];
+                  else
+                    y_scale='';
+                  end
+                  %build legend strings
+                  c=c+1;
+                  legend_str{c}=[legend_str{c},' ',y_scale];
+                end
               end
             end
           end
@@ -1088,22 +1139,33 @@ classdef datastorage
       p=inputParser;
       p.KeepUnmatched=true;
       %parse optional parameters as defined in the metadata
-      p=obj.product_get(dn).plot_args(p,varargin{:});
+      p=obj.product_get(dn,varargin{:}).plot_args(p,varargin{:});
       %call annotation methods
       obj.plot_legend(p,h,dn_list,varargin{:})
       obj.plot_title( p,h,dn_list,varargin{:})
       obj.plot_ylabel(p,h,dn_list,varargin{:})
       %enforce plot preferences (using the metadata of the current dataname)
-      obj.product_get(dn).enforce_plot(varargin{:})
+      obj.product_get(dn,varargin{:}).enforce_plot(varargin{:})
       %grid, if requested
       if p.Results.plot_grid;grid on;end
     end
+    %handles the following metadata:
+    % - plot_file_suffix
+    % - plot_title_suffix
+    % - plot_column_names
+    % and resolves the sources (used in 'plot' and 'plot_auto')
     function e=plot_elements(obj,p,product,varargin)
       %build filename sufix
       if isempty(p.Results.plot_file_suffix)
         e.suffix='';
       else
         e.suffix=['.',p.Results.plot_file_suffix];
+      end
+      %build title sufix
+      if isempty(p.Results.plot_title_suffix)
+        e.title_suffix='';
+      else
+        e.title_suffix=[' ',p.Results.plot_title_suffix];
       end
       %need the source list
       e.sources=obj.source_leafs(product);
@@ -1122,7 +1184,7 @@ classdef datastorage
       [~,e.startlist,e.stoplist]=product.file('data',varargin{:},'start',obj.start,'stop',obj.stop);
     end
     %% generalized plotting
-    %plot a single data entry
+    %plots a single data entry
     function h=plot(obj,dn,varargin)
       obj.log('@','in','dn',dn,'start',obj.start,'stop',obj.stop)
       %parse mandatory args
@@ -1134,7 +1196,7 @@ classdef datastorage
       end
       %save the single entry in dataname
       dn_now=dn_list{1};
-      product=obj.product_get(dn_now);
+      product=obj.product_get(dn_now,varargin{:});
       %parse inputs
       p=inputParser;
       p.KeepUnmatched=true;
@@ -1161,8 +1223,8 @@ classdef datastorage
 %           end
           h{i}=obj.plot(dn_now,...
             varargin{:},...
-            'plot_file_suffix', strjoin([e.col_names(p.Results.plot_columns(i)),{p.Results.plot_file_suffix}], '.'),...
-            'plot_title_suffix',strjoin([e.col_names(p.Results.plot_columns(i)),{p.Results.plot_title_suffix}],' '),...
+            'plot_file_suffix', [strjoin(e.col_names(p.Results.plot_columns(i)),'.'),e.suffix ],...
+            'plot_title_suffix',[strjoin(e.col_names(p.Results.plot_columns(i)),' '),e.title_suffix],...
             'plot_column_together',true,...
             'plot_columns',p.Results.plot_columns(i)...
           );
@@ -1181,7 +1243,7 @@ classdef datastorage
         filename=dn_now.file(filename_args{:});
         % check if plot is already there
         if isempty(dir(filename))
-          figure('visible',p.Results.plot_visible);
+          figure('visible',str.logical(p.Results.plot_visible,'onoff'));
           %retrive data names to be plotted here
           %NOTICE: this will cause plots to appear multiple times if they are not saved
           dn_list_to_plot=obj.data_list(dn_now.edit_field_part(p.Results.plot_together,'*'));
@@ -1202,26 +1264,49 @@ classdef datastorage
       end
       obj.log('@','in','dn',dn,'start',obj.start,'stop',obj.stop)
     end
-    %plot multiple data entries (more limited than datastorage.plot)
+    %plots multiple data entries (more limited than datastorage.plot but flexible for multiple data sources)
+    % - does not save plots in any way, that has to be done externally;
+    % - does not use the 'plot_elements' method, so
     function h=plot_mult(obj,dn,dn_list,plot_columns,varargin)
       obj.log('@','in','dn',dn,'dn_list',dn_list,'plot_columns',plot_columns,'start',obj.start,'stop',obj.stop)
       %parse mandatory args
       dn =datanames(dn);
       dn_list=datanames.array(dn_list);
-      if ~isnumeric(plot_columns)
-        error([mfilename,': can only handle input ''plot_columns'' that is numeric, not of class ''',...
-          class(plot_columns),'''.'])
-      end
       %expand scalar plot_columns into cell array (usually plot_columns is not a scalar)
-      if isscalar(plot_columns)
-        plot_columns=num2cell(plot_columns*ones(1,numel(dn_list)));
-      elseif numel(plot_columns) ~= numel(dn_list)
-        tmp=cell(size(dn_list));
-        for i=1:numel(tmp)
-          tmp{i}=plot_columns;
-        end
-        plot_columns=tmp;
+      err=false;
+      switch numel(plot_columns)
+        case 0
+          plot_columns=num2cell(ones(1,numel(dn_list)));
+        case 1
+          if isnumeric(plot_columns)
+            plot_columns=num2cell(plot_columns*ones(1,numel(dn_list)));
+          elseif iscell(plot_columns)
+            plot_columns=num2cell(plot_columns{1}*ones(1,numel(dn_list)));
+          else
+            err=true;
+          end
+        case numel(dn_list)
+          if isnumeric(plot_columns)
+            plot_columns=num2cell(plot_columns);
+          elseif iscell(plot_columns)
+            %do nothing
+          else
+            err=true;
+          end
+        otherwise
+          tmp=cell(size(dn_list));
+          tmp(:)={plot_columns};
+          plot_columns=tmp;
       end
+      %parse inputs
+      p=inputParser;
+      p.KeepUnmatched=true;
+      %parse optional parameters as defined in the metadata
+      p=dataproduct(dn).plot_args(p,varargin{:});
+      %error handling
+      assert(~err,['Cannot handle input ''plot_columns'' of class ''',class(plot_columns),...
+        ''' and/or its length (',num2str(numel(plot_columns)),') is in conflict with length ',...
+        'of input ''dn_list'' (',num2str(numel(dn_list)),').'])
       %make room for outputs
       h=cell(size(dn_list));
       %loop over all datanames
@@ -1229,26 +1314,29 @@ classdef datastorage
         h{i}=obj.justplot(dn_list{i},...
           varargin{:},...
           'dn_reference',dn,... %otherwise the justplot method picks the plot_* parameters define in dn_list{i}
-          'plot_column_together',true,...
-          'plot_columns',plot_columns{i}... 
+          'plot_columns',plot_columns{i}...
         );
+      end
+      %reset ylabel
+      if p.Results.plot_normalize
+        %easy, no units
+        ylabel('[ ]')
+      else
+        %otherwise use intersetion of all labels involved
+        label_str=cells.deal_struct(h,'ylabel');
+        label_str=cellfun(@(i) strsplit(i,'\[|\]','DelimiterType','RegularExpression'),label_str,'UniformOutput',false);
+        label_str=unique(cellfun(@(i) i{2},label_str,'UniformOutput',false));
+        ylabel(strjoin(label_str,' or '))
       end
       %annotate plot
       obj.plot_annotate(h,dn,dn_list,varargin{:})
-      obj.log('@','iout','dn',dn,'start',obj.start,'stop',obj.stop)
+      obj.log('@','out','dn',dn,'start',obj.start,'stop',obj.stop)
     end
     %parses the sources of a product and calls plot_mult (useful as value of the 'method' metadata field)
-    function obj=plot_auto(obj,dn_or_prod,varargin)
-      obj.log('@','in','dn_or_prod',dn_or_prod,'start',obj.start,'stop',obj.stop)
-      %handle both datanames and dataproduct objects
-      switch class(dn_or_prod)
-      case 'char'
-        product=obj.product_get(datanames(dn_or_prod));
-      case 'datanames'
-        product=obj.product_get(dn_or_prod);
-      case 'dataproduct'
-        product=dn_or_prod;
-      end
+    function obj=plot_auto(obj,id,varargin)
+      obj.log('@','in','id',id,'start',obj.start,'stop',obj.stop)
+      %type conversion
+      product=obj.product_get(id,varargin{:});
       dn=product.dataname;
       %sanity
       assert(obj.isdata_leaf(dn),'Can only handle leaf products.')
@@ -1265,7 +1353,7 @@ classdef datastorage
         for c=1:numel(p.Results.plot_columns)
           obj.log('@','iter','column',c,'start',e.startlist(t),'stop',e.stoplist(t))
           %plot filename arguments
-          filename_args=[obj.product_get(dn).file_args('plot'),{...
+          filename_args=[product.file_args('plot'),{...
             'start',e.startlist(t),...
             'stop', e.stoplist(t),...
             'timestamp',true,...
@@ -1278,13 +1366,13 @@ classdef datastorage
           if isempty(dir(filename))
             %get the data for the current segment
             obj_curr=obj.trim('start',e.startlist(t),'stop',e.stoplist(t),'dn_list',e.sources,'filename',filename);
-            %make sure there is data 
+            %make sure there is data
             if any(cell2mat(obj_curr.vector_method_tr('all','nr_valid'))>1)
               %plot it
-              figure('visible',p.Results.plot_visible);
+              figure('visible',str.logical(p.Results.plot_visible,'onoff'));
               h=obj_curr.plot_mult(dn,e.sources,p.Results.plot_columns(c),...
                 varargin{:},...
-                'plot_title_suffix',strjoin([e.col_names(p.Results.plot_columns(c)),{p.Results.plot_title_suffix}],' ')...
+                'plot_title_suffix',strjoin([e.col_names(p.Results.plot_columns(c)),{e.title_suffix}],' ')...
               );
               %check if any data was plotted
               if all(isempty(h))
@@ -1297,14 +1385,14 @@ classdef datastorage
                 str.say('Created plot',filename)
               end
             else
-              str.say('Skipped plot',filename,['(no data in ',dn.name,')'])
+              str.say('Skipped plot',filename,['(no data in ',product.name,')'])
             end
           else
             str.say('Skipped plot',filename,'(file already exists)')
           end
         end
       end
-      obj.log('@','in','dn_or_prod',dn_or_prod,'start',obj.start,'stop',obj.stop)
+      obj.log('@','in','id',id,'start',obj.start,'stop',obj.stop)
     end
     %% generalized operations
     function obj=stats(obj,product,varargin)
@@ -1326,21 +1414,23 @@ classdef datastorage
       obj=obj.data_set(product,stats_data);
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
-    function obj=arithmetic(obj,product,varargin)
+    function obj=arithmetic(obj,product)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
       %retrieve required operation
       operation=product.mdget('operation');
+      operation_order=cell2mat(product.mdget('operation_order','default',{1:product.nr_sources}));
       obj.log('@','in','operation',operation)
       %operate on all sources
-      for i=1:product.nr_sources
+      for i=1:numel(operation_order)
+        idx=operation_order(i);
         if i==1
           %get first source
-          out=obj.data_get_scalar(product.sources(1));
-          msg=[product.str,' = ',product.sources(i).str];
+          out=obj.data_get_scalar(product.sources(idx));
+          msg=[product.str,' = ',product.sources(idx).str];
         else
           %get the current source
-          in=obj.data_get_scalar(product.sources(i));
-          msg=[msg,' ',operation,' ',product.sources(i).str]; %#ok<AGROW>
+          in=obj.data_get_scalar(product.sources(idx));
+          msg=[msg,' ',operation,' ',product.sources(idx).str]; %#ok<AGROW>
           %enforce common time domain, assume it is defined by the first argument
           in=in.interp(out.t);
           %operate
@@ -1348,6 +1438,21 @@ classdef datastorage
         end
         obj.log('@','iter','operation',msg)
       end
+      %propagate result
+      obj=obj.data_set(product,out);
+      obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
+    end
+    function obj=filter(obj,product)
+      obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
+      assert(product.nr_sources==1,['The filter method cannot operated on product ''',product.str,...
+        ''' because it only accept one source, not ',num2str(product.nr_sources),'.'])
+      %retrieve required operation
+      operation=product.mdget('operation');
+      args=product.mdget('arguments');
+      %get source
+      in=obj.data_get_scalar(product.sources(1));
+      %operate
+      out=in.(operation)(args{:});
       %propagate result
       obj=obj.data_set(product,out);
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
@@ -1364,7 +1469,7 @@ classdef datastorage
           ' is expected to be 1, not ',num2str(product.nr_sources),'.'])
       end
       %retrieve source and part lists
-      sourcep=obj.product_get(product.sources(1));
+      sourcep=obj.product_get(product.sources(1),varargin{:});
       [~,levels,fields,sats]=sourcep.partslist;
       %check if data is already there
       if ~product.isfile('data')
@@ -1393,7 +1498,7 @@ classdef datastorage
               obj=obj.sat_set(...
                 product.dataname.type,levels{i},fields{j},stats_fields{si},...
                 stats_data.(stats_fields{si})...
-              ); 
+              );
             end
           end
         end
@@ -1414,7 +1519,7 @@ classdef datastorage
 %       %retrive source metadata
 %       sourcep=cell(1,product.nr_sources);
 %       for i=1:product.nr_sources
-%         sourcep{i}=obj.product_get(product.sources(i));
+%         sourcep{i}=obj.product_get(product.sources(i),varargin{:});
 %       end
 %       %retrieve dataflow structure
 %       df=product.mdget('dataflow');
@@ -1447,7 +1552,7 @@ classdef datastorage
 %           end
 %         else
 %           %if the dataflow structure is missing a part, then patch from this product or sources
-%           if product.ismd_field(partname)
+%           if product.ismdfield(partname)
 %             df.(partname)=product.mdget(partname,'always_cell_array',true);
 %             %this avoids having to define repetitive (e.g.) sats values in the 'dataflow' metadata field,
 %             %the scalar 'sats' metadata fiels is enough (doesn't work for 'types')
@@ -1460,7 +1565,7 @@ classdef datastorage
 %             found_part=false;
 %             %search in all sources for an explicit list of this partname
 %             for j=1:product.nr_sources
-%               if sourcep{j}.ismd_field(partname)
+%               if sourcep{j}.ismdfield(partname)
 %                 partvalues=sourcep{j}.mdget(partname);
 %                 df.(partname)=cell(numel(partvalues),numel(sourcep)+1);
 %                 for k=1:numel(sourcep)+1

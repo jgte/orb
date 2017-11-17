@@ -1,22 +1,18 @@
-import_dir: <getenv('HOME')>/data/csr/GraceAccCal/joined
-method: csr.import_calpar
+estim_dir: <getenv('HOME')>/cloud/Work/projects/2017-07.CSR.calibration/calibration-3.3/results.now/grav/RL05-16-02/a/iter/solution/
+method: csr.arcs_build
+year: 2016
+month: 02
 coords: [X,Y,Z]
 #levels: [aak,accatt,estim]
 levels: [estim]
 calpars: [AC0X,AC0XD,AC0XQ,
-AC0Y1, AC0Y2, AC0Y3, AC0Y4, AC0Y5, AC0Y6, AC0Y7, AC0Y8,
-AC0YD1,AC0YD2,AC0YD3,AC0YD4,AC0YD5,AC0YD6,AC0YD7,AC0YD8,
-AC0YQ1,AC0YQ2,AC0YQ3,AC0YQ4,AC0YQ5,AC0YQ6,AC0YQ7,AC0YQ8,
+AC0Y,AC0YD,AC0YQ,
 AC0Z,AC0ZD,AC0ZQ]
 calpars_out: [AC0X,AC0XD,AC0XQ,
 AC0Y,AC0YD,AC0YQ,
 AC0Z,AC0ZD,AC0ZQ]
 sats: [A,B]
 submetadata1: grace.calpar.csr.ltb.submetadata
-jobid_col: 2
-param_col: 1
-arclen_col: 3 #valid for estim
-t0_col: 3     #valid for aak,accatt
 arc_timeline_file: /Users/teixeira/data/csr/GraceAccCal/arctimeline.GraceAccCal
 storage_period: global
 plot_columns: [1]

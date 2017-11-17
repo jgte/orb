@@ -88,7 +88,7 @@ classdef gswarm
         s=s-static.data_get_scalar(datanames(static_field).set_field_path('signal'));
       end
       %append extremeties, if requested
-      if product.ismd_field('model_span')
+      if product.ismdfield('model_span')
         startstop=product.mdget('model_span');
         if startstop{1}<s.start
           s=s.append(gravity.nan(s.lmax,'t',startstop{1},'R',s.R,'GM',s.GM));

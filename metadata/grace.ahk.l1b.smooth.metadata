@@ -1,0 +1,11 @@
+sources: [grace.ahk.l1b]
+method: datastorage.filter
+operation: smooth
+arguments: ['t_span',<minutes(120)>,'moving']
+sats: [A,B]
+storage_period: daily
+plot_columns: [1,2,3,4]
+plot_normalize: true
+plot_zeromean: true
+plot_outlier: 0
+plot_title_suppress: [grace]
