@@ -204,5 +204,60 @@ classdef num
         inout=cell2mat(inout);
       end
     end
+    function out=odd(in)
+      if mod(in,2)==0
+        out=in-1;
+      else
+        out=in;
+      end
+    end
+    function x_opt=parsearch(fun,x,varargin)
+      % input parsing
+      p=inputParser; p.KeepUnmatched=true;
+      p.addRequired( 'fun',                   @(i) isa(i,'function_handle'));
+      p.addRequired( 'xrange',                @(i) isnumeric(i));
+      p.addParameter('searchspace', 'linear', @(i) ischar(i));
+      p.addParameter('searchlen',numel(x)*10, @(i) isnumeric(i));
+      p.addParameter('interpmethod','spline', @(i) ischar(i));
+      p.addParameter('plot',           false, @(i) islogical(i));
+      p.addParameter('enforce_scalar', false, @(i) islogical(i));
+      p.parse(fun,x,varargin{:})
+      %define search space
+      switch p.Results.searchspace
+      case {'linear'}
+        xd=linspace(x(1),x(end),p.Results.searchlen);
+      case {'log'}
+        xd=logspace(log10(x(1)),log10(x(end)),p.Results.searchlen);
+      otherwise
+        error(['Cannot handle argument ''searchspace'' with value ''',p.Results.searchspace,'''.'])
+      end
+      %init records
+      y=nan(size(x));
+      %loop over xrange
+      for i=1:numel(x)
+        y(i)=fun(x(i));
+      end
+      %interpolate
+      yd=interp1(x,y,xd,p.Results.interpmethod);
+      %pick the minimum
+      yi=yd==min(yd);
+      x_opt=xd(yi);
+      %warn user if minimum is at one extremety
+      if yi(1) || yi(end)
+        warning(['Could not find minimum of function ''',func2str(fun),''' in [',num2str(x(1)),',',num2str(x(end)),']'])
+      end
+      if p.Results.enforce_scalar
+        x_opt=x_opt(1);
+      end
+      %debug plot
+      if p.Results.plot
+        figure
+        plot(x_opt,yd(yi),'*','Markersize',10), hold on
+        plot(x,y,'o')
+        plot(xd,yd,'-')
+        set(gca,'XScale',p.Results.searchspace)
+        legend({'minimum','tries','interpolated'})
+      end
+    end
   end
 end

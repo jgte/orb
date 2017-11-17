@@ -27,22 +27,36 @@ classdef structs
       disp('---- structs.field_list ----')
       disp(structs.str(a))
     end
-    %creates a string with the contents of the deep structure
-    function out=str(S,field_list,varname)
-      if ~exist('field_list','var')
+    %creates a string with the contents of the deep structure (if 'varname' is '_', the output is appropriate for a filename)
+    function out=str(S,field_list,varname,show_class)
+      if ~exist('field_list','var') || isempty(field_list)
         field_list=structs.field_list(S);
       end
-      if ~exist('varname','var')
+      if ~exist('varname','var') || isempty(varname)
         varname='struct';
+      end
+      if ~exist('show_class','var') || isempty(show_class)
+        show_class=true;
       end
       out=cell(size(field_list));
       for i=1:numel(field_list)
         v=structs.get_value(S,field_list{i});
-        out{i}=[varname,'.(',strjoin(field_list{i},').('),')=',str.show(v),', class=',class(v)];
+        if strcmp(varname,'_')
+          out{i}=[strjoin(field_list{i},','),str.show(v,'',varname)];
+        else
+          out{i}=[varname,'.(',strjoin(field_list{i},').('),')=',str.show(v)];
+          if show_class
+            out{i}=[out{i},', class=',class(v)];
+          end
+        end
       end
-      out=strjoin(out,char(10));
+      if strcmp(varname,'_')
+        out=strjoin(out,'_');
+      else
+        out=strjoin(out,char(10));
+      end
     end
-    %'field_path' is cell array with the sub-field path to the value to be retrieved from structure in 'in'
+    %'field_path' is cell array with the sub-field path to the value to be retrieved from structure in 'in' (i.e. a cell of cells)
     function out=get_value(S,field_path,search_flag)
       if ~exist('field_path','var') || isempty(field_path)
         out=S;
@@ -53,7 +67,7 @@ classdef structs
         search_flag=false;
       end
       %check if this field exists
-      if ~isfield(S,field_path{1})
+      if ~isfield(S,field_path{1}) && ~isprop(S,field_path{1})
         if search_flag
           %climb down the field_path list, maybe a valid field appears later
           out=structs.get_value(S,field_path(2:end),true);
@@ -64,7 +78,7 @@ classdef structs
         out=structs.get_value(S.(field_path{1}),field_path(2:end),search_flag);
       end
     end
-    %'field_path' is cell array with the sub-field path to the value to be set in structure in 'in'
+    %'field_path' is cell array with the sub-field path to the value to be set in structure in 'in' (i.e. a cell of cells)
     function S=set_value(S,field_path,value)
       if ~exist('field_path','var')
         field_path={};
@@ -82,6 +96,27 @@ classdef structs
         S.(field_path{1})=value;
       else
         S.(field_path{1})=structs.set_value(S.(field_path{1}),field_path(2:end),value);
+      end
+    end
+    function Sout=copy(Sin,Sout,field_path,copy_empty_values)
+      if ~exist('field_path','var') || isempty(field_path)
+        field_path=fieldnames(Sin);
+      end
+      if ~exist('copy_empty_values','var') || isempty(copy_empty_values)
+        copy_empty_values=false;
+      end
+      for i=1:numel(field_path)
+        if ischar(field_path{i})
+          %translate simple vectors of fieldnames to field paths
+          fp=field_path(i);
+        else
+          %you're on your own, better be a cell of cells
+          fp=field_path{i};
+        end
+        value=structs.get_value(Sin,fp,false);
+        if copy_empty_values || ~isempty(value)
+          Sout=structs.set_value(Sout,fp,value);
+        end
       end
     end
     %creates a cell array of "field_path"s, each being a cell array with field names, to be used with structs.get/set_value
@@ -200,6 +235,57 @@ classdef structs
       out=~isstruct(val);
       if non_empty
         out=out && ~isempty(val);
+      end
+    end
+    %returns a new structure with all fields (and corresponding values) that either:
+    % - contain the substring 'fieldname_part' or
+    % - are present in the cellstr 'fieldname_part'
+    function out=filter(S,fieldname_part)
+      fn=fieldnames(S);
+      if numel(fn)==0
+        out=struct([]);
+      else
+        if iscellstr(fieldname_part)
+          out=structs.copy(S,struct([]),fieldname_part,true);
+        elseif ischar(fieldname_part)
+          for i=1:numel(fn)
+            if strfind(fn{i},fieldname_part)
+              out.(fn{i})=S.(fn{i});
+            end
+          end
+        else
+          error(['Cannot handle input ''fieldname_part'' of class ''',class(fieldname_part),'''.'])
+        end
+      end      
+    end
+    %renames field 'field_old' to 'field_new' of structure 'S'
+    function S=rename(S,field_old,field_new)
+      if iscell(field_old) && iscell(field_new) && numel(field_old)==numel(field_new)
+        for i=1:numel(field_old)
+          S=structs.rename(S,field_old{i},field_new{i});
+        end
+        return
+      end
+      if strcmp(field_old,field_new) || ~isfield(S,field_old)
+        return
+      end
+      S.(field_new)=S.(field_old);
+      S=rmfield(S,field_old);
+    end
+    %returns a new structure with all fields (and corresponding values) without 'fieldname_part'
+    function out=fieldname_strip(S,fieldname_part)
+      %get all fieldnames
+      fn_old=fieldnames(S);
+      %remove field_part from field names
+      fn_new=strrep(fn_old,fieldname_part,'');
+      %rename structure
+      out=structs.rename(S,fn_old,fn_new);
+    end
+    %applies function 'f' to all fields (top level) of structure 'S'
+    function S=fun(f,S)
+      fn=fieldnames(S);
+      for i=1:numel(fn)
+        S.(fn{i})=f(S.(fn{i}));
       end
     end
   end

@@ -37,13 +37,13 @@ classdef orbit
     );
     %default value of parameters
     %NOTICE: needs updated when adding a new parameter
-    parameter_list=struct(...
-      'satname',  struct('default','unknown','validation',@(i) ischar(i)),...
-      'frame',    struct('default','crs',    'validation',@(i) orbit.isframe(i)),...
-      'geodatum' ,struct('default','grs80',  'validation',@(i) ischar(i)),...
-      'sp3id',    struct('default','Xnn',    'validation',@(i) ischar(i)),...
-      'data_dir', struct('default',fullfile(getenv('HOME'),'data'),'validation',@(i) ischar(i))...
-    );
+    parameter_list={...
+      'satname',  'unknown',@(i) ischar(i);...
+      'frame',    'crs',    @(i) orbit.isframe(i);...
+      'geodatum' ,'grs80',  @(i) ischar(i);...
+      'sp3id',    'Xnn',    @(i) ischar(i);...
+      'data_dir', fullfile(getenv('HOME'),'data'),@(i) ischar(i);...
+    };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTICE: needs updated when adding a new data type (if relevant)
@@ -82,10 +82,39 @@ classdef orbit
     function out=data_types
       out=fieldnames(orbit.data_type_list);
     end
-    function out=parameters
-      out=fieldnames(orbit.parameter_list);
-    end
-    %translation methods
+    function out=parameters(i,method)
+      persistent v parameter_names
+      if isempty(v)
+        v=varargs(orbit.parameter_list);
+        parameter_names=v.Parameters;
+      end
+      if ~exist('i','var') || isempty(i)
+        if ~exist('method','var') || isempty(method)
+          out=parameter_names(:);
+        else
+          switch method
+          case 'obj'
+            out=v;
+          otherwise
+            out=v.(method);
+          end
+        end
+      else
+        if ~exist('method','var') || isempty(method)
+          method='name';
+        end
+        if strcmp(method,'name') && isnumeric(i)
+          out=parameter_names{i};
+        else
+          switch method
+          case varargs.template_fields
+            out=v.get(i).(method);
+          otherwise
+            out=v.(method);
+          end
+        end
+      end
+    end    %translation methods
     function out=translateframe(in)
       if ischar(in)
         switch lower(in)
@@ -204,7 +233,7 @@ classdef orbit
     %for the data of different formats
     function [filename,dirname]=aiub_filename(satname,start,data_dir)
       if ~exist('data_dir','var') || isempty(data_dir)
-        data_dir=orbit.parameter_list.data_dir.default;
+        data_dir=orbit.parameters('data_dir','value');
       end
       switch orbit.translatesat(satname)
         case 'sa-kin'
@@ -222,7 +251,7 @@ classdef orbit
     end
     function [filename,dirname]=ifg_filename(satname,start,data_dir)
       if ~exist('data_dir','var') || isempty(data_dir)
-        data_dir=orbit.parameter_list.data_dir.default;
+        data_dir=orbit.parameters('data_dir','value');
       end
       switch orbit.translatesat(satname)
         case 'sa-kin'
@@ -239,7 +268,7 @@ classdef orbit
     end
     function [filename,dirname]=tudelft_filename(satname,start,data_dir)
       if ~exist('data_dir','var') || isempty(data_dir)
-        data_dir=orbit.parameter_list.data_dir.default;
+        data_dir=orbit.parameters('data_dir','value');
       end
       switch orbit.translatesat(satname)
         case 'sa-kin'
@@ -257,7 +286,7 @@ classdef orbit
     end
     function [filename,dirname]=sp3xcom_filename(satname,start,data_dir)
       if ~exist('data_dir','var') || isempty(data_dir)
-        data_dir=orbit.parameter_list.data_dir.default;
+        data_dir=orbit.parameters('data_dir','value');
       end
       switch orbit.translatesat(satname)
         case 'sa-l2'
@@ -283,8 +312,8 @@ classdef orbit
       p.addRequired( 'format',      @(i) ischar(i));
       p.addRequired( 'start',       @(i) isdatetime(i) && isscalar(i));
       p.addParameter('data_dir',...
-        orbit.parameter_list.data_dir.default,...
-        orbit.parameter_list.data_dir.validation);
+        orbit.parameters('data_dir','value'),...
+        orbit.parameters('data_dir','validation');
       p.parse(format,satname,start,varargin{:});
       %picking interface routine
       interface=str2func(['orbit.',format,'_filename']);
@@ -462,7 +491,7 @@ classdef orbit
       % parse it
       p.parse(format,satname,start,stop,varargin{:});
       %clean
-      varargin=simpledata.vararginclean(varargin,{'cut24h','resample','only_convert_to_mat'});
+      varargin=cells.vararginclean(varargin,{'cut24h','resample','only_convert_to_mat'});
       % branch on format
       switch lower(format)
       case 'nrtdm'
@@ -519,7 +548,7 @@ classdef orbit
               %save satname (those derived from the headers miss the '-kin' or '-l2' part)
               obj_now.satname=satname;
               %update sp3id if needed
-              if strcmp(obj_now.sp3id,'unknown') || strcmp(obj_now.sp3id,orbit.parameter_list.sp3id.default)
+              if strcmp(obj_now.sp3id,'unknown') || strcmp(obj_now.sp3id,orbit.parameters('sp3id','value'))
                 obj_now.sp3id=orbit.translatesp3id(obj_now.satname);
               end
               % save it in mat format for next time
@@ -719,39 +748,22 @@ classdef orbit
         p.addParameter([dtn,'_units'], cell(1,dts),(@(i) iscellstr(i) && numel(i)==dts));
         p.addParameter([dtn,'_labels'],cell(1,dts),(@(i) iscellstr(i) && numel(i)==dts));
       end
-      %declare parameters
-      for j=1:numel(orbit.parameters)
-        %shorter names
-        pn=orbit.parameters{j};
-        %declare parameters
-        p.addParameter(pn,orbit.parameter_list.(pn).default,orbit.parameter_list.(pn).validation)
-      end
-      % parse it
-      p.parse(t,varargin{:});
-      varargin=simpledata.vararginclean(varargin,p.Parameters);
-      % save parameters
-      for i=1:numel(orbit.parameters)
-        %shorter names
-        pn=orbit.parameters{i};
-        if ~isscalar(p.Results.(pn))
-          %vectors are always lines (easier to handle strings)
-          obj.(pn)=transpose(p.Results.(pn)(:));
-        else
-          obj.(pn)=p.Results.(pn);
-        end
-      end
+      %create argument object v and declare parameters p
+      [v,~,obj]=varargs.wrap('parser',p,'sinks',{obj},'sources',{orbit.parameters([],'obj')},'mandatory',{t},varargin{:});
+      %clean varargin
+      varargin=cells.vararginclean(varargin,p.Parameters);
       % retrieve each data type
       for j=1:numel(orbit.data_types)
         %shorter names
         data_type=orbit.data_types{j};
         %skip if this data type is empty
-        if ~isempty(p.Results.(data_type))
+        if ~isempty(v.(data_type))
           %add new data type
           obj=obj.add_data_type(...
-            p.Results.t,...
-            data_type,p.Results.(data_type),...
-            'units', p.Results.([data_type,'_units']),...
-            'labels',p.Results.([data_type,'_labels']),...
+            t,...
+            data_type,v.(data_type),...
+            'units',  v.([data_type,'_units']),...
+            'labels', v.([data_type,'_labels']),...
             varargin{:}...
           );
         end
@@ -772,7 +784,7 @@ classdef orbit
       p.addParameter('labels',cell(1,size(data_value,2)),@(i) iscell(i) && numel(i)==size(data_value,2))
       % parse it
       p.parse(t,data_type,data_value,varargin{:});
-      varargin=simpledata.vararginclean(varargin,p.Parameters);
+      varargin=cells.vararginclean(varargin,p.Parameters);
       %sanity
       if ~isempty(obj.(data_type))
         error([mfilename,': data of type ''',data_type,''' has already been created. Use another method to append data.'])
@@ -824,12 +836,14 @@ classdef orbit
         varargin{:}...
       );
     end
-    function obj=copy_metadata(obj,obj_in)
-      %propagate parameters of this object
-      for i=1:numel(orbit.parameters)
-        p=orbit.parameters{i};
-        if isprop(obj,p) && isprop(obj_in,p)
-          obj.(p)=obj_in.(p);
+    function obj=copy_metadata(obj,obj_in,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
+      end
+      pn=[orbit.parameters;more_parameters(:)];
+      for i=1:numel(pn)
+        if isprop(obj,pn{i}) && isprop(obj_in,pn{i})
+          obj.(pn{i})=obj_in.(pn{i});
         end
       end
       %propagate parameters of all non-empty data types
@@ -845,6 +859,16 @@ classdef orbit
           obj.(data_type)=obj.(data_type).copy_metadata(obj_in.(data_type));
         end
       end
+    end
+    function out=metadata(obj,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
+      end
+      warning off MATLAB:structOnObject
+      out=varargs(...
+        structs.filter(struct(obj),[orbit.parameters;more_parameters(:)])...
+      ).varargin;
+      warning on MATLAB:structOnObject
     end
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
@@ -1181,7 +1205,6 @@ function [t,pos,pos_cor,header] = read_ifg(filename)
   header.timeformat='gpstime';
   header.frame='trf';
 end
-
 function [t,pos,pos_cor,mask,header] = read_aiub(filename)
   formatSpec=' %4s %3s         %4f %8f  %14f %14f %14f %1s   %13f%13f%13f%13f%13f%13f';
   HeaderLines=6;
@@ -1232,7 +1255,6 @@ function [t,pos,pos_cor,mask,header] = read_aiub(filename)
   header.timeformat='gpstime';
   header.frame='trf';
 end
-
 function [t,pos,pos_cor,clk,clk_cor,header] = read_numeric(filename)
   formatSpec='';
   HeaderLines=0;
@@ -1268,7 +1290,6 @@ function [t,pos,pos_cor,clk,clk_cor,header] = read_numeric(filename)
   header.satname='unknown';
   header.geodatum='unknown';
 end
-
 function [t,pos,vel,header] = read_sp3c(filename)
 
 % function [t,pos,vel,header] = read_sp3c(filename)

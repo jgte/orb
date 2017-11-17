@@ -1,5 +1,34 @@
 classdef plotting
+  properties(Constant,GetAccess=private)
+    default={...
+        'plot_file_prefix',    '',        @(i) ischar(i);...
+        'plot_file_suffix',    '',        @(i) ischar(i);...
+        'plot_legend',         {},        @(i) iscellstr(i);...
+        'plot_legend_suppress',false,     @(i) islogical(i);...
+        'plot_legend_location','best',    @(i) ischar(i);...
+        'plot_ylabel',         '',        @(i) ischar(i);...
+        'plot_xlabel',         '',        @(i) ischar(i);...
+        'plot_xdate',          false,     @(i) islogical(i);...
+        'plot_xdateformat',    '',        @(i) ischar(i);...
+        'plot_xlimits',        [-inf,inf],@(i) isnumeric(i) && numel(i)==2;...
+        'plot_ylimits',        [-inf,inf],@(i) isnumeric(i) && numel(i)==2;...
+        'plot_size',    200+[0,0,21,9]*50,@(i) isnumeric(i) && numel(i)==4;...
+        'plot_units',          'points',  @(i) ischar(i);...
+        'plot_visible',        'on',      @(i) any(strcmpi(i,{'on','off'}));...
+        'plot_fontsize_axis',   24,       @(i) isnumeric(i) && isscalar(i); ...
+        'plot_fontsize_title',  32,       @(i) isnumeric(i) && isscalar(i); ...
+        'plot_fontsize_label',  28,       @(i) isnumeric(i) && isscalar(i); ...
+        'plot_title',           '',       @(i) ischar(i);...
+        'plot_title_suppress',  {''},     @(i) iscellstr(i);...
+        'plot_title_suffix',    '',       @(i) ischar(i);...
+        'plot_title_prefix',    '',       @(i) ischar(i);...
+        'plot_grid',            true,     @(i) islogical(i);......
+        'plot_line_width',      2,        @(i) isnumeric(i);...
+        'plot_colormap',        '',       @(i) ischar(i) || ishandle(i);...
+    };
+  end
   methods(Static)
+    %% primitives
     function out=line_handles(axis_handle)
       tmp=get(axis_handle,'Children');
       c=0;out=[];
@@ -218,6 +247,177 @@ classdef plotting
       set(fig_handle, 'Position',      s,...
                       'PaperUnits',    'points',...
                       'PaperPosition', s);
+    end
+    function out=markersize(n)
+      out=round(50./log10(n.^2));
+    end
+    %% utility
+    function fig_handle=figure(varargin)
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{plotting.default},varargin{:});
+      %outputs
+      fig_handle=figure('visible',v.plot_visible);
+      %plot size
+      set(fig_handle, 'Position',          v.plot_size,...
+                      'PaperUnits',        v.plot_units,...
+                      'PaperPosition',     v.plot_size);
+    end
+    function out=enforce(varargin)
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{plotting.default,{...
+        'axis_handle',  gca,  @(i) ~isempty(i) && ishandle(i);...
+      }},varargin{:});
+    
+      %outputs
+      out.axis_handle=v.axis_handle;
+            
+      % enforce line properties
+      line_handles=plotting.line_handles(out.axis_handle);
+      for i=1:numel(line_handles)
+        set(line_handles(i),'LineWidth',v.plot_line_width)
+      end
+      
+      % start with current axis
+      a=axis(out.axis_handle);
+      %check if dates are requested
+      if v.plot_xdate
+        % enforce (possible) requested x-limits
+        for i=1:2
+          if isfinite(v.plot_xlimits(i))
+            a(i)=datenum(v.plot_xlimits(i));
+          end
+        end
+        % set auto x-label, unless one is explicity given
+        if isempty(v.plot_xlabel)
+          if ~strcmp(datestr(a(1),'yyyymmdd'),datestr(a(2),'yyyymmdd')) && ...
+            (~strcmp(datestr(a(2),'HHMMSS'),'000000') || a(2)-a(1)>1)
+            out.xlabel_handle=xlabel(out.axis_handle,...
+              out.axis_handle,[datestr(a(1),'yyyy-mm-dd'),' to ',datestr(a(2),'yyyy-mm-dd')]...
+            );
+          else
+            out.xlabel_handle=xlabel(out.axis_handle,out.axis_handle,datestr(a(1)));
+          end
+        end
+        %enforce requested x date tick format
+        if ~isempty(v.plot_xdateformat)
+          datetick(out.axis_handle,'x',v.plot_xdateformat)
+        end
+      else
+        % enforce (possible) requested x-limits
+        for i=1:2
+          if isfinite(v.plot_xlimits(i))
+            a(i)=v.plot_xlimits(i);
+          end
+        end
+      end
+      % enforce requested y-limits
+      for i=1:2
+        if isfinite(v.plot_ylimits(i))
+          a(i+2)=   v.plot_ylimits(i);
+        end
+      end
+      % set axis limits (can be the ones matlab so wisely set)
+      axis(out.axis_handle,a);
+      
+      %enforce labels
+      if ~isempty(v.plot_xlabel)
+        out.xlabel_handle=xlabel(out.axis_handle,v.plot_xlabel);
+      elseif ~isfield(out,'xlabel_handle')
+        out.xlabel_handle=[];
+      end
+      if ~isempty(v.plot_ylabel)
+        out.ylabel_handle=ylabel(out.axis_handle,v.plot_ylabel);
+      elsplot_ylabel
+        out.ylabel_handle=[];
+      end
+      
+      %enforce title
+      if ~isempty(v.plot_title)
+        %suppress some parts, if requested
+        title_str=setdiff(strsplit(v.plot_title,{' ','.'}),v.plot_title_suppress,'stable');
+        %add prefix and suffix
+        title_str=strjoin([{v.plot_title_prefix};title_str(:);{v.plot_title_suffix}],' ');
+        %clean up the tile put it there
+        out.title_handle=title(out.axis_handle,str.clean(title_str,'title'));
+      else
+        out.title_handle=[];
+      end
+      
+      % enforce fontsize and paper size
+      set(    out.axis_handle,          'FontSize',v.plot_fontsize_axis)
+      set(get(out.axis_handle,'Title' ),'FontSize',v.plot_fontsize_title);
+      set(get(out.axis_handle,'XLabel'),'FontSize',v.plot_fontsize_label);
+      set(get(out.axis_handle,'YLabel'),'FontSize',v.plot_fontsize_label);
+
+      %enforce grid
+      if v.plot_grid
+        grid(out.axis_handle,'on')
+      end
+      
+      %enforce colormap
+      if ~isempty(v.plot_colormap)
+        out.colormap_handle=colormap(out.axis_handle,v.plot_colormap);
+      else
+        out.colormap_handle=[];
+      end
+      
+      %enforce legend
+      if v.plot_legend_suppress
+        legend(out.axis_handle,'off')
+        out.legend_handle=[];
+      else
+        %set the legend text, if not empty
+        if ~isempty(v.plot_legend)
+          out.legend_handle=legend(out.axis_handle,v.plot_legend);
+        end
+        %adjust the location of the legend (even if the default 'best', it may happen that it is no longer in a good position)
+        set(out.legend_handle,'location',v.plot_legend_location)
+      end
+     
+    end
+    %% nice plotting stuff
+    function out=dhist(x,y,z,varargin)
+      p=inputParser; p.KeepUnmatched=true;
+      p.addRequired( 'x', @(i) isnumeric(i));
+      p.addRequired( 'y', @(i) isnumeric(i) && numel(i)==numel(x));
+      p.addRequired( 'z', @(i) isnumeric(i) && numel(i)==numel(x));
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap(...
+        'parser',p,...
+        'mandatory',{x,y,z},...
+        'sources',{plotting.default,{...
+          'xlabel','x',@(i) ischar(i);...
+          'ylabel','y',@(i) ischar(i);...
+          'zlabel','z',@(i) ischar(i);...
+          'normalization','probability',@(i) ischar(i);...
+          'xhistogramargs',{},@(i) iscell(i);...
+          'yhistogramargs',{},@(i) iscell(i);...
+          'zhistogramargs',{},@(i) iscell(i);...
+          'markersize',    plotting.markersize(numel(x)),@(i) isnumeric(i) && isscalar(i);...
+        }},varargin{:}...
+      );
+      %create figure
+      out.fig_handle=plotting.figure(varargin{:});
+      %plot histogram of x
+      out.xhist.axis_handle=subplot(2,2,1);
+      out.xhist.plot_handle=histogram(x(:),v.xhistogramargs{:},'Normalization',v.normalization);
+      out.xhist.plot_handle.FaceColor=out.xhist.plot_handle.EdgeColor;
+      xlabel(v.xlabel);ylabel(get(out.xhist.plot_handle,'Normalization'))
+      %plot histogram of y
+      out.yhist.axis_handle=subplot(2,2,2);
+      out.yhist.plot_handle=histogram(y(:),v.yhistogramargs{:},'Normalization',v.normalization);
+      xlabel(v.ylabel);ylabel(get(out.yhist.plot_handle,'Normalization'))
+      out.yhist.plot_handle.FaceColor=out.yhist.plot_handle.EdgeColor;
+      %plot histogram of z
+      out.zhist.axis_handle=subplot(2,2,3);
+      out.zhist.plot_handle=histogram(z(:),v.zhistogramargs{:},'Normalization',v.normalization);
+      xlabel(v.zlabel);ylabel(get(out.zhist.plot_handle,'Normalization'))
+      out.zhist.plot_handle.FaceColor=out.zhist.plot_handle.EdgeColor;
+      %plot scatter
+      out.scatter.axis_handle=subplot(2,2,4);
+      out.scatter.plot_handle=scatter(x(:),y(:),v.markersize,z(:),'filled');
+      out.scatter.cb_handle=colorbar;
+      xlabel(v.xlabel);ylabel(v.ylabel);ylabel(out.scatter.cb_handle,[v.zlabel,' ',get(out.zhist.plot_handle,'Normalization')])
     end
   end
 end

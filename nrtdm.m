@@ -7,8 +7,6 @@ classdef nrtdm
       'data_dir',  fullfile(getenv('NRTDM'),'data'),...
       'config_dir',fullfile(getenv('NRTDM'),'config'),...
       'time_format','yyyy-MM-dd hh:mm:ss.sss',...
-      'test_time_start',datetime(2015,6,1,12,0,0),...
-      'test_time_stop', datetime(2015,6,3,18,0,0),...
       'debug',true...
     );
   end
@@ -20,13 +18,6 @@ classdef nrtdm
     ts
     file_list
   end
-  %private (visible only to this object)
-  properties(GetAccess=private)
-  end
-  %calculated only when asked fo
-  properties(Dependent)
-  end
-
   methods(Static)
     function out=data_file_name(data_dir,product,t_now,extension)
       if isempty(dir(data_dir))
@@ -54,10 +45,10 @@ classdef nrtdm
         product_name='SC_Panels/Accel_AeroRadiationPressure';
       end
       if ~exist('time_start','var') || isempty(time_start)
-        time_start=nrtdm.default_list.test_time_start;
+        time_start=datetime(2015,6,1,12,0,0);
       end
       if ~exist('time_stop','var') || isempty(time_stop)
-        time_stop=nrtdm.default_list.test_time_stop;
+        time_stop=datetime(2015,6,3,18,0,0);
       end
       data_dir=nrtdm.data_dir_fix;
       if isempty(dir(nrtdm.data_dir_fix))

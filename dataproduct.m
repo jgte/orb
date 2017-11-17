@@ -1,52 +1,49 @@
 classdef dataproduct
   %static
   properties(Constant)
-    default_list=struct(...
-      'metadata_dir',fullfile(dataproduct.scriptdir,'metadata'),...
-          'plot_dir',fullfile(dataproduct.scriptdir,    'plot'),...
-          'data_dir',fullfile(dataproduct.scriptdir,    'data'),...
-      'metadata',struct(...
-        'plot_columns',{{-1}},...
-        'plot_column_names',{{}},...
-        'plot_column_together',true,...
-        'plot_together','',...
-        'plot_file_prefix','',...
-        'plot_file_suffix','',...
-        'plot_legend',{{}},...
-        'plot_legend_suppress',{{}},...
-        'plot_ylabel','',...
-        'plot_xdate',true,...
-        'plot_xdateformat','HH:MM',...
-        'plot_xlimits',[-inf,inf],...
-        'plot_ylimits',[-inf,inf],...
-        'plot_size',200+[0,0,21,9]*50,...
-        'plot_units','points',...
-        'plot_visible','on',...
-        'plot_fontsize_axis', 24,...
-        'plot_fontsize_title',32,...
-        'plot_fontsize_label',28,...
-        'plot_title','',...
-        'plot_title_suppress',{{}},...
-        'plot_title_suffix','',...
-        'plot_title_prefix','',...
-        'plot_grid',true,...
-        'plot_line_width',2,...
-        'plot_autoscale',false,... %y-scale is derived from the data (in dataproduct.enforce_plot)
-        'plot_automean',false,...  %middle-point of y axis is derived from the data (in dataproduct.enforce_plot)
-        'plot_zeromean',false,...  %mean of data is removed before plotting (in simpledata.plot)
-        'plot_colormap','',...
-        'plot_outlier',0,...
-        'plot_method','timeseries'...
-      ),...
-      'debug_plot',false...
+    default_metadata=struct(...
+      'plot_product',false,...
+      'plot_columns',{{-1}},...
+      'plot_column_names',{{}},...
+      'plot_column_together',true,...
+      'plot_together','',...
+      'plot_file_prefix','',...
+      'plot_file_suffix','',...
+      'plot_legend',{{}},...
+      'plot_legend_suppress',false,...
+      'plot_legend_location','best',...
+      'plot_ylabel','',...
+      'plot_xdate',true,...
+      'plot_xdateformat','HH:MM',...
+      'plot_xlimits',[-inf,inf],...
+      'plot_ylimits',[-inf,inf],...
+      'plot_size',200+[0,0,21,9]*50,...
+      'plot_units','points',...
+      'plot_visible','on',...
+      'plot_fontsize_axis', 24,...
+      'plot_fontsize_title',32,...
+      'plot_fontsize_label',28,...
+      'plot_title','',...
+      'plot_title_suppress',{{}},...
+      'plot_title_suffix','',...
+      'plot_title_prefix','',...
+      'plot_grid',true,...
+      'plot_line_width',2,...
+      'plot_autoscale',false,... %y-scale is derived from the data (in dataproduct.enforce_plot)
+      'plot_automean',false,...  %middle-point of y axis is derived from the data (in dataproduct.enforce_plot)
+      'plot_zeromean',false,...  %mean of data is removed before plotting (in simpledata.plot)
+      'plot_colormap','',...
+      'plot_outlier',0,...
+      'plot_method','timeseries',...
+      'plot_normalize',false...
     );
-    parameter_list=struct(...
-      'metadata_dir',   struct('default',dataproduct.default_list.metadata_dir,   'validation',@(i) ischar(i)),...
-      'plot_dir',       struct('default',dataproduct.default_list.plot_dir,       'validation',@(i) ischar(i)),...
-      'data_dir',       struct('default',dataproduct.default_list.data_dir,       'validation',@(i) ischar(i)),...
-      'metadata',       struct('default',dataproduct.default_list.metadata,       'validation',@(i) isstruct(i)),...
-      'debug_plot',     struct('default',dataproduct.default_list.debug_plot,     'validation',@(i) islogical(i))...
-    );
+    parameter_list={...
+      'metadata_dir',   fullfile(dataproduct.scriptdir,'metadata'), @(i) ischar(i);...
+      'plot_dir',       fullfile(dataproduct.scriptdir,    'plot'), @(i) ischar(i);...
+      'data_dir',       fullfile(dataproduct.scriptdir,    'data'), @(i) ischar(i);...
+      'metadata',       dataproduct.default_metadata,               @(i) isstruct(i);...
+      'debug_plot',     false,                                      @(i) islogical(i)...
+    };
     %this is the maximum depth of the structure inside on dataname, i.e. obj.data.(dataname.name)
     %this parameter is arbitrary but keep it as low as possible to prevent time-consuming searches.
     maxdepth=4;
@@ -66,8 +63,38 @@ classdef dataproduct
     codename
   end
   methods(Static)
-    function out=parameters
-      out=fieldnames(dataproduct.parameter_list);
+    function out=parameters(i,method)
+      persistent v parameter_names
+      if isempty(v)
+        v=varargs(dataproduct.parameter_list);
+        parameter_names=v.Parameters;
+      end
+      if ~exist('i','var') || isempty(i)
+        if ~exist('method','var') || isempty(method)
+          out=parameter_names(:);
+        else
+          switch method
+          case 'obj'
+            out=v;
+          otherwise
+            out=v.(method);
+          end
+        end
+      else
+        if ~exist('method','var') || isempty(method)
+          method='name';
+        end
+        if strcmp(method,'name') && isnumeric(i)
+          out=parameter_names{i};
+        else
+          switch method
+          case varargs.template_fields
+            out=v.get(i).(method);
+          otherwise
+            out=v.(method);
+          end
+        end
+      end
     end
     function out=scriptdir
       out=fileparts(which(mfilename));
@@ -77,8 +104,19 @@ classdef dataproduct
     end
     function out=parse_commands(in)
       %sanity
-      if ~ischar(in)
-        error([mfilename,': can only handle strings, not ',class(in),'.'])
+      switch class(in)
+      case 'char'
+        %do nothing
+      case 'cell'
+        out=cellfun(@dataproduct.parse_commands,in,'UniformOutput',false);
+        return
+      case 'struct'
+        out=structs.fun(@dataproduct.parse_commands,in);
+        return
+      otherwise
+        %pass-through
+        out=in;
+        return
       end
       start_idx=strfind(in,'<');
        stop_idx=strfind(in,'>');
@@ -174,36 +212,23 @@ classdef dataproduct
         obj=in;
         return
       end
-      % parameter names
-      pn=dataproduct.parameters;
-      % input parsing
+      % input parsing (relevant to the parameters defined in dataproduct.parameter_list)
       p=inputParser;
       p.KeepUnmatched=true;
-      %declare parameters
-      for i=1:numel(pn)
-        %declare parameters
-        p.addParameter(pn{i},dataproduct.parameter_list.(pn{i}).default,dataproduct.parameter_list.(pn{i}).validation)
-      end
-      p.addParameter('field_path','',@(i) ischar(i) || iscell(i));
-      % parse it
-      p.parse(varargin{:});
+      p.addParameter('field_path',    '',@(i) ischar(i) || iscell(i));
+      p.addParameter('metadata_from', '',@(i) isstruct(i));
+      %create argument object, declare and parse parameters, save them to obj
+      [~,p,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{dataproduct.parameters([],'obj')},varargin{:});
       % call superclass constructor
       if ~isempty(p.Results.field_path)
         obj.dataname=datanames(in,p.Results.field_path);
       else
         obj.dataname=datanames(in);
       end
-      % save parameters
-      for i=1:numel(pn)
-        if ~isscalar(p.Results.(pn{i}))
-          %vectors are always lines (easier to handle strings)
-          obj.(pn{i})=transpose(p.Results.(pn{i})(:));
-        else
-          obj.(pn{i})=p.Results.(pn{i});
-        end
-      end
       % load metadata
-      obj=obj.metadata_load;
+      obj=obj.mdload(p.Results.metadata_from);
+      % input parsing (relevant to the parameters defined in obj.metadata)
+      [~,~,obj.metadata]=varargs.wrap('sources',{obj.default_metadata,obj.metadata},'sinks',{obj.metadata},varargin{:});
     end
     function obj=rm_data(obj,varargin)
       p=inputParser;
@@ -274,7 +299,7 @@ classdef dataproduct
         out=file.wildcard(strrep(filename,'<TIMESTAMP>','*'),'disp',false);
         %enforce the right kind of empty
         if isempty(out);out={};end
-      %resolve time stamp 
+      %resolve time stamp
       elseif p.Results.use_storage_period
         switch lower(obj.mdget('storage_period'))
         case {'day','daily'}
@@ -336,7 +361,7 @@ classdef dataproduct
           end
         end
       end
-    end 
+    end
     %% name methods (easy viewing)
     function out=get.name(obj)
       out=obj.dataname.name;
@@ -348,102 +373,123 @@ classdef dataproduct
       out=obj.dataname.str;
     end
     %% metadata file
-    function out=md_file(obj)
+    function out=mdfile(obj)
       assert(logical(exist(obj.metadata_dir,'dir')),[mfilename,': ',...
         'cannot find metadata dir ''',obj.metadata_dir,'''.'])
       % build filename and add path
       out=fullfile(obj.metadata_dir,[obj.dataname.name,'.metadata']);
     end
-    function out=ismd_file(obj)
-      out=~isempty(dir(obj.md_file));
+    function out=ismdfile(obj)
+      out=~isempty(dir(obj.mdfile));
     end
-    function md_file_check(obj)
-      assert(obj.ismd_file,[mfilename,': ',...
-        'could not find the metadata for product ',obj.name,' (expecting ',obj.md_file,').'])
-    end    
-    function obj=metadata_load(obj)
-      %need to read YAML
-      addpath(genpath(fullfile(dataproduct.scriptdir,'yamlmatlab')));
-      %make sure the metadata files is there
-      obj.md_file_check
+    function mdfile_check(obj)
+      assert(obj.ismdfile,[mfilename,': ',...
+        'could not find the metadata for product ',obj.name,' (expecting ',obj.mdfile,').'])
+    end
+    function obj=mdload(obj,metadata)
+      if ~exist('metadata','var') || isempty(metadata)
+        %need to read YAML
+        addpath(genpath(fullfile(dataproduct.scriptdir,'yamlmatlab')));
+        %make sure the metadata files is there
+        obj.mdfile_check
+        %load metadata
+        metadata=ReadYaml(obj.mdfile);
+      end
       %load and merge with default/existing metadata
-      obj=obj.metadata_merge(ReadYaml(obj.md_file));
+      obj=obj.mdmerge(metadata);
       %load sub-metadata files
       c=0;
       while true
         c=c+1;
         fieldname=['submetadata',num2str(c)];
-        if obj.ismd_field(fieldname)
+        if obj.ismdfield(fieldname)
           submetadatafile=fullfile(obj.metadata_dir,obj.mdget(fieldname));
           %sanity
           assert(~isempty(dir(submetadatafile)),['Cannot find sub-metadatafile ',submetadatafile,'.'])
-          obj=obj.metadata_merge(ReadYaml(submetadatafile));
+          obj=obj.mdmerge(ReadYaml(submetadatafile));
         else
           break
         end
       end
+      %parse commands (if any)
+      obj.metadata=dataproduct.parse_commands(obj.metadata);
     end
-    function obj=metadata_merge(obj,new_metadata)
-      % entries in new_metadata replace those already in obj.metadata
-      f=fieldnames(new_metadata);
-      for i=1:numel(f)
-        obj.metadata.(f{i})=new_metadata.(f{i});
+    function obj=mdmerge(obj,new_metadata)
+      obj.metadata=structs.copy(new_metadata,obj.metadata);
+      %need to translate scalar sources
+      if isfield(obj.metadata,'sources') && ischar(obj.metadata.sources)
+        obj.metadata.sources={obj.metadata.sources};
       end
-      %translate sources as strings to datanames
+      %translate sources as strings to datanames (the 'sources' metadata field could have been updated)
       for i=1:obj.nr_sources
         obj.metadata.sources{i}=datanames(obj.metadata.sources{i});
       end
     end
     %% metadata fields
-    function out=ismd_field(obj,metadatafieldname)
+    function out=ismdfield(obj,metadatafieldname)
       out=isfield(obj.metadata,metadatafieldname);
     end
-    function md_field_check(obj,metadatafieldname)
-      if ~obj.ismd_field(metadatafieldname)
+    function mdfield_check(obj,metadatafieldname)
+      if ~obj.ismdfield(metadatafieldname)
         error([mfilename,': cannot find field ',metadatafieldname,' in the metadata of ',obj.name,'.'])
       end
     end
     %% metadata parsing
     function out=mdget(obj,metadatafieldname,varargin)
       p=inputParser;
-      p.addRequired( 'metadatafieldname',            @(i) ischar(i));
+      p.addRequired( 'metadatafieldname',            @(i) ischar(i) || iscell(i));
       p.addParameter('return_empty_if_missing',false,@(i) islogical(i));
       p.addParameter('always_cell_array',      false,@(i) islogical(i));
+      %if both 'default' and 'default_varargin' are given, the former takes precedence (but never over the metadata)
       p.addParameter('default',                '',   @(i) true); %anything goes
+      p.addParameter('default_varargin',       {},   @(i) iscell(i) || isstruct(i));
       % parse it
       p.parse(metadatafieldname,varargin{:});
+      % check if there's a default value defined
+      isdefault_given=~isfield('default',p.UsingDefaults) || ~isfield('default_varargin',p.UsingDefaults);
+      % vector mode
+      if iscell(metadatafieldname)
+        for i=1:numel(metadatafieldname)
+          out.(metadatafieldname)=obj.mdget(metadatafieldname{i},varargin{:});
+        end
+        return
+      end
       % check for existence (unless return_empty_if_missing)
-      if ~p.Results.return_empty_if_missing && isempty(p.Results.default)
-        obj.md_field_check(metadatafieldname)
+      if ~p.Results.return_empty_if_missing && ~isdefault_given
+        obj.mdfield_check(metadatafieldname)
       end
       % check if default is to be returned
-      return_default=~obj.ismd_field(metadatafieldname);
-      if return_default
-        out=p.Results.default;
-      else
-        in=obj.metadata.(metadatafieldname);
-        switch class(in)
-        case {'double','logical','struct'}
-          out=in;
-        case 'cell'
-          if iscellstr(in)
-            out=cellfun(@dataproduct.parse_commands,in,'UniformOutput',false);
-          else
-            out=in;
+      if ~obj.ismdfield(metadatafieldname)
+        %this method can be called with varargin, useful to set defaults from the command call
+        if ~isfield('default_varargin',p.UsingDefaults)
+          switch class(p.Results.default_varargin)
+          case 'cell'
+            out=cells.varargin('get',p.Results.default_varargin,metadatafieldname);
+          case 'struct'
+            out=structs.get_value(p.Results.default_varargin,{metadatafieldname});
           end
-        case 'char'
-          out=dataproduct.parse_commands(in);
-        otherwise
-          error([mfilename,': cannot handle class ',class(in),'. Implementation needed!'])
         end
+        if ~isfield('default',p.UsingDefaults)
+          out=p.Results.default;
+        end
+      else
+        out=obj.metadata.(metadatafieldname);
       end
       if ~iscell(out) && p.Results.always_cell_array
         out={out};
       end
     end
+    function obj=mdset(obj,varargin)
+      assert(mod(numel(varargin),2)==0,'Number of optional inputs must be even, debug needed!')
+      for i=1:numel(varargin)/2
+        obj.metadata.(varargin{2*i-1})=varargin{2*i};
+      end
+    end
     %% data sources (usually spits out type 'datanames')
     function out=nr_sources(obj)
       if isfield(obj.metadata,'sources')
+        assert(iscell(obj.metadata.sources),['Metadata field ''sources'' must be of a cell array, not of class ',...
+          class(obj.metadata.sources),'.'])
         out=numel(obj.metadata.sources);
       else
         out=0;
@@ -479,7 +525,7 @@ classdef dataproduct
           p.addParameter(...
             mdf{i},...
             num.cell(obj.metadata.(mdf{i})),...
-            @(i) iscell(i) || ischar(i) || isnumeric(i) || islogical(i)... %pretty generic validation needed to let anything in
+            @(i) iscell(i) || ischar(i) || isnumeric(i) || islogical(i) || isduration(i)... %pretty generic validation needed to let anything in
           )
         else
           %if already declared, append it to varargin (so that its value is propagated)
@@ -525,8 +571,8 @@ classdef dataproduct
                                     'PaperPosition',     p.Results.plot_size);
       % enforce line properties
       line_handles=plotting.line_handles(p.Results.axis_handle);
-      for i=1:numel(line_handles)		
-        set(line_handles(i),'LineWidth',p.Results.plot_line_width)		
+      for i=1:numel(line_handles)
+        set(line_handles(i),'LineWidth',p.Results.plot_line_width)
       end
       % start with current axis
       v=axis(p.Results.axis_handle);
@@ -586,7 +632,7 @@ classdef dataproduct
           if p.Results.plot_automean && p.Results.plot_autoscale
             v(3:4)=mean(dat)+4*std(dat)*[-1,1];
           elseif p.Results.plot_automean
-            v(3:4)=mean(dat)+0.5*diff(v(3:4))*[-1,1];
+            v(3:4)=minmax(dat);
           elseif p.Results.plot_autoscale
             v(3:4)=mean(v(3:4))+4*std(dat)*[-1,1];
           end
@@ -597,6 +643,8 @@ classdef dataproduct
         end
       end
       axis(p.Results.axis_handle,v);
+      %adjust the location of the legend (even if the default 'best', it may happen that it is no longer in a good position)
+      set(legend,'location',p.Results.plot_legend_location)
       %enforce colormap
       if ~isempty(p.Results.plot_colormap)
         colormap(p.Results.plot_colormap)
@@ -604,7 +652,7 @@ classdef dataproduct
     end
     %% level-wrapping handlers
     function out=islevel_wrapped(obj,level)
-      out=obj.ismd_field(dataproduct.level_vals_str(level))&&obj.ismd_field(dataproduct.level_name_str(level));
+      out=obj.ismdfield(dataproduct.level_vals_str(level))&&obj.ismdfield(dataproduct.level_name_str(level));
     end
     function out=is_wrapped(obj)
       out=obj.islevel_wrapped(1);

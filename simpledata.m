@@ -2,31 +2,27 @@ classdef simpledata
   %static
   properties(Constant,GetAccess=private)
     %NOTE: edit this if you add a new parameter
-    parameter_list=struct(...
-      'peeklength',struct('default',10,     'validation',@(i) isnumeric(i) && isscalar(i)),...
-      'peekwidth', struct('default',10,     'validation',@(i) isnumeric(i) && isscalar(i)),...
-      'labels',    struct('default',{{''}}, 'validation',@(i) iscell(i)),...
-      'y_units',   struct('default',{{''}}, 'validation',@(i) iscellstr(i)),...
-      'x_units',   struct('default','',     'validation',@(i) ischar(i)),...
-      'descriptor',struct('default','',     'validation',@(i) ischar(i)),...
-      'plot_zeros',struct('default',true,   'validation',@(i) islogical(i) && isscalar(i))...
-    );
+    parameter_list={...
+      'x_tol',        1e-6,     @(i) isnumeric(i) && isscalar(i);...
+      'peeklength',   10,       @(i) isnumeric(i) && isscalar(i);...
+      'peekwidth',    10,       @(i) isnumeric(i) && isscalar(i);...
+      'labels',       {''},     @(i) iscell(i);...
+      'y_units',      {''},     @(i) iscellstr(i);...
+      'x_units',      '',       @(i) ischar(i);...
+      'descriptor',   '',       @(i) ischar(i);...
+      'plot_zeros',   true,     @(i) islogical(i) && isscalar(i);...
+      'invalid',      999999999,@(i) isnumeric(i) && isscalar(i);...
+      'outlier_sigma',4,        @(i) isnumeric(i) && isscalar(i);...
+    };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
     compatible_parameter_list={'y_units','x_units'};
-    %default value of some internal parameters
-    default_list=struct(...
-      'invalid',999999999,...
-      'nSigma',4 ...
-    );
   end
   %read only
-  %NOTE: edit this if you add a new parameter (if read only)
   properties(SetAccess=private)
     length
     width
-    plot_zeros
     x
     y
     mask
@@ -41,8 +37,45 @@ classdef simpledata
     descriptor
     peeklength
     peekwidth
+    x_tol
+    plot_zeros
+    invalid
+    outlier_sigma
   end
   methods(Static)
+    function out=parameters(i,method)
+      persistent v parameter_names
+      if isempty(v)
+        v=varargs(simpledata.parameter_list);
+        parameter_names=v.Parameters;
+      end
+      if ~exist('i','var') || isempty(i)
+        if ~exist('method','var') || isempty(method)
+          out=parameter_names(:);
+        else
+          switch method
+          case 'obj'
+            out=v;
+          otherwise
+            out=v.(method);
+          end
+        end
+      else
+        if ~exist('method','var') || isempty(method)
+          method='name';
+        end
+        if strcmp(method,'name') && isnumeric(i)
+          out=parameter_names{i};
+        else
+          switch method
+          case varargs.template_fields
+            out=v.get(i).(method);
+          otherwise
+            out=v.(method);
+          end
+        end
+      end
+    end
     function out=valid_x(x)
       out=isnumeric(x) && ~isempty(x) && isvector(x);
     end
@@ -122,11 +155,34 @@ classdef simpledata
     function out=valid_mask(mask)
       out=islogical(mask) && ~isempty(mask) && isvector(mask);
     end
-    function out=default
-      out=simpledata.default_list;
-    end
-    function out=parameters
-      out=fieldnames(simpledata.parameter_list);
+    function out=isx(mode,x1,x2,tol)
+      switch mode
+      case {'=','==','equal'}
+        if numel(x1)==numel(x2) 
+          out=(x1(:)-x2(:)).^2<tol.^2;
+        elseif isscalar(x1)
+          out=(x1-x2(:)).^2<tol.^2;
+        elseif isscalar(x2)
+          out=(x1(:)-x2).^2<tol.^2;
+        else
+          out=false;
+        end
+        return
+      case {'<','less','smaller'}
+        out=x1<x2;
+        out(simpledata.isx('==',x1,x2,tol))=false;
+      case {'<=','lessorequal'}
+        out=x1<x2;
+        out(simpledata.isx('==',x1,x2,tol))=true;
+      case {'>','more','larger'}
+        out=x1>x2;
+        out(simpledata.isx('==',x1,x2,tol))=false;
+      case {'>=','moreorequal','largerorequal'}
+        out=x1>x2;
+        out(simpledata.isx('==',x1,x2,tol))=true;
+      otherwise
+        error([mfilename,': unknown mode ''',mode,'''.'])
+      end
     end
     function out=transmute(in)
       if isa(in,'simpledata')
@@ -140,21 +196,6 @@ classdef simpledata
           out=simpledata(in.x,in.y,in.metadata{:});
         else
           error('Cannot find ''t'' or ''x''. Cannot continue.')
-        end
-      end
-    end
-    function out=vararginclean(in,parameters)
-      out=in;
-      for i=1:numel(parameters)
-        idx=0;
-        for j=1:2:numel(out)
-          if strcmp(out{j},parameters{i})
-            idx=j;
-            break
-          end
-        end
-        if idx>0
-          out=out([1:j-1,j+2:end]);
         end
       end
     end
@@ -277,16 +318,17 @@ classdef simpledata
       % Handle Inputs
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'in',                                      @(i) isnumeric(i));
-      p.addParameter('nSigma',        simpledata.default.nSigma,@(i) isnumeric(i) &&  isscalar(i));
-      p.addParameter('outlier_value', nan,                      @(i) isnumeric(i) &&  isscalar(i));
+      p.addRequired( 'in',                               @(i) isnumeric(i));
+      p.addParameter('outlier_sigma',...
+         simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i));
+      p.addParameter('outlier_value', nan,               @(i) isnumeric(i) &&  isscalar(i));
       % parse it
       p.parse(in,varargin{:});
       %assume there are no outliers
       out=in;
       idx=false(size(in));
-      %ignore non-positive nSigmas
-      if p.Results.nSigma>0 && numel(in)>1
+      %ignore non-positive outlier_sigmas
+      if p.Results.outlier_sigma>0 && numel(in)>1
         % ignore NaNs
         nanidx = isnan(in(:));
         % make aux containers with the same size as input
@@ -297,7 +339,7 @@ classdef simpledata
         %trivial call
         if std_err>0
           %outlier indexes
-          idx = abs(err)>p.Results.nSigma*std_err;
+          idx = abs(err)>p.Results.outlier_sigma*std_err;
           %flag outliers
           out(idx(:))=p.Results.outlier_value;
         end
@@ -349,10 +391,11 @@ classdef simpledata
     function out=stats2(obj1,obj2,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('mode',   'struct', @(i) ischar(i));
-      p.addParameter('minlen', 2,        @(i) isscalar(i));
-      p.addParameter('outlier',0,        @(i) isfinite(i));
-      p.addParameter('nsigma', simpledata.default.nSigma, @(i) isnumeric(i));
+      p.addParameter('mode',          'struct', @(i) ischar(i));
+      p.addParameter('minlen',        2,        @(i) isscalar(i));
+      p.addParameter('outlier',       0,        @(i) isfinite(i));
+      p.addParameter('outlier_sigma',...
+simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i));
       p.addParameter('struct_fields',...
         {'cov','corrcoef'},...
         @(i) iscellstr(i)...
@@ -363,8 +406,8 @@ classdef simpledata
       compatible(obj1,obj2)
       %remove outliers
       for i=1:p.Results.outlier
-        obj1=obj1.outlier(p.Results.nsigma);
-        obj2=obj2.outlier(p.Results.nsigma);
+        obj1=obj1.outlier(p.Results.outlier_sigma);
+        obj2=obj2.outlier(p.Results.outlier_sigma);
       end
       %need the x-domain and masks to be identical
       [obj1,obj2]=merge(obj1,obj2);
@@ -707,34 +750,19 @@ classdef simpledata
   methods
     %% constructor
     function obj=simpledata(x,y,varargin)
-      % parameter names
-      pn=simpledata.parameters;
       % input parsing
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired( 'x'      ,                  @(i) simpledata.valid_x(i));
       p.addRequired( 'y'      ,                  @(i) simpledata.valid_y(i));
       p.addParameter('mask'   ,true(size(x(:))), @(i) simpledata.valid_mask(i));
-      %declare parameters
-      for i=1:numel(pn)
-        p.addParameter(pn{i},simpledata.parameter_list.(pn{i}).default,simpledata.parameter_list.(pn{i}).validation)
-      end
-      % parse it
-      p.parse(x(:),y,varargin{:});
-      % save parameters
-      for i=1:numel(pn)
-        if ~isscalar(p.Results.(pn{i}))
-          %vectors are always lines (easier to handle strings)
-          obj.(pn{i})=transpose(p.Results.(pn{i})(:));
-        else
-          obj.(pn{i})=p.Results.(pn{i});
-        end
-      end
+      %create argument object, declare and parse parameters, save them to obj
+      [~,~,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{simpledata.parameters([],'obj')},'mandatory',{x,y},varargin{:});
       %assign (this needs to come before the parameter check, so that sizes are known)
       obj=obj.assign(y,'x',x,varargin{:});
       % check parameters
-      for i=1:numel(pn)
-        obj=check_annotation(obj,pn{i});
+      for i=1:numel(simpledata.parameters)
+        obj=check_annotation(obj,simpledata.parameters(i));
       end
     end
     %NOTICE: this method blindly assigns data
@@ -806,23 +834,26 @@ classdef simpledata
         obj=obj.monotonize(p.Results.monotonize);
       end
     end
-    function obj=copy_metadata(obj,obj_in)
-      parameters=fieldnames(simpledata.parameter_list);
-      for i=1:numel(parameters)
-        if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
-          obj.(parameters{i})=obj_in.(parameters{i});
+    function obj=copy_metadata(obj,obj_in,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
+      end
+      pn=[simpledata.parameters;more_parameters(:)];
+      for i=1:numel(pn)
+        if isprop(obj,pn{i}) && isprop(obj_in,pn{i})
+          obj.(pn{i})=obj_in.(pn{i});
         end
       end      
     end
-    function out=metadata(obj)
-      parameters=fieldnames(simpledata.parameter_list);
-      out=cell(0);
-      for i=1:numel(parameters)
-        if isprop(obj,parameters{i})
-          out{end+1}=parameters{i};       %#ok<AGROW>
-          out{end+1}=obj.(parameters{i}); %#ok<AGROW>
-        end
-      end      
+    function out=metadata(obj,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
+      end
+      warning off MATLAB:structOnObject
+      out=varargs(...
+        structs.filter(struct(obj),[simpledata.parameters;more_parameters(:)])...
+      ).varargin;
+      warning on MATLAB:structOnObject
     end
     function obj_nan=nan(obj)
       %duplicates an object, setting y to nan
@@ -835,7 +866,7 @@ classdef simpledata
       end
       %parameters
       for i=1:numel(simpledata.parameters)
-        obj.disp_field(simpledata.parameters{i},tab);
+        obj.disp_field(simpledata.parameters(i),tab);
       end
       %some parameters are not listed
       more_parameters={'length','width'};
@@ -846,9 +877,6 @@ classdef simpledata
       obj.disp_field('nr gaps',    tab,sum(~obj.mask))
       obj.disp_field('first datum',tab,sum(obj.x(1)))
       obj.disp_field('last datum', tab,sum(obj.x(end)))
-      if isempty(obj.peekwidth)
-        obj.peekwidth=simpledata.parameter_list.peekwidth.default;
-      end
       obj.disp_field('statistics', tab,[10,stats(obj,...
         'mode','str-nl',...
         'tab',tab,...
@@ -860,9 +888,6 @@ classdef simpledata
     function disp_field(obj,field,tab,value)
       if ~exist('value','var') || isempty(value)
         value=obj.(field);
-        if isempty(obj.peekwidth)
-          obj.peekwidth=simpledata.parameter_list.peekwidth.default;
-        end
         if isnumeric(value) || iscell(value)
           value=value(1:min([numel(value),obj.peekwidth]));
         end
@@ -874,9 +899,6 @@ classdef simpledata
         tab=12;
       end
       if ~exist('idx','var') || isempty(idx)
-        if isempty(obj.peeklength)
-          obj.peeklength=simpledata.parameter_list.peeklength.default;
-        end
         idx=[...
           1:min([           obj.peeklength,  round(0.5*obj.length)  ]),...
             max([obj.length-obj.peeklength+1,round(0.5*obj.length)+1]):obj.length...
@@ -891,9 +913,6 @@ classdef simpledata
         tab_x=19;
       else
         tab_x=tab;
-      end
-      if isempty(obj.peekwidth)
-        obj.peekwidth=simpledata.parameter_list.peekwidth.default;
       end
       for i=1:numel(idx)
         out=cell(1,min([obj.peekwidth,obj.width]));
@@ -916,13 +935,13 @@ classdef simpledata
     function out=stats(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('mode',   'struct', @(i) ischar(i));
-      p.addParameter('frmt',   '%-16.3g',@(i) ischar(i));
-      p.addParameter('tab',    8,        @(i) isscalar(i));
-      p.addParameter('minlen', 2,        @(i) isscalar(i));
-      p.addParameter('outlier',0,        @(i) isfinite(i));
-      p.addParameter('nsigma', simpledata.default.nSigma, @(i) isnumeric(i));
-      p.addParameter('columns', 1:obj.width,@(i)isnumeric(i) || iscell(i));
+      p.addParameter('mode',         'struct',          @(i) ischar(i));
+      p.addParameter('frmt',         '%-16.3g',         @(i) ischar(i));
+      p.addParameter('tab',          8,                 @(i) isscalar(i));
+      p.addParameter('minlen',       2,                 @(i) isscalar(i));
+      p.addParameter('outlier',      0,                 @(i) isfinite(i));
+      p.addParameter('outier_sigma', obj.outlier_sigma, @(i) isnumeric(i));
+      p.addParameter('columns',      1:obj.width,       @(i) isnumeric(i) || iscell(i));
       p.addParameter('struct_fields',...
         {'min','max','mean','std','rms','meanabs','stdabs','rmsabs','length','gaps'},...
         @(i) iscellstr(i)...
@@ -931,7 +950,7 @@ classdef simpledata
       p.parse(varargin{:});
       %remove outliers
       for c=1:p.Results.outlier
-        obj=obj.outlier(p.Results.nsigma);
+        obj=obj.outlier(p.Results.outlier_sigma);
       end
       %trivial call
       switch p.Results.mode
@@ -1118,12 +1137,15 @@ classdef simpledata
     function obj=get_cols(obj,columns)
       obj=obj.cols(columns);
     end
-    function obj=set_cols(obj,columns,values)
+    function obj=set_cols(obj,columns,values,mask)
+      if ~exist('mask','var') || isempty(mask)
+        mask=true(obj.length,1);
+      end
       y_now=obj.y;
       if isnumeric(values)
-        y_now(:,columns)=values;
+        y_now(mask,columns)=values;
       else
-        y_now(:,columns)=values.y;
+        y_now(mask,columns)=values.y;
       end
       obj=obj.assign(y_now);
     end
@@ -1284,7 +1306,7 @@ classdef simpledata
     %% invalid methods
     function obj=demasked(obj,invalid)
       if ~exist('invalid','var') || isempty(invalid)
-        invalid=simpledata.default_list.invalid;
+        invalid=obj.invalid;
       end
       %replace NaNs with invalid entries
       y_now=obj.y;
@@ -1297,7 +1319,7 @@ classdef simpledata
     end
     function obj=remasked(obj,invalid)
       if ~exist('invalid','var') || isempty(invalid)
-        invalid=simpledata.default_list.invalid;
+        invalid=obj.invalid;
       end
       %replace invalids with NaNs entries
       y_now=obj.y;
@@ -1476,19 +1498,19 @@ classdef simpledata
       % sanitize
       obj.check_sd
     end
-    function [obj,outliers]=outlier(obj,nSigma)
+    function [obj,outliers]=outlier(obj,outlier_sigma)
       %handle inputs
-      if ~exist('nSigma','var') || isempty(nSigma)
-        nSigma=simpledata.default.nSigma;
+      if ~exist('outlier_sigma','var') || isempty(outlier_sigma)
+        outlier_sigma=obj.outlier_sigma;
       end
-      if ~isnumeric(nSigma)
-        error([mfilename,': input <nSigma> must be numeric, not ',class(nSigma),'.'])
+      if ~isnumeric(outlier_sigma)
+        error([mfilename,': input <outlier_sigma> must be numeric, not ',class(outlier_sigma),'.'])
       end
-      if isscalar(nSigma)
-        nSigma=nSigma*ones(1,obj.width);
-      elseif numel(nSigma) ~= obj.width
-        error([mfilename,': input <nSigma> must have the same number of entries as data width (',...
-          num2str(obj.witdh),'), not ',num2str(numel(nSigma)),'.'])
+      if isscalar(outlier_sigma)
+        outlier_sigma=outlier_sigma*ones(1,obj.width);
+      elseif numel(outlier_sigma) ~= obj.width
+        error([mfilename,': input <outlier_sigma> must have the same number of entries as data width (',...
+          num2str(obj.witdh),'), not ',num2str(numel(outlier_sigma)),'.'])
       end
       %create tmp container
       y_data=zeros(obj.length,obj.width);
@@ -1497,12 +1519,12 @@ classdef simpledata
       %is not needed.
       if nargout>1
         for i=1:obj.width 
-          [y_data(:,i),idx]=simpledata.rm_outliers(obj.y(:,i),'nSigma',nSigma(i),'outlier_value',0);
+          [y_data(:,i),idx]=simpledata.rm_outliers(obj.y(:,i),'outlier_sigma',outlier_sigma(i),'outlier_value',0);
           y_outliers(idx,i)=obj.y(idx,i);
         end
       else
         for i=1:obj.width
-          y_data(:,i)=simpledata.rm_outliers(obj.y(:,i),'nSigma',nSigma(i),'outlier_value',0);
+          y_data(:,i)=simpledata.rm_outliers(obj.y(:,i),'outlier_sigma',outlier_sigma(i),'outlier_value',0);
         end
       end
       %sanity
@@ -1525,11 +1547,6 @@ classdef simpledata
       end
       %propagate (mask is updated inside)
       obj=obj.assign(y_data,'mask',all(y_data~=0,2));
-    end
-    function obj=medfilt(obj,n)
-      %NOTICE: this function does not decimate the data, it simply applies
-      %matlab's medfilt function to the data
-      obj=obj.assign(medfilt1(obj.y,n)); %,'omitnan','truncate');
     end
     function obj=median(obj,n)
       %create x-domain of medianed data, cutting it into segments of
@@ -1566,7 +1583,7 @@ classdef simpledata
     end
     %% multiple object manipulation
     function out=isxequal(obj1,obj2)
-      out=obj1.length==obj2.length && all(obj1.x==obj2.x);
+      out=obj1.length==obj2.length && ~any(~simpledata.ist('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol])));
     end
     function compatible(obj1,obj2,varargin)
       %This method checks if the objects are referring to the same
@@ -1610,7 +1627,7 @@ classdef simpledata
         %add as gaps in obj2 those x that are in obj1 but not in obj2
         [obj2_out,idx1]=obj2.x_merge(obj1.x);
         %sanity on outputs
-        if obj1_out.length~=obj2_out.length || any(obj1_out.x~=obj2_out.x)
+        if obj1_out.length~=obj2_out.length && obj1_out.isxequal(obj2_out)
           error([mfilename,': BUG TRAP: merge operation failed.'])
         end
       end
@@ -2157,6 +2174,31 @@ classdef simpledata
       %propagate data
       obj=obj.assign(y_diff);
     end
+    %% wrappers
+    function obj=smooth(obj,varargin)
+      x_now=obj.x_masked;
+      y_now=obj.y_masked;
+      mask_now=obj.mask;
+      for i=1:obj.width
+        obj=obj.set_cols(i,smooth(x_now,y_now(:,i),varargin{:}),mask_now);
+      end
+    end
+    function obj=smooth_test(obj,span,varargin)
+      modes={'moving','lowess','loess','sgolay','rlowess','rloess'};
+      obj.plot
+      for i=1:numel(modes)
+        obj.smooth(span,modes{i},varargin{:}).plot
+      end
+      legend([{'original'},modes])
+    end
+    function obj=medfilt(obj,n)
+      %NOTICE: this function does not decimate the data (as obj.median does), it simply applies
+      %matlab's medfilt function to the data
+      obj=obj.assign(medfilt1(obj.y,n)); %,'omitnan','truncate');
+    end
+    function obj=movmedian(obj,n)
+      obj=obj.assign(movmedian(obj.y,n)); %,'omitnan','truncate');
+    end
     %% vector
     function out=norm(obj,p)
       if ~exist('p','var') || isempty(p)
@@ -2225,12 +2267,14 @@ classdef simpledata
       p=inputParser;
       p.KeepUnmatched=true;
       % optional arguments
-      p.addParameter('masked',  false,      @(i)islogical(i) && isscalar(i));
-      p.addParameter('columns', 1:obj.width,@(i)isnumeric(i) || iscell(i));
-      p.addParameter('line'   , {},         @(i)iscell(i));
-      p.addParameter('zeromean',false,      @(i)islogical(i) && isscalar(i));
-      p.addParameter('outlier', 0,          @(i)isfinite(i) && isscalar(i));
-      p.addParameter('title',   '',         @(i)ischar(i));
+      p.addParameter('columns',    1:obj.width,@(i)isnumeric(i) || iscell(i));
+      p.addParameter('line'   ,    {},         @(i)iscell(i));
+      p.addParameter('zeromean',   false,      @(i)islogical(i) && isscalar(i));
+      p.addParameter('normalize',  false,      @(i)islogical(i) && isscalar(i));
+      p.addParameter('outlier',    0,          @(i)isfinite(i)  && isscalar(i));
+      p.addParameter('title',      '',         @(i)ischar(i));
+      p.addParameter('smooth_span',0,          @(i)isfinite(i)  && isscalar(i) && i>=0);
+      p.addParameter('scale',      1,          @(i)isfinite(i)  && isscalar(i));
       % parse it
       p.parse(varargin{:});
       % type conversions
@@ -2240,49 +2284,73 @@ classdef simpledata
         columns=p.Results.columns;
       end
       % plot
-      y_plot=cell(size(columns));
       for i=1:numel(columns)
-        % get data
-        y_plot{i}=obj.y(:,columns(i));
-        % maybe use a mask
-        if p.Results.masked
-          out.mask{i}=obj.mask;
-        else
-          out.mask{i}=true(size(obj.mask));
-        end
+        % get the data
+        y_plot=obj.y(:,columns(i));
+        % define a working mask
+        out.mask{i}=true(size(obj.mask));
         % remove outliers if requested
-        if p.Results.outlier>1
+        if p.Results.outlier>0
           for c=1:p.Results.outlier
-             [y_plot{i},outlier_idx]=simpledata.rm_outliers(y_plot{i});
+             [y_plot,outlier_idx]=simpledata.rm_outliers(y_plot);
+             %update the mask with the detected outliers
              out.mask{i}(outlier_idx)=false;
           end
         end
+        % smooth if requested
+        if p.Results.smooth_span>0
+          if isprop(obj,'t')
+            span=ceil(p.Results.smooth_span/obj.step);
+          else
+            span=p.Results.smooth_span;
+          end
+          y_plot(out.mask{i})=smooth(obj.x(out.mask{i}),y_plot(out.mask{i}),span,'moving');
+          %update the mask with the to-be-deleted edges
+          i1=min([           span,floor(obj.length/2)]);
+          i2=max([obj.length-span, ceil(obj.length/2)]);
+          out.mask{i}(1 :i1 )=false;
+          out.mask{i}(i2:end)=false;
+        end
+        %derive bias and amplitude
+        if p.Results.zeromean || p.Results.normalize
+          % get valid data
+          y_valid=y_plot(out.mask{i});
+          y_valid=y_valid(~isnan(y_valid));
+        end
         % remove mean if requested
         if p.Results.zeromean
-          out.y_mean{i}=mean(y_plot{i}(~isnan(y_plot{i})));
+          out.y_mean{i}=mean(y_valid);
         else
           out.y_mean{i}=0;
         end
-        % do not plot zeros if defined like that
+        % normalize if requested
+        if p.Results.normalize
+          out.y_scale{i}=diff(minmax(transpose(y_valid(:))));
+        else
+          out.y_scale{i}=1;
+        end
+        % do not plot zeros if requested
         if ~obj.plot_zeros
           out.mask{i}=out.mask{i} & ( obj.y(:,columns(i)) ~= 0 );
         end
-        % get abcissae
+        % get abcissae in datetime, if relevant
         if isprop(obj,'t')
           x_plot=obj.t(out.mask{i});
         else
           x_plot=obj.x(out.mask{i});
         end
-        % get ordinate
-        y_plot{i}=obj.y(out.mask{i},columns(i))-out.y_mean{i};
+        % apply mask to y data
+        y_plot=y_plot(out.mask{i});
+        % compute (de-meaned and/or normalized) ordinate
+        y_plot=(y_plot-out.y_mean{i})/out.y_scale{i}*p.Results.scale;
         % plot it
         if isempty(p.Results.line)
-          out.handle{i}=plot(x_plot,y_plot{i});hold on
+          out.handle{i}=plot(x_plot,y_plot);hold on
         else
           if iscell(p.Results.line{i})
-            out.handle{i}=plot(x_plot,y_plot{i},p.Results.line{i}{:});hold on
+            out.handle{i}=plot(x_plot,y_plot,p.Results.line{i}{:});hold on
           else
-            out.handle{i}=plot(x_plot,y_plot{i},p.Results.line{i});hold on
+            out.handle{i}=plot(x_plot,y_plot,p.Results.line{i});hold on
           end
         end
       end
@@ -2301,10 +2369,16 @@ classdef simpledata
       out.xlabel=['[',obj.x_units,']'];
       if numel(out.handle)==1
         out.ylabel=[obj.labels{columns},' [',obj.y_units{columns},']'];
+        out.legend=obj.labels{columns};
         if p.Results.zeromean
           out.ylabel=[out.ylabel,' ',num2str(out.y_mean{1})];
+          out.legend=[out.legend,' ',num2str(out.y_mean{1})];
         end
-        out.legend={};
+        if p.Results.normalize
+          out.ylabel=[out.ylabel,' x ',num2str(out.y_scale{1})];
+          out.legend=[out.legend,' x ',num2str(out.y_scale{1})];
+        end
+        out.legend={out.legend};
       else
         same_units=true;
         for i=2:numel(columns)
@@ -2322,6 +2396,11 @@ classdef simpledata
         if p.Results.zeromean
           for i=1:numel(columns)
             out.legend{i}=[out.legend{i},' ',num2str(out.y_mean{i})];
+          end
+        end
+        if p.Results.normalize
+          for i=1:numel(columns)
+            out.legend{i}=[out.legend{i},' x ',num2str(out.y_scale{i})];
           end
         end
       end
@@ -2365,7 +2444,29 @@ classdef simpledata
         end
       end
     end
-    %% export methods 
+    %% export methods
+    function out=pluck(obj,x_now,column)
+      %retrieves one single data point, intends to be fast
+      assert(isscalar(x_now) && isnumeric(x_now),'Input x_now must be a scalar number.')
+      if ~exist('column','var') || isempty(column)
+        column=1:obj.width;
+      end
+      out=obj.pluckq(x_now,column);
+    end
+    function out=pluckq(obj,x_now,column)
+      %interpolate
+      bounds=[find(obj.x<=x_now,1,'last');find(obj.x>=x_now,1,'first')];
+      if numel(bounds)<2
+        %out of bounds
+        out=[];
+      elseif bounds(1)==bounds(2)
+        %data point exists, pluck it out
+        out=obj.y(bounds(1),column);
+      else
+        %data point does not exist, interpolate 
+        out=interp1(obj.x(bounds),obj.y(bounds,column),x_now);
+      end
+    end
     function export(obj,filename,varargin)
       %determine file type
       [~,~,e]=fileparts(filename);

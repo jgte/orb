@@ -1,0 +1,15 @@
+method: datastorage.arithmetic
+operation: minus
+storage_period: daily
+sources: [grace.acc.mod.nrtdm,grace.acc.l1b.csr,grace.acc.calmod.csr,grace.ahk.l1b]
+source_fields_from: grace.acc.calmod.csr
+operation_order: [1,2]
+plot_columns: [1,2,3]
+plot_smooth_span: 0
+plot_outlier: 1
+plot_normalize: true
+plot_zeromean: true
+plot_column_names: [X-axis,Y-axis,Z-axis]
+plot_visible: off
+plot_check_units: false
+plot_legend_location: southwest

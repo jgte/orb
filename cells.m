@@ -54,6 +54,7 @@ classdef cells
     end
     function out=iscellstrfind(cellstrin,strin)
       if iscellstr(strin) && ischar(cellstrin)
+        %switch it around
         tmp=strin;
         strin=cellstrin;
         cellstrin=tmp;
@@ -82,8 +83,7 @@ classdef cells
         out=[out;out_row]; %#ok<AGROW>
       end
     end
-    %this is similar to num2cell but any type of objects is supported
-    %and there's special handling for strings
+    %this is similar to num2cell but any type of objects is supported (and there's special handling for strings)
     function out=m2c(in)
       if iscell(in)
         out=in;
@@ -126,6 +126,62 @@ classdef cells
         end
         out=tmp;
       end
+    end
+    %returns a cell array with the contents of 'fieldname' of all entries of the cell array of structures S
+    function out=deal_struct(S,fieldname)
+      out=cell(size(S));
+      for i=1:numel(S)
+        out{i}=S{i}.(fieldname);
+      end
+    end
+    %removes from the varargin-like cell array 'in' the parameters with names defined in the cell array 'parameters'.
+    %e.g.: varargin{{'a',1,'b','2','c',{3}},{'a','c'}) => {'b','2'}
+    function out=vararginclean(in,parameters)
+      if ischar(parameters)
+        parameters={parameters};
+      end
+      out=in;
+      for i=1:numel(parameters)
+        idx=0;
+        for j=1:2:numel(out)
+          if strcmp(out{j},parameters{i})
+            idx=j;
+            break
+          end
+        end
+        if idx>0
+          out=out([1:j-1,j+2:end]);
+        end
+      end
+    end
+    %retrieves from the varargin-like cell array 'in' the parameters with names defined in the cell array 'parameters'.
+    %e.g.: varargin{{'a',1,'b','2','c',{3}},{'a','c'}) => {'a',1,'c',{3}}
+    function out=vararginget(in,parameters)
+      if ischar(parameters)
+        parameters={parameters};
+      end
+      out=cell(1,numel(parameters)*2);
+      for i=1:numel(parameters)
+        idx=0;
+        for j=1:2:numel(in)
+          if strcmp(in{j},parameters{i})
+            idx=j;
+            break
+          end
+        end
+        if idx>0
+          out(i*2-1:i*2)=in(idx:idx+1);
+        end
+      end
+      out=cells.rm_empty(out);
+    end
+    %wrapper for vararginclean and vararginget
+    function out=varargin(mode,in,parameters)
+      switch mode
+      case 'get';   out=cells.vararginget(  in,parameters);
+      case 'clean'; out=cells.vararginclean(in,parameters);
+      otherwise;    error(['Cannot handle mode ''',mode,'''.'])
+      end  
     end
   end
 end

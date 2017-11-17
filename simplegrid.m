@@ -2,14 +2,10 @@ classdef simplegrid < simpletimeseries
   %static
   properties(Constant)
     %default value of some internal parameters
-    default_list=struct(...
-      'sp_tol',   1e-8,...
-      'sp_units','deg'... %TODO: need to convert non-deg units at input/output (internally deg are expected)
-    );
-    parameter_list=struct(...
-      'sp_tol',   struct('default',simplegrid.default_list.sp_tol,  'validation',@(i) isnumeric(i) && isscalar(i)),...
-      'sp_units', struct('default',simplegrid.default_list.sp_units,'validation',@(i) ischar(i))...
-    );
+    parameter_list={...
+      'sp_tol',   1e-8,  @(i) isnumeric(i) && isscalar(i);...
+      'sp_units', 'deg',@(i) ischar(i);...  %TODO: need to convert non-deg units at input/output (internally deg are expected)
+    };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
@@ -19,9 +15,6 @@ classdef simplegrid < simpletimeseries
   properties(SetAccess=private)
     loni
     lati
-  end
-  %private (visible only to this object)
-  properties(GetAccess=private)
   end
   properties(GetAccess=public,SetAccess=public)
     sp_tol
@@ -43,11 +36,38 @@ classdef simplegrid < simpletimeseries
     interpolant
   end
   methods(Static)
-    function out=parameters
-      out=fieldnames(simplegrid.parameter_list);
-    end
-    function out=default
-      out=simplegrid.default_list;
+    function out=parameters(i,method)
+      persistent v parameter_names
+      if isempty(v)
+        v=varargs(simplegrid.parameter_list);
+        parameter_names=v.Parameters;
+      end
+      if ~exist('i','var') || isempty(i)
+        if ~exist('method','var') || isempty(method)
+          out=parameter_names(:);
+        else
+          switch method
+          case 'obj'
+            out=v;
+          otherwise
+            out=v.(method);
+          end
+        end
+      else
+        if ~exist('method','var') || isempty(method)
+          method='name';
+        end
+        if strcmp(method,'name') && isnumeric(i)
+          out=parameter_names{i};
+        else
+          switch method
+          case varargs.template_fields
+            out=v.get(i).(method);
+          otherwise
+            out=v.(method);
+          end
+        end
+      end
     end
     %% spacing
     function out=getSpacing(lon,lat)
@@ -99,10 +119,10 @@ classdef simplegrid < simpletimeseries
           'lat',transpose(GridLimits(3):GridSpacing(2):GridLimits(4))...
         );
         % sanity
-        if numel(out.lon) ~= numel(vecmat.lon) || any( (out.lon(:)-vecmat.lon(:)).^2>simplegrid.default_list.sp_tol^2 )
+        if numel(out.lon) ~= numel(vecmat.lon) || any( (out.lon(:)-vecmat.lon(:)).^2>simplegrid.parameters('sp_tol','value')^2 )
           error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.'])
         end
-        if numel(out.lat) ~= numel(vecmat.lat) || any( (out.lat(:)-vecmat.lat(:)).^2>simplegrid.default_list.sp_tol^2 )
+        if numel(out.lat) ~= numel(vecmat.lat) || any( (out.lat(:)-vecmat.lat(:)).^2>simplegrid.parameters('sp_tol','value')^2 )
           error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.'])
         end
       else
@@ -172,11 +192,11 @@ classdef simplegrid < simpletimeseries
         % get indexes
         idx.lon=nan(1,numel(list.lon));
         for i=1:numel(out.lon)
-          idx.lon( (out.lon(i)-list.lon).^2<simplegrid.default_list.sp_tol^2 )=i;
+          idx.lon( (out.lon(i)-list.lon).^2<simplegrid.parameters('sp_tol','value')^2 )=i;
         end
         idx.lat=nan(1,numel(list.lat));
         for i=1:numel(out.lat)
-          idx.lat( (out.lat(i)-list.lat).^2<simplegrid.default_list.sp_tol^2 )=i;
+          idx.lat( (out.lat(i)-list.lat).^2<simplegrid.parameters('sp_tol','value')^2 )=i;
         end
         if any(isnan(idx.lat)); error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.']);end
         if any(isnan(idx.lon)); error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.']);end
@@ -251,18 +271,18 @@ classdef simplegrid < simpletimeseries
         % get indexes
         idx.lon=nan(1,numel(flatlist.lon));
         for i=1:numel(out.lon)
-          idx.lon( (out.lon(i)-flatlist.lon).^2<simplegrid.default_list.sp_tol^2 )=i;
+          idx.lon( (out.lon(i)-flatlist.lon).^2<simplegrid.parameters('sp_tol','value')^2 )=i;
         end
         if any(isnan(idx.lon)); error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.']);end
         idx.lat=nan(1,numel(flatlist.lat));
         for i=1:numel(out.lat)
-          idx.lat( (out.lat(i)-flatlist.lat).^2<simplegrid.default_list.sp_tol^2 )=i;
+          idx.lat( (out.lat(i)-flatlist.lat).^2<simplegrid.parameters('sp_tol','value')^2 )=i;
         end
         if any(isnan(idx.lat)); error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.']);end
         idx.t=nan(1,numel(flatlist.t));
         fltdn=datenum(flatlist.t);
         for i=1:numel(out.t)
-          idx.t( (datenum(out.t(i))-fltdn).^2<simplegrid.default_list.sp_tol^2 )=i;
+          idx.t( (datenum(out.t(i))-fltdn).^2<simplegrid.parameters('sp_tol','value')^2 )=i;
         end
         if any(isnan(idx.t)); error([mfilename,': invalid ',type,': field ''t'' contains NaNs, debug needed.']);end
       else
@@ -335,10 +355,10 @@ classdef simplegrid < simpletimeseries
         %build meshed lon and lat
         [lon_m,lat_m]=meshgrid(out.lon,out.lat);
         % sanity
-        if numel(lon_m) ~= numel(matrix.lon) || any( (lon_m(:)-matrix.lon(:)).^2>simplegrid.default_list.sp_tol^2 )
+        if numel(lon_m) ~= numel(matrix.lon) || any( (lon_m(:)-matrix.lon(:)).^2>simplegrid.parameters('sp_tol','value')^2 )
           error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.'])
         end
-        if numel(lat_m) ~= numel(matrix.lat) || any( (lat_m(:)-matrix.lat(:)).^2>simplegrid.default_list.sp_tol^2 )
+        if numel(lat_m) ~= numel(matrix.lat) || any( (lat_m(:)-matrix.lat(:)).^2>simplegrid.parameters('sp_tol','value')^2 )
           error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.'])
         end
       else
@@ -776,34 +796,18 @@ classdef simplegrid < simpletimeseries
       p.addRequired('map',@(i) isnumeric(i) || iscell(i));
       p.addParameter('lat',simplegrid.lat_default(size(map,1)), @(i) isnumeric(i));
       p.addParameter('lon',simplegrid.lon_default(size(map,2)), @(i) isnumeric(i));
-      %declare parameters
-      for j=1:numel(simplegrid.parameters)
-        %shorter names
-        pn=simplegrid.parameters{j};
-        %declare parameters
-        p.addParameter(pn,simplegrid.parameter_list.(pn).default,simplegrid.parameter_list.(pn).validation)
-      end
-      % parse it
-      p.parse(t,map,varargin{:});
+      %create argument object, declare and parse parameters, save them to obj
+      v=varargs.wrap('parser',p,'sources',{simplegrid.parameters([],'obj')},'mandatory',{t,y},varargin{:});
       % retrieve structure with list
       sl=simplegrid.dti(t,p.Results.map,p.Results.lon,p.Results.lat,'list');
       % call superclass
-      vararginnow=simpledata.vararginclean(varargin,{'lat','lon'});
+      vararginnow=cells.vararginclean(varargin,{'lat','lon'});
       obj=obj@simpletimeseries(p.Results.t,sl.map,'lon',sl.lon,'lat',sl.lat,vararginnow{:});
       % save lon and lat
       obj.loni=sl.lon;
       obj.lati=sl.lat;
-      % save parameters
-      for i=1:numel(simplegrid.parameters)
-        %shorter names
-        pn=simplegrid.parameters{i};
-        if ~isscalar(p.Results.(pn))
-          %vectors are always lines (easier to handle strings)
-          obj.(pn)=transpose(p.Results.(pn)(:));
-        else
-          obj.(pn)=p.Results.(pn);
-        end
-      end
+      % save the arguments v into this object
+      obj=v.save(obj);
     end
     function obj=assign(obj,map,varargin)
       p=inputParser;
@@ -866,16 +870,19 @@ classdef simplegrid < simpletimeseries
       % pass it upstream
       obj=assign@simpletimeseries(obj,map,varargin{:});
     end
-    function obj=copy_metadata(obj,obj_in)
-      %call superclass
-      obj=copy_metadata@simpletimeseries(obj,obj_in);
-      %propagate parameters of this object
-      parameters=simplegrid.parameters;
-      for i=1:numel(parameters)
-        if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
-          obj.(parameters{i})=obj_in.(parameters{i});
-        end
+    function obj=copy_metadata(obj,obj_in,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
       end
+      %call superclass
+      obj=copy_metadata@simpletimeseries(obj,obj_in,[simplegrid.parameters;more_parameters(:)]);
+    end
+    function out=metadata(obj,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
+      end
+      %call superclass
+      out=metadata@simpletimeseries(obj,[simplegrid.parameters;more_parameters(:)]);
     end
     %% info methods
     function print(obj,tab)

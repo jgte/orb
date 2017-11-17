@@ -1,0 +1,27 @@
+estim_dir: 'ERROR: Need explicit value for estimdir'
+year: 'ERROR: Need explicit value for year'
+month: 'ERROR: Need explicit value for month'
+levels: 'ERROR: Need explicit value for levels'
+method: csr.import_estim
+coords: [X,Y,Z]
+calpars: [AC0X,AC0XD,AC0XQ,
+AC0Y,AC0YD,AC0YQ,
+AC0Z,AC0ZD,AC0ZQ]
+calpars_out: [AC0X,AC0XD,AC0XQ,
+AC0Y,AC0YD,AC0YQ,
+AC0Z,AC0ZD,AC0ZQ]
+sats: [A,B]
+timestep: <seconds(30)>
+submetadata1: grace.calpar.csr.ltb.submetadata
+arc_timeline_file: /Users/teixeira/data/csr/GraceAccCal/arctimeline.GraceAccCal
+storage_period: daily
+plot_columns: [1,2,3]
+plot_autoscale: false
+plot_automean: false
+plot_outlier: 0
+plot_zeromean: true
+plot_xdateformat: mm/dd
+plot_title_suppress: [grace,acc,calmod,estimdir]
+plot_visible: 'off'
+plot_column_together: false
+plot_together: [A,B]

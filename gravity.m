@@ -3,38 +3,6 @@ classdef gravity < simpletimeseries
   properties(Constant)
     %this is used to define when the date is not set (datenum(zero_date)=0), used for static fields
     zero_date=time.zero_date;
-    %default value of some internal parameters
-    default_list=struct(...
-      'G',        6.67408e-11,...      % Gravitational constant [m3/kg/s2]
-      'GM',       398600.4415e9,...    % Standard gravitational parameter [m^3 s^-2]
-      'R',        6378136.460,...      % Earth's equatorial radius [m]
-      'Rm',       6371000,...          % Earth's mean radius [m]
-      'rho_earth',5514.3231,...        % average density of the Earth = (GM/G) / (4/3*pi*R_av^3) [kg/m3]
-      'rho_water',1000,...             % water density
-      'love',  [  0       0.000;...    % Love numbers
-                  1       0.027;...
-                  2      -0.303;...
-                  3      -0.194;...
-                  4      -0.132;...
-                  5      -0.104;...
-                  6      -0.089;...
-                  7      -0.081;...
-                  8      -0.076;...
-                  9      -0.072;...
-                  10     -0.069;...
-                  12     -0.064;...
-                  15     -0.058;...
-                  20     -0.051;...
-                  30     -0.040;...
-                  40     -0.033;...
-                  50     -0.027;...
-                  70     -0.020;...
-                  100    -0.014;...
-                  150    -0.010;...
-                  200    -0.007],...
-        'functional','nondim',...
-        'source',    'unknown'...
-    );
 %   Supported functionals are the following,
 %       'nondim'    - non-dimensional Stoked coefficients.
 %       'eqwh'      - equivalent water height [m]
@@ -57,12 +25,38 @@ classdef gravity < simpletimeseries
       'vertgravgrad',  '[s^{-2}]',...
       'gravity',       '[m.s^{-2}]'...
     );
-    parameter_list=struct(...
-      'GM',        struct('default',gravity.default_list.GM,        'validation',@(i) isnumeric(i) && isscalar(i)),...
-      'R',         struct('default',gravity.default_list.R,         'validation',@(i) isnumeric(i) && isscalar(i)),...
-      'functional',struct('default',gravity.default_list.functional,'validation',@(i) ischar(i)),...
-      'source',    struct('default',gravity.default_list.source,    'validation',@(i) ischar(i))...
-    );
+    %default value of some internal parameters
+    parameter_list={...
+      'G',        6.67408e-11,   @(i) isnumeric(i) && isscalar(i);...      % Gravitational constant [m3/kg/s2]
+      'GM',       398600.4415e9, @(i) isnumeric(i) && isscalar(i);...      % Standard gravitational parameter [m^3 s^-2]
+      'R',        6378136.460,   @(i) isnumeric(i) && isscalar(i);...      % Earth's equatorial radius [m]
+      'Rm',       6371000,       @(i) isnumeric(i) && isscalar(i);...      % Earth's mean radius [m]
+      'rho_earth',5514.3231,     @(i) isnumeric(i) && isscalar(i);...      % average density of the Earth = (GM/G) / (4/3*pi*R_av^3) [kg/m3]
+      'rho_water',1000,          @(i) isnumeric(i) && isscalar(i);...      % water density
+      'love',  [  0       0.000;...   
+                  1       0.027;...
+                  2      -0.303;...
+                  3      -0.194;...
+                  4      -0.132;...
+                  5      -0.104;...
+                  6      -0.089;...
+                  7      -0.081;...
+                  8      -0.076;...
+                  9      -0.072;...
+                  10     -0.069;...
+                  12     -0.064;...
+                  15     -0.058;...
+                  20     -0.051;...
+                  30     -0.040;...
+                  40     -0.033;...
+                  50     -0.027;...
+                  70     -0.020;...
+                  100    -0.014;...
+                  150    -0.010;...
+                  200    -0.007],@(i) isnumeric(i) && size(i,2)==2;...     % Love numbers
+        'source',    'unknown',  @(i) ischar(i);...                        % (arbitrary string)
+        'functional','nondim',   @(i) ischar(i) && any(strcmp(i,gravity.functional_units_list)); %see above
+    };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
@@ -85,15 +79,42 @@ classdef gravity < simpletimeseries
     checksum
   end
   methods(Static)
-    function out=parameters
-      out=fieldnames(gravity.parameter_list);
+    function out=parameters(i,method)
+      persistent v parameter_names
+      if isempty(v)
+        v=varargs(gravity.parameter_list);
+        parameter_names=v.Parameters;
+      end
+      if ~exist('i','var') || isempty(i)
+        if ~exist('method','var') || isempty(method)
+          out=parameter_names(:);
+        else
+          switch method
+          case 'obj'
+            out=v;
+          otherwise
+            out=v.(method);
+          end
+        end
+      else
+        if ~exist('method','var') || isempty(method)
+          method='name';
+        end
+        if strcmp(method,'name') && isnumeric(i)
+          out=parameter_names{i};
+        else
+          switch method
+          case varargs.template_fields
+            out=v.get(i).(method);
+          otherwise
+            out=v.(method);
+          end
+        end
+      end
     end
     function out=issquare(in)
       in_sqrt=sqrt(in);
       out=(in_sqrt-round(in_sqrt)==0);
-    end
-    function out=default
-      out=gravity.default_list;
     end
     function out=functionals
       out=fieldnames(gravity.functional_units_list);
@@ -343,7 +364,8 @@ classdef gravity < simpletimeseries
       p.addParameter('scale_per_degree',ones(lmax+1,1), @(i) isvector(i) && lmax+1 == numel(i));
       p.addParameter('scale_per_coeff', ones(lmax+1),   @(i) ismatrix(i) && all([lmax+1,lmax+1] == size(i)));
       p.addParameter('t',               datetime('now'),@(i) isdatetime(i) || isvector(i));
-      p.parse(lmax,varargin{:});
+      %create argument object, declare and parse parameters, save them to obj
+      [v,p]=varargs.wrap('parser',p,'sources',{gravity.parameters([],'obj')},'mandatory',{lmax},varargin{:});
       %create unitary triangular matrix
       u=gravity.dtc('mat','tri',ones(lmax+1));
       %scale along degrees (if needed)
@@ -357,8 +379,10 @@ classdef gravity < simpletimeseries
       %replicate by the nr of elements of t
       u=ones(numel(p.Results.t),1)*gravity.dtc('tri','y',u);
       %initialize
-      varargin_now=simpledata.vararginclean(varargin,{'t'});
+      varargin_now=cells.vararginclean(varargin,{'t'});
       obj=gravity(p.Results.t,u,varargin_now{:});
+      % save the arguments v into this object
+      obj=v.save(obj);
       %call upstream scale method for global scale
       obj=obj.scale(p.Results.scale);
     end
@@ -620,7 +644,7 @@ classdef gravity < simpletimeseries
     end
     %% (half) wavelength to degree convertions
     function deg=wl2deg(wl)
-      deg=2*pi*obj.default_list.R./wl;
+      deg=2*pi*gravity.parameters('R','value')./wl;
     end
     function wl=deg2wl(deg)
       wl=gravity.wl2deg(deg);
@@ -762,37 +786,23 @@ classdef gravity < simpletimeseries
   methods
     %% constructor
     function obj=gravity(t,y,varargin)
-      % parameter names
-      pn=gravity.parameters;
       % input parsing
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 't'); %this can be char, double or datetime
-      p.addRequired( 'y',     @(i) simpledata.valid_y(i));
-      %declare parameters
-      for i=1:numel(pn)
-        %declare parameters
-        p.addParameter(pn{i},gravity.parameter_list.(pn{i}).default,gravity.parameter_list.(pn{i}).validation)
-      end
-      % parse it
-      p.parse(t,y,varargin{:});
+      p.addRequired( 't' ); %this can be char, double or datetime
+      p.addRequired( 'y', @(i) simpledata.valid_y(i));
+      %create argument object, declare and parse parameters, save them to obj
+      [v,p]=varargs.wrap('parser',p,'sources',{gravity.parameters([],'obj')},'mandatory',{t,y},varargin{:});
       % get some parameters
       lmax=gravity.y_lmax(y(1,:));
       [labels,units]=gravity.labels(lmax,gravity.functional_units(p.Results.functional));
       % call superclass
-      obj=obj@simpletimeseries(p.Results.t,p.Results.y,varargin{:},...
+      obj=obj@simpletimeseries(t,y,varargin{:},...
         'labels',labels,...
         'units',units...
       );
-      % save parameters
-      for i=1:numel(pn)
-        if ~isscalar(p.Results.(pn{i}))
-          %vectors are always lines (easier to handle strings)
-          obj.(pn{i})=transpose(p.Results.(pn{i})(:));
-        else
-          obj.(pn{i})=p.Results.(pn{i});
-        end
-      end
+      % save the arguments v into this object
+      obj=v.save(obj);
     end
     function obj=assign(obj,y,varargin)
       %pass it upstream
@@ -800,16 +810,19 @@ classdef gravity < simpletimeseries
       %update labels and units
       obj=obj.setlabels;
     end
-    function obj=copy_metadata(obj,obj_in)
-      %call superclass
-      obj=copy_metadata@simpletimeseries(obj,obj_in);
-      %propagate parameters of this object
-      parameters=gravity.parameters;
-      for i=1:numel(parameters)
-        if isprop(obj,parameters{i}) && isprop(obj_in,parameters{i})
-          obj.(parameters{i})=obj_in.(parameters{i});
-        end
+    function obj=copy_metadata(obj,obj_in,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
       end
+      %call superclass
+      obj=copy_metadata@simpletimeseries(obj,obj_in,[gravity.parameters;more_parameters(:)]);
+    end
+    function out=metadata(obj,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
+      end
+      %call superclass
+      out=metadata@simpletimeseries(obj,[gravity.parameters;more_parameters(:)]);
     end
     %% labels and units
     function obj=setlabels(obj)
@@ -1065,15 +1078,16 @@ classdef gravity < simpletimeseries
           %no scaling
           pos_scale=ones(N);
         case 'eqwh' %[m]
+          love=gravity.parameters('love','value');
           pos_scale=zeros(N);
           %converting Stokes coefficients from non-dimensional to equivalent water layer thickness
           for i=1:N
             deg=i-1;
             lv=interp1(...
-              gravity.default_list.love(:,1),...
-              gravity.default_list.love(:,2),...
+              love(:,1),...
+              love(:,2),...
               deg,'linear','extrap');
-            pos_scale(i,:)=obj.R*(gravity.default_list.rho_earth/gravity.default_list.rho_water) * 1/3 * (2*deg+1)/(1+lv);
+            pos_scale(i,:)=obj.R*obj.rho_earth/obj.rho_water/3*(2*deg+1)/(1+lv);
           end
         case 'geoid' %[m]
           pos_scale=ones(N)*obj.R;
@@ -1107,7 +1121,7 @@ classdef gravity < simpletimeseries
 %       find(abs(s-0.5)==min(abs(s-0.5)))
 %       %NOTICE: the tail of this function is unstable
 %       %http://dx.doi.org/10.1029/98JB02844
-%       b=log(2)/(1-cos(radius/obj.default_list.R));
+%       b=log(2)/(1-cos(radius/obj.R));
 %       c=exp(-2*b);
 %       s=zeros(1,obj.lmax+1);
 %       s(1)=1;                         %degree 0
@@ -1148,7 +1162,7 @@ classdef gravity < simpletimeseries
 %       find(abs(s-0.5)==min(abs(s-0.5)))
 %       %NOTICE: the tail of this function is unstable
 %       %http://dx.doi.org/10.1029/98JB02844
-%       b=log(2)/(1-cos(radius/obj.default_list.R));
+%       b=log(2)/(1-cos(radius/obj.R));
 %       c=exp(-2*b);
 %       s=zeros(1,obj.lmax+1);
 %       s(1)=1;                         %degree 0
@@ -1367,7 +1381,7 @@ classdef gravity < simpletimeseries
       p.addParameter('showlegend',false,   @(i)islogical(i));
       p.addParameter('line',     '-',      @(i)ischar(i));
       p.addParameter('title',    '',       @(i)ischar(i));
-      p.addParameter('functional',obj.functional,gravity.parameter_list.functional.validation);
+      p.addParameter('functional',obj.functional,@(i) ichar(i));
       p.addParameter('time',      [],      @(i) simpletimeseries.valid_t(i) || isempty(i));
       % parse it
       p.parse(varargin{:});

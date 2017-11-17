@@ -45,7 +45,7 @@ classdef str
       end
       out=char(floor((ascii_stop-ascii_start)*rand(l,n)) + ascii_start);
     end
-    function out=show(in,fmt)
+    function out=show(in,fmt,join_char)
       %trivial call
       if ischar(in)
         out=in;
@@ -55,16 +55,23 @@ classdef str
       if ~isscalar(in)
         out=cell(size(in));
         for i=1:numel(in)
-          out{i}=str.show(in(i));
+          if exist('fmt','var') && ~isempty(fmt)
+            out{i}=str.show(in(i),fmt);
+          else
+            out{i}=str.show(in(i));
+          end
         end
-        out=strjoin(out,' ');
+        if ~exist('join_char','var')
+          join_char=' ';
+        end
+        out=strjoin(out,join_char);
         return
       end
       %branch on s
       %branch on scalar type
       switch class(in)
       case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double'}
-        if exist('fmt','var')
+        if exist('fmt','var') && ~isempty(fmt)
           out=num2str(in,fmt);
         else
           out=num2str(in);
@@ -86,7 +93,17 @@ classdef str
       case 'duration'
         out=time.str(seconds(in));
       case 'struct'
-        out=[10,'  ',strjoin(strsplit(structs.str(in),char(10)),[10,'  ']),10];
+        if ~exist('join_char','var')
+          out=['  ',strjoin(strsplit(structs.str(in,'','',false),char(10)),[10,'  '])];
+        else
+          if strcmp(join_char,'_')
+            out=structs.str(in,'','_',false);
+          else
+            out=strjoin(strsplit(structs.str(in,'','',false),char(10)),join_char);
+          end
+        end
+      case 'function_handle'
+        out=func2str(in);
       otherwise
         try
           out=in.str;
@@ -245,9 +262,7 @@ classdef str
       out3=out2(cellfun(@(i) ~isempty(i),out2));      %remove empty cells
       out=cellfun(@(i) sscanf(i,'%f'),out3);          %convert to numeric cells
       %sanity
-      if ~isnumeric(out)
-        error([mfilename,': convertion from string to vector failed.'])
-      end
+      assert(isnumeric(out),'Convertion from string to vector failed.')
     end
     function out=titlecase(in,separator)
       if ~exist('separator','var') || isempty(separator)
@@ -308,6 +323,46 @@ classdef str
       fid = fopen(filename,'a');  
       fprintf(fid,[strjoin(msg,'\n'),'\n']);
       fclose(fid);
+    end
+    function out=logical(in,mode)
+      if ~exist('mode','var') || isempty(mode)
+        mode='truefalse';
+      end
+      %first make sure it's logical
+      switch class(in)
+      case 'logical'
+        %do nothing
+      case 'cell'
+        out=cellfun(@str.logical,in);
+      case 'datetime'
+        out=(in~=datetime(0,0,0));
+      case 'duration'
+        out=(in~=seconds(0));
+      otherwise
+        try
+          out=(in~=0);
+        catch
+          error([mfilename,': class ''',class(in),''' is not supported.'])
+        end
+      end
+      %then convert to requested mode
+      switch lower(mode)
+      case 'truefalse'; if in; out='true'; else out='false';end
+      case 'tf';        if in; out='T';    else out='F';    end
+      case 'onoff';     if in; out='on';   else out='off';  end
+      case 'yesno';     if in; out='yes';  else out='no';   end
+      otherwise
+        idx=strfind(mode,'-');
+        assert(~isempty(idx),['Unknown mode ''',mode,'''.'])
+        mode=strsplit(mode,'-');
+        if in; out=mode{1}; else out=mode{2}; end
+      end
+    end
+    %pads all entries of in with blanks until they all have the same length
+    function out=cellpad(in)
+      assert(iscellstr(in),['Need cell string, not ',class(in),'.'])
+      n=max(cellfun(@numel,in));
+      out=cellfun(@(i) [i,repmat(' ',1,n-numel(i))],in,'UniformOutput',false);
     end
   end
 end
