@@ -4,8 +4,9 @@ classdef plotting
         'plot_file_prefix',    '',        @(i) ischar(i);...
         'plot_file_suffix',    '',        @(i) ischar(i);...
         'plot_legend',         {},        @(i) iscellstr(i);...
-        'plot_legend_suppress',false,     @(i) islogical(i);...
+        'plot_legend_suppress',{},        @(i) iscellstr(i);...
         'plot_legend_location','best',    @(i) ischar(i);...
+     'plot_legend_fontname','FixedWidth', @(i) ischar(i);...
         'plot_ylabel',         '',        @(i) ischar(i);...
         'plot_xlabel',         '',        @(i) ischar(i);...
         'plot_xdate',          false,     @(i) islogical(i);...
@@ -14,12 +15,13 @@ classdef plotting
         'plot_ylimits',        [-inf,inf],@(i) isnumeric(i) && numel(i)==2;...
         'plot_size',    200+[0,0,21,9]*50,@(i) isnumeric(i) && numel(i)==4;...
         'plot_units',          'points',  @(i) ischar(i);...
-        'plot_visible',        'on',      @(i) any(strcmpi(i,{'on','off'}));...
+        'plot_visible',        'on',      @(i) islogical(i);...
         'plot_fontsize_axis',   24,       @(i) isnumeric(i) && isscalar(i); ...
         'plot_fontsize_title',  32,       @(i) isnumeric(i) && isscalar(i); ...
         'plot_fontsize_label',  28,       @(i) isnumeric(i) && isscalar(i); ...
+        'plot_fontsize_legend', 28,       @(i) isnumeric(i) && isscalar(i); ...
         'plot_title',           '',       @(i) ischar(i);...
-        'plot_title_suppress',  {''},     @(i) iscellstr(i);...
+        'plot_title_suppress',  {},       @(i) iscellstr(i);...
         'plot_title_suffix',    '',       @(i) ischar(i);...
         'plot_title_prefix',    '',       @(i) ischar(i);...
         'plot_grid',            true,     @(i) islogical(i);......
@@ -256,7 +258,7 @@ classdef plotting
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{plotting.default},varargin{:});
       %outputs
-      fig_handle=figure('visible',v.plot_visible);
+      fig_handle=figure('visible',str.logical(v.plot_visible,'onoff'));
       %plot size
       set(fig_handle, 'Position',          v.plot_size,...
                       'PaperUnits',        v.plot_units,...
@@ -327,7 +329,7 @@ classdef plotting
       end
       if ~isempty(v.plot_ylabel)
         out.ylabel_handle=ylabel(out.axis_handle,v.plot_ylabel);
-      elsplot_ylabel
+      elseif ~isfield(out,'ylabel_handle')
         out.ylabel_handle=[];
       end
       
@@ -362,18 +364,67 @@ classdef plotting
       end
       
       %enforce legend
-      if v.plot_legend_suppress
-        legend(out.axis_handle,'off')
-        out.legend_handle=[];
-      else
-        %set the legend text, if not empty
-        if ~isempty(v.plot_legend)
-          out.legend_handle=legend(out.axis_handle,v.plot_legend);
+      out.legend_handle=plotting.legend(varargin{:});
+    end
+    function legend_handle=legend(varargin)
+      scale_legend_str=' x ';
+      scale_legend_len=length(scale_legend_str);
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{plotting.default,{...
+        'axis_handle',  gca,  @(i) ~isempty(i) && ishandle(i);...
+      }},varargin{:});
+      % check if any legend is given
+      if ~isempty(v.plot_legend)
+        %clean legend of _ and remove whatever is given in plot_legend_suppress
+        v.plot_legend=cellfun(@(i) str.clean(i,[v.plot_legend_suppress(:);{'title'}]),v.plot_legend,'UniformOutput',false);
+        %align scale and mean, if there
+        legend_out=cell(numel(v.plot_legend),3);
+        %determine locations of the scales
+        scale_idx=strfind(v.plot_legend,scale_legend_str);
+        %patch empty entries
+        for i=1:numel(scale_idx)
+          if isempty(scale_idx{i})
+            scale_idx{i}=length(v.plot_legend{i});
+          else
+            scale_idx{i}=scale_idx{i}+scale_legend_len;
+          end
         end
+        %determine the locatios of biases
+        bias_idx=cell(size(scale_idx));
+        %patch empty entries
+        for i=1:numel(bias_idx)
+          %determine locations of the biases
+          bias_idx{i}=max(strfind(strtrim(v.plot_legend{i}(1:(scale_idx{i}-scale_legend_len))),' '));
+          if isempty(bias_idx{i})
+            bias_idx{i}=scale_idx{i};
+          else
+            bias_idx{i}=bias_idx{i}+1;
+          end
+        end
+        for i=1:numel(v.plot_legend)
+          legend_out{i,3}=strtrim(v.plot_legend{i}(scale_idx{i}:end));
+          legend_out{i,2}=strtrim(v.plot_legend{i}( bias_idx{i}:(scale_idx{i}-scale_legend_len)));
+          legend_out{i,1}=strtrim(v.plot_legend{i}(        1:(bias_idx{i}-1)));
+        end
+        %get maximum length of each legend section and pad with blanks (right-align)
+        for i=1:size(legend_out,2)
+          section_max_len=max(cellfun(@(x) length(x),legend_out(:,i)));
+          for j=1:size(legend_out,1)
+            legend_out{j,i}=str.tabbed(legend_out{j,i},section_max_len,true);
+          end
+        end
+        %assign column-aligned legend
+        for i=1:size(legend_out,1)
+          v.plot_legend{i}=strjoin(legend_out(i,:),' ');
+        end
+        %set the legend text
+        legend_handle=legend(v.axis_handle,v.plot_legend);
         %adjust the location of the legend (even if the default 'best', it may happen that it is no longer in a good position)
-        set(out.legend_handle,'location',v.plot_legend_location)
+        set(legend_handle,'location',v.plot_legend_location,'FontSize',v.plot_fontsize_legend,'FontName',v.plot_legend_fontname)
+      else
+        legend(v.axis_handle,'off')
+        legend_handle=[];
       end
-     
     end
     %% nice plotting stuff
     function out=dhist(x,y,z,varargin)
@@ -399,25 +450,50 @@ classdef plotting
       %create figure
       out.fig_handle=plotting.figure(varargin{:});
       %plot histogram of x
-      out.xhist.axis_handle=subplot(2,2,1);
-      out.xhist.plot_handle=histogram(x(:),v.xhistogramargs{:},'Normalization',v.normalization);
-      out.xhist.plot_handle.FaceColor=out.xhist.plot_handle.EdgeColor;
-      xlabel(v.xlabel);ylabel(get(out.xhist.plot_handle,'Normalization'))
+      axis_handle=subplot(2,2,1);
+      plot_handle=histogram(x(:),v.xhistogramargs{:},'Normalization',v.normalization);
+      plot_handle.FaceColor=plot_handle.EdgeColor;
+      out.xhist=plotting.enforce(v.varargin{:},...
+        'axis_handle',axis_handle,...
+        'plot_xdate',false,...
+        'plot_xlabel',v.xlabel,...
+        'plot_ylabel',get(plot_handle,'Normalization')...
+      );
+      out.xhist.plot_handle=plot_handle;
       %plot histogram of y
-      out.yhist.axis_handle=subplot(2,2,2);
-      out.yhist.plot_handle=histogram(y(:),v.yhistogramargs{:},'Normalization',v.normalization);
-      xlabel(v.ylabel);ylabel(get(out.yhist.plot_handle,'Normalization'))
-      out.yhist.plot_handle.FaceColor=out.yhist.plot_handle.EdgeColor;
+      axis_handle=subplot(2,2,2);
+      plot_handle=histogram(y(:),v.yhistogramargs{:},'Normalization',v.normalization);
+      plot_handle.FaceColor=plot_handle.EdgeColor;
+      out.yhist=plotting.enforce(v.varargin{:},...
+        'axis_handle',axis_handle,...
+        'plot_xdate',false,...
+        'plot_xlabel',v.ylabel,...
+        'plot_ylabel',get(plot_handle,'Normalization')...
+      );
+      out.yhist.plot_handle=plot_handle;
       %plot histogram of z
-      out.zhist.axis_handle=subplot(2,2,3);
-      out.zhist.plot_handle=histogram(z(:),v.zhistogramargs{:},'Normalization',v.normalization);
-      xlabel(v.zlabel);ylabel(get(out.zhist.plot_handle,'Normalization'))
-      out.zhist.plot_handle.FaceColor=out.zhist.plot_handle.EdgeColor;
+      axis_handle=subplot(2,2,3);
+      plot_handle=histogram(z(:),v.zhistogramargs{:},'Normalization',v.normalization);
+      plot_handle.FaceColor=plot_handle.EdgeColor;
+      out.zhist=plotting.enforce(v.varargin{:},...
+        'axis_handle',axis_handle,...
+        'plot_xdate',false,...
+        'plot_xlabel',v.zlabel,...
+        'plot_ylabel',get(plot_handle,'Normalization')...
+      );
+      out.zhist.plot_handle=plot_handle;
       %plot scatter
-      out.scatter.axis_handle=subplot(2,2,4);
-      out.scatter.plot_handle=scatter(x(:),y(:),v.markersize,z(:),'filled');
+      axis_handle=subplot(2,2,4);
+      plot_handle=scatter(x(:),y(:),v.markersize,z(:),'filled');
+      out.scatter=plotting.enforce(v.varargin{:},...
+        'axis_handle',axis_handle,...
+        'plot_xdate',false,...
+        'plot_xlabel',v.xlabel,...
+        'plot_ylabel',v.ylabel...
+      );
+      out.scatter.plot_handle=plot_handle;
       out.scatter.cb_handle=colorbar;
-      xlabel(v.xlabel);ylabel(v.ylabel);ylabel(out.scatter.cb_handle,[v.zlabel,' ',get(out.zhist.plot_handle,'Normalization')])
+      ylabel(out.scatter.cb_handle,[v.zlabel,' ',get(out.zhist.plot_handle,'Normalization')])
     end
   end
 end

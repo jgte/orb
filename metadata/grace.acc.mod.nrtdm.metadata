@@ -3,7 +3,7 @@ method: datastorage.init_nrtdm
 nrtdm_product: Panels/Accel_AeroRadiationPressure
 sats: [A,B]
 nrtdm_sats: [GA,GB]
-storage_period: direct
+storage_period: none
 plot_columns: [1,2,3]
 plot_autoscale: true
 plot_automean: true

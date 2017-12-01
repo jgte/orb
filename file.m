@@ -38,7 +38,7 @@ classdef file
       else
         %make sure dir exists
         d=fileparts(filename);
-        if ~exist(d,'dir')
+        if ~exist(d,'dir') && isempty(strfind(perm,'r'))
           [st,msg]=mkdir(d);
           assert(st,['error creating directory ''',d,''': ',msg])
         end
@@ -292,6 +292,15 @@ classdef file
       else
         out=cells.rm_empty(strsplit(r,char(10)));
       end
+    end
+    function count=length(filename)
+      [fid,~,close_file]=file.open(filename,'r');
+      count = 0;
+      while true
+        if ~ischar( fgetl(fid) ); break; end
+        count = count + 1;
+      end
+      if close_file, fclose(fid); end
     end
   end
 end

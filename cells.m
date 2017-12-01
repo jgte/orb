@@ -30,18 +30,18 @@ classdef cells
       if ~exist('depth_now','var')
         depth_now=0;
       end
-      out=true;
       if ~iscell(in)
         out=false;
         return
       end
-      if depth_now<depth
+      if depth_now<depth %&& ~isempty(in) %an empty cell returns true with depth 1
         for i=1:numel(in)
           if ~cells.iscellofcells(in{i},depth,depth_now+1);
             out=false;
             return
           end
         end
+        out=~isempty(in);
       else
         out=iscell(in);
       end
@@ -52,7 +52,7 @@ classdef cells
     function out=rm_empty(in)
       out=in(~cells.isempty(in));
     end
-    function out=iscellstrfind(cellstrin,strin)
+    function out=iscellstrempty(cellstrin,strin)
       if iscellstr(strin) && ischar(cellstrin)
         %switch it around
         tmp=strin;
@@ -61,6 +61,9 @@ classdef cells
       end
       out=~cellfun(@isempty,strfind(cellstrin,strin));
     end
+    function out=cellstrfind(cellstrin,strin)
+      out=find(cells.iscellstrempty(cellstrin,strin));
+    end
     %returns a cell array with the sizes of the contents
     function out=size(in)
       out=cellfun(@(i) size(i),in,'UniformOutput',false);
@@ -68,7 +71,7 @@ classdef cells
     %this is similar to cell2mat but any type of objects is supported
     function out=c2m(in)
       %trivial call
-      if ~iscell(in)
+      if ~iscell(in) || iscellstr(in)
         out=in;
         return
       end

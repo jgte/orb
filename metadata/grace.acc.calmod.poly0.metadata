@@ -3,8 +3,8 @@ sources: [grace.acc.mod.csr,grace.acc.l1b.csr]
 sats: [A,B]
 coords: [X,Y,Z]
 storage_period: daily
-arcs_per_day: [1,8,1]
-arcs_poly_order: [2,2,2]
+calpar_cyclesperday: [1,8,1]
+calpar_poly_order: [2,2,2]
 l1b_median_order: 10
 arc_scheme: csr
 arc_timeline_file: <getenv('HOME')>/data/csr/GraceAccCal/arctimeline.GraceAccCal

@@ -1,6 +1,6 @@
 classdef num
   methods(Static)
-    function out=cov(x,y)
+     function out=cov(x,y)
       n=size(x,2);
       if n==0
         out=0;
@@ -211,7 +211,7 @@ classdef num
         out=in;
       end
     end
-    function x_opt=parsearch(fun,x,varargin)
+    function x_opt=param_search1(fun,x,varargin)
       % input parsing
       p=inputParser; p.KeepUnmatched=true;
       p.addRequired( 'fun',                   @(i) isa(i,'function_handle'));
@@ -221,6 +221,7 @@ classdef num
       p.addParameter('interpmethod','spline', @(i) ischar(i));
       p.addParameter('plot',           false, @(i) islogical(i));
       p.addParameter('enforce_scalar', false, @(i) islogical(i));
+      p.addParameter('vectorize',     false, @(i) islogical(i));
       p.parse(fun,x,varargin{:})
       %define search space
       switch p.Results.searchspace
@@ -231,11 +232,16 @@ classdef num
       otherwise
         error(['Cannot handle argument ''searchspace'' with value ''',p.Results.searchspace,'''.'])
       end
-      %init records
-      y=nan(size(x));
-      %loop over xrange
-      for i=1:numel(x)
-        y(i)=fun(x(i));
+      %use vectorize if allowed
+      if p.Results.vectorize
+        y=fun(x);
+      else
+        %init records
+        y=nan(size(x));
+        %loop over xrange
+        for i=1:numel(x)
+          y(i)=fun(x(i));
+        end
       end
       %interpolate
       yd=interp1(x,y,xd,p.Results.interpmethod);
@@ -258,6 +264,138 @@ classdef num
         set(gca,'XScale',p.Results.searchspace)
         legend({'minimum','tries','interpolated'})
       end
+    end
+    function [x_opt,y,x]=param_brute(fun,x_lower,x_upper,varargin)
+      % input parsing
+      p=inputParser; p.KeepUnmatched=true;
+      p.addRequired( 'fun',                   @(i) isa(i,'function_handle'));
+      p.addRequired( 'x_upper',               @(i) isnumeric(i));
+      p.addRequired( 'x_lower',               @(i) isnumeric(i));
+      p.addParameter('searchspace', 'linear', @(i) ischar(i));
+      p.addParameter('searchlen',        100, @(i) isnumeric(i));
+      p.addParameter('searchlenmaxfactor',5e9,@(i) isnumeric(i));
+      p.addParameter('searchiter',         0, @(i) isnumeric(i));
+      p.addParameter('searchiter_counter', 0, @(i) isnumeric(i));
+      p.addParameter('searchpdf',     'rand', @(i) ischar(i));
+      p.addParameter('searchshrinkfactor', 2, @(i) isnumeric(i));
+      p.addParameter('vectorize',      false, @(i) islogical(i));
+      p.parse(fun,x_upper,x_lower,varargin{:})
+      %sanity
+      assert(numel(x_upper)==numel(x_lower),...
+        'Arguments ''x0'', ''x_upper'' and ''x_lower'' must have the same number of elements')
+      %simpler names
+      l=p.Results.searchlen;
+      n=numel(x_upper);
+      searchpdf=str2func(p.Results.searchpdf);
+      %define search space
+      switch p.Results.searchspace
+      case {'linear'}
+        d0=x_lower;
+        dx=x_upper-d0;
+        x=searchpdf(l,n).*(ones(l,1)*dx)+ones(l,1)*d0;
+      case {'log'}
+        d0=log10(x_lower);
+        dx=log10(x_upper)-d0;
+        x=10.^(searchpdf(l,n).*(ones(l,1)*dx)+ones(l,1)*d0);
+      otherwise
+        error(['Cannot handle argument ''searchspace'' with value ''',p.Results.searchspace,'''.'])
+      end
+      %limit the search length: get an estimate of the memory used by fun
+      fun_info=functions(fun);
+      fun_mem=sum(structfun(@(i) numel(i),fun_info.workspace{1}));
+      if l*fun_mem^2>p.Results.searchlenmaxfactor
+        l_old=l;
+        l=floor(p.Results.searchlenmaxfactor/fun_mem^2);
+        str.say('stack_delta',1,['searchlen reset to ',num2str(l),...
+          ' because searchlen*fun_mem>searchlenmaxfactor (',...
+          num2str(l_old),'*',num2str(fun_mem),'>',num2str(p.Results.searchlenmaxfactor),')'])
+      end
+      %use vectorize if allowed
+      if p.Results.vectorize
+        y=fun(x);
+      else
+        %init records
+        y=nan(size(x,1),1);
+        %loop over xrange
+        for i=1:size(x,1)
+          y(i)=fun(x(i,:));
+        end
+      end
+      assert(~any(isnan(y)),'Found NaNs in the output of fun')
+      %retrieve lowest value from all y and get corresponding x
+      x_opt=x(find(min(y)==y,1,'first'),:);
+      %iterate if requested
+      if p.Results.searchiter>0
+        sd=1+p.Results.searchiter_counter;
+        str.say('stack_delta',sd,str.tablify(16,'----- iter ----- ',p.Results.searchiter_counter+1))
+        str.say('stack_delta',sd,str.tablify(16,'res',min(y)))
+        str.say('stack_delta',sd,str.tablify(16,'res',min(y)))
+        str.say('stack_delta',sd,str.tablify(16,'x_lower',x_lower))
+        str.say('stack_delta',sd,str.tablify(16,'x_opt',x_opt))
+        str.say('stack_delta',sd,str.tablify(16,'x_upper',x_upper))
+        if p.Results.searchiter_counter<=p.Results.searchiter
+          %define next iter search space amplitude
+          dx=dx/p.Results.searchshrinkfactor;
+          %define next iter search space
+          switch p.Results.searchspace
+          case {'linear'}
+            x_lower=x_opt-dx/2;
+            x_upper=x_opt+dx/2;
+          case {'log'}
+            x_lower=x_opt./10.^(dx/2);
+            x_upper=x_opt.*10.^(dx/2);
+          otherwise
+            error(['Cannot handle argument ''searchspace'' with value ''',p.Results.searchspace,'''.'])
+          end
+          %iteration number
+          iter=p.Results.searchiter_counter+1;
+          %recursive call
+          [~,y_iter,x_iter]=num.param_brute(fun,...
+            x_lower,...
+            x_upper,...
+            varargin{:},...
+            'searchlen',l,...
+            'searchiter_counter',iter ...
+          );
+          %append to existing set of y,x
+          y=[y(:);y_iter(:)];x=[x;x_iter];
+          %update lowest value from all y and get corresponding x (may be the same)
+          x_opt=x(find(min(y)==y,1,'first'),:);
+        end
+      end
+    end
+    %% memory utils (everything is in Mb)
+    function out=memory_system
+      if ismac
+        com='sysctl hw.memsize';
+        [status, cmdout]=system(com);
+        if status; error(['could not issue the command ''',com,'''; debug needed.']);end
+        cmdout=cells.rm_empty(strsplit(cmdout));
+        out=str2double(cmdout{2})/1024^2;
+      elseif isunis
+        error('implementation needed')
+      elseif ispc
+        error('implementation needed')
+      else
+        error('cannot determine the operating system type')
+      end
+      if isnan(out);keyboard;end
+    end
+    function out=memory_matlab_fraction
+      if ismac
+        com='ps -c -o ''pmem comm'' | grep maci64';
+        [status, cmdout]=system(com);
+        if status; error(['could not issue the command ''',com,'''; debug needed.']);end
+        cmdout=cells.rm_empty(strsplit(cmdout));
+        out=str2double(cmdout{1})/100;
+      elseif isunis
+        error('implementation needed')
+      elseif ispc
+        error('implementation needed')
+      else
+        error('cannot determine the operating system type')
+      end
+      if isnan(out);keyboard;end
     end
   end
 end

@@ -8,6 +8,7 @@ classdef datastorage
       'debug',          false,         @(i) islogical(i);...
 %       'metadata_dir',   dataproduct.parameters('metadata_dir','value'),@(i) ischar(i);...
     };
+    
   end
   %public
   properties(GetAccess=public,SetAccess=public)
@@ -464,21 +465,31 @@ classdef datastorage
       out=obj.stopi;
     end
     function obj=set.start(obj,start)
+      %save current global start value
+      old_start=obj.starti;
       %check if updating is needed
-      if isempty(obj.stopi) || start>obj.starti
+      if isempty(obj.starti) || start>obj.starti
         %update internal record
         obj.starti=start;
+      end
+      %check if something changed (also trims newly added data that starts before old_start)
+      if isempty(old_start) || start~=old_start
         %trim all data entries
-        obj=obj.vector_method_set('all','start',start);
+        obj=obj.vector_method_set('all','start',obj.starti);
       end
     end
     function obj=set.stop(obj,stop)
+      %save current global stop value
+      old_stop=obj.stopi;
       %check if updating is needed
       if isempty(obj.stopi) || stop<obj.stopi
         %update internal record
         obj.stopi=stop;
+      end
+      %check if something changed (also trims newly added data that end after old_stop)
+      if isempty(old_stop) || stop~=obj.stopi
         %trim all data entries
-        obj=obj.vector_method_set('all','stop',stop);
+        obj=obj.vector_method_set('all','stop',obj.stopi);
       end
     end
     function obj_out=trim(obj,varargin)
@@ -633,7 +644,7 @@ classdef datastorage
       end
       % debug output
       success=true;
-      obj.log('@','out','product',product)
+      obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
     function save(obj,product,varargin)
       %ignore plot products, file saving is done inside the init method
@@ -641,11 +652,22 @@ classdef datastorage
         return
       end
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
+      % get the data
+      s_out=obj.value_get(product);
+      if isstruct(s_out)
+        % serialize the data
+        s_cells=structs.get_value_all(s_out);
+      else
+        s_cells={s_out};
+      end
+      % get list of start/stop dates from the data
+      startlist=cells.c2m(cellfun(@(i) i.start,s_cells,'UniformOutput',false));
+      stoplist =cells.c2m(cellfun(@(i) i.stop, s_cells,'UniformOutput',false));
       % get the file list
       [file_list,startlist,stoplist]=product.file('data',...
         'discover',false,...
-        'start',obj.start,...
-        'stop',obj.stop,...
+        'start',min(startlist),...
+        'stop',max(stoplist),...
         varargin{:}...
       );
       %check if nothing is to be save
@@ -654,8 +676,6 @@ classdef datastorage
         return
       end
       obj.log('nr of files to save',numel(file_list))
-      %get the data
-      s_out=obj.value_get(product);
       %loop over all files
       for f=1:numel(file_list)
         % debug output
@@ -675,8 +695,10 @@ classdef datastorage
             s=s_out.trim(startlist(f),stoplist(f));
           end
         end
-        %save this section of the data to the file
-        save(file_list{f},'s');
+        %save this section of the data to the file (unless empty)
+        if ~isempty(s) && numel(s)>0 && all(size(s)>0)
+          save(file_list{f},'s');
+        end
       end
       % debug output
       obj.log('@','out','product',product)
@@ -732,7 +754,7 @@ classdef datastorage
           product.dataname=product.dataname.append_field_leaf(p.Results.subcat);
         end
         %expand existing leafs in this product (should generally return itself, since this product has not yet been initialized)
-        product_list=obj.product_leafs({product});
+        product_list=product.field_path_expand(obj.data_list(product));
       end
       %loop over all products
       for i=1:numel(product_list)
@@ -754,16 +776,17 @@ classdef datastorage
           if ~success
             % invoke init method, for all unwrapped leaf products (if any)
             obj=ih(obj,product_list{i},varargin{:});
-            % update start/stop
-            obj=obj.startstop_retrieve_update(product_list{i});
             % save data
             obj.save(product_list{i},varargin{:});
+            % update start/stop
+            % NOTE: this has to come after saving so that data that is saved in long chunks (i.e. monthly) can be effectively
+            %       saved.
+            obj=obj.startstop_retrieve_update(product_list{i});
           end
         else
           obj.log('@','iter: data already loaded')
         end
       end
-      obj.log('@','out','id',id,'start',obj.start,'stop',obj.stop)
       %user feedback
       if ~obj.debug
         str.say('initialized',product.str)
@@ -771,13 +794,7 @@ classdef datastorage
       %check if this product is too old for the requested start/stop dates
       assert(obj.start<obj.stop,['Requested start/stop dates are incompatible with product ',product.str,...
         '; consider updating the data in that product.'])
-    end
-    function out=product_leafs(obj,product_list,varargin)
-      if iscell(product_list)
-        out=cells.flatten(cellfun(@(i) obj.product_leafs(i,varargin{:}),product_list,'UniformOutput',false));
-      else
-        out=product_list.field_path_expand(obj.data_list(product_list,varargin{:}));
-      end
+      obj.log('@','out','id',id,'start',obj.start,'stop',obj.stop)
     end
     function source_list=source_leafs(obj,id_list)
       if iscell(id_list)
@@ -1078,7 +1095,7 @@ classdef datastorage
           end
         end
         %remove strings as needed
-        legend_str=cellfun(@(i) str.clean(i,p.Results.plot_legend_suppress),legend_str,'UniformOutput',false);
+        legend_str=cellfun(@(i) str.clean(i,[p.Results.plot_legend_suppress(:);{'title'}]),legend_str,'UniformOutput',false);
         %put the legend in the current plot
         set(legend(legend_str),'fontname','courier')
       end
@@ -1128,6 +1145,10 @@ classdef datastorage
       %put the ylabel in the current plot, if not empty
       if ~isempty(ylabel_str)
         ylabel(ylabel_str)
+      end
+      %easy, no units
+      if p.Results.plot_normalize
+        ylabel('[ ]')
       end
     end
     function plot_annotate(obj,h,dn,dn_list,varargin)
@@ -1317,19 +1338,16 @@ classdef datastorage
           'plot_columns',plot_columns{i}...
         );
       end
-      %reset ylabel
-      if p.Results.plot_normalize
-        %easy, no units
-        ylabel('[ ]')
-      else
-        %otherwise use intersetion of all labels involved
+      %annotate plot
+      obj.plot_annotate(h,dn,dn_list,varargin{:})
+      %reset ylabel to use intersetion of all labels involved (if plot is not normalized)
+      if ~p.Results.plot_normalize
         label_str=cells.deal_struct(h,'ylabel');
         label_str=cellfun(@(i) strsplit(i,'\[|\]','DelimiterType','RegularExpression'),label_str,'UniformOutput',false);
         label_str=unique(cellfun(@(i) i{2},label_str,'UniformOutput',false));
         ylabel(strjoin(label_str,' or '))
       end
-      %annotate plot
-      obj.plot_annotate(h,dn,dn_list,varargin{:})
+      %done
       obj.log('@','out','dn',dn,'start',obj.start,'stop',obj.stop)
     end
     %parses the sources of a product and calls plot_mult (useful as value of the 'method' metadata field)
@@ -1347,6 +1365,10 @@ classdef datastorage
       p=product.plot_args(p,varargin{:});
       %retrieve plot elements (repetitive processing of parameters)
       e=obj.plot_elements(p,product,varargin{:});
+      %inform user if nothing to plot
+      if isempty(e.startlist)
+        str.say('Nothing to plot for',product,'varargin =',varargin{:},'start =',obj.start,'stop =',obj.stop)
+      end
       %loop over all data
       for t=1:numel(e.startlist)
         %loop over all columns to plot
@@ -1392,7 +1414,7 @@ classdef datastorage
           end
         end
       end
-      obj.log('@','in','id',id,'start',obj.start,'stop',obj.stop)
+      obj.log('@','out','id',id,'start',obj.start,'stop',obj.stop)
     end
     %% generalized operations
     function obj=stats(obj,product,varargin)

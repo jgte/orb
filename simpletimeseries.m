@@ -440,7 +440,7 @@ classdef simpletimeseries < simpledata
           arch=true;
           filenames=untar(in,d);
           %get rid of PaxHeaders
-          filenames(cells.iscellstrfind(filenames,'PaxHeaders'))=[];
+          filenames(cells.iscellstrempty(filenames,'PaxHeaders'))=[];
         case {'.gz','.gzip'}
           arch=true;
           filenames=gunzip(in,d);
@@ -918,14 +918,10 @@ classdef simpletimeseries < simpledata
     end
     %constructors
     function out=unitc(t,width,varargin)
-      out=simpletimeseries(t(:),ones(numel(t),width),...
-        varargin{:}...
-      );
+      out=simpletimeseries(t(:),ones(numel(t),width),varargin{:});
     end
     function out=randn(t,width,varargin)
-      out=simpletimeseries(t(:),randn(numel(t),width),...
-        varargin{:}...
-      );
+      out=simpletimeseries(t(:),randn(numel(t),width),varargin{:});
     end
   end
   methods
@@ -1348,7 +1344,7 @@ classdef simpletimeseries < simpledata
     %the detrend method can be called directly
     %the outlier method can be called directly
     %the medfilt method can be called directly
-    function obj=median(obj,n,keet_time_domain)
+    function obj=median(obj,span,keet_time_domain)
       if ~exist('keet_time_domain','var') || isempty(keet_time_domain)
         keet_time_domain=false;
       end
@@ -1357,12 +1353,16 @@ classdef simpletimeseries < simpledata
         t_now=obj.t;
       end
       %handle periods
-      if isduration(n)
+      if isduration(span)
         %compute (average) number of epochs within the requested t_span
-        n=round(n/obj.step);
+        span=round(span/obj.step);
+      end
+      %trivial call: ignore irrelevant spans
+      if span <= 1
+        return
       end
       %call superclass
-      obj=median@simpledata(obj,n);
+      obj=median@simpledata(obj,span);
       if keet_time_domain
         %resample (if needed, which is checked inside resample)
         obj=obj.interp(t_now,...
@@ -1692,20 +1692,114 @@ classdef simpletimeseries < simpledata
       obj1=glue@simpledata(obj1,obj2);
     end
     %% wrappers
-    function obj=smooth(obj,varargin)
-      if strcmp(varargin{1},'t_span')
+    function obj=smooth(obj,span,varargin)
+      %handle periods
+      if isduration(span)
         %compute (average) number of epochs within the requested t_span
-        span=round(varargin{2}/obj.step);
-        %clean varargin
-        varargin=varargin(3:end);
-      elseif numel(varargin)>0 && isnumeric(varargin{1});
-        span=varargin{1};
-        varargin=varargin(2:end);
-      else
-        assert(numel(varargin)==0,'First argument must be ''t_span'' or numeric')
+        span=round(span/obj.step);
+      end
+      %trivial call: ignore irrelevant spans
+      if span <= 1
+        return
       end
       %call mother routine
       obj=smooth@simpledata(obj,span,varargin{:});
+    end
+    %% frequency analysis
+    function [obj,filter_response]=bandpass(obj,T,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      % add stuff as needed
+      p.addRequired('T',                 @(i) isduration(i) && numel(i)==2 && i(1)>i(2));
+      p.addParameter('gaps',  'zeroed',  @(i) ischar(i));
+      p.addParameter('debug_plot',false, @(i) islogical(i) && isscalar(i));
+      p.addParameter('soft_transition_radius', 0.1, @(i) isnumeric(i) && isscalar(i));
+      % parse it
+      p.parse(T,varargin{:});
+      %handle gaps
+      switch p.Results.gaps
+      case 'trunc'
+        %truncating bad data (not a good idea)
+        data_in=obj.y_masked;
+      case 'zeroed'
+        %zeroing bad data
+        data_in=obj.y;
+        data_in(~obj.mask,:)=0;
+      otherwise
+        error([mfilename,': unknown gap handling mode ''',p.Results.gaps,'''.'])
+      end
+      %sanity
+      if any(isnan(data_in(:)))
+          error([mfilename,': found NaNs in the input data.'])
+      end
+      %computational length
+      n = 2^nextpow2(size(data_in,1));
+      %build long filter domain
+      ff=1/obj.step_num/2*linspace(0,1,n/2);
+      fP=zeros(size(ff));
+      %convert to Herts
+      Wn=1./seconds(T);
+      disp(str.show({'bandpass periods    : [',T,']'}))
+      disp(str.show({'bandpass frequencies: [',Wn,'] Hz'}))
+      %assign filter factors
+      fP(ff>=Wn(1) & ff<=Wn(2))=1;
+      %trivial call: cut-off frequencies are outside nyquist and lowest frequency (e.g. [inf,0])
+      if sum(fP)==0; return; end
+      %parameters (min is needed in case the pass-band is very wide)
+      smooth_radius=min([...
+        ceil(sum(~fP)*p.Results.soft_transition_radius),...
+        ceil(sum( fP)*p.Results.soft_transition_radius)...
+      ]); %data points
+      %smooth transitions
+      idx={...
+        find(ff<Wn(1),1,'last'),...
+        find(ff>Wn(2),1,'first')...
+      };
+      % figure
+      % semilogx(ff,fP), hold on
+      for i=1:2
+        if ~isempty(idx{i})
+          idx_out=(idx{i}-smooth_radius):(idx{i}+smooth_radius+1);
+          idx_in =[idx_out(1),idx_out(end)];
+          fP(idx_out)=spline(ff(idx_in),[0 fP(idx_in) 0],ff(idx_out));
+        end
+      end
+      % semilogx(ff,fP), hold on
+      % keyboard
+      %mirror the filter
+      fP=[fP,fliplr(fP)];
+      %apply the filter
+      fX=fft(data_in,n).*(fP(:)*ones(1,size(data_in,2)));
+      fx=ifft(fX,'symmetric');
+      %trim excess
+      fx=fx(1:size(data_in,1),:);
+      if p.Results.debug_plot
+        m=numel(ff);
+        X=fft(data_in(:,1),n);
+        PX=X(1:m).*conj(X(1:m));
+        PfX=fX(1:m,1).*conj(fX(1:m,1));
+        figure
+        subplot(2,1,1)
+        title('frequency domain')
+        loglog(ff,PX), hold on
+        loglog(ff,PfX)
+        loglog(ff,fP(1:m)*max([max(PX),max(PfX)]))
+        legend('original','filtered','filter')
+
+        subplot(2,1,2)
+        title('time domain')
+        plot(fx(:,1)), hold on
+        plot(obj.y(:,1))
+        legend('filtered','original')
+        keyboard
+      end
+      %propagate
+      obj=obj.assign(fx,'t',obj.t,'mask',obj.mask);
+      %additional outputs
+      if nargout>1
+        filter_response.f=ff;
+        filter_response.a=fP(1:numel(ff));
+      end
     end
     %% plot methots
     function out=plot(obj,varargin)

@@ -1,4 +1,4 @@
-storage_period: direct
+storage_period: none
 method: gswarm.load_models
 use_GRACE_C20: true
 delete_C20: false

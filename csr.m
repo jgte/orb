@@ -1,7 +1,9 @@
 classdef csr
   %static
   properties(Constant)
-    arc_timeline_file='/Users/teixeira/data/csr/GraceAccCal/arctimeline.GraceAccCal';
+    arc_timeline_file=[getenv('HOME'),'/data/csr/GraceAccCal/arctimeline.GraceAccCal'];
+    estim_dir_root=[getenv('HOME'),'/data/csr/EstimData/RL05'];
+    estimdir_file=[csr.estim_dir_root,'/EstimDirs_RL05'];
   end
   methods(Static)
     %% utilities
@@ -292,6 +294,372 @@ classdef csr
       end
     end
     %% importers
+    function obj=import_calpar_slow(obj,product,varargin)
+      %open log file
+      csr.log
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{{...
+        'debugdate',   [], @(i) ischar(i)   || isempty(i);
+      },csr.ltb_args,product.metadata},varargin{:});
+      %load data
+      for i=1:numel(v.levels)
+        for j=1:numel(v.calpars)
+          tmp=struct('A',[],'B',[]);
+          for s=1:numel(v.sats)
+            %read L1B data
+            f=fullfile(v.import_dir,['gr',v.sats{s},'.',v.calpars{j},'.',v.levels{i},'.GraceAccCal']);
+            tmp.(v.sats{s})=simpletimeseries.import(f,'cut24hrs',false);
+            %apply long-term bias
+            tmp.(v.sats{s})=tmp.(v.sats{s}).set_cols(v.param_col,...
+              csr.ltb_apply(v.varargin{:},...
+                'ts',tmp.(v.sats{s}).get_cols(v.param_col),...
+                'sat',v.sats{s},...
+                'field',v.calpars{s}...
+              )...
+            );
+            %additional processing: add end of arcs
+            switch v.levels{i}
+            case {'aak','accatt'}
+              error('Needs implementation')
+            case 'estim'
+              %get arc stars
+              arc_starts=tmp.(v.sats{s}).t;
+              %build arc ends (arc duration given explicitly)
+              arc_ends=arc_starts+seconds(tmp.(v.sats{s}).y(:,v.arclen_col))-seconds(1);
+              %patch missing arc durations
+              idx=find(isnat(arc_ends));
+              %report edge cases
+              csr.report(obj.debug,idx,'Arcs without arc length',f,...
+                {'arc start','arc duraction'},...
+                {arc_starts,  tmp.(v.sats{s}).y(:,v.arclen_col)}...
+              )
+              %fix it
+              if ~isempty(idx);
+                arc_ends(idx)=dateshift(arc_starts(idx),'end','day')-seconds(1);
+              end
+            end
+            %bug trap
+            assert(all(~isnat(arc_starts)),...
+              [mfilename,': found NaT in the arc starts'])
+
+            %compute arc day start and end
+            day_starts=dateshift(arc_starts,'start','day');
+            day_ends  =dateshift(arc_starts,'end',  'day');
+            %arc ends cannot go over day boundaries
+            idx=find(arc_ends>=day_ends);
+            csr.report(obj.debug,idx,'Arc ends over day boundary',f,...
+              {'curr arc start','curr arc end','day ends'},...
+              {      arc_starts,      arc_ends, day_ends}...
+            )
+            %fix it
+            if ~isempty(idx)
+              arc_ends(idx)=day_ends(idx)-seconds(1);
+            end
+            %bug trap
+            assert(all(~isnat(arc_ends)),...
+              [mfilename,': found NaT in the arc starts/ends'])
+
+            %surpress over-lapping arcs
+            idx=find(arc_starts(2:end)-arc_ends(1:end-1)<0);
+            csr.report(obj.debug,idx,'Over-lapping arcs',f,...
+              {'curr arc start','curr arc end','next arc start'},...
+              {     arc_starts,      arc_ends, [arc_starts(2:end);arc_starts(1)]}...
+            )
+            %fix it
+            if ~isempty(idx)
+              arc_ends(idx)=arc_starts(idx+1)-seconds(1);
+            end
+
+            %fancy stuff: handle parameters defined as arc segments
+            if ~isempty(strfind(v.calpars{j},'AC0Y'))
+              %there are 8 segments per day
+              periodicity=days(1)/8;
+              %get day location for this parameter
+              day_loc=str2double(v.calpars{j}(end));
+              %get sub-arc starts/ends
+              sub_arc_starts=arc_starts+periodicity*(day_loc-1);
+                sub_arc_ends=arc_starts+periodicity*(day_loc  )-seconds(1);
+              %get sub arc boundaries
+              sub_arc_bound_starts=max([arc_starts,day_starts],[],2);
+              sub_arc_bound_ends  =min([arc_ends,  day_ends  ],[],2);
+              %cap sub-arc start/ends to be within the current day
+              idx={...
+                find( sub_arc_starts>sub_arc_bound_ends   ),...
+                find( sub_arc_starts<sub_arc_bound_starts ),...
+                find( sub_arc_ends  >sub_arc_bound_ends   ),...
+                find( sub_arc_ends  <sub_arc_bound_starts )...
+              };
+              msg={...
+                'Sub-arc starts after day/arc ends',...
+                'Sub-arc starts before day/arc starts',...
+                'Sub-arc ends after day/arc ends',...
+                'Sub-arc ends before day/arc starts'...
+              };
+              for k=1:numel(idx)
+                csr.report(obj.debug,idx{k},msg{k},f,...
+                  {'sub-arc start','sub-arc end','day start','day end'},...
+                  { sub_arc_starts, sub_arc_ends, day_starts, day_ends}...
+                )
+                %fix it
+                if ~isempty(idx{k})
+                  switch k
+                  case 1; sub_arc_starts(idx{k})=sub_arc_bound_ends(  idx{k});
+                  case 2; sub_arc_starts(idx{k})=sub_arc_bound_starts(idx{k});
+                  case 3; sub_arc_ends(  idx{k})=sub_arc_bound_ends(  idx{k});
+                  case 4; sub_arc_ends(  idx{k})=sub_arc_bound_starts(idx{k});
+                  end
+                end
+              end
+              %propagate the arc extremeties
+              arc_starts=sub_arc_starts;
+                arc_ends=sub_arc_ends;
+            end
+            
+            %propagate data
+            arc_start_y=tmp.(v.sats{s}).y;
+              arc_end_y=tmp.(v.sats{s}).y;
+
+            %remove arcs with zero length (only applicable to AC0Y*2-8)
+            zero_len_idx=find(arc_ends-arc_starts<=0);
+            csr.report(obj.debug,zero_len_idx,'Non-positive arc length',f,...
+              {'arc start','arc end','arc_length'},...
+              { arc_starts, arc_ends, arc_ends-arc_starts}...
+            )
+            if ~isempty(zero_len_idx)
+              good_idx=(arc_ends-arc_starts>0);
+              arc_starts =arc_starts( good_idx);
+              arc_ends   =arc_ends(   good_idx);
+              arc_start_y=arc_start_y(good_idx,:);
+              arc_end_y  =arc_end_y(  good_idx,:);
+            end
+
+            %debug date report
+            if ~isempty(v.debugdate)
+              rep_date=datetime(v.debugdate);
+              rep_delta=arc_starts-rep_date;
+              rep_idx=find(abs(rep_delta)==min(abs(rep_delta)));
+              rep_idx=(rep_idx(1)-8):(rep_idx(end)+8);
+              csr.report(true,rep_idx,['DEBUG DATE: Arcs around ',datestr(rep_date)],f,...
+                {'arc start','arc end','arc length','inter-arc gap'},...
+                {arc_starts(rep_idx  ),arc_ends(  rep_idx),...
+                 arc_ends(  rep_idx  )-arc_starts(rep_idx),...
+                 arc_starts(rep_idx+1)-arc_ends(  rep_idx)...
+                 },...
+              false)
+            end
+
+            %build timeseries with arc starts
+            arc_start_ts=simpletimeseries(arc_starts,arc_start_y,...
+              'format','datetime',...
+              'labels',tmp.(v.sats{s}).labels,...
+              'units',tmp.(v.sats{s}).y_units,...
+              'timesystem',tmp.(v.sats{s}).timesystem,...
+              'descriptor',tmp.(v.sats{s}).descriptor...
+            );
+            %build timeseries with arc ends
+            arc_end_ts=simpletimeseries(arc_ends,arc_end_y,...
+              'format','datetime',...
+              'labels',    tmp.(v.sats{s}).labels,...
+              'units',     tmp.(v.sats{s}).y_units,...
+              'timesystem',tmp.(v.sats{s}).timesystem,...
+              'descriptor',['end of arcs for ',tmp.(v.sats{s}).descriptor]...
+            );
+
+            %augment arc starts with arc ends (only new data)
+            tmp.(v.sats{s})=arc_start_ts.augment(arc_end_ts,'old',true);
+
+          end
+
+          %propagate data to object
+          for s=1:numel(v.sats)
+            obj=obj.data_set(product.dataname.set_field_path([v.levels(i),v.calpars(j),v.sats(s)]),tmp.(v.sats{s}));     
+          end
+          %user feedback
+          str.say(str.tablify([15,6,3,6],'loaded data for',v.levels{i},'and',v.calpars{j}))
+        end
+      end
+
+      %merge cross-track accelerations together
+      ac0y='AC0Y';
+      field_part_list={'','D','Q'};
+      %loop over all levels and sats
+      for i=1:numel(v.levels)
+        for s=1:numel(v.sats)
+          for f=1:numel(field_part_list)
+            %start with first field
+            calpar=[ac0y,field_part_list{f},'1'];
+            ts_now=obj.data_get_scalar(product.dataname.set_field_path([v.levels(i),calpar,v.sats(s)]));
+            %rename the relevant object fields to remove the '1'
+            ts_now.labels=strrep(ts_now.labels,calpar,[ac0y,field_part_list{f}]);
+            ts_now.descriptor=strrep(ts_now.descriptor,calpar,[ac0y,field_part_list{f},'[1-8]']);
+            %loop over all other calpars
+            for fpl=2:8
+              calpar=[ac0y,field_part_list{f},num2str(fpl)];
+              ts_now=ts_now.augment(...
+                obj.data_get_scalar(product.dataname.set_field_path([v.levels(i),calpar,v.sats(s)])),...
+                'quiet',true,...
+                'old',true,...
+                'skip_gaps',true...
+              );
+              %debug date report
+              if ~isempty(v.debugdate)
+                rep_date=datetime(v.debugdate);
+                str.say('DEBUG DATE: merge AC0Y*:',v.levels{i},':',v.sats{s},':',calpar,' @ ',datestr(rep_date));
+                idx=ts_now.idx(rep_date);
+                ts_now.peek((idx-10):(idx+10));
+              end
+            end
+            %save the data
+            obj=obj.data_set(product.dataname.set_field_path([v.levels(i),{[ac0y,field_part_list{f}]},v.sats(s)]),ts_now);
+            %user feedback
+            str.say(str.tablify([29,5,3,6,3,7],'merged cross-track parameter',[ac0y,field_part_list{f}],...
+              'for',v.levels{i},'and',['GRACE-',v.sats{s}]))
+          end
+        end
+      end
+
+      %add gaps
+      for i=1:numel(v.levels)
+        for j=1:numel(v.calpars_out)
+          for s=1:numel(v.sats)
+            ts_now=obj.data_get_scalar(product.dataname.set_field_path([v.levels(i),v.calpars_out(j),v.sats(s)]));
+            %debug date report
+            if ~isempty(v.debugdate)
+              rep_date=datetime(v.debugdate);
+              str.say('DEBUG DATE: w/out gaps:',v.levels{i},':',v.sats{s},':',v.calpars_out{j},' @ ',datestr(rep_date));
+              idx=ts_now.idx(rep_date);
+              ts_now.peek((idx-10):(idx+10));
+            end
+            %get end of arcs and non-consecutive time indexes
+            end_arc_idx=[false;diff(ts_now.y(:,1))==0];
+                gap_idx=[diff(ts_now.t)>seconds(1)+ts_now.t_tol;false];
+            %extend calibration parameters into the gap
+            gap_start_idx=find(end_arc_idx & gap_idx);
+            gap_stop_idx=gap_start_idx+1;
+%             ext_len=minutes(10);
+%             extension=min( ts_now.t(gap_stop_idx)-ts_now.t(gap_start_idx),ext_len*ones(size(gap_start_idx))*2 )/2;
+            extension=ts_now.t(gap_stop_idx)-ts_now.t(gap_start_idx);
+            ts_now.t(gap_start_idx)=ts_now.t(gap_start_idx)+time.round_seconds(extension/2);
+            ts_now.t(gap_stop_idx )=ts_now.t(gap_start_idx)+seconds(1);
+            %build timeseries with arc ends
+            gap_t=ts_now.t(gap_start_idx)+seconds(1);
+            gaps=simpletimeseries(gap_t,nan(numel(gap_t),ts_now.width),...
+              'format','datetime',...
+              'labels',ts_now.labels,...
+              'units',ts_now.y_units,...
+              'timesystem',ts_now.timesystem,...
+              'descriptor',['gaps for ',ts_now.descriptor]...
+            );
+            %augment (keep it separate from saving, so that date report works as expected)
+            ts_now=ts_now.augment(gaps,'old',true,'new',true);
+            %debug date report
+            if ~isempty(v.debugdate)
+              rep_date=datetime(v.debugdate);
+              str.say('DEBUG DATE: with gaps:',v.levels{i},':',v.sats{s},':',v.calpars_out{j},' @ ',datestr(rep_date));
+              idx=ts_now.idx(rep_date);
+              ts_now.peek((idx-10):(idx+10));
+            end              
+            %save
+            obj=obj.data_set(product.dataname.set_field_path([v.levels(i),v.calpars_out(j),v.sats(s)]),ts_now);  
+          end
+        end
+      end
+
+      %loop over all sat and level to check Job IDs agreement across all output calpars
+      for i=1:numel(v.levels)
+        for s=1:numel(v.sats)
+          for j=1:numel(v.calpars_out)-1
+            dn1=product.dataname.set_field_path([v.levels(i),v.calpars_out(j  ),v.sats(s)]);
+            dn2=product.dataname.set_field_path([v.levels(i),v.calpars_out(j+1),v.sats(s)]);
+            d1=obj.data_get_scalar(dn1);
+            d2=obj.data_get_scalar(dn2);
+            [~,i1,i2]=intersect(d1.t,d2.t);
+            bad_idx=find(...
+              d1.y(i1,v.jobid_col) ~= d2.y(i2,v.jobid_col) & ...
+              d1.mask(i1) & ...
+              d2.mask(i2) ...
+            );
+            if ~isempty(bad_idx)
+              n=numel(bad_idx);
+              msg=cell(1,2*n+2);
+              msg{1}=str.tablify([5,6,24],'found',numel(bad_idx),'Job ID inconsistencies:');
+              msg{2}=str.tablify([30,6,20,12],'data name','idx','t','Job ID');
+              for k=1:n
+                idx=i1(bad_idx(k));
+                msg{2*k+1}=str.tablify([30,6,20,12],dn1,idx,d1.t(idx),num2str(d1.y(idx,v.jobid_col),'%i'));
+                idx=i2(bad_idx(k));
+                msg{2*k+2}=str.tablify([30,6,20,12],dn2,idx,d2.t(idx),num2str(d2.y(idx,v.jobid_col),'%i'));
+              end
+              error([mfilename,':',strjoin(msg,'\n')])
+            end
+          end
+        end
+      end
+
+      %loop over all sats, levels and calpars to:
+      % - in case of estim: ensure that there are no arcs with lenghts longer than consecutive time stamps
+      % - in case of aak and accatt: ensure that the t0 value is the same as the start of the arc
+      for s=1:numel(v.sats)
+        %loop over all required levels
+        for i=1:numel(v.levels)
+          switch v.levels{i}
+          case 'estim'
+            %this check ensures that there are no arcs with lenghts longer than consecutive time stamps
+            for j=1:numel(v.calpars_out)
+              %some calpars do not have t0
+              if ~any(v.calpars_out{j}(end)=='DQ') || ~isempty(strfind(v.calpars_out{j},'Y'))
+                str.say(str.tablify([8,32],'Skipping',product.str))
+                continue
+              end
+              str.say(str.tablify([8,32],'Checking',product.str))
+              %save time series into dedicated var
+              ts_now=obj.data_get_scalar(product.dataname.set_field_path([v.levels(i),v.calpars_out(j),v.sats(s)]));
+              %forget about epochs that have been artificially inserted to represent gaps and end of arcs
+              %the 1e-6 parcel is needed to avoid artificially-inserted gaps that have round-off errors
+              idx1=find(diff(ts_now.t)>seconds(1)+1e-6);
+              %get arc lenths
+              al=ts_now.y(idx1,v.arclen_col);
+              %get consecutive time difference
+              dt=[seconds(diff(ts_now.t));0]; dt=dt(idx1);
+              %find arcs that span over time stamps
+              bad_idx=find(al-dt>2); %no abs here!
+              %report if any such epochs have been found
+              csr.report(obj.debug,bad_idx,'Ilegal arc length in the data',[v.levels{i},'.',v.calpars_out{j},'.',v.sats{s}],...
+                {'global idx','arc init t','arc length','succ time diff','delta arc len'},...
+                {idx1,ts_now.t(idx1),al,dt,al-dt}...
+              ) %#ok<FNDSB>
+            end
+          case {'aak','accatt'}
+            %this check ensures that the t0 value is the same as the start of the arc
+            for j=1:numel(v.calpars_out)
+              %the Y parameter was constructed from multitple parameters and some calpars do not have t0
+              if ~any(v.calpars_out{j}(end)=='DQ') || ~isempty(strfind(v.calpars_out{j},'Y')) 
+                str.say(str.tablify([8,32],'Skipping',product.str))
+                continue
+              end
+              str.say(str.tablify([8,32],'Checking',product.str))
+              %save time series into dedicated var
+              ts_now=obj.data_get_scalar(product.dataname.set_field_path([v.levels(i),v.calpars_out(j),v.sats(s)]));
+              %forget about epochs that have been artificially inserted to represent forward steps
+              idx1=find(diff(ts_now.t)>seconds(1));
+              %get t0
+              t0=simpletimeseries.utc2gps(datetime(ts_now.y(idx1,v.t0_col),'convertfrom','modifiedjuliandate'));
+              %find arcs that have (much) t0 different than their first epoch
+              bad_idx=find(...
+                abs(ts_now.t(idx1)-t0)>seconds(1) & ...
+                ts_now.mask(idx1) & ...                          %ignore gaps
+                [true;diff(ts_now.y(idx1,v.jobid_col))~=0] ...     %ignore epochs inside the same arc
+              );
+              %report if any such epochs have been found
+              csr.report(obj.debug,bad_idx,'Ilegal t0 in the data',[v.levels{i},'.',v.calpars_out{j},'.',v.sats{s}],...
+                {'global idx','arc init time','t0','delta time'},...
+                {idx1,ts_now.t(idx1),t0,ts_now.t(idx1)-t0}...
+              ) %#ok<FNDSB>bo
+            end
+          end
+        end
+      end
+    end
     function obj=import_calpar(obj,product,varargin)
       %open log file
       csr.log
@@ -866,10 +1234,47 @@ classdef csr
         out=in;
       end
     end
+    function out=estim_dir_default(varargin)
+      persistent estimdata
+      %parse optional arguments
+      p=inputParser;p.KeepUnmatched=true;
+      p.addParameter('estim_dir',     '',  @(i) ischar(i)                   || isempty(i));
+      p.addParameter('year',          [],  @(i) isnumeric(i) && isscalar(i) || isempty(i));
+      p.addParameter('month',         [],  @(i) isnumeric(i) && isscalar(i) || isempty(i));
+      p.addParameter('release',   'RL05',  @(i) ischar(i));
+      p.addParameter('estim_dir_root',csr.estim_dir_root,@(i) ischar(i));
+      p.parse(varargin{:});
+      %honour given estim_dir
+      if ~isempty(p.Results.estim_dir)
+        out=p.Results.estim_dir;
+      else
+        assert(~isempty(p.Results.year) && ~isempty(p.Results.month),['If argument ''estim_dir'' is empty, ',...
+          'then need both arguments ''year'' and ''month.'])
+        if isempty(estimdata)
+          %load estimdir file
+          fid=file.open(csr.estimdir_file);
+%       0 2005 February  200502_180.GEO /corral-tacc/utexas/csr/byaa705/grace/grav/RL05_05-02/a/iter/ ./solution ./postfit ./L2 53402 53430
+          estimdata=textscan(fid,'%1d %4d %s %s %s %s %s %s %d %d','MultipleDelimsAsOne',true);
+          fclose(fid);
+        end
+        %get solution index
+        date_particle=[num2str(p.Results.year-2000,'%02d'),'-',num2str(p.Results.month,'%02d')];
+        idx=cells.iscellstrempty(estimdata{5},[p.Results.release, '_',date_particle]) | ...
+            cells.iscellstrempty(estimdata{5},[p.Results.release,'b_',date_particle]); 
+        %ensure it exists
+        assert(any(idx),['There is no GRACE ',p.Results.release,' solution for 20',date_particle])
+        %ensure it is unique
+        assert(sum(idx)==1,['There are multiple GRACE ',p.Results.release,' solutions for 20',date_particle])
+        %pluck solution and split it into its directory path
+        estimdir=strsplit(estimdata{5}{idx},'/');
+        %append subdir to local estim_dir_root
+        out=fullfile(p.Results.estim_dir_root,estimdir{8:10},'solution');
+      end
+    end
     function out=estim_filename(varargin)
       %parse optional arguments
       p=inputParser;p.KeepUnmatched=true;
-      p.addParameter('estim_dir',     '',  @(i)   ischar(i)    && ~isempty(i));
+      p.addParameter('estim_dir',     csr.estim_dir_default(varargin{:}), @(i) ischar(i));
       p.addParameter('arc',           [],  @(i) ((isnumeric(i) && ~isempty(i) && isscalar(i)) || strcmp(i,'*')) );
       p.addParameter('enforce_scalar',true,@(i)   islogical(i) && ~isempty(i) && isscalar(i));
       p.parse(varargin{:});
@@ -888,47 +1293,63 @@ classdef csr
       else
         %init the outputs
         out=struct('A',[],'B',[]);
+        %allocate record array
+        dat=cell(file.length(filename),5);
         %open the file
         fid=file.open(filename);
         %load the data
-        dat=textscan(fid,'%5s%5s %f %f %f');
+        for i=1:size(dat,1)
+          l=fgetl(fid);
+%         00000000011111111112222222222333333333344444444445555555555666666666677777777778888888
+%         12345678901234567890123456789012345678901234567890123456789012345678901234567890123456
+%         GRC-A ZDOT      -1.883386301884850e+03  -9.058436043141965e-05  -1.883386392469210e+03
+          dat{i,1    }=str.clean( l(1 :5  ),' ');
+          dat{i,2    }=str.clean( l(6 :10 ),' ');
+          dat(i,3:end)=cells.m2c(str.num(   l(11:end)    ));
+        end
         %close the file
         fclose(fid);
         %parse the data
-        for i=1:numel(dat{1})
-          fn=csr.estim_translate_param(dat{2}{i});
+        for i=1:size(dat,1)
+          fn=csr.estim_translate_param(dat{i,2});
           if ~isvarname(fn)
             fn=['f',strrep(fn,'-','_')];
           end
-          out.(strrep(dat{1}{i},'GRC-','')).(fn)=dat{5}(i);
+          out.(strrep(dat{i,1},'GRC-','')).(fn)=dat{i,5};
         end
         save([filename,'.mat'],'out')
       end
     end
     function T=arctimeline_load(filename)
-      %init the outputs
-      start=datetime;
-      stop =datetime;
-      %open the file
-      fid=file.open(filename);
-      %load the data
-      % 1  2  3  4     5       6       7
-      %18 12/17/03 52990 49700.0 36700.0
-      dat=textscan(fid,'%f %f/%f/%f %f %f %f');
-      %close the file
-      fclose(fid);
-      %table names
-      arc=dat{1};
-      month=dat{2};
-      day=dat{3};
-      year=2000+dat{4};
-      date=datetime([year,month,day]);
-      mjd=dat{5};
-      assert(all(mjd==time.mjd(date)),['Discrepancy between date and MJD in the file ''',filename,'''.'])
-      start=date+ seconds(dat{6});
-      stop =start+seconds(dat{7});
-      %create the table
-      T=table(year,month,day,arc,start,stop);
+      persistent arctimeline_table arctimeline_filename
+      if isempty(arctimeline_table) || ~strcmp(arctimeline_filename,filename)
+        %init the outputs
+        start=datetime;
+        stop =datetime;
+        %open the file
+        fid=file.open(filename);
+        %load the data
+        % 1  2  3  4     5       6       7
+        %18 12/17/03 52990 49700.0 36700.0
+        dat=textscan(fid,'%f %f/%f/%f %f %f %f');
+        %close the file
+        fclose(fid);
+        %table names
+        arc=dat{1};
+        month=dat{2};
+        day=dat{3};
+        year=2000+dat{4};
+        date=datetime([year,month,day]);
+        mjd=dat{5};
+        assert(all(mjd==time.mjd(date)),['Discrepancy between date and MJD in the file ''',filename,'''.'])
+        start=date+ seconds(dat{6});
+        stop =start+seconds(dat{7});
+        %create the table
+        arctimeline_table=table(year,month,day,arc,start,stop);
+        %save filename of this arctimelines
+        arctimeline_filename=filename;
+      end
+      T=arctimeline_table;
     end
     function out=arctimeline_get(varargin)
       %parse optional arguments
@@ -1054,51 +1475,54 @@ classdef csr
         t=[t;t_now]; %#ok<AGROW>
       end
     end
-    function arc=arc_timeseries(startstop,calpars)
+    function arc=arc_timeseries(startstop,calpars,varargin)
       %get persistent vars 
-      persistent prefix suffix units coords
-      if isempty(prefix)
-        prefix='AC0';
-        suffix={'','D','Q'};
-        units={'m/s^2','m/s^2','m/s^2'}; %these units are wrong but they need to agree with each other to build the cal mod2
-        coords={'x','y','z'};
+      persistent v units
+      if isempty(v)
+        % add input arguments and metadata to collection of parameters 'v'
+        v=varargs.wrap('sources',{{...
+          'calpar_prefix',         'AC0', @(i) ischar(i)    && ~isempty(i);...
+          'calpar_suffixes',{'','D','Q'}, @(i) iscellstr(i) && ~isempty(i);...
+          'calpar_coords'  {'X','Y','Z'}, @(i) iscellstr(i) && ~isempty(i);...
+          'calpar_cyclesperday', [1,8,1], @(i) isnumeric(i) && ~isempty(i);...
+          },csr.ltb_args},varargin{:});
+        %these units are wrong but they need to agree with each other to build the cal mod (which is done elsewhere)
+        units={'m/s^2','m/s^2','m/s^2'}; 
       end
       %get sats
       sats=fieldnames(calpars);
       %loop over all sats
       for s=1:numel(sats)
         %loop over all components
-        for c=1:numel(coords)
+        for c=1:numel(v.calpar_coords)
           %loop over all suffixes
-          for i=1:numel(suffix)
+          for i=1:numel(v.calpar_suffixes)
             %build field name
-            field=[prefix,upper(coords{c}),suffix{i}];
-            %determine number of sub-arcs
-            for nr_sub_arcs=1:99
-              if ~isfield(calpars.(sats{s}),[field,num2str(nr_sub_arcs)])
-                break
-              end
-            end
-            nr_sub_arcs=nr_sub_arcs-1;
+            field=[v.calpar_prefix,upper(v.calpar_coords{c}),v.calpar_suffixes{i}];
             %build ordinate: get sub-arc start/stop
-            t=csr.subarc_startstop(startstop,nr_sub_arcs);
+            t=csr.subarc_startstop(startstop,v.calpar_cyclesperday(c));
             %add a gap at the end of each arc (it's prettier)
             t=[t(:,1),t(:,2)-seconds(1),t(:,2)];
             %loop over all sub-arcs
             for day_loc=1:size(t,1)
               %retrieve (sub-) arc data
-              if nr_sub_arcs==0
-                y=ones(2,1)*calpars.(sats{s}).(field);
+              if v.calpar_cyclesperday(c)>1
+                field_now=[field,num2str(day_loc)];
               else
-                y=ones(2,1)*calpars.(sats{s}).([field,num2str(day_loc)]);
+                field_now=field;
               end
+              %skip if this calpar does not exists
+              if ~isfield(calpars.(sats{s}),field_now)
+                continue
+              end
+              y=ones(2,1)*calpars.(sats{s}).(field_now);
               %build timeseries object (with gap at the last entry)
               ts=simpletimeseries(transpose(t(day_loc,:)),[y;NaN],...
                 'format','datetime',...
-                'labels',{field},...
+                'labels',{field_now},...
                 'units',units(i),...
                 'timesystem','gps',...
-                'descriptor',field...
+                'descriptor',field_now...
               );
               %init/append output
               if day_loc==1
@@ -1114,16 +1538,23 @@ classdef csr
     function calmod=arc_build(varargin)
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{{...
-        'year',             [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i);...
-        'month',            [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i);...
-        'arc',              [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i);...
-        'sats',      {'A','B'}, @(i) iscellstr(i) && ~isempty(i);...
-        'coords',{'X','Y','Z'}, @(i) iscellstr(i) && ~isempty(i);...
-        'desc',      'unknown', @(i) ischar(i)    && ~isempty(i);...
-        'timestep', seconds(5), @(i) isduration(i)&& ~isempty(i);...
+        'year',                     [], @(i) isnumeric(i) && isscalar(i);...
+        'month',                    [], @(i) isnumeric(i) && isscalar(i);...
+        'arc',                      [], @(i) isnumeric(i) && isscalar(i);...
+        'sats',              {'A','B'}, @(i) iscellstr(i) && ~isempty(i);...
+        'desc',              'unknown', @(i) ischar(i)    && ~isempty(i);...
+        'timestep',         seconds(5), @(i) isduration(i)&& ~isempty(i);...
+        'calpar_coords'  {'X','Y','Z'}, @(i) iscellstr(i) && ~isempty(i);...
+        'calpar_prefix',         'AC0', @(i) ischar(i)    && ~isempty(i);...
+        'calpar_suffixes',{'','D','Q'}, @(i) iscellstr(i) && ~isempty(i);...
+        'calpar_meaning', {'bias','linear','quad'}, @(i) iscellstr(i) && ~isempty(i);...
       },csr.ltb_args},varargin{:});
+      %calpar_meaning is used to connect with bias, linear, quadratic time functions
+      %therefore, it have the same length as calpar_suffixes
+      assert(numel(v.calpar_meaning)==numel(v.calpar_suffixes),['The number of elements in ''calpar_suffixes'' must be ',...
+        'the same as in ''calpar_meaning''.'])
       %derived parameters
-      units=cell(size(v.coords));units(:)={'m/s^2'};
+      units=cell(size(v.calpar_coords));units(:)={'m/s^2'};
       %get start/stop of current arc(s)
       startstop=cells.c2m(...
           csr.arctimeline_get(varargin{:},...
@@ -1142,8 +1573,8 @@ classdef csr
       calpars=csr.estim_load(csr.estim_filename(varargin{:}));
       %build calibration parameters time series
       arc=csr.arc_timeseries(startstop,calpars);
-      %define field names (this is arbitrary but must have length 3)
-      fields={'bias','linear','quad'};
+      %define field names (this is arbitrary but must have the same length as calpar_suffixes)
+      fields=v.calpar_meaning ;
       %set calibration model time domain
       t=startstop(1):seconds(1):startstop(2);
       %set the time domain in units compatible with the calibration parameters:
@@ -1151,38 +1582,48 @@ classdef csr
       tc=days(t-startstop(1));
       %loop over all satellites
       for s=1:numel(v.sats)
-        %gather calibratiom parameters
-        for c=1:numel(v.coords)
-          %retreive data
-          cal.(v.coords{c})=struct(...
-            fields{1},arc.(v.sats{s}).(['AC0',v.coords{c}    ]).interp(t),...
-            fields{2},arc.(v.sats{s}).(['AC0',v.coords{c},'D']).interp(t),...
-            fields{3},arc.(v.sats{s}).(['AC0',v.coords{c},'Q']).interp(t) ...
-          );
-          %loop over all fields
+        %gather calibration parameters
+        for c=1:numel(v.calpar_coords)
+          %init this calpar
+          cal.(v.calpar_coords{c})=struct();
+          %loop over all calpars for this coordinate and sat
           for f=1:numel(fields)
-            %remove transient calpars, this is indicative of a gap (interpolation is done blindly over any gap length)
-            cal.(v.coords{c}).(fields{f})=cal.(v.coords{c}).(fields{f}).mask_and([...
-                   cal.(v.coords{c}).(fields{f}).mask(1);...
-              diff(cal.(v.coords{c}).(fields{f}).y(:,1))==0]...
-            );
+            %build calpar field name (e.g. AC0X or AC0YD1)
+            field_now=[v.calpar_prefix,v.calpar_coords{c},v.calpar_suffixes{f}];
+            %make sure this calpar is available
+            if isfield(arc.(v.sats{s}),field_now)
+              %interpolate blindly over the whole time domain
+              cal.(v.calpar_coords{c}).(fields{f})=arc.(v.sats{s}).(field_now).interp(t);
+              %remove transient calpars, this is indicative of a gap (interpolation is done blindly over any gap length)
+              cal.(v.calpar_coords{c}).(fields{f})=cal.(v.calpar_coords{c}).(fields{f}).mask_and([...
+                     cal.(v.calpar_coords{c}).(fields{f}).mask(1);...
+                diff(cal.(v.calpar_coords{c}).(fields{f}).y(:,1))==0]...
+              );
+            end
           end
         end
         %init calibration model time series
-        calmod.(v.sats{s})=simpletimeseries(t,zeros(numel(t),numel(v.coords)),...
+        calmod.(v.sats{s})=simpletimeseries(t,zeros(numel(t),numel(v.calpar_coords)),...
           'format','datetime',...
-          'labels',v.coords,...
+          'labels',v.calpar_coords,...
           'units',units,...
           'timesystem','gps',...
           'descriptor',['calibration model ',v.desc,', GRACE-',v.sats{s}]...
         );
         %build calibration model
-        for c=1:numel(v.coords)
-          calmod.(v.sats{s})=calmod.(v.sats{s}).set_cols(c,...
-            cal.(v.coords{c}).(fields{1}).cols(1             )+...
-            cal.(v.coords{c}).(fields{2}).cols(1).times(tc   )+...
-            cal.(v.coords{c}).(fields{3}).cols(1).times(tc.^2)...
-          );
+        for c=1:numel(v.calpar_coords)
+          for f=1:numel(fields)
+            if isfield(cal.(v.calpar_coords{c}),fields{f})
+              switch fields{f}
+              case 'bias';   increment=cal.(v.calpar_coords{c}).(fields{f}).cols(1);
+              case 'linear'; increment=cal.(v.calpar_coords{c}).(fields{f}).cols(1).times(tc   );
+              case 'quad';   increment=cal.(v.calpar_coords{c}).(fields{f}).cols(1).times(tc.^2);
+              otherwise
+                error(['Calibration parameter with meaning ''',fields{f},''' is not implemented.'])
+              end
+              calmod.(v.sats{s})=calmod.(v.sats{s}).set_cols(c,calmod.(v.sats{s}).get_cols(c)+increment);
+            end
+          end
         end
         %apply long-term biases
         calmod.(v.sats{s})=csr.ltb_apply(v.varargin{:},...
@@ -1265,7 +1706,7 @@ classdef csr
     end
     function obj=import_estim(obj,product,varargin)
       %This contructor needs the following arguments:
-      % - 'estim_dir'
+      % - 'estim_dir' (if empty, it retrieves the RL05 estim data)
       % - 'year'
       % - 'month'
       %
@@ -1281,13 +1722,14 @@ classdef csr
       obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{{...
-        'desc',        product.str, @(i) ischar(i);...
+        'desc',  product.str, @(i) ischar(i);...
+        'year',  year( obj.start+(obj.stop-obj.start)/2), @(i) isnumeric(i) && isscalar(i);...
+        'month', month(obj.start+(obj.stop-obj.start)/2), @(i) isnumeric(i) && isscalar(i);...
       },product.metadata},varargin{:});
-      %build the arc time series and save it
-      obj=obj.data_set(...
-        product,...
-        csr.arcs_build(v.varargin{:})...
-      );
+      %build the arc time series 
+      arcs=csr.arcs_build(v.varargin{:});
+      %save it
+      obj=obj.data_set(product,arcs);
       obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
     end
     %% operators
@@ -1454,8 +1896,8 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       v=varargs.wrap('sources',{product.metadata,{...
         'coords',    {'X','Y','Z'}, @(i) iscellstr(i) && ~isempty(i);...
         'sats',          {'A','B'}, @(i) iscellstr(i) && ~isempty(i);...
-        'arcs_per_day',    [1,8,1], @(i) isnumeric(i) && ~isempty(i);...
-        'arcs_poly_order', [2,2,2], @(i) isnumeric(i) && ~isempty(i);...
+        'calpar_cyclesperday',    [1,8,1], @(i) isnumeric(i) && ~isempty(i);...
+        'calpar_poly_order', [2,2,2], @(i) isnumeric(i) && ~isempty(i);...
         'l1b_median_order',     10, @(i) isnumeric(i) && ~isempty(i) && isscalar(i);...
       }},varargin{:});
       
@@ -1520,11 +1962,11 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         str.say('Computing the calibration model ',product)
         %loop over all coordinates
         for c=1:numel(v.coords)
-          col_idx=find(cells.iscellstrfind({'X','Y','Z'},v.coords{c}));
+          col_idx=cells.cellstrfind({'X','Y','Z'},v.coords{c});
           %loop over all relevant (sub-) arcs
           for d=1:size(startstop,1)
             %retrieve (sub-) arcs
-            t=csr.subarc_startstop(startstop(d,:),v.arcs_per_day(c));
+            t=csr.subarc_startstop(startstop(d,:),v.calpar_cyclesperday(c));
             %loop over the number of arcs per day
             for a=1:size(t,1)
               obj.log('@','iter',...
@@ -1539,7 +1981,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
               arc_cur=arc_mod+arc_l1b;
               %compute calibration model
               warning('off',warning_id)
-              arc_calmod=arc_cur.scale(-1).polyfit(v.arcs_poly_order(c));
+              arc_calmod=arc_cur.scale(-1).polyfit(v.calpar_poly_order(c));
               warning('on',warning_id)
               
 %               %get calibration curve to fit
@@ -1547,8 +1989,8 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
 %               arc_cur2=arc_mod+arc_l1b;
 %               %compute calibration model
 %               warning('off',warning_msg)
-%               [arc_calmod1,S1]=arc_cur1.polyfit(v.arcs_poly_order(c));
-%               [arc_calmod2,S2]=arc_cur2.polyfit(v.arcs_poly_order(c));
+%               [arc_calmod1,S1]=arc_cur1.polyfit(v.calpar_poly_order(c));
+%               [arc_calmod2,S2]=arc_cur2.polyfit(v.calpar_poly_order(c));
 %               warning('on',warning_msg)
 %               %find which calibration curve works best
 %               if S1.normr>S2.normr
@@ -1580,7 +2022,359 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       obj=obj.data_set(product,calmod);
       obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
     end
+    function obj=smooth(obj,product,varargin)
+      %branch on implicit mode
+      if isempty(product)
+        % direct mode: the data is given in obj
+        dat=obj;
+        % use this function to show messages
+        dispfun=@(i) str.say('stack_delta',1,i{:});
+        % define dummy variable v
+        v={};
+      else
+        obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
+        %sanity
+        assert(product.nr_sources==1,...
+          ['number of sources in product ',product.str,...
+          ' is expected to be 1, not ',num2str(product.nr_sources),'.'])
+        % get the sats
+        v=varargs.wrap('sources',{product.metadata,{...
+          'sats',          {'A','B'}, @(i) iscellstr(i) && ~isempty(i);...
+        }},varargin{:});
+        %check if the product satellites include the one in the current product
+        sat_now=product.dataname.field_path;
+        if ~any(strcmp(v.sats,sat_now))
+          obj.log('@','out (skipped)','product',product,'start',obj.start,'stop', obj.stop,'sats',v.sats,'sat from product',sat_now)
+          %nothing to do
+          return
+        end
+        % get the data
+        dat=obj.data_get_scalar(product.sources(1));
+        % use this function to show messages
+        dispfun=@(i)  obj.log('@',i{:});
+        % parse the metadata
+        v=varargs.wrap('sources',{product.metadata},varargin{:});
+      end
+      % parse the resample period
+      v=varargs.wrap('sources',{v,{...
+        'smooth',        0, @(i)(isnumeric(i) || isduration(i)) && ~isempty(i);...
+        'median',        0, @(i)(isnumeric(i) || isduration(i)) && ~isempty(i);...
+        'resample',      0, @(i)(isnumeric(i) || isduration(i)) && ~isempty(i);...
+        'bandpass',[0,inf], @(i)(isnumeric(i) || isduration(i)) && ~isempty(i);...
+        'trim_edges', true, @(i)(isnumeric(i) || isduration(i)) && ~isempty(i);...
+      }},varargin{:});
+      % define the operations (they are applied in this order!)
+      ops={'resample','median','smooth','bandpass'};
+      % operate the data
+      for i=1:numel(ops)
+        % convert to duration
+        if ~isduration(v.(ops{i}));v.(ops{i})=seconds(v.(ops{i}));end
+        % only operate if the time step is smaller than the requested period
+        if any(v.(ops{i})(isfinite(v.(ops{i}))) > 0)
+          dispfun({ops{i},'t_span',v.(ops{i})})
+          dat=dat.(ops{i})(v.(ops{i}));
+        else
+          dispfun({ops{i},'t_span',v.(ops{i}),'skipped because data step is',dat.step})
+        end
+      end
+      if v.trim_edges
+        %find trim length
+        trim_len=max([v.smooth,v.median]);
+        if ~isduration(trim_len);trim_len=seconds(trim_len);end
+        if ~all(v.bandpass~=[0,inf])
+          trim_len=max([trim_len,(dat.stop-dat.start)*0.05]);
+        end
+        % trim edges
+        dat=dat.trim(dat.start+trim_len,dat.stop-trim_len);
+      end
+      %branch on implicit mode
+      if isempty(product)
+        % direct mode: back propagate
+        obj=dat;
+      else
+        %propagate it
+        obj=obj.data_set(product,dat);
+        obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
+      end
+    end
+    %% temperature correction
+    function obj=estimate_temp_corr(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
+      %some internal parameters
+      smooth_default=hours(6);
+      col=3;
+      col_ref=1;
+      xn={'k_R','k_C','dt'};
 
+      %sanity
+      assert(product.nr_sources==4,...
+        ['number of sources in product ',product.str,...
+        ' is expected to be 4, not ',num2str(product.nr_sources),'.'])
+
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{{...
+        'coords',        {'X','Y','Z'}, @(i) iscellstr(i) && ~isempty(i);...
+        'sats',              {'A','B'}, @(i) iscellstr(i) && ~isempty(i);...
+        'bandpass',            [inf,0], @(i)(isnumeric(i) || isduration(i)) && ~isempty(i);...
+        'smooth',             hours(3), @(i)(isnumeric(i) || isduration(i)) && ~isempty(i);...
+        'median',                    0, @(i)(isnumeric(i) || isduration(i)) && ~isempty(i);...
+        'resample',         minutes(1), @(i)(isnumeric(i) || isduration(i)) && ~isempty(i);...
+        'searchrange',     [100,100,2], @(i) isnumeric(i)  && isscalar(i) && ~isempty(i);...
+        'searchlen',               100, @(i) isnumeric(i)  && isscalar(i) && ~isempty(i);...
+        'RelTol',                 1e-4, @(i) isnumeric(i)  && isscalar(i) && ~isempty(i);...
+        'AbsTol',                 1e-4, @(i) isnumeric(i)  && isscalar(i) && ~isempty(i);...
+        'x0',                 [1,1,20], @(i) isnumeric(i)  && numel(i)==3;...
+        'xs',           [1e-14,1e-6,1], @(i) isnumeric(i)  && numel(i)==3;...
+        'ahk_col',                   1, @(i) isnumeric(i)  && isscalar(i);...
+        'test',                  false, @(i) islogical(i)  && isscalar(i) && ~isempty(i);...
+        'test_plot',             true, @(i) islogical(i)  && isscalar(i) && ~isempty(i);...
+      },product.metadata},varargin{:});
+    
+      %check if the product satellites include the one in the current product
+      sat_now=product.dataname.field_path;
+      if ~any(strcmp(v.sats,sat_now))
+        obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop,'sats',v.sats,'sat from product',sat_now)
+        %nothing to do
+        return
+      end
+      % loop over all data
+      ts=cell(1,product.nr_sources);
+      for i=1:product.nr_sources
+        % load and smooth the data
+        ts{i}=csr.smooth(obj.data_get_scalar(product.sources(i)),[],v.varargin_for_wrap{:});
+      end
+      %set clearer labels
+      ts{1}.labels={'L1B','L1B','L1B'};
+      ts{2}.labels={'mod','mod','mod'};
+      ts{3}.labels={'calmod','calmod','calmod'};
+      %enforce common gaps
+      ts=simpledata.op_multiple({'merge','mask_match'},ts,'estimate_temp_corr');
+      %make room for outputs
+      tsout=simpletimeseries.unitc(ts{1}.t,ts{1}.width,...
+        'units',ts{1}.y_units,'descriptor',product.name,'timesystem',ts{1}.timesystem);
+      % get forcing temperature
+      tsf=ts{4}.cols(v.ahk_col);
+      % init internal records (2 comes from the two target strategies)
+      rnorm=zeros(1,2);sT=rnorm;bT=rnorm;
+      x=cell(size(rnorm));tsc_try=x;tst_try=x;y_pop=x;x_pop=x;
+      % loop over all coordinates
+      for c=1:numel(v.coords)
+        %get index of this coordinate
+        ci=cells.cellstrfind({'x','y','z'},lower(v.coords{c}));
+        for i=1:2
+          switch i
+          case 1
+            %create target ts 1
+            tst_try{i}=ts{1}.cols(ci)-ts{2}.cols(ci);            
+          case 2
+            %create target ts 2
+            tst_try{i}=ts{3}.cols(ci);
+            switch lower(v.coords{c})
+              case 'x'; %do nothing
+              case 'y'; tst_try{i}=tst_try{i}.scale(-1);
+              case 'z'; %do nothing
+            end
+          end
+          %"solve"
+          [x{i},rnorm(i),tsc_try{i},sT(i),bT(i),y_pop{i},x_pop{i}]=csr.temp_corr_solve(tst_try{i},tsf,v);
+          %apply empirical bias and scales
+          tsc_try{i}=(tsc_try{i}+bT(i)).*sT(i);
+        end
+        
+        %pick the target ts with the smallest residuals (i.e. the best try index)
+        bti=find(rnorm==min(rnorm));
+        %make nice confusing plot, if requested
+        if v.test_plot
+          %build plot filename
+          plot_name=[strjoin({...
+            product.codename,...
+            [datestr(obj.start,'yyyymmdd'),'T',datestr(obj.stop,'yyyymmdd')],...
+            v.coords{c},...
+            ['Ta',num2str(v.ahk_col)],...
+            structs.str(v,{{'bandpass'},{'smooth'},{'median'},{'resample'}},'_'),...
+            structs.str(v,{{'RelTol'},{'AbsTol'}},'_'),...
+            structs.str(v,{{'searchrange'},{'searchlen'}},'_'),...
+          },'-'),'.png'];
+          %check if it exists
+          if ~exist(plot_name,'file')
+            %build info text 
+            text_str=cell(numel(xn)+3,1);
+            for ti=1:numel(xn)
+              text_str{ti}=[xn{ti},': ',str.show(x{bti}(:,ti),'',', '),'\times10^{',num2str(log10(v.xs(ti))),'}'];
+            end
+            text_str{ti+1}=['rnorm: ',str.show(rnorm(bti),'%.1f',', ')];
+            text_str{ti+2}=['n: ',str.show(numel(y_pop{bti}),'%d',', ')];
+            text_str{ti+3}=tst_try{bti}.labels{1};
+            %plot ot
+            plotting.figure(v.varargin_for_wrap{:});
+            h{1}=tsf.plot(           'zeromean',true,'normalize',true);
+            h{2}=tst_try{1}.plot(    'zeromean',true,'normalize',true);
+            h{3}=tsc_try{1}.plot(    'zeromean',true,'normalize',true);
+            h{4}=tst_try{2}.plot(    'zeromean',true,'normalize',true);
+            h{5}=tsc_try{2}.plot(    'zeromean',true,'normalize',true);
+            plotting.enforce(...
+              'plot_legend',cellfun(@(i)i.legend{1},h,'UniformOutput', false),...
+              'plot_legend_location','northeast',...
+              'plot_fontsize_legend',14,...
+              'plot_xdate',true,...
+              'plot_xdateformat','dd',...
+              'plot_xlabel',datestr(obj.start+(obj.stop-obj.start)/2,'mmm yyyy'),...
+              'plot_title',[v.coords{c},'-axis GRACE-',product.dataname.field_path{1}]...
+            );
+            %add text box
+            a=axis;
+            text(a(1)+0.01*(a(2)-a(1)),a(3)+0.15*(a(4)-a(3)),strjoin(text_str,char(10)),'fontsize',14)
+            %save plots
+            saveas(gcf,plot_name)
+          end
+          %plot histograms of parameters and rnorm
+          if ~isempty(y_pop)
+            %redefine plot name
+            plot_name=strrep(plot_name,'.png','.hist.png');
+            %check if it exists
+            if ~exist(plot_name,'file')
+              %plotting histograms
+              plotting.dhist(log10(x_pop{bti}(:,1)),log10(x_pop{bti}(:,2)),log10(y_pop{bti}),...
+                v.varargin_for_wrap{:},...
+                'xlabel',['log(',xn{1},')'],...
+                'ylabel',['log(',xn{2},')'],...
+                'zlabel','log(rnorm)')
+              %save plots
+              saveas(gcf,plot_name)
+            end
+          end
+        end
+        %save this columns
+        tsout=tsout.set_cols(ci,tsc_try{bti});
+      end
+      %propagate it
+      obj=obj.data_set(product,tsout);
+      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
+    end
+    function [x,rnorm,tsc,sT,bT,y_pop,x_pop]=temp_corr_solve(ts_target,ts_forcing,v)
+      %compute temperature-acceleration scale
+      sT=ts_target.stats('mode','ampl')/ts_forcing.stats('mode','ampl');
+      %scale target ts
+      ts_target=ts_target.scale(1/sT);
+      %compute temperature-acceleration bias
+      bT=ts_target.stats('mode','mean')-ts_forcing.stats('mode','mean');
+      %scale target ts
+      ts_target=ts_target-bT;
+      %assign easier names
+      Tt=ts_target.y_masked;
+      tt=ts_target.x_masked;
+      Ta=ts_forcing.y_masked;
+      ta=ts_forcing.x_masked;
+      assert(all(abs(tt-ta)<1e-6),'time domain discrepancy')
+      if v.test
+        x=v.x0;
+        rnorm=csr.temp_corr_fitness(ta,Ta,Tt,x,v);
+        sT=zeros(1,2);bT=sT;y_pop=cell(1,2);x_pop=y_pop;
+      else
+        %call "solver"
+        [x,y_pop,x_pop]=num.param_brute(...
+          @(i) csr.temp_corr_fitness(ta,Ta,Tt,i,v),...
+          v.x0./v.searchrange,...
+          v.x0.*v.searchrange,...
+          v.varargin{:},...
+          'searchspace',    'log',...
+          'vectorize',       true ...
+        );
+        rnorm=min(y_pop);
+      end
+      %get corrected accelerations
+      [T,t]=csr.temp_corr_Tb(ta,Ta,x,v);
+      %build ts object
+      tsc=simpletimeseries(ts_forcing.x2t(t),T,'labels',{['temp eff in ',ts_target.labels{1}]});
+    end
+    function out=temp_corr_dTb(t,T,ta,Ta,x,xs)
+      Ta_now=interp1(ta,Ta,t);
+      out=x(:,1)*xs(1).*( (Ta_now).^4 - (T+x(:,3)*xs(3)).^4 ) + x(:,2)*xs(2).*( (Ta_now) - (T+x(:,3)*xs(3)) );
+    end
+    function [T,t]=temp_corr_Tb(ta,Ta,x,v)
+      options = odeset('Vectorized','on','RelTol',v.RelTol,'AbsTol',v.AbsTol);
+      Ta=Ta+273.15;
+      [t,T] = ode45(@(ti,Ti) csr.temp_corr_dTb(ti,Ti,ta,Ta,x,v.xs) , ta, Ta(1)-x(:,3)*v.xs(3) , options );
+      T=T-273.15;
+    end
+    function out=temp_corr_fitness(ta,Ta,Tt,x,v)
+      Tb=csr.temp_corr_Tb(ta,Ta,x,v);
+      res=Tb-Tt(:)*ones(1,size(x,1));
+      res=res-ones(size(res,1),1)*mean(Tb);
+      res=res+mean(Tt);
+      out=sum(res.^2);
+    end
+    %% manual interfaces
+    function obj=plot(start,stop,product,plot_dir)
+      switch start
+      case 'odd'
+        date_list={...
+          '2002-04-27';...
+          '2002-05-16';...
+          '2002-08-05';...
+          '2002-08-06';...
+          '2002-10-07';...
+          '2002-11-15';...
+          '2002-11-27';...
+          '2002-12-04';...
+          '2002-12-05';...
+          '2002-12-13';...
+          '2002-12-18';...
+          '2003-01-01';...
+          '2003-01-14';...
+          '2003-02-11';...
+          '2003-02-22';...
+          '2004-04-05';...
+          '2004-12-01';...
+          '2005-02-24';...
+          '2005-11-15';...
+          '2006-01-26';...
+          '2006-06-15';...
+          '2011-03-28';...
+          '2011-04-07';...
+          '2011-08-25';...
+          '2013-01-21';...
+          '2014-01-08';...
+          '2014-04-14';...
+          '2014-04-18';...
+          '2014-04-22';...
+          '2014-04-25';...
+          '2014-08-16';...
+          '2014-09-19';...
+          '2014-09-25';...
+          '2015-02-10';...
+          '2015-08-14';...
+          '2015-12-11';...
+          '2016-05-18';...
+          '2016-05-25';...
+          '2016-11-30';...
+          '2017-01-13';...
+        };
+        for i=1:numel(date_list)
+          tmp=csr.plot(date_list{i},'','odd');
+          clear tmp
+        end
+      otherwise 
+        if ~exist('stop','var') || isempty(stop)
+          stop=dateshift(datetime(start),'end','day')-seconds(1);
+        end
+        product_default=dataproduct('grace.acc.cal.csr.plots/estim');
+        if ~exist('product','var') || isempty(product)
+          product=product_default;
+        elseif strcmp(product,'odd')
+          product=product_default;
+          plot_dir=['/Volumes/Users/Teixeira/2017-11-17.Oddities/',datestr(start,'yyyy-mm-dd')];
+        end
+        if ~exist('plot_dir','var') || isempty(plot_dir)
+          plot_dir=product.plot_dir;
+        end
+        product.plot_dir=plot_dir;
+        obj=datastorage('start',datetime(start),'stop',datetime(stop),'debug',true).init(product);
+        if ~product.mdget('plot_visible')
+          close all
+        end
+      end
+    end
     %% legacy (needs checking)
     function obj=import_acc_resid_test(obj,product,varargin)
       p=inputParser;
