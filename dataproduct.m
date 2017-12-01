@@ -10,7 +10,7 @@ classdef dataproduct
       'plot_file_prefix','',...
       'plot_file_suffix','',...
       'plot_legend',{{}},...
-      'plot_legend_suppress',false,...
+      'plot_legend_suppress',{{}},...
       'plot_legend_location','best',...
       'plot_ylabel','',...
       'plot_xdate',true,...
@@ -37,6 +37,9 @@ classdef dataproduct
       'plot_method','timeseries',...
       'plot_normalize',false...
     );
+  
+  %TODO: plot_dir needs to be duplicated in the metadata (so that plotting routines can use it)
+  
     parameter_list={...
       'metadata_dir',   fullfile(dataproduct.scriptdir,'metadata'), @(i) ischar(i);...
       'plot_dir',       fullfile(dataproduct.scriptdir,    'plot'), @(i) ischar(i);...
@@ -322,11 +325,15 @@ classdef dataproduct
           end
           if isfinite(xl);stoplist=xl;else stoplist=[];end
           return
-        case {'none','direct'}
+        case {'none'}
           out={};
           startlist=datetime(0,'ConvertFrom','datenum');
           stoplist =datetime(0,'ConvertFrom','datenum');
           return
+        case {'direct'}
+          startlist=p.Results.start;
+           stoplist=p.Results.stop;
+           timestamp_fmt='yyyymmdd';
         otherwise
           error([mfilename,': cannot handle metadata key ''storage_period'' with value ''',obj.mdget('storage_period'),'''.'])
         end
@@ -394,6 +401,8 @@ classdef dataproduct
         obj.mdfile_check
         %load metadata
         metadata=ReadYaml(obj.mdfile);
+        %convert numeric cell arrays to normal arrays
+        metadata=structs.fun(@cells.c2m,metadata);
       end
       %load and merge with default/existing metadata
       obj=obj.mdmerge(metadata);
@@ -446,7 +455,7 @@ classdef dataproduct
       % parse it
       p.parse(metadatafieldname,varargin{:});
       % check if there's a default value defined
-      isdefault_given=~isfield('default',p.UsingDefaults) || ~isfield('default_varargin',p.UsingDefaults);
+      isdefault_given=~( any(strcmp('default',p.UsingDefaults)) && any(strcmp('default_varargin',p.UsingDefaults)) );
       % vector mode
       if iscell(metadatafieldname)
         for i=1:numel(metadatafieldname)
@@ -505,10 +514,14 @@ classdef dataproduct
       assert(isa(out,'datanames'),['source(',num2str(idx),') must be of class dataname, not ',class(out),', debug needed.'])
     end
     function out=source_list(obj)
-      out=cell(1,obj.nr_sources);
-      for i=1:obj.nr_sources
-        out{i}=obj.sources(i);
-      end
+      out=arrayfun(@(i) obj.sources(i),1:obj.nr_sources,'UniformOutput',false);
+%       out=cell(1,obj.nr_sources);
+%       for i=1:obj.nr_sources
+%         out{i}=obj.sources(i);
+%       end
+    end
+    function out=source_list_str(obj)
+      out=cellfun(@(i) i.str,obj.source_list,'UniformOutput',false);
     end
     %% plot customization
     function p=plot_args(obj,p,varargin)
@@ -521,7 +534,7 @@ classdef dataproduct
           continue
         end
         %declare this plot parameter as optional argument to this function (if not already)
-        if ~any(cells.iscellstrfind(p.Parameters,mdf{i}))
+        if ~any(cells.iscellstrempty(p.Parameters,mdf{i}))
           p.addParameter(...
             mdf{i},...
             num.cell(obj.metadata.(mdf{i})),...
@@ -539,7 +552,7 @@ classdef dataproduct
       %get all parameters already defined in the metadata
       mdf=fieldnames(obj.metadata);
       %filter out those that are not plot_*
-      mdf=mdf(~cells.iscellstrfind(mdf,'plot_'));
+      mdf=mdf(~cells.iscellstrempty(mdf,'plot_'));
       %make room for outputs
       out=cell(size(mdf));
       %loop over all of them

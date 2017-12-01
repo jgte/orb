@@ -27,6 +27,7 @@ classdef structs
       disp('---- structs.field_list ----')
       disp(structs.str(a))
     end
+    %% utils
     %creates a string with the contents of the deep structure (if 'varname' is '_', the output is appropriate for a filename)
     function out=str(S,field_list,varname,show_class)
       if ~exist('field_list','var') || isempty(field_list)
@@ -56,15 +57,24 @@ classdef structs
         out=strjoin(out,char(10));
       end
     end
+    %% get/set values
     %'field_path' is cell array with the sub-field path to the value to be retrieved from structure in 'in' (i.e. a cell of cells)
     function out=get_value(S,field_path,search_flag)
-      if ~exist('field_path','var') || isempty(field_path)
-        out=S;
-        return
-      end
       if ~exist('search_flag','var')||isempty(search_flag)
         %do not search by default, otherwise isleaf fails (possibly others)
         search_flag=false;
+      end
+      %vector mode
+      %NOTICE: this illustrates that (the scalar mode of) this routine is formally inconsistent with the idea that
+      %        field_path is a cells of cells (the vector mode was added after defining this method)
+      %TODO: needs revision
+      if cells.iscellofcells(field_path,1)
+        out=cellfun(@(i) structs.get_value(S,i,search_flag),field_path,'UniformOutput',false);
+        return
+      end
+      if ~exist('field_path','var') || isempty(field_path)
+        out=S;
+        return
       end
       %check if this field exists
       if ~isfield(S,field_path{1}) && ~isprop(S,field_path{1})
@@ -98,27 +108,11 @@ classdef structs
         S.(field_path{1})=structs.set_value(S.(field_path{1}),field_path(2:end),value);
       end
     end
-    function Sout=copy(Sin,Sout,field_path,copy_empty_values)
-      if ~exist('field_path','var') || isempty(field_path)
-        field_path=fieldnames(Sin);
-      end
-      if ~exist('copy_empty_values','var') || isempty(copy_empty_values)
-        copy_empty_values=false;
-      end
-      for i=1:numel(field_path)
-        if ischar(field_path{i})
-          %translate simple vectors of fieldnames to field paths
-          fp=field_path(i);
-        else
-          %you're on your own, better be a cell of cells
-          fp=field_path{i};
-        end
-        value=structs.get_value(Sin,fp,false);
-        if copy_empty_values || ~isempty(value)
-          Sout=structs.set_value(Sout,fp,value);
-        end
-      end
+    %like get_value but for all structure entries
+    function out=get_value_all(S)
+      out=structs.get_value(S,structs.field_list(S));
     end
+    %% field list
     %creates a cell array of "field_path"s, each being a cell array with field names, to be used with structs.get/set_value
     function out=field_list(S,parents)
       if ~exist('parents','var')
@@ -158,6 +152,7 @@ classdef structs
         end
       end
     end
+    %like field_list but accepts '*' entries in field_path
     function out=field_list_glob(S,field_path)
       %sanity on type
       assert(iscellstr(field_path),['input ''field_path'' must be a cell of strings, not a ',class(field_path),'.'])
@@ -187,6 +182,7 @@ classdef structs
         end
       end
     end
+    %% member class interfaces
     %checks if a method/field/property exists for a general object
     function out=respondto(S,method)
       out=...
@@ -224,6 +220,7 @@ classdef structs
         Sout=structs.set_value(Sout,fl{i},Oout);
       end
     end
+    %% utils
     function out=isleaf(S,field_path,non_empty)
       if ~exist('field_path','var')
         field_path={};
@@ -281,11 +278,33 @@ classdef structs
       %rename structure
       out=structs.rename(S,fn_old,fn_new);
     end
-    %applies function 'f' to all fields (top level) of structure 'S'
+    %applies function 'f' to all fields (top level) of structure 'S' (this is NOT the same as matlab's structfun)
     function S=fun(f,S)
       fn=fieldnames(S);
       for i=1:numel(fn)
         S.(fn{i})=f(S.(fn{i}));
+      end
+    end
+    %% multi-object manipulation
+    function Sout=copy(Sin,Sout,field_path,copy_empty_values)
+      if ~exist('field_path','var') || isempty(field_path)
+        field_path=fieldnames(Sin);
+      end
+      if ~exist('copy_empty_values','var') || isempty(copy_empty_values)
+        copy_empty_values=false;
+      end
+      for i=1:numel(field_path)
+        if ischar(field_path{i})
+          %translate simple vectors of fieldnames to field paths
+          fp=field_path(i);
+        else
+          %you're on your own, better be a cell of cells
+          fp=field_path{i};
+        end
+        value=structs.get_value(Sin,fp,false);
+        if copy_empty_values || ~isempty(value)
+          Sout=structs.set_value(Sout,fp,value);
+        end
       end
     end
   end

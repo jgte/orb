@@ -345,26 +345,34 @@ classdef simpledata
         end
       end
     end
-    function obj_list=merge_multiple(obj_list,msg)
+    function obj_list=op_multiple(op,obj_list,msg)
+      %vector mode
+      if iscellstr(op)
+        if ~exist('msg','var');msg='';end
+        for i=1:numel(op)
+          obj_list=simpledata.op_multiple(op{i},obj_list,msg);
+        end
+        return
+      end
       %sanity
       if ~iscell(obj_list)
         error([mfilename,': need input ''obj_list'' to be a cell array, not a ',class(obj_list),'.'])
       end
       % save timing info
       if ~exist('msg','var') || isempty(msg)
-        s.msg='merge   op';
+        s.msg=[op,' op'];
       else
-        s.msg=['merge   op for ',msg];
+        s.msg=[op,' op for ',msg];
       end
       s.n=2*(numel(obj_list)-1); c=0;
-      %forward merge
+      %forward op
       for i=1:numel(obj_list)-1
-        [obj_list{i},obj_list{i+1}]=obj_list{i}.merge(obj_list{i+1});
+        [obj_list{i},obj_list{i+1}]=obj_list{i}.(op)(obj_list{i+1});
         c=c+1;s=time.progress(s,c);
       end
-      %backward merge
+      %backward op
       for i=numel(obj_list):-1:2
-        [obj_list{i},obj_list{i-1}]=obj_list{i}.merge(obj_list{i-1});
+        [obj_list{i},obj_list{i-1}]=obj_list{i}.(op)(obj_list{i-1});
         c=c+1;s=time.progress(s,c);
       end
     end
@@ -971,6 +979,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       switch p.Results.mode
       case 'min';     out=min(     obj.y_masked([],columns));
       case 'max';     out=max(     obj.y_masked([],columns));
+      case 'ampl';    out=max(     obj.y_masked([],columns))-min(obj.y_masked([],columns));
       case 'mean';    out=mean(    obj.y_masked([],columns));
       case 'std';     out=std(     obj.y_masked([],columns));
       case 'rms';     out=rms(     obj.y_masked([],columns));
@@ -1843,6 +1852,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor
         obj1.descriptor=[obj1.descriptor,'+',obj2.descriptor];
+        obj1.labels=arrayfun(@(i) [obj1.labels{i},'+',obj2.labels{i}],1:obj1.width,'UniformOutput',false);
       end
     end
     function obj1=minus(obj1,obj2)
@@ -1864,8 +1874,9 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
           %operate
           obj1=obj1.assign(obj1.y-obj2.y,'mask',obj1.mask & obj2.mask);
         end
-        %update descriptor
+        %update descriptor and labels
         obj1.descriptor=[obj1.descriptor,'-',obj2.descriptor];
+        obj1.labels=arrayfun(@(i) [obj1.labels{i},'-',obj2.labels{i}],1:obj1.width,'UniformOutput',false);
       end
     end
     function obj=scale(obj,scl)
@@ -1894,7 +1905,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
     function obj=uplus(obj)
       obj=obj.scale(1);
     end
-    function obj1=times(obj1,obj2)
+    function obj1=times(obj1,obj2) %this is .* (not *)
       if isnumeric(obj2)
         obj1=obj1.scale(obj2);
       elseif isnumeric(obj1)
@@ -1914,6 +1925,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor
         obj1.descriptor=[obj1.descriptor,'*',obj2.descriptor];
+        obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false);
       end
     end
     function obj1=rdivide(obj1,obj2)
@@ -1936,6 +1948,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor
         obj1.descriptor=[obj1.descriptor,'/',obj2.descriptor];
+        obj1.labels=arrayfun(@(i) [obj1.labels{i},'/',obj2.labels{i}],1:obj1.width,'UniformOutput',false);
       end
     end
     function obj1=power(obj1,obj2)
@@ -1958,6 +1971,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor
         obj1.descriptor=[obj1.descriptor,'^',obj2.descriptor];
+        obj1.labels=arrayfun(@(i) [obj1.labels{i},'^',obj2.labels{i}],1:obj1.width,'UniformOutput',false);
       end
     end
     function obj=sqrt(obj)
@@ -2261,7 +2275,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       %propagate projection
       obj.y=[px.y,py.y,pz.y];
     end
-    %% plot methots
+    %% plot methods
     function out=plot(obj,varargin)
       % Parse inputs
       p=inputParser;
@@ -2371,12 +2385,12 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         out.ylabel=[obj.labels{columns},' [',obj.y_units{columns},']'];
         out.legend=obj.labels{columns};
         if p.Results.zeromean
-          out.ylabel=[out.ylabel,' ',num2str(out.y_mean{1})];
-          out.legend=[out.legend,' ',num2str(out.y_mean{1})];
+          out.ylabel=[out.ylabel,' ',num2str(out.y_mean{1},'%+.3g')];
+          out.legend=[out.legend,' ',num2str(out.y_mean{1},'%+.3g')];
         end
         if p.Results.normalize
-          out.ylabel=[out.ylabel,' x ',num2str(out.y_scale{1})];
-          out.legend=[out.legend,' x ',num2str(out.y_scale{1})];
+          out.ylabel=[out.ylabel,' x ',num2str(out.y_scale{1},'%+.3g')];
+          out.legend=[out.legend,' x ',num2str(out.y_scale{1},'%+.3g')];
         end
         out.legend={out.legend};
       else
@@ -2409,6 +2423,8 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       if ~isempty(out.xlabel); xlabel(str.clean(out.xlabel,'title')); end
       if ~isempty(out.ylabel); ylabel(str.clean(out.ylabel,'title')); end
       if ~isempty(out.legend); legend(str.clean(out.legend,'title')); end
+      %special annotations
+      if p.Results.normalize; ylabel('[ ]'); end
       %outputs
       if nargout == 0
         clear out

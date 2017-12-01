@@ -1,0 +1,28 @@
+method: csr.estimate_temp_corr
+sources: [grace.acc.l1b.csr,grace.acc.mod.nrtdm,grace.acc.calmod.csr_direct,grace.ahk.l1b]
+source_fields_from: grace.acc.l1b.csr
+storage_period: daily
+plot_columns: [1,2,3]
+plot_column_together: false
+plot_autoscale: false
+plot_automean: true
+plot_outlier: 0
+plot_zeromean: true
+plot_title_suppress: [grace,acc,csr]
+plot_column_names: [X-axis,Y-axis,Z-axis]
+plot_visible: off
+sats: [A,B]
+export_dir: acc
+version: 61
+searchrange: [100,100,2]
+searchlen: 1000
+searchiter: 3
+searchpdf: rand
+searchshrinkfactor: 1.5
+x0: [1,1,20]
+xs: [1e-14,1e-6,1]
+resample: <minutes(50)>
+# median: 0
+smooth: <hours(8)>
+coords: [x,y,z]
+# bandpass: <[inf,hours(2)]>

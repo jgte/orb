@@ -390,6 +390,25 @@ classdef varargs < dynamicprops
       %remove the dynamic properties associated with the deleted parameters
       rmprops(obj,parameters{:});
     end
+    function obj=pluck(obj,varargin)
+      if numel(varargin)==1
+        parameters=varargin{1};
+      else
+        parameters=varargin;
+      end
+      %sanity
+      assert(iscellstr(parameters),['Can only handle cell array of strings, not ',class(varargin{1}),'.'])
+      %get the parameters that are to be plucked
+      parameters_to_delete=setdiff(obj.Parameters,parameters);
+      %get the indexes of the parameters to keep
+      idx_to_keep=cellfun(@(i) obj.idx(i),parameters);
+      %trim S
+      obj.S=obj.S(idx_to_keep);
+      %remove the dynamic properties associated with the deleted parameters
+      if ~isempty(parameters_to_delete)
+        rmprops(obj,parameters_to_delete{:});
+      end
+    end
     %% multi-object methods
     function out=dup(in)
       out=varargs({});

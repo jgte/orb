@@ -297,7 +297,8 @@ classdef str
       if isempty(s)
         disp(str.show(varargin(start_idx:end)))
       else
-        disp([s(1+stack_delta).name,':',num2str(s(1+stack_delta).line),': ',str.show(varargin(start_idx:end))])
+        si=min([numel(s),1+stack_delta]);
+        disp([s(si).name,':',num2str(s(si).line),': ',str.show(varargin(start_idx:end))])
       end
     end
     function log(filename,msg,varargin)
