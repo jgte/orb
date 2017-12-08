@@ -494,14 +494,14 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
     end
     %constructors
     function out=unitc(x,width,varargin)
-      out=simpledata(x(:),ones(numel(x),width),...
-        varargin{:}...
-      );
+      out=simpledata(x(:),ones(numel(x),width),varargin{:});
     end
     function out=randn(x,width,varargin)
-      out=simpledata(x(:),randn(numel(x),width),...
-        varargin{:}...
-      );
+      out=simpledata(x(:),randn(numel(x),width),varargin{:});
+    end
+    function out=sin(x,w,varargin)
+      y=cell2mat(arrayfun(@(i) sin(x(:)*i),w,'UniformOutput',false));
+      out=simpledata(x(:),y,varargin{:});
     end
     %general test for the current object
     function out=test_parameters(field,varargin)
@@ -768,6 +768,9 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       [~,~,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{simpledata.parameters([],'obj')},'mandatory',{x,y},varargin{:});
       %assign (this needs to come before the parameter check, so that sizes are known)
       obj=obj.assign(y,'x',x,varargin{:});
+      %rowize labels and y_units
+      obj.labels =transpose(obj.labels( :));
+      obj.y_units=transpose(obj.y_units(:));
       % check parameters
       for i=1:numel(simpledata.parameters)
         obj=check_annotation(obj,simpledata.parameters(i));
@@ -1852,7 +1855,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor
         obj1.descriptor=[obj1.descriptor,'+',obj2.descriptor];
-        obj1.labels=arrayfun(@(i) [obj1.labels{i},'+',obj2.labels{i}],1:obj1.width,'UniformOutput',false);
+        obj1.labels=arrayfun(@(i) [obj1.labels{i},'+',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj1=minus(obj1,obj2)
@@ -1876,7 +1879,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor and labels
         obj1.descriptor=[obj1.descriptor,'-',obj2.descriptor];
-        obj1.labels=arrayfun(@(i) [obj1.labels{i},'-',obj2.labels{i}],1:obj1.width,'UniformOutput',false);
+        obj1.labels=arrayfun(@(i) [obj1.labels{i},'-',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj=scale(obj,scl)
@@ -1925,7 +1928,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor
         obj1.descriptor=[obj1.descriptor,'*',obj2.descriptor];
-        obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false);
+        obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj1=rdivide(obj1,obj2)
@@ -1948,7 +1951,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor
         obj1.descriptor=[obj1.descriptor,'/',obj2.descriptor];
-        obj1.labels=arrayfun(@(i) [obj1.labels{i},'/',obj2.labels{i}],1:obj1.width,'UniformOutput',false);
+        obj1.labels=arrayfun(@(i) [obj1.labels{i},'/',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj1=power(obj1,obj2)
@@ -1971,7 +1974,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor
         obj1.descriptor=[obj1.descriptor,'^',obj2.descriptor];
-        obj1.labels=arrayfun(@(i) [obj1.labels{i},'^',obj2.labels{i}],1:obj1.width,'UniformOutput',false);
+        obj1.labels=arrayfun(@(i) [obj1.labels{i},'^',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj=sqrt(obj)
@@ -2275,6 +2278,39 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       %propagate projection
       obj.y=[px.y,py.y,pz.y];
     end
+    %% calibration
+    function obj1=calibrate_poly(obj1,obj2,order)
+      % Determines coefficients of the polynomial expansion (y2i=obj2.y(:,i), y1i=obj1.y(:,i), k=order):
+      %
+      %  y2i=c0+c1*y1i+c2*y1i^2+...+ck*y1i^k
+      %
+      % that minimize:
+      %
+      %  [y2i - (c0+c1*y1i+c2*y1i^2+...+ck*y1i^k)]^2
+      %
+      % and applies them to y1i (i.e. the columns of the output obj1).
+      if ~exist('order','var') || isempty(order)
+        order=1;
+      end
+      %sanity
+      compatible(obj1,obj2)
+      %need to match the gaps
+      [obj1,obj2]=mask_match(obj1,obj2);
+      %go column-by column
+      for i=1:obj1.width
+        %easier names
+        y1i=obj1.y_masked([],i);
+        y2i=obj2.y_masked([],i);
+        %build the design matrix
+        A=cell2mat(arrayfun(@(o) y1i.^o,0:order,'UniformOutput',false));
+        %solve coefficients
+        c=transpose(A)*A\transpose(A)*y2i;
+        %apply coefficients
+        out=sum(cell2mat(arrayfun(@(o) c(o+1)*y1i.^o,0:order,'UniformOutput',false)),2);
+        %propagate result
+        obj1=obj1.set_cols(i,out,obj1.mask);
+      end
+    end
     %% plot methods
     function out=plot(obj,varargin)
       % Parse inputs
@@ -2313,7 +2349,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         % smooth if requested
         if p.Results.smooth_span>0
-          if isprop(obj,'t')
+          if isprop(obj,'t') && isduration(p.Results.smooth_span)
             span=ceil(p.Results.smooth_span/obj.step);
           else
             span=p.Results.smooth_span;

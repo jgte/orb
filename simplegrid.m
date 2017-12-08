@@ -797,7 +797,7 @@ classdef simplegrid < simpletimeseries
       p.addParameter('lat',simplegrid.lat_default(size(map,1)), @(i) isnumeric(i));
       p.addParameter('lon',simplegrid.lon_default(size(map,2)), @(i) isnumeric(i));
       %create argument object, declare and parse parameters, save them to obj
-      v=varargs.wrap('parser',p,'sources',{simplegrid.parameters([],'obj')},'mandatory',{t,y},varargin{:});
+      v=varargs.wrap('parser',p,'sources',{simplegrid.parameters([],'obj')},'mandatory',{t,map},varargin{:});
       % retrieve structure with list
       sl=simplegrid.dti(t,p.Results.map,p.Results.lon,p.Results.lat,'list');
       % call superclass

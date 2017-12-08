@@ -1,6 +1,7 @@
 method: datastorage.arithmetic
 operation: minus
-sources: [grace.acc.l1b.csr,grace.acc.tempcorrmod]
+sources: [grace.acc.l1b.csr,grace.acc.tempcorrmod,grace.acc.calmod.csr_direct,grace.acc.calmod.tempcorr]
+operation_order: [1,2] #third source is only good for plotting
 source_fields_from: grace.acc.l1b.csr
 storage_period: daily
 plot_columns: [1,2,3]
@@ -16,3 +17,12 @@ plot_visible: off
 sats: [A,B]
 export_dir: acc
 version: 61
+#relevant to plot_auto and plot_mult
+plot_order: [1,0,2,3,4] #index 0 represents this product
+#plot_smooth_span: [7200, 7200, 0, 0]
+plot_scale:
+- [1,1,1, 1, 1]
+- [1,1,1,-1, 1]
+- [1,1,1, 1, 1]
+plot_legend_prefixes: [L1B,L1B w/o Temp. eff.,Temp. eff.,RL05 cal. mod.,cal. mod. w/o Temp. eff.]
+plot_title_prefix: GRACE

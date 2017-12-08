@@ -377,5 +377,111 @@ classdef cb
           clear new
       end
     end
+    function resampled=opt(old,axis_h)
+      % PLOT_COLORBAR_OPT(OLD,AXIS_H) compresses the color range of the <old>
+      % colormap around the data regions where there is highest data density. If
+      % ignored, the input <old> defaults to the current colormap.
+      %
+      %   If the standard deviation of the data is too small compared to the data
+      %   range, then a less concentrated colormap is generated. The trigger to
+      %   this alternative method is controled by the internal variable
+      %   <min_std_f>.
+
+      % Created by J.Encarnacao <J.G.deTeixeiradaEncarnacao@tudelft.nl>
+      % List of changes:
+      %
+      %   P.I <P.M.G.Inacio@tudelft.nl>, when no colormap is given, then always
+      %   use the current one.
+
+      if ~exist('old','var') || isempty(old)
+          % P.Inacio - if no colormap is given, use the current one.
+      %     if nargout == 0
+      %         old=jet;
+      %     else
+              old=colormap;
+      %     end
+      else
+          if size(old,1) < 3
+              error([mfilename,': input colormap is too small.'])
+          end
+      end
+
+      if ~exist('axis_h','var') || isempty(axis_h)
+          axis_h=gca;
+      end
+
+      %getting min/max values of current colorscale
+      tmp=caxis;
+      MINVAL=tmp(1);
+      MAXVAL=tmp(2);
+      NELEM=size(old,1);
+
+      %% parameters
+
+      %minimum std(data)/(MINVAL-MAXVAL) factor
+      min_std_f=0.05;
+
+      %% building colormap that shows variability best
+
+      %getting data
+      data=[];
+      h=get(gca,'Children');
+      for i=1:length(h)
+         switch get(h(i),'Type')
+             case {'image','surface'}
+                 disp(['Found data of ',get(h(i),'Type'),'.'])
+                 data=get(h(i),'CData');
+                 break
+         end
+      end
+      %bug trap
+      if isempty(data)
+          error([mfilename,': could not find useful data in the current plot to make colormap.'])
+      end
+      %filtering out NaNs
+      data=data(isfinite(data(:)));
+
+      %determining old domain
+      x_old=linspace(MINVAL,MAXVAL,NELEM);
+
+      %avoiding automatic procedure for data with extremely low std relative to
+      %the plot domain
+      if std(data) < min_std_f*abs(mean(data))
+          %extremly low data std detected, artificially creating histogram
+          h=pdf('Normal',x_old,mean(data),min_std_f*(MAXVAL-MINVAL));
+          disp([mfilename,':warning: data std is very low (',num2str(std(data)),...
+              ') so generating histogram considering std of ',num2str(min_std_f*(MAXVAL-MINVAL))])
+      else
+          %getting histogram of the data
+          [h,x_h]=hist(data,NELEM);
+          %need the histogram in the old x domain
+          h=interp1(x_h,h,x_old,'linear','extrap');
+      end
+
+      %weights are non-dimensional histogram
+      w=h/sum(h);
+      %removing zeros
+      w(w==0)=[];
+      %calculating interval size
+      a=w*(MAXVAL-MINVAL);
+      %calculating new domain
+      x_new=cumsum(a)+MINVAL;
+
+      %resampling
+      resampled=zeros(length(a),3);
+      for i=1:3
+          %negative range
+          resampled(:,i)=interp1(x_old,old(:,i),x_new,'linear','extrap');
+      end
+      resampled(resampled<0)=0;
+      resampled(resampled>1)=1;
+
+      if nargout == 0
+          %setting colormap
+          colormap(axis_h,resampled)
+          %cleaning up
+          clear resampled
+      end
+    end
   end
 end

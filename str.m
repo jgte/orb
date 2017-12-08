@@ -129,10 +129,17 @@ classdef str
         end
         return
       end
-      %trivial call
-      if isempty(mode)
-        return
+      if iscell(s)
+        if isempty(cells.rm_empty(s))
+          s='';
+          return
+        end
+        assert(iscellstr(s),'Can only handle cells of strings.')
       end
+      %trivial calls
+      if isempty(mode);return;end
+      if isempty(s   );return;end
+      
       %branch on mode
       switch lower(mode)
       case 'basename'
@@ -177,7 +184,8 @@ classdef str
     function s=rep(s,varargin)
       assert(mod(numel(varargin),2)==0,'Need pairs of input arguments following ''s''.')
       for i=1:numel(varargin)/2
-        s=strrep(s,varargin{2*i-1},varargin{2*i});
+        s_out=strrep(s,varargin{2*i-1},varargin{2*i});
+        s=s_out;
       end
     end
     function out=ispresent(parser,field)

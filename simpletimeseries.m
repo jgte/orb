@@ -281,9 +281,30 @@ classdef simpletimeseries < simpledata
       %test current object
       args=simpledata.test_parameters('args',l,w);
       now=juliandate(datetime('now'),'modifiedjuliandate');
-                
-      i=0;      
-            
+      t=datetime(now-l,'convertfrom','modifiedjuliandate'):...
+        datetime(now+l,'convertfrom','modifiedjuliandate');
+          
+      an=simpletimeseries.randn(t,w,args{:});
+      as=simpletimeseries.sin(t,days(l./(1:w)),args{:});
+      a=as.scale(rand(1,w))+an.scale(0.1)+ones(as.length,1)*randn(1,w);
+
+      i=0;
+      
+      bn=simpletimeseries.randn(t,w,args{:});
+      bs=simpletimeseries.sin(t,days(l./(1:w)),args{:});
+      b=bs.scale(rand(1,w))+bn.scale(0.1)+ones(bs.length,1)*randn(1,w);
+      c=a.calibrate_poly(b);
+      i=i+1;h{i}=figure('visible','on');
+      for i=1:w
+        subplot(1,w,i)
+        a.plot('column',i)
+        b.plot('column',i)
+        c.plot('column',i)
+        legend('uncal','target','cal')
+        title(['column ',num2str(i)])
+      end
+      return
+      
       lines1=cell(w,1);lines1(:)={'-o'};
       lines2=cell(w,1);lines2(:)={'-x'};
       lines3=cell(w,1);lines3(:)={'-+'};
@@ -293,7 +314,7 @@ classdef simpletimeseries < simpledata
       a.medfilt(10).plot('line',lines3);
       legend('origina','median','medfilt')
       title('median (operation not saved)');
-
+      
       b=a.resample;
       a=a.fill;
       i=i+1;h{i}=figure('visible','off');
@@ -923,6 +944,10 @@ classdef simpletimeseries < simpledata
     function out=randn(t,width,varargin)
       out=simpletimeseries(t(:),randn(numel(t),width),varargin{:});
     end
+    function out=sin(t,w,varargin)
+      y=cell2mat(arrayfun(@(i) sin((t(:)-t(1))*pi/i),w,'UniformOutput',false));
+      out=simpletimeseries(t(:),y,varargin{:});
+    end
   end
   methods
     %% constructor
@@ -940,7 +965,7 @@ classdef simpletimeseries < simpledata
       obj=obj@simpledata(simpletimeseries.time2num(t),y,...
         'epoch', t(1),...
         'x_units','time',...
-        'y_units',p.Results.units,...
+        'y_units',p.Results.units(:),...
         varargin{:}...
       );
       % save the arguments v into this object
@@ -1142,10 +1167,10 @@ classdef simpletimeseries < simpledata
         end
       end
     end
-    function out=isxavail(obj,t)
+    function out=isxavail(obj,x)
       %need to overload isxavail so that calls from simpledata come through
       %here and not through the function defined there
-      out=obj.istavail(t);
+      out=obj.istavail(obj.x2t(x));
     end
     function obj=set.t_formatted(obj,t_now)
       [obj.t,format_now]=time.ToDateTime(t_now,obj.format);
@@ -1690,6 +1715,18 @@ classdef simpletimeseries < simpledata
         'Input objects do not share the same time domain.')
       %call mother routine
       obj1=glue@simpledata(obj1,obj2);
+    end
+    %% calibration
+    function obj1=calibrate_poly(obj1,obj2,order)
+      %need to match the epoch
+      if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
+        [obj1,obj2]=matchepoch(obj1,obj2);
+      end
+      if ~exist('order','var') || isempty(order)
+        order=1;
+      end
+      %call mother routine
+      obj1=calibrate_poly@simpledata(obj1,obj2,order);
     end
     %% wrappers
     function obj=smooth(obj,span,varargin)
