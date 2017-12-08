@@ -16,13 +16,13 @@ export_dir: acc
 version: 61
 searchrange: [100,100,2]
 searchlen: 1000
-searchiter: 3
+searchiter: 5
 searchpdf: rand
 searchshrinkfactor: 1.5
 x0: [1,1,20]
 xs: [1e-14,1e-6,1]
-resample: <minutes(50)>
-# median: 0
-smooth: <hours(8)>
+# resample: <seconds(30)>
+median: <minutes(3)>
+smooth: <minutes(60)>
 coords: [x,y,z]
 # bandpass: <[inf,hours(2)]>

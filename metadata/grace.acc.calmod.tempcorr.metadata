@@ -1,0 +1,8 @@
+method: csr.import_estim
+sats: [A,B]
+storage_period: daily
+estim_dir: /Users/teixeira/cloud/Work/contributions/2017-12.AGU/poster/figures/tempcorr.estim
+calpar_prefix: AC0
+calpar_suffixes: ['',D,Q]
+calpar_coords: [X,Y,Z]
+calpar_cyclesperday: [1,8,1]

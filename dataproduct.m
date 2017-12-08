@@ -351,7 +351,7 @@ classdef dataproduct
       if isempty(file_list)
         out=false;
       else
-        out=cellfun(@(i)exist(i,'file'),file_list);
+        out=cellfun(@(i)exist(i,'file')~=0,file_list);
       end
     end
     function filecheck(obj,varargin)

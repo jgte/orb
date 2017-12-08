@@ -273,7 +273,7 @@ classdef num
       p.addRequired( 'x_lower',               @(i) isnumeric(i));
       p.addParameter('searchspace', 'linear', @(i) ischar(i));
       p.addParameter('searchlen',        100, @(i) isnumeric(i));
-      p.addParameter('searchlenmaxfactor',5e9,@(i) isnumeric(i));
+      p.addParameter('searchlenmaxfactor',2e10,@(i) isnumeric(i));
       p.addParameter('searchiter',         0, @(i) isnumeric(i));
       p.addParameter('searchiter_counter', 0, @(i) isnumeric(i));
       p.addParameter('searchpdf',     'rand', @(i) ischar(i));

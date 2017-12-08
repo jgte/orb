@@ -8,7 +8,6 @@ classdef datastorage
       'debug',          false,         @(i) islogical(i);...
 %       'metadata_dir',   dataproduct.parameters('metadata_dir','value'),@(i) ischar(i);...
     };
-    
   end
   %public
   properties(GetAccess=public,SetAccess=public)
@@ -603,14 +602,16 @@ classdef datastorage
       end
       % get the file list
       file_list=product.file(product_type,'discover',false,'start',obj.start,'stop',obj.stop,varargin{:});
+      % get file existence
+      file_exists=product.isfile(product_type,'start',obj.start,'stop',obj.stop,varargin{:});
       % check if any file is missing
-      if any(~product.isfile(product_type,'start',obj.start,'stop',obj.stop,varargin{:}))
+      if any(~file_exists)
         % debug output
         success=false;
         if isempty(file_list)
           obj.log('@','out','no files to load for',product)
         else
-          obj.log('@','out','file(s) missing for',[product.str,char(10),strjoin(file_list,char(10))])
+          obj.log('@','out','file(s) missing for',[product.str,char(10),strjoin(file_list(~file_exists),char(10))])
         end
         return
       end
@@ -678,8 +679,6 @@ classdef datastorage
       obj.log('nr of files to save',numel(file_list))
       %loop over all files
       for f=1:numel(file_list)
-        % debug output
-        obj.log(['saving file ',num2str(f)],file_list{f})
         % global storage periods not have start/stop lists
         if isempty(startlist) || isempty(stoplist)
           %paranoid sanity
@@ -695,8 +694,62 @@ classdef datastorage
             s=s_out.trim(startlist(f),stoplist(f));
           end
         end
+        %check if this file already exists
+        if exist(file_list{f},'file')
+          %save new variable
+          s_new=s;
+          %load this file
+          load(file_list{f},'s');
+          %sanity
+          assert(strcmp(class(s),class(s_new)),['Data type in newly-computed object (',class(s_new),...
+            ') differs from what is saved in file ',file_list{f},' (',class(s),').'])
+          %skip saving if start/stop dates in s_new are not wider than those already in file
+          if isstruct(s)
+            fnl=fieldnames(s);replace_flag=false;augment_flag=false;
+            for i=1:numel(fnl)
+              if s_new.(fnl{i}).start>=s.(fnl{i}).start && s_new.(fnl{i}).stop<=s.(fnl{i}).stop
+                %do nothing
+              elseif s_new.(fnl{i}).start<s.(fnl{i}).start || s_new.(fnl{i}).stop>s.(fnl{i}).stop
+                %augment saved data
+                s.(fnl{i})=s.(fnl{i}).augment(s_new.(fnl{i}));
+                replace_flag=true;
+              else
+                replace_flag=true;
+              end
+            end
+          else
+            assert(...
+              (ismethod(s,'start') || isprop(s,'start')) && ...
+              (ismethod(s,'stop' ) || isprop(s,'stop' )),...
+              ['Cannot handle data of type ',class(s),', no support for start/stop.']...
+            );
+            assert(...
+              (ismethod(s_new,'start') || isprop(s_new,'start')) && ...
+              (ismethod(s_new,'stop' ) || isprop(s_new,'stop' )),...
+              ['Cannot handle data of type ',class(s_new),', no support for start/stop.']...
+            );
+            replace_flag=false;
+            if s_new.start>=s.start && s_new.stop<=s.stop
+              %do nothing
+            elseif s_new.start<s.start || s_new.stop>s.stop
+              %augment saved data
+              s=s.augment(s_new);
+              replace_flag=true;
+            else
+              replace_flag=true;
+            end
+          end
+          if replace_flag
+            obj.log(['replacing file ',num2str(f)],'new data found')
+          else
+            obj.log(['skip saving file ',num2str(f)],'all data already saved')
+            s=[];
+          end
+        end
         %save this section of the data to the file (unless empty)
         if ~isempty(s) && numel(s)>0 && all(size(s)>0)
+          % debug output
+          obj.log(['saving file ',num2str(f)],file_list{f})
           save(file_list{f},'s');
         end
       end
@@ -781,7 +834,12 @@ classdef datastorage
             % update start/stop
             % NOTE: this has to come after saving so that data that is saved in long chunks (i.e. monthly) can be effectively
             %       saved.
-            obj=obj.startstop_retrieve_update(product_list{i});
+            switch product.mdget('method')
+            case 'csr.estimate_temp_corr'
+              obj.log('@','save: skipped saving because this product truncates data internally.')
+            otherwise
+              obj=obj.startstop_retrieve_update(product_list{i});
+            end
           end
         else
           obj.log('@','iter: data already loaded')
@@ -1036,10 +1094,14 @@ classdef datastorage
             %propagate
             legend_str=p.Results.plot_legend;
           else
-            %get unique parts in datanames
-            prefixes=datanames.unique(dn_list);
-            %join the dataname parts
-            prefixes=cellfun(@(i) strjoin(i,' '),prefixes,'UniformOutput',false);
+            if ~isempty(p.Results.plot_legend_prefixes)
+              prefixes=p.Results.plot_legend_prefixes;
+            else
+              %get unique parts in datanames
+              prefixes=datanames.unique(dn_list);
+              %join the dataname parts
+              prefixes=cellfun(@(i) strjoin(i,' '),prefixes,'UniformOutput',false);
+            end
             %pad with blanks
             prefixes=str.cellpad(prefixes);
             % paranoid sanity
@@ -1288,25 +1350,42 @@ classdef datastorage
     %plots multiple data entries (more limited than datastorage.plot but flexible for multiple data sources)
     % - does not save plots in any way, that has to be done externally;
     % - does not use the 'plot_elements' method, so
-    function h=plot_mult(obj,dn,dn_list,plot_columns,varargin)
-      obj.log('@','in','dn',dn,'dn_list',dn_list,'plot_columns',plot_columns,'start',obj.start,'stop',obj.stop)
+    function h=plot_mult(obj,id,dn_list,plot_columns,varargin)
+      obj.log('@','in','dn',id,'dn_list',dn_list,'plot_columns',plot_columns,'start',obj.start,'stop',obj.stop)
+      %type conversion
+      product=obj.product_get(id,varargin{:});
+      dn=product.dataname;
       %parse mandatory args
-      dn =datanames(dn);
-      dn_list=datanames.array(dn_list);
+      dn_list=datanames.array(dn_list,dn.field_path);
+      %get plot order (index 0 represents dn, non-zero represent dn_list)
+      plot_order=product.mdget('plot_order','default',[1:product.nr_sources,0]);
+      %assign ordered product list
+      dn_plot_list=cell(size(plot_order));
+      for i=1:numel(plot_order)
+        if plot_order(i)==0
+          dn_plot_list{i}=dn;
+        else
+          dn_plot_list{i}=dn_list{plot_order(i)};
+        end
+      end
+      %coordinate/product-wise scaling
+      plot_scale=product.mdget('plot_scale','default',ones(numel(product.mdget('plot_columns')),numel(plot_order)));
+      %coordinate/product-wise scaling
+      plot_smooth_span=product.mdget('plot_smooth_span','default',zeros(size(plot_order)));
       %expand scalar plot_columns into cell array (usually plot_columns is not a scalar)
       err=false;
       switch numel(plot_columns)
         case 0
-          plot_columns=num2cell(ones(1,numel(dn_list)));
+          plot_columns=num2cell(ones(1,numel(dn_plot_list)));
         case 1
           if isnumeric(plot_columns)
-            plot_columns=num2cell(plot_columns*ones(1,numel(dn_list)));
+            plot_columns=num2cell(plot_columns*ones(1,numel(dn_plot_list)));
           elseif iscell(plot_columns)
-            plot_columns=num2cell(plot_columns{1}*ones(1,numel(dn_list)));
+            plot_columns=num2cell(plot_columns{1}*ones(1,numel(dn_plot_list)));
           else
             err=true;
           end
-        case numel(dn_list)
+        case numel(dn_plot_list)
           if isnumeric(plot_columns)
             plot_columns=num2cell(plot_columns);
           elseif iscell(plot_columns)
@@ -1315,31 +1394,33 @@ classdef datastorage
             err=true;
           end
         otherwise
-          tmp=cell(size(dn_list));
+          tmp=cell(size(dn_plot_list));
           tmp(:)={plot_columns};
           plot_columns=tmp;
       end
+      %error handling
+      assert(~err,['Cannot handle input ''plot_columns'' of class ''',class(plot_columns),...
+        ''' and/or its length (',num2str(numel(plot_columns)),') is in conflict with length ',...
+        'of input ''dn_list'' (',num2str(numel(dn_plot_list)),').'])
       %parse inputs
       p=inputParser;
       p.KeepUnmatched=true;
       %parse optional parameters as defined in the metadata
       p=dataproduct(dn).plot_args(p,varargin{:});
-      %error handling
-      assert(~err,['Cannot handle input ''plot_columns'' of class ''',class(plot_columns),...
-        ''' and/or its length (',num2str(numel(plot_columns)),') is in conflict with length ',...
-        'of input ''dn_list'' (',num2str(numel(dn_list)),').'])
       %make room for outputs
-      h=cell(size(dn_list));
+      h=cell(size(dn_plot_list));
       %loop over all datanames
-      for i=1:numel(dn_list)
-        h{i}=obj.justplot(dn_list{i},...
+      for i=1:numel(dn_plot_list)
+        h{i}=obj.justplot(dn_plot_list{i},...
           varargin{:},...
           'dn_reference',dn,... %otherwise the justplot method picks the plot_* parameters define in dn_list{i}
+          'plot_scale',plot_scale(plot_columns{i},i),...
+          'plot_smooth_span',plot_smooth_span(i),...
           'plot_columns',plot_columns{i}...
         );
       end
       %annotate plot
-      obj.plot_annotate(h,dn,dn_list,varargin{:})
+      obj.plot_annotate(h,dn,dn_plot_list,varargin{:})
       %reset ylabel to use intersetion of all labels involved (if plot is not normalized)
       if ~p.Results.plot_normalize
         label_str=cells.deal_struct(h,'ylabel');
@@ -1351,7 +1432,7 @@ classdef datastorage
       obj.log('@','out','dn',dn,'start',obj.start,'stop',obj.stop)
     end
     %parses the sources of a product and calls plot_mult (useful as value of the 'method' metadata field)
-    function obj=plot_auto(obj,id,varargin)
+    function h=plot_auto(obj,id,varargin)
       obj.log('@','in','id',id,'start',obj.start,'stop',obj.stop)
       %type conversion
       product=obj.product_get(id,varargin{:});
@@ -1369,49 +1450,46 @@ classdef datastorage
       if isempty(e.startlist)
         str.say('Nothing to plot for',product,'varargin =',varargin{:},'start =',obj.start,'stop =',obj.stop)
       end
-      %loop over all data
-      for t=1:numel(e.startlist)
-        %loop over all columns to plot
-        for c=1:numel(p.Results.plot_columns)
-          obj.log('@','iter','column',c,'start',e.startlist(t),'stop',e.stoplist(t))
-          %plot filename arguments
-          filename_args=[product.file_args('plot'),{...
-            'start',e.startlist(t),...
-            'stop', e.stoplist(t),...
-            'timestamp',true,...
-            'remove_part','',...
-            'prefix',p.Results.plot_file_prefix...
-            'suffix',[e.col_names{p.Results.plot_columns(c)},e.suffix]...
-          }];
-          %plot filename
-          filename=dn.file(filename_args{:});
-          if isempty(dir(filename))
-            %get the data for the current segment
-            obj_curr=obj.trim('start',e.startlist(t),'stop',e.stoplist(t),'dn_list',e.sources,'filename',filename);
-            %make sure there is data
-            if any(cell2mat(obj_curr.vector_method_tr('all','nr_valid'))>1)
-              %plot it
-              figure('visible',str.logical(p.Results.plot_visible,'onoff'));
-              h=obj_curr.plot_mult(dn,e.sources,p.Results.plot_columns(c),...
-                varargin{:},...
-                'plot_title_suffix',strjoin([e.col_names(p.Results.plot_columns(c)),{e.title_suffix}],' ')...
-              );
-              %check if any data was plotted
-              if all(isempty(h))
-                %nothing to save
-                str.say('Skipped plot',filename,'(no data plotted)')
-                close(gfc)
-              else
-                %save this plot
-                saveas(gcf,filename)
-                str.say('Created plot',filename)
-              end
+      %loop over all columns to plot
+      for c=1:numel(p.Results.plot_columns)
+        obj.log('@','iter','column',c,'start',obj.start,'stop',obj.stop)
+        %plot filename arguments
+        filename_args=[product.file_args('plot'),{...
+          'start',obj.start,...
+          'stop', obj.stop,...
+          'timestamp',true,...
+          'remove_part','',...
+          'prefix',p.Results.plot_file_prefix...
+          'suffix',[e.col_names{p.Results.plot_columns(c)},e.suffix]...
+        }];
+        %plot filename
+        filename=dn.file(filename_args{:});
+        if isempty(dir(filename))
+          %make sure there is data
+          if any(cell2mat(obj.vector_method_tr('all','nr_valid'))>1)
+            %plot it
+            figure('visible',str.logical(p.Results.plot_visible,'onoff'));
+            h=obj.plot_mult(dn,product.source_list,p.Results.plot_columns(c),...
+              varargin{:},...
+              'plot_title_suffix',strjoin([e.col_names(p.Results.plot_columns(c)),{e.title_suffix}],' ')...
+            );
+            %check if any data was plotted
+            if all(isempty(h))
+              %nothing to save
+              str.say('Skipped plot',filename,'(no data plotted)')
+              close(gfc)
             else
-              str.say('Skipped plot',filename,['(no data in ',product.name,')'])
+              %save this plot
+              saveas(gcf,filename)
+              str.say('Created plot',filename)
             end
           else
-            str.say('Skipped plot',filename,'(file already exists)')
+            str.say('Skipped plot',filename,['(no data in ',product.name,')'])
+            h={};
           end
+        else
+          str.say('Skipped plot',filename,'(file already exists)')
+          h={};
         end
       end
       obj.log('@','out','id',id,'start',obj.start,'stop',obj.stop)
@@ -1436,11 +1514,11 @@ classdef datastorage
       obj=obj.data_set(product,stats_data);
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
-    function obj=arithmetic(obj,product)
+    function obj=arithmetic(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
       %retrieve required operation
       operation=product.mdget('operation');
-      operation_order=cell2mat(product.mdget('operation_order','default',{1:product.nr_sources}));
+      operation_order=product.mdget('operation_order','default',[1:product.nr_sources]);
       obj.log('@','in','operation',operation)
       %operate on all sources
       for i=1:numel(operation_order)
@@ -1464,7 +1542,7 @@ classdef datastorage
       obj=obj.data_set(product,out);
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
-    function obj=filter(obj,product)
+    function obj=filter(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
       assert(product.nr_sources==1,['The filter method cannot operated on product ''',product.str,...
         ''' because it only accept one source, not ',num2str(product.nr_sources),'.'])

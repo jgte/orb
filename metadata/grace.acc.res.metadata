@@ -1,11 +1,10 @@
 method: datastorage.arithmetic
 operation: minus
 storage_period: daily
-sources: [grace.acc.mod.nrtdm,grace.acc.l1b.csr,grace.acc.calmod.csr,grace.ahk.l1b]
-source_fields_from: grace.acc.calmod.csr
+sources: [grace.acc.mod.nrtdm,grace.acc.l1b.csr,grace.acc.calmod.csr_direct,grace.ahk.l1b]
+source_fields_from: grace.acc.calmod.csr_direct
 operation_order: [1,2]
 plot_columns: [1,2,3]
-plot_smooth_span: 0
 plot_outlier: 1
 plot_normalize: true
 plot_zeromean: true
@@ -13,3 +12,13 @@ plot_column_names: [X-axis,Y-axis,Z-axis]
 plot_visible: off
 plot_check_units: false
 plot_legend_location: southwest
+plot_title_suppress: [grace]
+#relevant to plot_auto and plot_mult
+plot_order: [1,2,0,3,4] #index 0 represents this product
+#plot_smooth_span: [<hours(3)>, <hours(3)>, <hours(3)>, <hours(0)>, <hours(0)>]
+plot_scale:
+- [1,1, 1, 1, 1]
+- [1,1,-1,-1, 1]
+- [1,1, 1, 1, 1]
+plot_legend_prefixes: [NRLMSISE-00,L1B,residual,RL05 cal. mod.,L1B AHK temp.]
+plot_title_prefix: GRACE

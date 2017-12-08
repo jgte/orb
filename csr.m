@@ -1152,17 +1152,18 @@ classdef csr
       obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{{...
-        'format', 'ACC1B', @(i) ischar(i);...
-        'rm_ltb', true,    @(i) islogical(i);...
+        'export_subdir','default',@(i) ischar(i);...
+        'format',       'ACC1B',  @(i) ischar(i);...
+        'rm_ltb',       true,     @(i) islogical(i);...
       },csr.ltb_args,product.metadata},varargin{:});
       %branch on output format
       switch v.format
         case 'ACC1B'
-          v.export_subdir=fullfile('YY','acc','asc');
+          if strcmp(v.export_subdir,'default');v.export_subdir=fullfile('YY','acc','asc');end
           filename='ACC1B_YYYY-MM-DD_SAT_VERSION.asc';
           sat_name='GRACE SAT';
         case 'msodp'
-          v.export_subdir=fullfile('YY','acc','dat');
+          if strcmp(v.export_subdir,'default');v.export_subdir=fullfile('YY','acc','dat');end
           filename='grace.YYYY-MM-DD_SAT_VERSION.acc.pre';
           sat_name='GRACESAT';
         otherwise
@@ -1191,14 +1192,14 @@ classdef csr
             'MM',  datestr(startlist(i),'mm'  ),...
             'DD',  datestr(startlist(i),'dd'  ),...
             'SAT', v.sats{s},...
-            'VERSION',v.version ...
+            'VERSION',str.show(v.version)...
           );
           %trim only today
           tmp=out.trim(startlist(i),stoplist(i));
           if ~isempty(tmp)
             %remove long-term biases, if requested
             if v.rm_ltb
-              tmp=csr.ltb_apply(v.varargin{:},'ts',tmp,'sat',v.sats{s},'field','-all');
+              tmp=csr.ltb_apply(v.varargin_for_wrap{:},'ts',tmp,'sat',v.sats{s},'field','-all');
             end
             %save the data in ACC1B format, as handled by simpletimeseries.export
             tmp.export(...
@@ -1394,6 +1395,28 @@ classdef csr
             end
           end
           str.say('Patched default arc for',...
+            str.show(cellfun(@(i) {[i,':'],p.Results.(i),';'},{'year','month','arc','day','start','stop'},'UniformOutput',false))...
+          )
+        elseif ~isempty(par.year) && ~isempty(par.month) && ~isempty(par.arc)
+          %define indexes of the stuff we knoe
+          idx=arctimeline.year==par.year & arctimeline.month==par.month;
+          %get list of arcs
+          arc_list=table2array(arctimeline(idx,'arc'));
+          %get closest arc
+          closest_arc=abs(arc_list-par.arc);
+          closest_arc=arc_list(closest_arc==min(closest_arc));
+          %get corresponding start
+          closest_arc_start=table2array(arctimeline(idx & arctimeline.arc==closest_arc,'start'));
+          %guess this arc start
+          start=dateshift(closest_arc_start+days(par.arc-closest_arc),'start','day');
+          out=cell(size(par.out));
+          for i=1:numel(par.out)
+            switch par.out{i}
+            case 'start'; out{i}=start;
+            case 'stop';  out{i}=start+days(1);
+            end
+          end
+          str.say('Wildly guessed arc for',...
             str.show(cellfun(@(i) {[i,':'],p.Results.(i),';'},{'year','month','arc','day','start','stop'},'UniformOutput',false))...
           )
         else
@@ -2087,6 +2110,10 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         % trim edges
         dat=dat.trim(dat.start+trim_len,dat.stop-trim_len);
       end
+      %show warning if number of gaps is very large
+      if dat.nr_gaps>0.5*dat.length
+        dispfun({'WARNING: large fraction of gaps','nr_gaps',dat.nr_gaps,'length',dat.length})
+      end
       %branch on implicit mode
       if isempty(product)
         % direct mode: back propagate
@@ -2127,7 +2154,8 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         'xs',           [1e-14,1e-6,1], @(i) isnumeric(i)  && numel(i)==3;...
         'ahk_col',                   1, @(i) isnumeric(i)  && isscalar(i);...
         'test',                  false, @(i) islogical(i)  && isscalar(i) && ~isempty(i);...
-        'test_plot',             true, @(i) islogical(i)  && isscalar(i) && ~isempty(i);...
+        'test_plot',              true, @(i) islogical(i)  && isscalar(i) && ~isempty(i);...
+        'cut_extremities',  seconds(0), @(i) isduration(i);...
       },product.metadata},varargin{:});
     
       %check if the product satellites include the one in the current product
@@ -2155,7 +2183,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       % get forcing temperature
       tsf=ts{4}.cols(v.ahk_col);
       % init internal records (2 comes from the two target strategies)
-      rnorm=zeros(1,2);sT=rnorm;bT=rnorm;
+      rnorm=inf(1,2);
       x=cell(size(rnorm));tsc_try=x;tst_try=x;y_pop=x;x_pop=x;
       % loop over all coordinates
       for c=1:numel(v.coords)
@@ -2165,7 +2193,8 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
           switch i
           case 1
             %create target ts 1
-            tst_try{i}=ts{1}.cols(ci)-ts{2}.cols(ci);            
+%             tst_try{i}=ts{1}.cols(ci)-ts{2}.cols(ci);            
+            continue
           case 2
             %create target ts 2
             tst_try{i}=ts{3}.cols(ci);
@@ -2176,42 +2205,38 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
             end
           end
           %"solve"
-          [x{i},rnorm(i),tsc_try{i},sT(i),bT(i),y_pop{i},x_pop{i}]=csr.temp_corr_solve(tst_try{i},tsf,v);
-          %apply empirical bias and scales
-          tsc_try{i}=(tsc_try{i}+bT(i)).*sT(i);
+          [x{i},rnorm(i),tsc_try{i},y_pop{i},x_pop{i}]=csr.temp_corr_solve(tst_try{i},tsf,v);
         end
-        
         %pick the target ts with the smallest residuals (i.e. the best try index)
         bti=find(rnorm==min(rnorm));
         %make nice confusing plot, if requested
         if v.test_plot
           %build plot filename
-          plot_name=[strjoin({...
-            product.codename,...
-            [datestr(obj.start,'yyyymmdd'),'T',datestr(obj.stop,'yyyymmdd')],...
-            v.coords{c},...
-            ['Ta',num2str(v.ahk_col)],...
-            structs.str(v,{{'bandpass'},{'smooth'},{'median'},{'resample'}},'_'),...
-            structs.str(v,{{'RelTol'},{'AbsTol'}},'_'),...
-            structs.str(v,{{'searchrange'},{'searchlen'}},'_'),...
-          },'-'),'.png'];
+          plot_name=fullfile(product.plot_dir,...
+            [strjoin({...
+              product.codename,...
+              [datestr(obj.start,'yyyymmddHHMMSS'),'T',datestr(obj.stop,'yyyymmddHHMMSS')],...
+              v.coords{c},...
+              ['Ta',num2str(v.ahk_col)],...
+            },'-'),'.png']...
+          );
+%             structs.str(v,{{'bandpass'},{'smooth'},{'median'},{'resample'}},'_'),...
+%             structs.str(v,{{'RelTol'},{'AbsTol'}},'_'),...
+%             structs.str(v,{{'searchrange'},{'searchlen'}},'_'),...
           %check if it exists
           if ~exist(plot_name,'file')
             %build info text 
-            text_str=cell(numel(xn)+3,1);
+            text_str=cell(numel(xn)+2,1);
             for ti=1:numel(xn)
               text_str{ti}=[xn{ti},': ',str.show(x{bti}(:,ti),'',', '),'\times10^{',num2str(log10(v.xs(ti))),'}'];
             end
             text_str{ti+1}=['rnorm: ',str.show(rnorm(bti),'%.1f',', ')];
             text_str{ti+2}=['n: ',str.show(numel(y_pop{bti}),'%d',', ')];
-            text_str{ti+3}=tst_try{bti}.labels{1};
             %plot ot
             plotting.figure(v.varargin_for_wrap{:});
             h{1}=tsf.plot(           'zeromean',true,'normalize',true);
-            h{2}=tst_try{1}.plot(    'zeromean',true,'normalize',true);
-            h{3}=tsc_try{1}.plot(    'zeromean',true,'normalize',true);
-            h{4}=tst_try{2}.plot(    'zeromean',true,'normalize',true);
-            h{5}=tsc_try{2}.plot(    'zeromean',true,'normalize',true);
+            h{2}=tst_try{bti}.plot(    'zeromean',true,'normalize',true);
+            h{3}=tsc_try{bti}.plot(    'zeromean',true,'normalize',true);
             plotting.enforce(...
               'plot_legend',cellfun(@(i)i.legend{1},h,'UniformOutput', false),...
               'plot_legend_location','northeast',...
@@ -2225,7 +2250,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
             a=axis;
             text(a(1)+0.01*(a(2)-a(1)),a(3)+0.15*(a(4)-a(3)),strjoin(text_str,char(10)),'fontsize',14)
             %save plots
-            saveas(gcf,plot_name)
+            saveas(gcf,plot_name);
           end
           %plot histograms of parameters and rnorm
           if ~isempty(y_pop)
@@ -2238,30 +2263,33 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
                 v.varargin_for_wrap{:},...
                 'xlabel',['log(',xn{1},')'],...
                 'ylabel',['log(',xn{2},')'],...
-                'zlabel','log(rnorm)')
+                'zlabel','log(rnorm)');
               %save plots
               saveas(gcf,plot_name)
             end
           end
         end
-        %save this columns
+        %save this column
         tsout=tsout.set_cols(ci,tsc_try{bti});
+      end
+      %trim days at the extremeties
+      if v.cut_extremities > seconds(0)
+        tsout=tsout.trim(...
+          dateshift(tsout.start,'start','day')+v.cut_extremities,...
+          dateshift(tsout.stop, 'end',  'day')-v.cut_extremities...
+        );
       end
       %propagate it
       obj=obj.data_set(product,tsout);
       obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
     end
-    function [x,rnorm,tsc,sT,bT,y_pop,x_pop]=temp_corr_solve(ts_target,ts_forcing,v)
-      %compute temperature-acceleration scale
+    function [x,rnorm,tsc,y_pop,x_pop]=temp_corr_solve(ts_target,ts_forcing,v)
+      %compute temperature-acceleration empirical scale
       sT=ts_target.stats('mode','ampl')/ts_forcing.stats('mode','ampl');
-      %scale target ts
-      ts_target=ts_target.scale(1/sT);
-      %compute temperature-acceleration bias
-      bT=ts_target.stats('mode','mean')-ts_forcing.stats('mode','mean');
-      %scale target ts
-      ts_target=ts_target-bT;
+      %compute temperature-acceleration empirical bias
+      bT=ts_target.scale(1/sT).stats('mode','mean')-ts_forcing.stats('mode','mean');
       %assign easier names
-      Tt=ts_target.y_masked;
+      Tt=ts_target.y_masked/sT+bT;
       tt=ts_target.x_masked;
       Ta=ts_forcing.y_masked;
       ta=ts_forcing.x_masked;
@@ -2282,10 +2310,17 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         );
         rnorm=min(y_pop);
       end
-      %get corrected accelerations
-      [T,t]=csr.temp_corr_Tb(ta,Ta,x,v);
+      %make room for outputs
+      Tgapped=nan(ts_target.length,1);
+      %get corrected accelerations, add original gaps
+      Tgapped(ts_target.mask)=csr.temp_corr_Tb(ta,Ta,x,v);
       %build ts object
-      tsc=simpletimeseries(ts_forcing.x2t(t),T,'labels',{['temp eff in ',ts_target.labels{1}]});
+      tsc=simpletimeseries(ts_target.t,Tgapped,...
+        'labels',{['temp eff in ',ts_target.labels{1}]},...
+        'timesystem',ts_target.timesystem...
+      );
+      %get formal bias and scale
+      tsc=tsc.calibrate_poly(ts_target);
     end
     function out=temp_corr_dTb(t,T,ta,Ta,x,xs)
       Ta_now=interp1(ta,Ta,t);
