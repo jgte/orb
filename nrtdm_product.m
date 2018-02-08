@@ -1,8 +1,5 @@
 %This object defines details of the product
 classdef nrtdm_product
-  properties(Constant)
-    config_dir=fullfile(getenv('NRTDM'),'config');
-  end
   properties(GetAccess = 'private', SetAccess = 'private')
     sep_index
     debug
@@ -19,8 +16,8 @@ classdef nrtdm_product
   end
   methods(Static)
     function test
-      if isempty(dir(nrtdm_product.config_dir))
-        disp([mfilename,':WARNING: cannot find NRTDM config dir: ',nrtdm_product.config_dir,'. Skipping test.'])
+      if isempty(dir(nrtdm.config_dir))
+        disp([mfilename,':WARNING: cannot find NRTDM config dir: ',nrtdm.config_dir,'. Skipping test.'])
         return
       end
       %TODO: complete this test
@@ -77,7 +74,7 @@ classdef nrtdm_product
     end
     function out=get.file(obj)
       if (obj.debug); disp(['start:',current_method]); end
-      out=fullfile(obj.config_dir,[obj.category,'.products.txt']);
+      out=fullfile(nrtdm.config_dir,[obj.category,'.products.txt']);
       if isempty(dir(out))
         error([mfilename,': Cannot find metadata files ''',out,'''.'])
       end

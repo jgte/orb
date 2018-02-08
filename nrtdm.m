@@ -3,9 +3,6 @@ classdef nrtdm
   properties(Constant)
     %default value of some internal parameters
     default_list=struct(...
-      'nrtdm_dir',getenv('NRTDM'),...
-      'data_dir',  fullfile(getenv('NRTDM'),'data'),...
-      'config_dir',fullfile(getenv('NRTDM'),'config'),...
       'time_format','yyyy-MM-dd hh:mm:ss.sss',...
       'debug',true...
     );
@@ -19,26 +16,45 @@ classdef nrtdm
     file_list
   end
   methods(Static)
-    function out=data_file_name(data_dir,product,t_now,extension)
-      if isempty(dir(data_dir))
-        mkdir(data_dir)
+    function out=nrtdm_dir
+      out=getenv('NRTDM');
+      if isempty(dir) || ~exist(out,'dir')
+        out=fullfile(getenv('HOME'),'bin','nrtdm');
       end
-      out=fullfile(data_dir,product,...
-        [datestr(t_now,'yyyy'), '_',num2str(day(t_now,'dayofyear'),'%03i'),'.',extension]);
+      assert(exist(out,'dir')~=0,'Cannot find NRTDM dir')
     end
-    function data_dir=data_dir_fix(hostname)
+    function out=data_dir(hostname,check)
       if ~exist('hostname','var') || isempty(hostname)
         [~,hostname]=system('hostname');
         hostname=hostname(1:end-1);
       end
+      if ~exist('check','var') || isempty(check)
+        check=false;
+      end
       switch lower(hostname)
         case 'tud276672'
-          data_dir='/home/teixeira/data/swarm/nrtdmdata/';
+          out='/home/teixeira/data/swarm/nrtdmdata/';
         case 'tud14231'
-          data_dir='/Users/teixeira/cloud/TUDelft/data/swarm/nrtdmdata/';
+          out='/Users/teixeira/cloud/TUDelft/data/swarm/nrtdmdata/';
         otherwise
-          data_dir=nrtdm.default_list.data_dir;
+          out=fullfile(nrtdm.nrtdm_dir,'data');
       end
+      if check
+        assert(exist(out,'dir')~=0,'Cannot find NRTDM data dir')
+      end
+    end
+    function out=config_dir
+      out=fullfile(nrtdm.nrtdm_dir,'config');
+    end
+    function out=data_file_name(data_dir,product,t_now,extension)
+      if ~exist('data_dir','var') || isempty(data_dir)
+        data_dir=nrtdm.data_dir;
+      end
+      if ~exist(data_dir,'dir')
+        mkdir(data_dir)
+      end
+      out=fullfile(data_dir,product,...
+        [datestr(t_now,'yyyy'), '_',num2str(day(t_now,'dayofyear'),'%03i'),'.',extension]);
     end
     function test(product_name,time_start,time_stop)
       if ~exist('product_name','var') || isempty(product_name)
@@ -50,12 +66,7 @@ classdef nrtdm
       if ~exist('time_stop','var') || isempty(time_stop)
         time_stop=datetime(2015,6,3,18,0,0);
       end
-      data_dir=nrtdm.data_dir_fix;
-      if isempty(dir(nrtdm.data_dir_fix))
-        disp([mfilename,':WARNING: cannot find NRTDM data dir: ',data_dir,'. Skipping test.'])
-        return
-      end
-      nrtdm(product_name,time_start,time_stop,'data_dir',data_dir).ts.plot
+      nrtdm(product_name,time_start,time_stop,'data_dir',nrtdm.data_dir('',true)).ts.plot
     end
   end
   methods
@@ -147,8 +158,8 @@ function outfile=nrtdm_convert(metadata,t,varargin)
   p.KeepUnmatched=true;
   % optional arguments
   p.addParameter('nrtdm_args','',@(i)ischar(i));
-  p.addParameter('data_dir',  nrtdm.data_dir_fix,  @(i)ischar(i));
-  p.addParameter('config_dir',nrtdm.default_list.config_dir,@(i)ischar(i));
+  p.addParameter('data_dir',  nrtdm.data_dir,  @(i)ischar(i));
+  p.addParameter('config_dir',nrtdm.config_dir,@(i)ischar(i));
   p.addParameter('debug',false,@(i)islogical(i));
   % parse it
   p.parse(varargin{:});
@@ -169,7 +180,7 @@ function outfile=nrtdm_convert(metadata,t,varargin)
 
   %set time system as defined in the metadata
   for tsys=simpletimeseries.valid_timesystems
-    if ~isempty(strfind(lower(metadata.entries.epoch),lower(tsys{1})))
+    if contains(lower(metadata.entries.epoch),lower(tsys{1}))
       timesystem=lower(tsys{1});
       break
     end
@@ -183,41 +194,47 @@ function outfile=nrtdm_convert(metadata,t,varargin)
   if (p.Results.debug); disp([' ~  Converting data for day ',datestr(t),' : ',metadata.product.str]); end
   infile= metadata.data_filename(t,'orbit',fullfile(p.Results.data_dir,'orbit'));
   outfile=metadata.data_filename(t,'mat',  fullfile(p.Results.data_dir,'mat'));
-  if isempty(dir(infile))
+  %check if no file exists
+  if ~exist(infile,'file') && ~exist(outfile,'file')
     disp(['!!! Cannot find source file : ',infile])
-  else
-    if file_is_newer(infile,outfile)
-      if (p.Results.debug); disp([' ~ Converting data from file: ',infile]); end
-      %load nrtdm data
-      [time,values]=nrtdm_read(metadata.full_entries,timearg,nrtdm_args);
-      %some data files only contain gaps
-      if numel(time)<2 || size(values,1)<2
-        disp(['!!! Source file filled with gaps, ignoring : ',infile])
-        return
-      end
-      %build data structure
-      ts=simpletimeseries(time,values,...
-        'y_units',metadata.units,...
-        'labels',metadata.fields_no_units,...
-        'timesystem',timesystem,...
-        'descriptor',metadata.product.str...
-      ).fill;
-      %fill extremeties if they are not there (happens a lot in Swarm data)
-      if ts.t(1)>t_start
-        ts=ts.extend(t_start).epoch_update;
-      end
-      if ts.t(end)<t_stop
-        ts=ts.extend(t_stop);
-      end
-      %fill gaps
-      ts=ts.fill; %#ok<NASGU>
-      %save it
-      save(outfile,'ts');
-    else
-      if(p.Results.debug); disp([' z  Data already converted  : ',outfile]); end
-    end
+    return
   end
-
+  %check if only the converted file exists
+  if ~exist(infile,'file') && exist(outfile,'file')
+    disp([' z  Only converted file exists : ',outfile])
+    return
+  end
+  %file_is_newer handles missing outfile
+  if file_is_newer(infile,outfile)
+    if (p.Results.debug); disp([' ~ Converting data from file: ',infile]); end
+    %load nrtdm data
+    [time,values]=nrtdm_read(metadata.full_entries,timearg,nrtdm_args);
+    %some data files only contain gaps
+    if numel(time)<2 || size(values,1)<2
+      disp(['!!! Source file filled with gaps, ignoring : ',infile])
+      return
+    end
+    %build data structure
+    ts=simpletimeseries(time,values,...
+      'y_units',metadata.units,...
+      'labels',metadata.fields_no_units,...
+      'timesystem',timesystem,...
+      'descriptor',metadata.product.str...
+    ).fill;
+    %fill extremeties if they are not there (happens a lot in Swarm data)
+    if ts.t(1)>t_start
+      ts=ts.extend(t_start).epoch_update;
+    end
+    if ts.t(end)<t_stop
+      ts=ts.extend(t_stop);
+    end
+    %fill gaps
+    ts=ts.fill; %#ok<NASGU>
+    %save it
+    save(outfile,'ts');
+  else
+    if(p.Results.debug); disp([' z  Data already converted  : ',outfile]); end
+  end
 end
 
 % This is the low-level reading program
@@ -227,7 +244,7 @@ function [time,values]=nrtdm_read(product,timearg,nrtdm_args,exportdata)
 
   if ~exist('exportdata','var') || isempty(exportdata)
     %get NRTDM dir
-    nrtdm_dir=getenv('NRTDM');
+    nrtdm_dir=nrtdm.nrtdm_dir;
     if isempty(nrtdm_dir); error([mfilename,':nrtdm_read'],'Could not get NRTDM dir, environmental variable $NRTDM is not defined.'); end
     %build export data utility path and name
     exportdata=fullfile(nrtdm_dir,'bin','exportdataproductscdf.exe');
@@ -262,7 +279,7 @@ function [time,values]=nrtdm_read(product,timearg,nrtdm_args,exportdata)
   end
 
   %handle junk coming for the system command
-  if ~isempty(strfind(data_str,27))
+  if contains(data_str,27)
     %create a random anchor
     anchor=char(floor(25*rand(1,20)) + 65);
     %use system to echo the random anchor (along with the junk we want to remove)
