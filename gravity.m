@@ -401,15 +401,15 @@ classdef gravity < simpletimeseries
     function obj=nan(lmax,varargin)
       obj=gravity.unit(lmax,'scale',nan,varargin{:});
     end
-    function [m,e]=load(filename,format,time)
+    function [m,e]=load(filename,fmt,time)
       %default type
-      if ~exist('format','var') || isempty(format)
-        [~,fn,format]=fileparts(filename);
+      if ~exist('fmt','var') || isempty(fmt)
+        [~,fn,fmt]=fileparts(filename);
         %get rid of the dot
-        format=format(2:end);
+        fmt=fmt(2:end);
         %check if this is CSR format
         if strcmp(fn,'GEO')
-          format='csr';
+          fmt='csr';
         end
       end
       %default time
@@ -426,7 +426,7 @@ classdef gravity < simpletimeseries
       end
       %check if mat file is already available
       if isempty(dir(mat_filename))
-        switch lower(format)
+        switch lower(fmt)
         case 'gsm'
           [m,e]=load_gsm(filename,time);
         case 'csr'
@@ -436,7 +436,7 @@ classdef gravity < simpletimeseries
         case 'mod'
           [m,e]=load_mod(filename,time);
         otherwise
-          error([mfilename,': cannot handle models of type ''',format,'''.'])
+          error([mfilename,': cannot handle models of type ''',fmt,'''.'])
         end
         save(mat_filename,'m','e')
       else
@@ -1645,16 +1645,12 @@ function [m,e]=load_csr(filename,time)
   fid=file.open(filename);
   modelname=''; GM=0; radius=0; Lmax=0; %Mmax=0;
   % Read header
+  % skip first line (with a fortran format specifier)
+  fgets(fid);
+  %get GM and radius from the second line
   s=fgets(fid);
-  while(strncmp(s, 'RECOEF', 6) == 0)
-     if (keyword_search(s, 'SOLUTION  FIELD'))
-%            GM=str2num(s(21:40));
-           GM=str.num(s(21:40));
-%        radius=str2num(s(41:60));
-       radius=str.num(s(41:60));
-     end
-     s=fgets(fid);
-  end
+      GM=str.num(s(21:40));
+  radius=str.num(s(41:60));
   %sanity
   if GM==0 || radius==0
     error([mfilename,': Problem with reading the CSR file ''',filename,''', could not find GM and R constants.'])

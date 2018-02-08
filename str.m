@@ -168,6 +168,13 @@ classdef str
           ' ',alt_char,...
           '.',alt_char,...
           '+',alt_char);
+      case 'regex'
+        s=str.rep(s,...
+          '[','\[',...
+          ']','\]',...
+          '*','\*');
+      case 'noregex'
+        s=str.clean(s,{'[',']','*'});
       case 'grace'
         sats={'A','B'};
         names={'gr<SAT>.','gr<SAT>.','G<SAT>_','G<SAT>_'};
@@ -373,5 +380,24 @@ classdef str
       n=max(cellfun(@numel,in));
       out=cellfun(@(i) [i,repmat(' ',1,n-numel(i))],in,'UniformOutput',false);
     end
+%     function out=fmt_f2c(in)
+%       %split input fortran format string into a cell
+%       in=split(in,',');
+%       out=cell(size(in));
+%       %loop over all entries
+%       for i=1:numel(in)
+%         count=0;
+%         %loop over all characters
+%         for j=1:length(in{i})
+%           switch in{i}(j)
+%           %check if it's a digit
+%           case arrayfun(@(i) {num2str(i)},1:9)
+%             count=count*10^(j-1)+str2double(in{i}(j));
+%           case 'A'; out{i}='s';
+%           case ''; out{i}='s';
+%           end
+%         end
+%       end
+%     end
   end
 end

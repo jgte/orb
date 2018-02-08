@@ -204,6 +204,7 @@ classdef file
       p.addParameter('scalar_as_strings',   false, @(i) islogical(i) && isscalar(i));
       p.addParameter('directories_only',    false, @(i) islogical(i) && isscalar(i));
       p.addParameter('files_only',          false, @(i) islogical(i) && isscalar(i));
+      p.addParameter('stop_if_empty',       false, @(i) islogical(i) && isscalar(i));
       % parse it
       p.parse(in,varargin{:});
       %wildcard character '*' needs to be translated to '.*' (if not already)
@@ -255,8 +256,12 @@ classdef file
       filenames(cellfun('isempty',filenames))=[];
       %inform user if no files found
       if isempty(filenames)
+        msg=['found no files named ',in,'.'];
+        if p.Results.stop_if_empty
+          error(msg)
+        end
         if p.Results.disp
-          disp([mfilename,':warning: found no files named ',in,'.'])
+          disp([mfilename,': warning: ',msg])
         end
         out='';
         return
@@ -286,11 +291,31 @@ classdef file
       end
     end
     function [out,s]=find(varargin)
-      [s,r]=system(['find ',strjoin(varargin,' ')]);
+      com=['find ',strjoin(str.clean(varargin,'regex'),' ')];
+      disp(com)
+      [s,r]=system(com);
+      if s~=0
+        disp(r)
+        out={};
+      else
+        out=cells.rm_empty(strsplit(r,char(10)));
+      end
+    end
+    function [out,s]=rsync(from,to,more_args,args)
+      if ~exist('more_args','var')
+        more_args='';
+      end
+      if ~exist('args','var') || isempty(args)
+        args='--archive --hard-links --copy-unsafe-links --recursive --itemize-changes --exclude=._* --exclude=.*';
+      end
+      assert(~isempty(from) && ~isempty(to),'Inputs ''from'' and ''to'' cannot be empty.')
+      [s,r]=system(['rsync ',args,' ',more_args,' ',from,' ',to]);
       if s~=0
         out={};
       else
         out=cells.rm_empty(strsplit(r,char(10)));
+        out=cellfun(@(i) strsplit(i),out,'UniformOutput',false);
+        out=cellfun(@(i) i{2:end},   out,'UniformOutput',false);
       end
     end
     function count=length(filename)
@@ -301,6 +326,59 @@ classdef file
         count = count + 1;
       end
       if close_file, fclose(fid); end
+    end
+    function out=fullpath(filename)
+      if iscellstr(filename)
+        out=cellfun(@(i) file.fullpath(i),filename,'UniformOutput',false);
+      	return
+      end
+      if ~isempty(strfind(filename,['~',filesep]))
+        filename=strrep(filename,['~',filesep],[getenv('HOME'),filesep]);
+      elseif numel(filename)==1 && strcmp(filename,'~')
+        filename=strrep(filename,'~',[getenv('HOME'),filesep]);
+      elseif ~isempty(strfind(filename,'~'))
+        filename=strrep(filename,'~',[getenv('HOME'),filesep,'..',filesep]);
+      end
+      out = char(java.io.File(filename).getCanonicalPath());
+    end
+    function out=isabsolute(filename)
+      out=filename(1)==filesep;
+    end
+    function f=trailing_filesep(f)
+      if iscellstr(f)
+        isdir=cellfun(@(i) exist(i,'dir')~=0,f);
+        f(isdir)=cellfun(@(i) file.trailing_filesep(i),f(isdir),'UniformOutput',false);
+      	return
+      end
+      if f(end)~=filesep
+        f=[f,filesep];
+      end
+    end
+    function out=exist(in)
+      out=~isempty(file.wildcard(in,...
+        'disp',             false,...
+        'directories_only', false,...
+        'files_only',       false...
+      ));
+    end
+    function out=datenum(in)
+      fileinfo=dir(in);
+      if exist(in,'dir')
+        assert(fileinfo(1).name=='.',['Excepting the first entry of ''fileinfo'' to be relative to ''.'', not to ''',fileinfo(1).name,'''.'])
+        out=fileinfo(1).datenum;
+      else
+        assert(isscalar(fileinfo),['Expecting ''fileinfo'' to be scalar, since ''',in,''' doesn not appears to be a directory.'])
+        out=fileinfo.datenum;
+      end
+    end
+    function out=newest(in,varargin)
+      newest_date=0;
+      file_list=file.wildcard(in,varargin{:});
+      for i=1:numel(file_list)
+        if file.datenum(file_list{i})>newest_date
+          out=file_list{i};
+        end
+      end
     end
   end
 end
