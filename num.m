@@ -1,6 +1,6 @@
 classdef num
   methods(Static)
-     function out=cov(x,y)
+    function out=cov(x,y)
       n=size(x,2);
       if n==0
         out=0;
