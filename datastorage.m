@@ -611,7 +611,7 @@ classdef datastorage
         if isempty(file_list)
           obj.log('@','out','no files to load for',product)
         else
-          obj.log('@','out','file(s) missing for',[product.str,char(10),strjoin(file_list(~file_exists),char(10))])
+          obj.log('@','out','file(s) missing for',[product.str,newline,strjoin(file_list(~file_exists),newline)])
         end
         return
       end
@@ -828,7 +828,20 @@ classdef datastorage
           %check if data was not loaded
           if ~success
             % invoke init method, for all unwrapped leaf products (if any)
-            obj=ih(obj,product_list{i},varargin{:});
+            try
+             obj=ih(obj,product_list{i},varargin{:});
+            catch ME
+              if strcmp( ME.identifier,'MATLAB:UndefinedFunction') && ...
+                 contains(ME.message,func2str(ih)) && ...
+                 strcmp(cells.first(split(func2str(ih),'.')),'datastorage')
+                com=['obj.',cells.last(split(func2str(ih),'.')),'(product_list{i},varargin{:})'];
+                disp(com)
+                obj=eval(com);
+                disp('done!')
+              else
+                error(ME.message)
+              end    
+            end
             % save data
             obj.save(product_list{i},varargin{:});
             % update start/stop

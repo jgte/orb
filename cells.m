@@ -186,5 +186,15 @@ classdef cells
       otherwise;    error(['Cannot handle mode ''',mode,'''.'])
       end  
     end
+    %first/last/nth wrapper
+    function out=ith(in,i)
+      out=in{i};
+    end
+    function out=first(in)
+      out=cells.ith(in,1);
+    end
+    function out=last(in)
+      out=cells.ith(in,numel(in));
+    end
   end
 end

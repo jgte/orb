@@ -1,4 +1,4 @@
-nrtdm_data_dir: <getenv('NRTDM')>/data/
+nrtdm_data_dir: <nrtdm.data_dir>
 method: datastorage.init_nrtdm
 nrtdm_product: Basic/Orbit_Geo
 sats: [A,B]

@@ -39,15 +39,15 @@ classdef nrtdm_metadata
       %load all metadata
       text = fileread(obj.product.file);
       %discover newlines
-      newlines=[0,strfind(text,char(10))];
+      newlines=[0,strfind(text,newline)];
       %sanitize
       if isempty(newlines)
-        error([mfilename,': could not discover any new lines in file ',obj.product.file,':',char(10),text])
+        error([mfilename,': could not discover any new lines in file ',obj.product.file,':',newline,text])
       end
       %search for this product
       line_nr=0;
       for i=1:numel(newlines)-1
-        if ~isempty(strfind(text(newlines(i)+1:newlines(i+1)),['Orbital: ',obj.product.name]))
+        if contains(text(newlines(i)+1:newlines(i+1)),['Orbital: ',obj.product.name])
           line_nr=i;
           break
         end
@@ -149,7 +149,7 @@ classdef nrtdm_metadata
         extension='orbit';
       end
       if ~exist('data_dir','var') || isempty(data_dir)
-        data_dir=fullfile(getenv('NRTDM'),'data',extension);
+        data_dir=fullfile(nrtdm.data_dir,extension);
       end      
       parent_dir=fullfile(data_dir,obj.product.str);
       if isempty(dir(parent_dir))
