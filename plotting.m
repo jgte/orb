@@ -1,12 +1,18 @@
 classdef plotting
-  properties(Constant,GetAccess=private)
+  properties(Constant)
+    %NOTE: access particular fields of the default parameters with:
+    %out=varargs(plotting.default).pluck({'parameter1','parameter2'}).cell;
     default={...
         'plot_file_prefix',    '',        @(i) ischar(i);...
         'plot_file_suffix',    '',        @(i) ischar(i);...
         'plot_legend',         {},        @(i) iscellstr(i);...
         'plot_legend_suppress',{},        @(i) iscellstr(i);...
+        'plot_legend_replace', {},        @(i) iscellstr(i);...
         'plot_legend_location','best',    @(i) ischar(i);...
      'plot_legend_fontname','FixedWidth', @(i) ischar(i);...
+        'plot_legend_align',   '',        @(i) ischar(i);...    %empty means no alignment
+     'plot_legend_align_scale_bias',false,@(i) islogical(i);... %this is done after plot_legend_align, destroying it
+     'plot_scale_legend_str',' x ',       @(i) ischar(i);...
         'plot_ylabel',         '',        @(i) ischar(i);...
         'plot_xlabel',         '',        @(i) ischar(i);...
         'plot_xdate',          false,     @(i) islogical(i);...
@@ -15,7 +21,7 @@ classdef plotting
         'plot_ylimits',        [-inf,inf],@(i) isnumeric(i) && numel(i)==2;...
         'plot_size',    200+[0,0,21,9]*50,@(i) isnumeric(i) && numel(i)==4;...
         'plot_units',          'points',  @(i) ischar(i);...
-        'plot_visible',        'on',      @(i) islogical(i);...
+        'plot_visible',         true,     @(i) islogical(i);...
         'plot_fontsize_axis',   18,       @(i) isnumeric(i) && isscalar(i); ...
         'plot_fontsize_title',  24,       @(i) isnumeric(i) && isscalar(i); ...
         'plot_fontsize_label',  20,       @(i) isnumeric(i) && isscalar(i); ...
@@ -24,9 +30,17 @@ classdef plotting
         'plot_title_suppress',  {},       @(i) iscellstr(i);...
         'plot_title_suffix',    '',       @(i) ischar(i);...
         'plot_title_prefix',    '',       @(i) ischar(i);...
-        'plot_grid',            true,     @(i) islogical(i);......
+        'plot_title_replace',   {},       @(i) iscellstr(i);...
+        'plot_grid',            true,     @(i) islogical(i);...
         'plot_line_width',      2,        @(i) isnumeric(i);...
+        'plot_line_style',  'none',       @(i) ischar(i) || iscellstr(i);...
         'plot_colormap',        '',       @(i) ischar(i) || ishandle(i);...
+        'plot_psd',          false,       @(i) islogical(i);...
+        'plot_autoscale',    false,       @(i) islogical(i);... %y-scale is derived from the data (in plotting.enforce)
+        'plot_automean',     false,       @(i) islogical(i);... %middle-point of y axis is derived from the data (in plotting.enforce)
+        'plot_zeromean',     false,       @(i) islogical(i);... %mean of data is removed before plotting (in simpledata.plot)
+        'plot_outlier',          0,       @(i) isnumeric(i) && isscalar(i); ...
+        'plot_caxis',   [-inf,inf],       @(i) isnumeric(i) && numel(i)==2;...
     };
   end
   methods(Static)
@@ -43,7 +57,7 @@ classdef plotting
     end
     function v=common_axis_limits(axis_handle)
       %set output
-      v=[inf -inf inf -inf];
+      v=[-inf inf -inf inf];
       %get line handles
       lh=plotting.line_handles(axis_handle);
       %loop over all lines
@@ -102,6 +116,7 @@ classdef plotting
       case{'reversed','spiral'}
         branch=2;
       case{'jet','hsv','hot','cool','spring','summer','autumn','winter','gray','bone','copper','pink','lines'}
+        colormap_name=lower(mode);
         branch=3;
       otherwise
         error(['Unknown mode ''',mode,'''.'])
@@ -222,6 +237,69 @@ classdef plotting
         end
       end
     end
+    function line_markersize(w,axis_handle)
+      % handle inputs
+      if ~exist('w','var') || isempty(w)
+          w=12;
+      end
+      if ~exist('axis_handle','var') || isempty(axis_handle)
+          axis_handle = gca;
+      end
+      %loop over all axis
+      for ah = axis_handle(:)'
+        lh=plotting.line_handles(ah);
+        for i=1:numel(lh)		
+          set(lh(i),'MarkerSize',w)
+        end
+      end
+    end
+    function line_style(line_str,axis_handle)
+      % PLOT_LINE_LINESTYLE(LINE_STR,AXIS_HANDLE) sets the linestyle of the lines in
+      % the specified plot.
+
+      % Created by J.Encarnacao <J.deTeixeiradaEncarnacao@tudelft.nl>
+
+      %NOTICE: marker sizes must come first (since they are always only one char).
+      %If there's no marker, use blank space.
+
+      if ~exist('line_str','var') || isempty(line_str)
+          line_styles={'-','-.','--'};
+          line_ticks={'o','+','d','p','s','x'};
+          line_str=cell(length(line_styles)*(length(line_ticks)+1),1);
+          line_str(1:3)={' -',' -.',' --'};
+          c=3;
+          for i=1:length(line_styles)
+              for j=1:length(line_ticks)
+                  c=c+1;
+                  line_str{c}=[line_ticks{j},line_styles{i}];
+              end
+          end
+      end
+      if ~iscellstr(line_str)
+          error([mfilename,': expecting <line_str> to be a cell string, not a ',class(line_str),'.'])
+      end
+      if ~exist('axis_handle','var') || isempty(axis_handle)
+          axis_handle = gca;
+      end
+
+      lines=get(axis_handle,'Children');
+
+      %matlab orders lines in the reverse way
+      fix_idx=numel(lines):-1:1;
+
+      for i=1:min([numel(lines),numel(line_str)])
+          if ~isempty(line_str{i}) && ~isempty(line_str{i}(2:end))
+              set(lines(fix_idx(i)),'LineStyle',line_str{i}(2:end))
+              if line_str{i}(1) ~= ' '
+                  try
+                      set(lines(fix_idx(i)),'marker',line_str{i}(1))
+                  catch
+                      error([mfilename,': setting the marker failed. Be sure to input blank first character to lines without markers.'])
+                  end
+              end
+          end
+      end
+    end
     function font_size(fs,axis_handle)
       % handle inputs
       if ~exist('fs','var') || isempty(fs)
@@ -236,6 +314,40 @@ classdef plotting
         set(get(h,'Title' ),'FontSize',round(fs*1.3));
         set(get(h,'XLabel'),'FontSize',round(fs*1.1));
         set(get(h,'YLabel'),'FontSize',round(fs*1.2));
+      end
+    end
+    function font_size_xticks(fs,axis_handle)
+      % handle inputs
+      if ~exist('fs','var') || isempty(fs)
+          fs=18;
+      end
+      if ~exist('axis_handle','var') || isempty(axis_handle)
+          axis_handle = gca;
+      end
+      %loop over all axis
+      for h = axis_handle(:)'
+        % https://www.mathworks.com/matlabcentral/answers/306225-how-can-i-change-the-font-size-of-the-tick-labels-without-changing-the-font-size-of-the-axis-labels
+        hl = get(h,'XLabel');
+        hlfs = get(hl,'FontSize');
+        set(get(h,'XAxis'),'FontSize', fs)
+        set(hl, 'FontSize', hlfs);
+      end
+    end
+    function font_size_yticks(fs,axis_handle)
+      % handle inputs
+      if ~exist('fs','var') || isempty(fs)
+          fs=18;
+      end
+      if ~exist('axis_handle','var') || isempty(axis_handle)
+          axis_handle = gca;
+      end
+      %loop over all axis
+      for h = axis_handle(:)'
+        % https://www.mathworks.com/matlabcentral/answers/306225-how-can-i-change-the-font-size-of-the-tick-labels-without-changing-the-font-size-of-the-axis-labels
+        hl = get(h,'YLabel');
+        hlfs = get(hl,'FontSize');
+        set(get(h,'YAxis'),'FontSize', fs)
+        set(hl, 'FontSize', hlfs);
       end
     end
     function size(s,fig_handle)
@@ -253,6 +365,64 @@ classdef plotting
     function out=markersize(n)
       out=round(50./log10(n.^2));
     end
+    function out=xaxis_tight(axis_handle)
+      if ~exist('axis_handle','var') || isempty(axis_handle)
+          axis_handle = gca;
+      end
+      v1=axis(axis_handle);
+      axis(axis_handle,'tight');
+      v2=axis;
+      axis(axis_handle,[v2(1:2),v1(3:4)]);
+      if nargout>0
+        out=axis;
+      end
+    end
+    function out=yaxis_tight(axis_handle)
+      if ~exist('axis_handle','var') || isempty(axis_handle)
+          axis_handle = gca;
+      end
+      v1=axis(axis_handle);
+      axis(axis_handle,'tight');
+      v2=axis;
+      axis(axis_handle,[v1(1:2),v2(3:4)]);
+      if nargout>0
+        out=axis;
+      end
+    end
+    function out=text(x,y,msg,varargin)
+      % add input arguments to collection of parameters 'v'
+      v=varargs.wrap('sources',{plotting.default,{...
+        'axis_handle', gca, @(i) ~isempty(i) && ishandle(i);...
+        'lines_y',      15, @(i) isnumeric() && isscalar(i);...
+        'lines_x',      15, @(i) isnumeric() && isscalar(i);...
+        'fontsize',     12, @(i) isnumeric() && isscalar(i);...
+      }},varargin{:});
+      %get axis
+      a=axis;
+      %need this to show text
+      line_x   = (a(2)-a(1))/v.lines_x;
+      corner_x = a(1)+line_x;
+      line_y   = (a(4)-a(3))/v.lines_y;
+      corner_y = a(4)-line_y;
+      out=text(corner_x+(x-1)*line_x,corner_y-(y-1)*line_y,msg,'FontSize',v.fontsize,'fontname','FixedWidth');
+    end
+    function out=stats(dat,varargin)
+      % add input arguments to collection of parameters 'v'
+      v=varargs.wrap('sources',{plotting.default,{...
+        'format',  '%.3g', @(i) ~isempty(i) && ischar(i);...
+        'x_pos',        1, @(i) isnumeric() && isscalar(i);...
+        'y_pos',        0, @(i) isnumeric() && isscalar(i);...
+        'stat_modes',{'std','mean','rms','min','max','numel'}, @(i) iscellstr(i);...
+      }},varargin{:});
+      out=cell(size(v.stat_modes));
+      good_idx=~isnan(dat);
+      for i=1:numel(v.stat_modes)
+        fh=str2func(v.stat_modes{i});
+        out{i}=plotting.text(v.x_pos,v.y_pos+i,...
+          [str.tabbed(v.stat_modes{i},5,true),' : ',num2str(fh(dat(good_idx)),v.format)]...
+        );
+      end
+    end
     %% utility
     function fig_handle=figure(varargin)
       % add input arguments and metadata to collection of parameters 'v'
@@ -265,10 +435,14 @@ classdef plotting
                       'PaperPosition',     v.plot_size);
     end
     function out=enforce(varargin)
-      % add input arguments and metadata to collection of parameters 'v'
+      % add input arguments to collection of parameters 'v'
       v=varargs.wrap('sources',{plotting.default,{...
         'axis_handle',  gca,  @(i) ~isempty(i) && ishandle(i);...
       }},varargin{:});
+      % sanity
+      if any(isfinite(v.plot_ylimits)) && ( v.plot_autoscale ||  v.plot_automean )
+        error([mfilename,': option ''ylimits'' and ''autoscale'' or ''automean'' do not work concurrently.'])
+      end
     
       %outputs
       out.axis_handle=v.axis_handle;
@@ -278,11 +452,16 @@ classdef plotting
       for i=1:numel(line_handles)
         set(line_handles(i),'LineWidth',v.plot_line_width)
       end
+      if ~strcmpi(v.plot_line_style,'none')
+        plotting.line_style(v.plot_line_style,out.axis_handle)
+      end
       
       % start with current axis
       a=axis(out.axis_handle);
       %check if dates are requested
-      if v.plot_xdate
+      if (v.plot_xdate && ~v.plot_psd) || ...
+          strcmp(v.plot_xlabel,'time') ||  ...
+          strcmp(get(get(gca,'Xlabel'),'String'),'time')
         % enforce (possible) requested x-limits
         for i=1:2
           if isfinite(v.plot_xlimits(i))
@@ -290,14 +469,14 @@ classdef plotting
           end
         end
         % set auto x-label, unless one is explicity given
-        if isempty(v.plot_xlabel)
+        if isempty(v.plot_xlabel) || strcmp(v.plot_xlabel,'time')
           if ~strcmp(datestr(a(1),'yyyymmdd'),datestr(a(2),'yyyymmdd')) && ...
             (~strcmp(datestr(a(2),'HHMMSS'),'000000') || a(2)-a(1)>1)
             out.xlabel_handle=xlabel(out.axis_handle,...
-              out.axis_handle,[datestr(a(1),'yyyy-mm-dd'),' to ',datestr(a(2),'yyyy-mm-dd')]...
+              [datestr(a(1),'yyyy-mm-dd'),' to ',datestr(a(2),'yyyy-mm-dd')]...
             );
           else
-            out.xlabel_handle=xlabel(out.axis_handle,out.axis_handle,datestr(a(1)));
+            out.xlabel_handle=xlabel(out.axis_handle,datestr(a(1)));
           end
         end
         %enforce requested x date tick format
@@ -318,6 +497,36 @@ classdef plotting
           a(i+2)=   v.plot_ylimits(i);
         end
       end
+      % enforce auto-scale and/or auto-mean
+      if v.plot_automean || v.plot_autoscale || v.plot_outlier>0
+        %gather plotted data
+        dat=cell(size(line_handles));
+        for i=1:numel(line_handles)
+          tmp=get(line_handles(i),'ydata');
+          dat{i}=transpose(tmp(:));
+        end
+        dat=[dat{:}];
+        dat=dat(~isnan(dat(:)));
+        %remove outliers before computing axis limits (if requested)
+        for c=1:v.plot_outlier
+          dat=simpledata.rm_outliers(dat);
+        end
+        dat=dat(~isnan(dat(:)));
+        if ~isempty(dat) && diff(minmax(dat))~=0
+          %enforce data-driven mean and/or scale
+          if v.plot_automean && v.plot_autoscale
+            a(3:4)=mean(dat)+4*std(dat)*[-1,1];
+          elseif v.plot_automean
+            a(3:4)=minmax(dat);
+          elseif v.plot_autoscale
+            a(3:4)=mean(a(3:4))+4*std(dat)*[-1,1];
+          end
+          %fix non-negative data sets
+          if all(dat>=0) && a(3)<0
+            a(3)=0;
+          end
+        end
+      end
       % set axis limits (can be the ones matlab so wisely set)
       axis(out.axis_handle,a);
       
@@ -334,17 +543,24 @@ classdef plotting
       end
       
       %enforce title
-      if ~isempty(v.plot_title)
+      switch lower(v.plot_title)
+      case {'','clear'}
+        out.title_handle=[];
+      otherwise
         %suppress some parts, if requested
         title_str=setdiff(strsplit(v.plot_title,{' ','.'}),v.plot_title_suppress,'stable');
         %add prefix and suffix
         title_str=strjoin([{v.plot_title_prefix};title_str(:);{v.plot_title_suffix}],' ');
+        %propagate
+        v.plot_title=title_str;
+        %replace explicit strings
+        if ~isempty(v.plot_title_replace)
+          v.plot_title=str.rep(v.plot_title,v.plot_title_replace{:});
+        end
         %clean up the tile put it there
-        out.title_handle=title(out.axis_handle,str.clean(title_str,'title'));
-      else
-        out.title_handle=[];
+        out.title_handle=title(out.axis_handle,str.clean(v.plot_title,'title'));
       end
-      
+
       % enforce fontsize and paper size
       set(    out.axis_handle,          'FontSize',v.plot_fontsize_axis)
       set(get(out.axis_handle,'Title' ),'FontSize',v.plot_fontsize_title);
@@ -363,76 +579,141 @@ classdef plotting
         out.colormap_handle=[];
       end
       
+      %enforce caxis limits
+      if any(isfinite(v.plot_caxis))
+        ca=caxis;
+        for i=1:numel(ca)
+          if isfinite(v.plot_caxis(i)); ca(i)=v.plot_caxis(i);end
+        end
+        caxis(ca);
+      end
+      
       %enforce legend
       out.legend_handle=plotting.legend(varargin{:});
     end
     function legend_handle=legend(varargin)
-      scale_legend_str=' x ';
-      scale_legend_len=length(scale_legend_str);
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{plotting.default,{...
         'axis_handle',  gca,  @(i) ~isempty(i) && ishandle(i);...
       }},varargin{:});
       % check if any legend is given
-      if ~isempty(v.plot_legend)
-        %clean legend of _ and remove whatever is given in plot_legend_suppress
-        v.plot_legend=cellfun(@(i) str.clean(i,[v.plot_legend_suppress(:);{'title'}]),v.plot_legend,'UniformOutput',false);
-        %align scale and mean, if there
-        legend_out=cell(numel(v.plot_legend),3);
-        %determine locations of the scales
-        scale_idx=strfind(v.plot_legend,scale_legend_str);
-        %patch empty entries
-        for i=1:numel(scale_idx)
-          if isempty(scale_idx{i})
-            scale_idx{i}=length(v.plot_legend{i});
-          else
-            scale_idx{i}=scale_idx{i}+scale_legend_len;
-          end
-        end
-        %determine the locatios of biases
-        bias_idx=cell(size(scale_idx));
-        %patch empty entries
-        for i=1:numel(bias_idx)
-          %determine locations of the biases
-          bias_idx{i}=max(strfind(strtrim(v.plot_legend{i}(1:(scale_idx{i}-scale_legend_len))),' '));
-          if isempty(bias_idx{i})
-            bias_idx{i}=scale_idx{i};
-          else
-            bias_idx{i}=bias_idx{i}+1;
-          end
-        end
-        for i=1:numel(v.plot_legend)
-          legend_out{i,3}=strtrim(v.plot_legend{i}(scale_idx{i}:end));
-          legend_out{i,2}=strtrim(v.plot_legend{i}( bias_idx{i}:(scale_idx{i}-scale_legend_len)));
-          legend_out{i,1}=strtrim(v.plot_legend{i}(        1:(bias_idx{i}-1)));
-        end
-        %get maximum length of each legend section and pad with blanks (right-align)
-        for i=1:size(legend_out,2)
-          section_max_len=max(cellfun(@(x) length(x),legend_out(:,i)));
-          for j=1:size(legend_out,1)
-            legend_out{j,i}=str.tabbed(legend_out{j,i},section_max_len,true);
-          end
-        end
-        %assign column-aligned legend
-        for i=1:size(legend_out,1)
-          v.plot_legend{i}=strjoin(legend_out(i,:),' ');
-        end
-        %set the legend text
-        legend_handle=legend(v.axis_handle,v.plot_legend);
-        %adjust the location of the legend (even if the default 'best', it may happen that it is no longer in a good position)
-        set(legend_handle,'location',v.plot_legend_location,'FontSize',v.plot_fontsize_legend,'FontName',v.plot_legend_fontname)
-      else
+      if isempty(v.plot_legend) || (...
+          ~isempty(v.plot_legend{1}) && (...
+            strcmpi(v.plot_legend{1},'clean') || ...
+            strcmpi(v.plot_legend{1},'clear') || ...
+            strcmpi(v.plot_legend{1},'none')...
+        ))
         legend(v.axis_handle,'off')
         legend_handle=[];
+        return
+      else
+        %clean legend of _ and remove whatever is given in plot_legend_suppress
+        v.plot_legend=cellfun(@(i) str.clean(i,[v.plot_legend_suppress(:);{'title'}]),v.plot_legend,'UniformOutput',false);
+        %replace explicit strings
+        if ~isempty(v.plot_legend_replace)
+          v.plot_legend=cellfun(@(i) str.rep(i,v.plot_legend_replace{:}),v.plot_legend,'UniformOutput',false);
+        end
+        %maybe there's the need to align words
+        if ~isempty(v.plot_legend_align)
+          %keywords
+          switch lower(v.plot_legend_align)
+          case {'space','spaces','blank','blanks'}
+            v.plot_legend_align=' ';
+          end
+          v.plot_legend=str.columns(v.plot_legend,'right',v.plot_legend_align);
+        end
+        %maybe there's the need to make the scale and bias nicely aligned
+        if v.plot_legend_align_scale_bias
+          %align scale and mean, if there
+          legend_out=cell(numel(v.plot_legend),3);
+          %determine locations of the scales
+          scale_idx=strfind(v.plot_legend,v.plot_scale_legend_str);
+          %patch empty entries
+          for i=1:numel(scale_idx)
+            if isempty(scale_idx{i})
+              scale_idx{i}=length(v.plot_legend{i});
+            else
+              scale_idx{i}=scale_idx{i}+length(v.plot_scale_legend_str);
+            end
+          end
+          %determine the locatios of biases
+          bias_idx=cell(size(scale_idx));
+          %patch empty entries
+          for i=1:numel(bias_idx)
+            %determine locations of the biases
+            bias_idx{i}=max(strfind(strtrim(v.plot_legend{i}(1:(scale_idx{i}-length(v.plot_scale_legend_str)))),' '));
+            if isempty(bias_idx{i})
+              bias_idx{i}=scale_idx{i};
+            else
+              bias_idx{i}=bias_idx{i}+1;
+            end
+          end
+          for i=1:numel(v.plot_legend)
+            legend_out{i,3}=strtrim(v.plot_legend{i}(scale_idx{i}:end));
+            legend_out{i,2}=strtrim(v.plot_legend{i}( bias_idx{i}:(scale_idx{i}-scale_legend_len)));
+            legend_out{i,1}=strtrim(v.plot_legend{i}(        1:(bias_idx{i}-1)));
+          end
+          %get maximum length of each legend section and pad with blanks (right-align)
+          for i=1:size(legend_out,2)
+            section_max_len=max(cellfun(@(x) length(x),legend_out(:,i)));
+            for j=1:size(legend_out,1)
+              legend_out{j,i}=str.tabbed(legend_out{j,i},section_max_len,true);
+            end
+          end
+          %assign column-aligned legend
+          for i=1:size(legend_out,1)
+            v.plot_legend{i}=strjoin(legend_out(i,:),' ');
+          end
+        end
       end
+      %set the legend text
+      legend_handle=legend(v.axis_handle,v.plot_legend);
+      %adjust the location of the legend (even if the default 'best', it may happen that it is no longer in a good position)
+      set(legend_handle,'location',v.plot_legend_location,'FontSize',v.plot_fontsize_legend,'FontName',v.plot_legend_fontname)
     end
     %% nice plotting stuff
+    function out=hist(x,varargin)
+      p=inputParser; p.KeepUnmatched=true;
+      p.addRequired( 'x', @(i) isnumeric(i));
+      % add input arguments to collection of parameters 'v'
+      v=varargs.wrap(...
+        'parser',p,...
+        'mandatory',{x},...
+        'sources',{plotting.default,{...
+          'normalization','probability',@(i) ischar(i);...
+          'edgecolor','black',@(i) ischar(i);...
+          'facecolor','black',@(i) ischar(i);...
+          'histogramargs',{},@(i) iscell(i);...
+          'markersize',    plotting.markersize(numel(x)),@(i) isnumeric(i) && isscalar(i);...
+        }},varargin{:}...
+      );
+      %create figure
+      fig_handle=plotting.figure(varargin{:});
+      %plot histogram of x
+      plot_handle=histogram(x(:),...
+        v.histogramargs{:},...
+        'Normalization',v.normalization,...
+        'edgecolor',v.edgecolor,...
+        'facecolor',v.facecolor);
+      %enforece plot and save returned struct to outputs
+      out=plotting.enforce(v.varargin{:},...
+        'axis_handle',gca,...
+        'plot_xdate',false,...
+        'plot_ylabel',get(plot_handle,'Normalization')...
+      );
+      %add stats (if requested, as handled in plotting.stats)
+      out.stats=plotting.stats(x,varargin{:});
+      %append handles
+      out.plot_handle=plot_handle;
+      out.axis_handle=gca;
+      out.fig_handle=fig_handle;
+    end
     function out=dhist(x,y,z,varargin)
       p=inputParser; p.KeepUnmatched=true;
       p.addRequired( 'x', @(i) isnumeric(i));
       p.addRequired( 'y', @(i) isnumeric(i) && numel(i)==numel(x));
       p.addRequired( 'z', @(i) isnumeric(i) && numel(i)==numel(x));
-      % add input arguments and metadata to collection of parameters 'v'
+      % add input arguments to collection of parameters 'v'
       v=varargs.wrap(...
         'parser',p,...
         'mandatory',{x,y,z},...

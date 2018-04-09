@@ -1,5 +1,4 @@
 classdef time
-  %static
   properties(Constant,GetAccess=private)
     formt_list={'S.FFF','SS.FFF','HH:MM:SS','HH:MM','dd/mm HH:MM','dd/mm/yy','mm/yyyy' ,'yyyy'}
     units_list={'ms'   ,'s'     ,'min'     ,'hrs'  ,'days'       ,'mon'     ,'yrs'     ,'cent'};
@@ -14,6 +13,7 @@ classdef time
       @(i) years(i),...
       @(i) years(i*100)...
     };
+    millennium=2000;
     valid_formats=struct(...
       'char',{{...
         'yyyy-MM-dd hh:mm:ss.sss',...
@@ -117,7 +117,7 @@ classdef time
       case {'centuries','century','cent','c'}
         out='cent';
       otherwise
-        disp([mfilename,':WARNING: unknown time units ''',time_units,'''. Using seconds.'])
+        disp([mfilename,':WARNING: unknown time units ''',in,'''. Using seconds.'])
         out = 's';
       end
     end
@@ -442,7 +442,11 @@ classdef time
       duniq     = unique(dvec(:, 1), 'rows');
       startlist = datetime(datenum(duniq(:,1), 1, 1),'ConvertFrom','datenum');
       if nargout>1
-        stoplist = [startlist(2:end);dateshift(startlist(end),'end','year')+days(1)];
+        if numel(startlist)>1
+          stoplist = [startlist(2:end);dateshift(startlist(end),'end','year')+days(1)];
+        else
+          stoplist = dateshift(startlist(end),'end','year')+days(1);
+        end
       end
     end
     function [startlist,stoplist]=list(start,stop,period)
@@ -765,6 +769,39 @@ classdef time
     end
     function out=round_seconds(in)
       out=seconds(round(seconds(in)));
+    end
+    function out=month2int(in)
+      switch lower(in)
+      case {'january',  'jan','1','01'};out=1;
+      case {'february', 'feb','2','02'};out=2;
+      case {'march',    'mar','3','03'};out=3;
+      case {'april',    'apr','4','04'};out=4;
+      case {'may',            '5','05'};out=5;
+      case {'june',     'jun','6','06'};out=6;
+      case {'july',     'jul','7','07'};out=7;
+      case {'august',   'aug','8','08'};out=8;
+      case {'september','sep','9','09'};out=9;
+      case {'october',  'oct',    '10'};out=10;
+      case {'november', 'nov',    '11'};out=11;
+      case {'december', 'dec',    '12'};out=12;
+      otherwise
+        error(['Cannot understand month ''',in,'''.'])
+      end
+    end
+    %% millennium fixing routines
+    function year=millennium_add(year)
+      assert(isnumeric(year),'Input ''year'' has to be numeric.')
+      fix_idx=year<time.millennium;
+      if any(fix_idx)
+        year(fix_idx)=year(fix_idx)+time.millennium;
+      end
+    end
+    function year=millennium_rm(year)
+      assert(isnumeric(year),'Input ''year'' has to be numeric.')
+      fix_idx=year>=time.millennium;
+      if any(fix_idx)
+        year(fix_idx)=year(fix_idx)-time.millennium;
+      end
     end
   end
 end

@@ -1,0 +1,12 @@
+# CMMNT SWARM A/B/C monthly gravity fields, combined using VCE on solution level
+# CMMNT Same gravity field approach, but based on different kinematic orbits.
+# CMMNT 0.40*GSWARM_GF_SABC_ASU_13-12_01_AIUB
+# CMMNT 0.15*GSWARM_GF_SABC_ASU_13-12_01_TUD
+# CMMNT 0.45*GSWARM_GF_SABC_ASU_13-12_01_IFG
+import_dir: <getenv('HOME')>/data/gswarm/aiub/gravity/
+model_types: [signal]
+wilcarded_filename: GSWARM_GF_SABC_COMBINED_*03.gfc
+model_format: gfc
+date_parser: gravity.parse_epoch_gswarm
+submetadata1: model.processing.submetadata
+submetadata2: model.plotting.submetadata

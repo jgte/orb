@@ -1,0 +1,9 @@
+import_dir: <getenv('HOME')>/data/SLR/csr/Cheng
+method: csr.import_slr_Cheng
+format: slr-csr-Cheng
+storage_period: yearly
+filename: csdeg3.5d561_192_stb
+#c30       c31      c32      c33      s31      s32      s33
+degrees: [3, 3, 3, 3, 3, 3, 3]
+orders:  [0, 1, 2, 3,-1,-2,-3]
+static_model: none

@@ -1,0 +1,10 @@
+import_dir: <getenv('HOME')>/data/csr/RL05
+model_types: [signal]
+wilcarded_filename: '*.GEO.*'
+model_format: csr
+date_parser: gravity.parse_epoch_csr
+method:  gswarm.load_models
+static_model: scales.static
+submetadata1: scales.processing.submetadata
+plot_xdate: true
+plot_xdateformat: yy

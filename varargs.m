@@ -92,6 +92,9 @@ classdef varargs < dynamicprops
         out=out{i};
       end
     end
+%     function out=default_cells(parameter_list)
+%       out=varargs(plotting.default).pluck(parameter_list).cell;
+%     end
     %returns the positional index in varargin of the requested parameters (in cell array parameter_list)
     %returns 0 if not a parameter is not present
     function idx=locate(parameter_list,varargin)
@@ -118,8 +121,11 @@ classdef varargs < dynamicprops
       % - 'parser' : using matlab's parser object (also returned in variable p);
       % - varargin : cleaned of the parameters relevant to this method (see the code).
       %
+      %NOTICE: only the parameters defined in 'sources' or 'parser' make their way into v; all other parameters in varargin are
+      %ignored.
+      %
       %If the same parameter is in 'sources' and varargin, the value defined in the latter is the one kept. Note that the default
-      %parameters in 'parser' (i.e. those that are not in vararing) are not passed to v (otherwise they may over-write a
+      %parameters in 'parser' (i.e. those that are not in varargin) are not passed to v (otherwise they may over-write a
       %parameters previously defined in a 'source').
       %
       %Both p and v outputs have the same information, which can be retrieved as:
@@ -148,10 +154,10 @@ classdef varargs < dynamicprops
       if isempty(sources);sources={varargin};end
       %create first varargs obj
       v=varargs({});
-      %loop over all sources and join to v
+      %loop over all sources and join to v (no entries are ignored, sources over-writes common entries in v)
       for i=1:numel(sources);v.join(sources{i});end
       %retrieve (possible) external parser
-      p=pn.Results.parser; p.KeepUnmatched=true;
+      p=pn.Results.parser; p.KeepUnmatched=true; p.PartialMatching=false; 
       %the parameters already defined in the external parser are not to be saved to the 'sinks'
       external_parameters=p.Parameters;
       %declare parameters
@@ -387,11 +393,13 @@ classdef varargs < dynamicprops
       idx_to_keep=cellfun(@(i) obj.idx(i),parameters_to_keep);
       %trim S
       obj.S=obj.S(idx_to_keep);
-      %remove the dynamic properties associated with the deleted parameters
-      rmprops(obj,parameters{:});
+      %get the properties that are in obj
+      idx=cellfun(@(i) isprop(obj,i),parameters);
+      %remove the dynamic properties associated with the deleted parameters (if any)
+      if any(idx);rmprops(obj,parameters{idx});end
     end
     function obj=pluck(obj,varargin)
-      if numel(varargin)==1
+      if iscell(varargin{1})
         parameters=varargin{1};
       else
         parameters=varargin;
@@ -401,7 +409,7 @@ classdef varargs < dynamicprops
       %get the parameters that are to be plucked
       parameters_to_delete=setdiff(obj.Parameters,parameters);
       %get the indexes of the parameters to keep
-      idx_to_keep=cellfun(@(i) obj.idx(i),parameters);
+      idx_to_keep=cell2mat(cellfun(@(i) obj.idx(i),parameters,'UniformOutput',false));
       %trim S
       obj.S=obj.S(idx_to_keep);
       %remove the dynamic properties associated with the deleted parameters

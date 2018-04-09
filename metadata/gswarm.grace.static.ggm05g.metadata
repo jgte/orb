@@ -7,7 +7,7 @@ model_format: gfc
 date_parser: static
 use_GRACE_C20: false
 delete_C00: true
-max_degree: 20
+max_degree: 40
 static_model: none
 plot_method: drms
 plot_xdate: false

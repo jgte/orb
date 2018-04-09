@@ -1,5 +1,5 @@
 method: csr.calibrate_estim
-sources: [grace.acc.l1b.csr,grace.acc.calmod.estimdir]
+sources: [grace.acc.l1b.csr,scales.calmod.twostep]
 explicit_fields: true
 submetadata1: grace.calpar.csr.ltb.submetadata
 storage_period: daily
@@ -9,7 +9,7 @@ plot_automean: false
 plot_outlier: 0
 plot_zeromean: true
 plot_xdateformat: mm/dd
-plot_title_suppress: [grace,acc,calmod,csr]
+plot_title_suppress: [grace,acc,calmod,csr,scales]
 plot_visible: true  
 plot_column_together: false
 plot_together: [A,B]

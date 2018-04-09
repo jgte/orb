@@ -1,0 +1,9 @@
+import_dir: <getenv('HOME')>/data/SLR/csr/Ries
+method: csr.import_slr_Ries
+format: slr-csr-grace
+storage_period: yearly
+suffix: '_RL05_2017_11.txt'
+prefixes: [C20,C21_S21,C22_S22,C40]
+degrees: [2, 2,     2,    4]
+orders:  [0,[1,-1],[2,-2],0]
+static_model: scales.static

@@ -1,0 +1,11 @@
+import_dir: <getenv('HOME')>/data/SLR/aiub
+model_types: [signal]
+wilcarded_filename: 'AIUB-SLR_*_1010.gfc'
+model_format: gfc
+date_parser: gravity.parse_epoch_aiub_slr
+method:  gswarm.load_models
+static_model: scales.static
+max_degree: 10
+plot_xdate: true
+plot_xdateformat: yy
+submetadata1: scales.processing.submetadata

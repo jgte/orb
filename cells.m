@@ -47,28 +47,55 @@ classdef cells
       end
     end
     function out=isempty(in)
-      out=cellfun(@isempty,in);
+      if iscell(in)
+        out=cellfun(@isempty,in);
+        if isempty(out); out=true;end
+      else
+        out=isempty(i);
+      end
     end
     function out=rm_empty(in)
       out=in(~cells.isempty(in));
     end
-    function out=iscellstrempty(cellstrin,strin)
+    %% overloading strfind
+    function out=isstrfind(cellstrin,strin) %this used to be called iscellstrempty
       if iscellstr(strin) && ischar(cellstrin)
         %switch it around
         tmp=strin;
         strin=cellstrin;
         cellstrin=tmp;
       end
-      out=~cellfun(@isempty,strfind(cellstrin,strin));
+      if isempty(strin)
+        out=cellfun(@isempty,cellstrin);
+      else
+        out=~cellfun(@isempty,strfind(cellstrin,strin));
+      end
     end
-    function out=cellstrfind(cellstrin,strin)
-      out=find(cells.iscellstrempty(cellstrin,strin));
+    function out=strfind(cellstrin,strin) %this used to be called cellstrfind
+      out=find(cells.isstrfind(cellstrin,strin));
     end
-    %returns a cell array with the sizes of the contents
-    function out=size(in)
-      out=cellfun(@(i) size(i),in,'UniformOutput',false);
+    function out=isincluded(cellstrin,strin)
+      out=any(cells.isstrfind(cellstrin,strin));
     end
+    function out=cellstrget(cellstrin,strin)
+      out=cellstrin(cells.isstrfind(cellstrin,strin));
+    end
+    %% overloading strcmp
+    function out=isstrcmp(cellstrin,strin) %this is mainly to remind me the operational difference between strcmp and strfind
+      if iscellstr(strin) && ischar(cellstrin)
+        %switch it around
+        tmp=strin;
+        strin=cellstrin;
+        cellstrin=tmp;
+      end
+      out=strcmp(cellstrin,strin);
+    end
+    function out=strcmp(cellstrin,strin)
+      out=find(cells.isstrcmp(cellstrin,strin));
+    end
+    %% overloading cell2mat
     %this is similar to cell2mat but any type of objects is supported
+    %NOTICE: cell strings are passed through unchanged, use cells.num to convert char to num
     function out=c2m(in)
       %trivial call
       if ~iscell(in) || iscellstr(in)
@@ -76,14 +103,23 @@ classdef cells
         return
       end
       assert(ndims(in)<=2,'Can only handle matrices or vectors')
-      assert(cells.allequal(cells.size(in)),'Need all entries of ''in'' to have the same size')
-      out=[];
-      for i=1:size(in,1)
-        out_row=[];
-        for j=1:size(in,2)
-          out_row=[out_row,in{i,j}]; %#ok<AGROW>
+      if cells.allequal(cells.size(in))
+        out=[];
+        for i=1:size(in,1)
+          out_row=[];
+          for j=1:size(in,2)
+            if ischar(in{i,j})
+              try %#ok<TRYNC>
+                in{i,j}=str.num(in{i,j});
+              end
+            end
+            out_row=[out_row,in{i,j}]; %#ok<AGROW>
+          end
+          out=[out;out_row]; %#ok<AGROW>
         end
-        out=[out;out_row]; %#ok<AGROW>
+      else
+        %can't do much here, because the cells do not have the same size
+        out=in;
       end
     end
     %this is similar to num2cell but any type of objects is supported (and there's special handling for strings)
@@ -108,11 +144,36 @@ classdef cells
         end
       end
     end
+    %% overloading misc stuff
+    %returns a cell array with the sizes of the contents
+    function out=size(in)
+      out=cellfun(@(i) size(i),in,'UniformOutput',false);
+    end
+    %% handling numeric cells
+    %returns true if all entries in 'in' are numeric of strings that can be converted to numeric
+    function [out,in]=isnum(in)
+      if isnumeric(in);                   out=true; in=out; return; end
+      if   ~iscell(in) && ~iscellstr(in); out=false; in=[]; return; end
+      for i=1:numel(in)
+        try 
+          in{i}=str.num(in{i});
+        catch
+          out=false;in=[];return
+        end
+      end
+      out=true;
+    end
+    function in=num(in)
+      [~,in]=cells.isnum(in);
+    end
+    %% misc stuff
     %checks if cell array 'in' has size equal to 's':
+    % - if so, do nothing;
     % - if not and scalar, create cell array of size 's' the value content of 'in';
     % - if not, issue error;
-    % - if so, do nothing;
     function out=deal(in,s)
+      %sanity
+      assert(isnumeric(s),'Expecting input ''s'' to be numeric, representing the size of ''out''.')
       %enforce cell class
       out=cells.m2c(in);
       if any(size(out)~=s)
@@ -130,6 +191,19 @@ classdef cells
         out=tmp;
       end
     end
+    %depending on the value of 'direction' (defaults to 'set'):
+    % - if get: checks if there is only one cell entry, if so return it; otherwise nothing changes
+    % - if set: checks if it's a cell array, if so return it; otherwise make it a cell and return in
+    function io=scalar(io,direction)
+      if ~exist('direction','var') || isempty(direction)
+        direction='get';
+      end
+      switch lower(direction)
+      case 'set'; if ~iscell(io);                 io={io};  end
+      case 'get'; if  iscell(io) && isscalar(io); io=io{1}; end
+      otherwise; error(['Cannot handle input ''direction'' with value ''',direction,'''.'])
+      end
+    end
     %returns a cell array with the contents of 'fieldname' of all entries of the cell array of structures S
     function out=deal_struct(S,fieldname)
       out=cell(size(S));
@@ -137,6 +211,7 @@ classdef cells
         out{i}=S{i}.(fieldname);
       end
     end
+    %% stuff to handle varargin
     %removes from the varargin-like cell array 'in' the parameters with names defined in the cell array 'parameters'.
     %e.g.: varargin{{'a',1,'b','2','c',{3}},{'a','c'}) => {'b','2'}
     function out=vararginclean(in,parameters)
@@ -186,7 +261,7 @@ classdef cells
       otherwise;    error(['Cannot handle mode ''',mode,'''.'])
       end  
     end
-    %first/last/nth wrapper
+    %% first/last/nth wrapper
     function out=ith(in,i)
       out=in{i};
     end

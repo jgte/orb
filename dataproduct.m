@@ -2,41 +2,42 @@ classdef dataproduct
   %static
   properties(Constant)
     default_metadata=struct(...
-      'plot_product',false,...
-      'plot_columns',{{-1}},...
-      'plot_column_names',{{}},...
-      'plot_column_together',true,...
-      'plot_together','',...
-      'plot_file_prefix','',...
-      'plot_file_suffix','',...
-      'plot_legend',{{}},...
-      'plot_legend_suppress',{{}},...
-      'plot_legend_location','best',...
-      'plot_ylabel','',...
-      'plot_xdate',true,...
-      'plot_xdateformat','HH:MM',...
-      'plot_xlimits',[-inf,inf],...
-      'plot_ylimits',[-inf,inf],...
-      'plot_size',200+[0,0,21,9]*50,...
-      'plot_units','points',...
-      'plot_visible','on',...
-      'plot_fontsize_axis', 24,...
-      'plot_fontsize_title',32,...
-      'plot_fontsize_label',28,...
-      'plot_title','',...
-      'plot_title_suppress',{{}},...
-      'plot_title_suffix','',...
-      'plot_title_prefix','',...
-      'plot_grid',true,...
-      'plot_line_width',2,...
-      'plot_autoscale',false,... %y-scale is derived from the data (in dataproduct.enforce_plot)
-      'plot_automean',false,...  %middle-point of y axis is derived from the data (in dataproduct.enforce_plot)
-      'plot_zeromean',false,...  %mean of data is removed before plotting (in simpledata.plot)
-      'plot_colormap','',...
-      'plot_outlier',0,...
-      'plot_method','timeseries',...
-      'plot_normalize',false...
+      'plot_product',false...
     );
+%       'plot_columns',{{-1}},...
+%       'plot_column_names',{{}},...
+%       'plot_column_together',true,...
+%       'plot_together','',...
+%       'plot_file_prefix','',...
+%       'plot_file_suffix','',...
+%       'plot_legend',{{}},...
+%       'plot_legend_suppress',{{}},...
+%       'plot_legend_location','best',...
+%       'plot_ylabel','',...
+%       'plot_xdate',true,...
+%       'plot_xdateformat','HH:MM',...
+%       'plot_xlimits',[-inf,inf],...
+%       'plot_ylimits',[-inf,inf],...
+%       'plot_size',200+[0,0,21,9]*50,...
+%       'plot_units','points',...
+%       'plot_visible',true,...
+%       'plot_fontsize_axis', 24,...
+%       'plot_fontsize_title',32,...
+%       'plot_fontsize_label',28,...
+%       'plot_title','',...
+%       'plot_title_suppress',{{}},...
+%       'plot_title_suffix','',...
+%       'plot_title_prefix','',...
+%       'plot_grid',true,...
+%       'plot_line_width',2,...
+%       'plot_autoscale',false,... %y-scale is derived from the data (in dataproduct.enforce_plot)
+%       'plot_automean',false,...  %middle-point of y axis is derived from the data (in dataproduct.enforce_plot)
+%       'plot_zeromean',false,...  %mean of data is removed before plotting (in simpledata.plot)
+%       'plot_colormap','',...
+%       'plot_outlier',0,...
+%       'plot_method','timeseries',...
+%       'plot_normalize',false...
+%     );
   
   %TODO: plot_dir needs to be duplicated in the metadata (so that plotting routines can use it)
   
@@ -206,6 +207,12 @@ classdef dataproduct
         out=cellfun(@dataproduct,in,'UniformOutput',false);
       end
     end
+    function out=mdfile_static(dn,metadata_dir)
+      assert(exist(metadata_dir,'dir')~=0,[mfilename,': ',...
+        'cannot find metadata dir ''',metadata_dir,'''.'])
+      % build filename and add path
+      out=fullfile(metadata_dir,[dn.name,'.metadata']);
+    end
   end
   methods
     %% constructor
@@ -227,6 +234,18 @@ classdef dataproduct
         obj.dataname=datanames(in,p.Results.field_path);
       else
         obj.dataname=datanames(in);
+      end
+      % make sure metadata file exists
+      if ~obj.ismdfile
+        %if there's no metadatafile, let's assume there's field_path in 'in' and start digging
+        in_split=strsplit(obj.name,datanames.separator);
+        for i=numel(in_split):-1:2
+          dn_now=datanames(strjoin(in_split(1:i-1),datanames.separator),in_split(i:end));
+          if exist(dataproduct.mdfile_static(dn_now,obj.metadata_dir),'file')~=0
+            %found it!
+            obj.dataname=dn_now;
+          end
+        end
       end
       % load metadata
       obj=obj.mdload(p.Results.metadata_from);
@@ -284,8 +303,9 @@ classdef dataproduct
       p.KeepUnmatched=true;
       p.addParameter('start',     datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',      datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('use_storage_period',true,    @(i) islogical(i))
-      p.addParameter('discover',          false,   @(i) islogical(i))
+      p.addParameter('start_timestamp_only', true, @(i) islogical(i))
+      p.addParameter('use_storage_period',   true, @(i) islogical(i))
+      p.addParameter('discover',            false, @(i) islogical(i))
       % parse it
       p.parse(varargin{:});
       % retrive arguments for this file type
@@ -316,14 +336,16 @@ classdef dataproduct
           timestamp_fmt='yyyy';
         case {'infinite','global'}
           out={strrep(filename,'.<TIMESTAMP>','')};
-          if iscell(obj.metadata.plot_xlimits(1));xl=obj.metadata.plot_xlimits{1};
-          else                                    xl=obj.metadata.plot_xlimits(1);
-          end
-          if isfinite(xl);startlist=xl;else startlist=[];end
-          if iscell(obj.metadata.plot_xlimits(2));xl=obj.metadata.plot_xlimits{2};
-          else                                    xl=obj.metadata.plot_xlimits(2);
-          end
-          if isfinite(xl);stoplist=xl;else stoplist=[];end
+%           if iscell(obj.metadata.plot_xlimits(1));xl=obj.metadata.plot_xlimits{1};
+%           else                                    xl=obj.metadata.plot_xlimits(1);
+%           end
+%           if isfinite(xl);startlist=xl;else startlist=[];end
+          startlist=p.Results.start;
+%           if iscell(obj.metadata.plot_xlimits(2));xl=obj.metadata.plot_xlimits{2};
+%           else                                    xl=obj.metadata.plot_xlimits(2);
+%           end
+%           if isfinite(xl);stoplist=xl;else stoplist=[];end
+          stoplist=p.Results.stop;
           return
         case {'none'}
           out={};
@@ -340,7 +362,15 @@ classdef dataproduct
         %build list of files
         out=cell(size(startlist));
         for i=1:numel(startlist)
-          out{i}=strrep(filename,'<TIMESTAMP>',datestr(startlist(i),timestamp_fmt));
+          if p.Results.start_timestamp_only
+            out{i}=strrep(filename,'<TIMESTAMP>',...
+              datestr(startlist(i),timestamp_fmt)...
+            );
+          else
+            out{i}=strrep(filename,'<TIMESTAMP>',[...
+              datestr(startlist(i),timestamp_fmt),'T',datestr(stoplist(i),timestamp_fmt)...
+            ]);
+          end
         end
       else
         out={filename};
@@ -384,10 +414,10 @@ classdef dataproduct
       assert(logical(exist(obj.metadata_dir,'dir')),[mfilename,': ',...
         'cannot find metadata dir ''',obj.metadata_dir,'''.'])
       % build filename and add path
-      out=fullfile(obj.metadata_dir,[obj.dataname.name,'.metadata']);
+      out=dataproduct.mdfile_static(obj.dataname,obj.metadata_dir);
     end
     function out=ismdfile(obj)
-      out=~isempty(dir(obj.mdfile));
+      out=exist(obj.mdfile,'file')~=0;
     end
     function mdfile_check(obj)
       assert(obj.ismdfile,[mfilename,': ',...
@@ -524,7 +554,9 @@ classdef dataproduct
       out=cellfun(@(i) i.str,obj.source_list,'UniformOutput',false);
     end
     %% plot customization
-    function p=plot_args(obj,p,varargin)
+    function out=plot_args(obj)
+      %init outputs
+      out={};
       %get plot parameters already defined in the metadata
       mdf=fieldnames(obj.metadata);
       %loop over all of them
@@ -533,135 +565,72 @@ classdef dataproduct
         if isempty(strfind(mdf{i},'plot_'))
           continue
         end
-        %declare this plot parameter as optional argument to this function (if not already)
-        if ~any(cells.iscellstrempty(p.Parameters,mdf{i}))
-          p.addParameter(...
-            mdf{i},...
-            num.cell(obj.metadata.(mdf{i})),...
-            @(i) iscell(i) || ischar(i) || isnumeric(i) || islogical(i) || isduration(i)... %pretty generic validation needed to let anything in
-          )
-        else
-          %if already declared, append it to varargin (so that its value is propagated)
-          varargin=[mdf(i),{obj.mdget(mdf{i})},varargin];            %#ok<AGROW>
-        end
-      end
-      % parse arguments
-      p.parse(varargin{:});
-    end
-    function out=plot_args_list(obj)
-      %get all parameters already defined in the metadata
-      mdf=fieldnames(obj.metadata);
-      %filter out those that are not plot_*
-      mdf=mdf(~cells.iscellstrempty(mdf,'plot_'));
-      %make room for outputs
-      out=cell(size(mdf));
-      %loop over all of them
-      for i=1:numel(mdf)
-        %append to varargout
-        out{2*i-1}=mdf{i};
-        out{2*i}=obj.mdget(mdf{i});
+        %add this plot parameter to output
+        out{end+1}=mdf{i}; %#ok<AGROW>
+        out{end+1}=obj.metadata.(mdf{i}); %#ok<AGROW>
       end
     end
-    function enforce_plot(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addParameter('fig_handle',  gcf,  @(i) ishandle(i));
-      p.addParameter('axis_handle', gca,  @(i) ishandle(i));
-      p.addParameter('plot_psd',  false,  @(i) ishandle(i));
-      %get plot parameters already defined in the metadata and parse them
-      p=obj.plot_args(p,varargin{:});
-      % sanity
-      if any(isfinite(p.Results.plot_ylimits)) && ( p.Results.plot_autoscale ||  p.Results.plot_automean )
-        error([mfilename,': option ''ylimits'' and ''autoscale'' or ''automean'' do not work concurrently.'])
-      end
+    function out=enforce_plot(obj,varargin)
+      %get plot parameters already defined in the metadata and call mother routine
+      out=plotting.enforce(obj.plot_args{:},varargin{:});
       % enforce fontsize and paper size
-      set(    p.Results.axis_handle,          'FontSize',p.Results.plot_fontsize_axis)
-      set(get(p.Results.axis_handle,'Title' ),'FontSize',p.Results.plot_fontsize_title);
-      set(get(p.Results.axis_handle,'XLabel'),'FontSize',p.Results.plot_fontsize_label);
-      set(get(p.Results.axis_handle,'YLabel'),'FontSize',p.Results.plot_fontsize_label);
-      set(    p.Results.fig_handle, 'Position',          p.Results.plot_size,...
-                                    'PaperUnits',        p.Results.plot_units,...
-                                    'PaperPosition',     p.Results.plot_size);
-      % enforce line properties
-      line_handles=plotting.line_handles(p.Results.axis_handle);
-      for i=1:numel(line_handles)
-        set(line_handles(i),'LineWidth',p.Results.plot_line_width)
-      end
-      % start with current axis
-      v=axis(p.Results.axis_handle);
-      % enforce x-limits
-      xl=cell(1,2);
-      for i=1:2
-        if iscell(p.Results.plot_xlimits(i))
-          xl{i}=p.Results.plot_xlimits{i};
-        else
-          xl{i}=p.Results.plot_xlimits(i);
-        end
-      end
-      %check if dates are requested
-      if p.Results.plot_xdate && ~p.Results.plot_psd
-        for i=1:2
-          if isfinite(xl{i})
-            v(i)=datenum(xl{i});
-          end
-        end
-        if ~strcmp(datestr(v(1),'yyyymmdd'),datestr(v(2),'yyyymmdd')) && ...
-            (~strcmp(datestr(v(2),'HHMMSS'),'000000') || v(2)-v(1)>1)
-          xlabel([datestr(v(1),'yyyy-mm-dd'),' to ',datestr(v(2),'yyyy-mm-dd')])
-        else
-          xlabel(datestr(v(1)))
-        end
-        datetick('x',p.Results.plot_xdateformat)
-      else
-        for i=1:2
-          if isfinite(xl{i})
-            v(i)=datenum(xl{i});
-          end
-        end
-      end
-      % enforce reasonable y-limits
-      for i=1:2
-        if isfinite(p.Results.plot_ylimits(i))
-          v(i+2)=   p.Results.plot_ylimits(i);
-        end
-      end
-      % enforce auto-scale and/or auto-mean
-      if p.Results.plot_automean || p.Results.plot_autoscale || p.Results.plot_outlier>0
-        %gather plotted data
-        dat=cell(size(line_handles));
-        for i=1:numel(line_handles)
-          tmp=get(line_handles(i),'ydata');
-          dat{i}=transpose(tmp(:));
-        end
-        dat=[dat{:}];
-        dat=dat(~isnan(dat(:)));
-        %remove outliers before computing axis limits (if requested)
-        for c=1:p.Results.plot_outlier
-          dat=simpledata.rm_outliers(dat);
-        end
-        dat=dat(~isnan(dat(:)));
-        if ~isempty(dat) && diff(minmax(dat))~=0
-          %enfore data-driven mean and/or scale
-          if p.Results.plot_automean && p.Results.plot_autoscale
-            v(3:4)=mean(dat)+4*std(dat)*[-1,1];
-          elseif p.Results.plot_automean
-            v(3:4)=minmax(dat);
-          elseif p.Results.plot_autoscale
-            v(3:4)=mean(v(3:4))+4*std(dat)*[-1,1];
-          end
-          %fix non-negative data sets
-          if all(dat>=0) && v(3)<0
-            v(3)=0;
-          end
-        end
-      end
-      axis(p.Results.axis_handle,v);
-      %adjust the location of the legend (even if the default 'best', it may happen that it is no longer in a good position)
-      set(legend,'location',p.Results.plot_legend_location)
-      %enforce colormap
-      if ~isempty(p.Results.plot_colormap)
-        colormap(p.Results.plot_colormap)
-      end
+%       set(    p.Results.axis_handle,          'FontSize',p.Results.plot_fontsize_axis)
+%       set(get(p.Results.axis_handle,'Title' ),'FontSize',p.Results.plot_fontsize_title);
+%       set(get(p.Results.axis_handle,'XLabel'),'FontSize',p.Results.plot_fontsize_label);
+%       set(get(p.Results.axis_handle,'YLabel'),'FontSize',p.Results.plot_fontsize_label);
+%       set(    p.Results.fig_handle, 'Position',          p.Results.plot_size,...
+%                                     'PaperUnits',        p.Results.plot_units,...
+%                                     'PaperPosition',     p.Results.plot_size);
+%       % enforce line properties
+%       line_handles=plotting.line_handles(p.Results.axis_handle);
+%       for i=1:numel(line_handles)
+%         set(line_handles(i),'LineWidth',p.Results.plot_line_width)
+%       end
+%       % start with current axis
+%       v=axis(p.Results.axis_handle);
+%       % enforce x-limits
+%       xl=cell(1,2);
+%       for i=1:2
+%         if iscell(p.Results.plot_xlimits(i))
+%           xl{i}=p.Results.plot_xlimits{i};
+%         else
+%           xl{i}=p.Results.plot_xlimits(i);
+%         end
+%       end
+%       %check if dates are requested
+%       if p.Results.plot_xdate && ~p.Results.plot_psd
+%         for i=1:2
+%           if isfinite(xl{i})
+%             v(i)=datenum(xl{i});
+%           end
+%         end
+%         if ~strcmp(datestr(v(1),'yyyymmdd'),datestr(v(2),'yyyymmdd')) && ...
+%             (~strcmp(datestr(v(2),'HHMMSS'),'000000') || v(2)-v(1)>1)
+%           xlabel([datestr(v(1),'yyyy-mm-dd'),' to ',datestr(v(2),'yyyy-mm-dd')])
+%         else
+%           xlabel(datestr(v(1)))
+%         end
+%         datetick('x',p.Results.plot_xdateformat)
+%       else
+%         for i=1:2
+%           if isfinite(xl{i})
+%             v(i)=datenum(xl{i});
+%           end
+%         end
+%       end
+%       % enforce reasonable y-limits
+%       for i=1:2
+%         if isfinite(p.Results.plot_ylimits(i))
+%           v(i+2)=   p.Results.plot_ylimits(i);
+%         end
+%       end
+%       axis(p.Results.axis_handle,v);
+%       %adjust the location of the legend (even if the default 'best', it may happen that it is no longer in a good position)
+%       set(legend,'location',p.Results.plot_legend_location)
+%       %enforce colormap
+%       if ~isempty(p.Results.plot_colormap)
+%         colormap(p.Results.plot_colormap)
+%       end
     end
     %% level-wrapping handlers
     function out=islevel_wrapped(obj,level)

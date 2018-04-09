@@ -1,4 +1,17 @@
 classdef str
+  properties(Constant)
+  latex_keywords={...
+'\alpha','\upsilon','\sim','\angle','\phi','\leq','\ast','\chi','\infty','\beta','\psi','\clubsuit','\gamma',...
+'\omega','\diamondsuit','\delta','\Gamma','\heartsuit','\epsilon','\Delta','\spadesuit','\zeta','\Theta','\leftrightarrow',...
+'\eta','\Lambda','\leftarrow','\theta','\Xi','\Leftarrow','\vartheta','\Pi','\uparrow','\iota','\Sigma','\rightarrow',...
+'\kappa','\Upsilon','\Rightarrow','\lambda','\Phi','\downarrow','\mu','\Psi','\circ','\nu','\Omega','\pm','\xi','\forall',...
+'\geq','\pi','\exists','\propto','\rho','\ni','\partial','\sigma','\cong','\bullet','\varsigma','\approx','\div','\tau',...
+'\Re','\neq','\equiv','\oplus','\aleph','\Im','\cup','\wp','\otimes','\subseteq','\oslash','\cap','\in','\supseteq','\supset',...
+'\lceil','\subset','\int','\cdot','\o','\rfloor','\neg','\nabla','\lfloor','\times','\ldots','\perp','\surd','\prime','\wedge',...
+'\varpi','\0','\rceil','\rangle','\mid','\vee','\langle','\copyright'....
+  };
+  latex_chars={'{','}'};
+  end
   methods(Static)
     function test
       disp(' - str.rand -')
@@ -122,6 +135,89 @@ classdef str
         out=str.just(in,tab,'just','left');
       end
     end
+    function out=columns(in,just,splitchar)
+      if ~exist('just',     'var') || isempty(just     );      just='right'; end
+      if ~exist('splitchar','var') || isempty(splitchar); splitchar=' ';     end
+      assert(iscellstr(in),     ['Input ''in'' must be a cell string, not a ',class(in),'.'])
+      assert(numel(size(in))==2,['Input ''in'' must be a 1D or 2D cell string array, not ',numel(size(in)),'D.'])
+      if any(size(in)==1)
+        %entries in s will become rows
+        rows=numel(in);
+        %find out the number of columns
+        cols=cellfun(@(i) numel(strsplit(i,splitchar,'CollapseDelimiters',true)),in);
+        %make room for outputs
+        out=cell(rows,max(cols));out(:)={''};
+        %loop over all rows
+        for i=1:rows
+          %get columns for this row
+          row_now=strsplit(strtrim(in{i}),splitchar,'CollapseDelimiters',true);
+          %distribute data
+          switch lower(just)
+          case {'left','center'}
+            out(i,end-numel(row_now)+1:end)=row_now;
+          case {'right'}
+            out(i,1:numel(row_now))=row_now;
+          otherwise
+            error(['Cannot handle ''just'' with value ''',just,'''.'])
+          end
+        end
+        %propagate
+        in=out;
+      end
+      %loop over columns
+      for i=1:size(in,2)
+        %get maximum width of this column
+        tab=max(cellfun(@(i) length(strtrim(i)),in(:,i)));
+        %justify
+        in(:,i)=cellfun(@(i) str.just(i,tab,'just',just),in(:,i),'UniformOutput',false);
+      end
+      %make room for outputs
+      out=cell(rows,1);
+      %glue columns together, loop over lines
+      for i=1:size(in,1)
+        out{i}=strjoin(in(i,1:cols(i)),splitchar);
+      end
+      %re-align everything, get maximum width of trimmed column, account for latex string
+      tab_latex=max(cellfun(@(i) str.latex_length(strtrim(i)),out));
+      tab      =max(cellfun(@(i)           length(strtrim(i)),out));
+      %justify, only if not latex; if latex justify with care
+      for i=1:numel(out)
+        if str.islatex(out{i})
+          out{i}=str.just(strtrim(out{i}),tab,'just',just);
+        else
+          out{i}=str.just(str.latex_trim(out{i}),tab_latex,'just',just);
+        end
+      end
+    end
+    %% latex stuff
+    function out=islatex(in)
+      out=~isempty(strfind(in,'\'));
+    end
+    %account for latex keywords and chars when calculating the length of a string
+    function out=latex_length(in)
+      %usual way to compute the length
+      out=length(in);
+      %reduce the search, by checking if there's any '\'
+      if ~str.islatex(in); return; end
+      %loop over all latex keyword
+      for i=1:numel(str.latex_keywords)
+        if ~isempty(strfind(in,str.latex_keywords{i}))
+          out=out-length(str.latex_keywords{i})+1;
+        end
+      end
+      %handle special chars too
+      for i=1:numel(str.latex_chars)
+        out=out-numel(strfind(in,str.latex_chars{i}));
+      end
+    end
+    %only trim if it's not a latex string
+    function out=latex_trim(in)
+      if str.islatex(in)
+        out=strtrim(in);
+      else
+        out=in;
+      end
+    end
     function s=clean(s,mode,alt_char)
       if iscellstr(mode)
         for i=1:numel(mode)
@@ -158,12 +254,13 @@ classdef str
           s=strtrim(s);
         end
       case 'title'
-        s=strrep(s,'_','\_');
+        s=strrep(s,'_',' ');
       case 'fieldname'
         if ~exist('alt_char','var') || isempty(alt_char)
           alt_char='';
         end
         s=str.rep(s,...
+          '/',alt_char,...
           '-',alt_char,...
           ' ',alt_char,...
           '.',alt_char,...
@@ -175,7 +272,7 @@ classdef str
           '*','\*');
       case 'noregex'
         s=str.clean(s,{'[',']','*'});
-      case 'grace'
+      case '<grace>'
         sats={'A','B'};
         names={'gr<SAT>.','gr<SAT>.','G<SAT>_','G<SAT>_'};
         for i=1:numel(sats)
@@ -211,7 +308,7 @@ classdef str
     function out=just(in,len,varargin)
       % parse mandatory arguments
       p=inputParser;
-      p.addRequired( 'in',           @(i) ischar(i));
+      p.addRequired( 'in',           @(i) ischar(i) || is);
       p.addRequired( 'len',          @(i) isfinite(i));
       p.addParameter('just','center',@(i) any(strcmp(i,{'left','center','right'})));
       p.parse(in,len,varargin{:});
@@ -272,6 +369,12 @@ classdef str
     function out=num(in)
       %trivial call
       if isnumeric(in); out=in; return; end
+      %handle keywords
+      switch lower(in)
+      case  'inf'; out= inf;return
+      case '-inf'; out=-inf;return
+      case  'nan'; out= NaN;return
+      end
       out1=regexprep(in,'(\d)[Dd]([-+\d])','$1e$2');  %replace D and d exponents in scientific notation with e
       out2=strsplit(out1);                            %split string along blank characters
       out3=out2(cellfun(@(i) ~isempty(i),out2));      %remove empty cells
@@ -308,12 +411,11 @@ classdef str
           start_idx=start_idx+2;
         end
       end
-      s=dbstack(1);
+      s=dbstack(1+stack_delta);
       if isempty(s)
         disp(str.show(varargin(start_idx:end)))
       else
-        si=min([numel(s),1+stack_delta]);
-        disp([s(si).name,':',num2str(s(si).line),': ',str.show(varargin(start_idx:end))])
+        disp([s(1).name,':',num2str(s(1).line),': ',str.show(varargin(start_idx:end))])
       end
     end
     function log(filename,msg,varargin)
@@ -379,6 +481,37 @@ classdef str
       assert(iscellstr(in),['Need cell string, not ',class(in),'.'])
       n=max(cellfun(@numel,in));
       out=cellfun(@(i) [i,repmat(' ',1,n-numel(i))],in,'UniformOutput',false);
+    end
+    function out=common(in,splitchar)
+      assert(iscellstr(in),['Input ''in'' has to be of class cellstr, not ',class(in),'.'])
+      in=cellfun(@(i) strsplit(i,splitchar),in,'UniformOutput',false);
+      out=in{1};
+      for i=2:numel(in)
+        out=intersect(out,in{i},'stable');
+      end
+      out=strjoin(out,splitchar);
+    end
+    function out=unique(in,splitchar)
+      if ~exist('splitchar','var')
+        out=unique(in);
+        return
+      end
+      common=strsplit(str.common(in,splitchar),splitchar);
+      in=cellfun(@(i) strsplit(i,splitchar),in,'UniformOutput',false);
+      out=cell(size(in));
+      for i=1:numel(in)
+        o=setdiff(in{i},common,'stable');
+        if isempty(o)
+          out{i}='';
+        elseif iscell(o)
+          out{i}=strjoin(o,splitchar);
+        else
+          out{i}=o;
+        end
+      end
+    end
+    function out=contains(str,pattern)
+      out=~isempty(regexp(str,['.*',pattern,'.*'],'once'));
     end
 %     function out=fmt_f2c(in)
 %       %split input fortran format string into a cell

@@ -1,0 +1,16 @@
+plot_product: true
+method: gswarm.plot_stats
+sources: [gswarm.grace.gfz.rl05,gswarm.swarm.vce.Mixed,gswarm.swarm.vce.AIUB_KO,gswarm.swarm.vce.DAA_GFEA,gswarm.swarm.vce.SAA_GFEA]
+stats_relative_to: gswarm.grace.gfz.rl05
+explicit_fields: true
+storage_period: direct
+model_types: [signal]
+plot_outlier: 1
+plot_xdateformat: yy/mm
+plot_legend_suppress: [gswarm,swarm,vce]
+plot_title_suppress: [gswarm]
+plot_visible: true
+plot_max_degree: 40
+plot_rmsdiff_caxis: [0,0.0045]
+#plot_smoothing_degree: 750e3
+#plot_smoothing_method: gauss

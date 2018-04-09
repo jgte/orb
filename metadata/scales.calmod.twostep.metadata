@@ -1,16 +1,15 @@
-#estim_dir: <getenv('HOME')>/data/csr/EstimData/RL05/RL05_YY-MM/[a-z]iter/solution #this is automatically resolved in csr.estim_dir_default
+estim_dir: <getenv('HOME')>/data/csr/EstimData/RL06/RL06_YY-MM/d1/iter/solution_2step_step2
 method: csr.import_estim
 bias_coords: [X,Y,Z]
 bias_prefix: AC0
 bias_suffixes: ['',D,Q]
-scale_coords:
+scale_coords: [X,Y,Z,XY,XZ,YZ,YX,ZX,ZY]
 scale_prefix: AC1
-scale_suffixes:
+scale_suffixes: ['',D]
 calpar_cyclesperday_value: [8,1]
 calpar_cyclesperday_pattern: [AC0Y,'.*']
 sats: [A,B]
 timestep: <seconds(30)>
-submetadata1: grace.calpar.csr.ltb.submetadata
 arc_timeline_file: /Users/teixeira/data/csr/GraceAccCal/arctimeline.GraceAccCal
 storage_period: daily
 plot_columns: [1,2,3]
@@ -20,6 +19,7 @@ plot_outlier: 0
 plot_zeromean: true
 plot_xdateformat: mm/dd
 plot_title_suppress: [grace,acc,calmod,estimdir]
-plot_visible: 'off'
+plot_visible: true  
 plot_column_together: false
 plot_together: [A,B]
+plot_column_names: [X,Y,Z]

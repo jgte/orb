@@ -1,4 +1,4 @@
-classdef simpledata
+ classdef simpledata
   %static
   properties(Constant,GetAccess=private)
     %NOTE: edit this if you add a new parameter
@@ -396,59 +396,7 @@ classdef simpledata
         c=c+1;s=time.progress(s,c);
       end
     end
-    function out=stats2(obj1,obj2,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addParameter('mode',          'struct', @(i) ischar(i));
-      p.addParameter('minlen',        2,        @(i) isscalar(i));
-      p.addParameter('outlier',       0,        @(i) isfinite(i));
-      p.addParameter('outlier_sigma',...
-simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i));
-      p.addParameter('struct_fields',...
-        {'cov','corrcoef'},...
-        @(i) iscellstr(i)...
-      )
-      % parse it
-      p.parse(varargin{:});
-      %need compatible objects
-      compatible(obj1,obj2)
-      %remove outliers
-      for i=1:p.Results.outlier
-        obj1=obj1.outlier(p.Results.outlier_sigma);
-        obj2=obj2.outlier(p.Results.outlier_sigma);
-      end
-      %need the x-domain and masks to be identical
-      [obj1,obj2]=merge(obj1,obj2);
-      [obj1,obj2]=mask_match(obj1,obj2);
-      %trivial call
-      switch p.Results.mode
-      case {'cov','corrcoef'}
-        %bad things happend when deriving statistics of zero or one data points
-        if size(obj1.y_masked,1)<=max([2,p.Results.minlen]);
-          out=nan(1,obj1.width);
-          return
-        end
-      end
-      %branch on mode
-      switch p.Results.mode
-      case 'cov'
-        out=num.cov(obj1.y_masked,obj1.y_masked);
-      case 'corrcoef'
-        out=num.corrcoef(obj1.y_masked,obj2.y_masked);
-      case 'length';
-        out=size(obj1.y_masked,1)*ones(1,obj1.width); %could also be obj2
-      case 'struct'
-        for f=p.Results.struct_fields;
-          out.(f{1})=simpledata.stats2(obj1,obj2,'mode',f{1},'outlier',0);
-        end
-      otherwise
-        error([mfilename,': unknown mode.'])
-      end
-      %bug traps
-      if ~(isstruct(out) || ischar(out)) && any(isnan(out(:)))
-          error([mfilename,': detected NaN in <out>. Debug needed.'])
-      end
-    end
+    %% vector operators
     function out=vmean(obj_list,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -492,18 +440,18 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         out{i}=obj_list{i}.sqrt;
       end
     end
-    %constructors
+    %% constructors
     function out=unitc(x,width,varargin)
       out=simpledata(x(:),ones(numel(x),width),varargin{:});
     end
     function out=randn(x,width,varargin)
       out=simpledata(x(:),randn(numel(x),width),varargin{:});
     end
-    function out=sin(x,w,varargin)
-      y=cell2mat(arrayfun(@(i) sin(x(:)*i),w,'UniformOutput',false));
-      out=simpledata(x(:),y,varargin{:});
+    function out=sinusoidal(x,w,varargin)
+      y_now=cell2mat(arrayfun(@(i) sin(x(:)*i),w,'UniformOutput',false));
+      out=simpledata(x(:),y_now,varargin{:});
     end
-    %general test for the current object
+    %% general test for the current object
     function out=test_parameters(field,varargin)
       %basic parameters
       switch field
@@ -989,8 +937,8 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       case 'meanabs'; out=mean(abs(obj.y_masked([],columns)));
       case 'stdabs';  out=std( abs(obj.y_masked([],columns)));
       case 'rmsabs';  out=rms( abs(obj.y_masked([],columns)));
-      case 'length';  out=size(    obj.y_masked,1)*ones(1,numel(columns));
-      case 'gaps';    out=sum(    ~obj.mask)*ones(1,numel(columns));
+      case 'length';  out=obj.nr_valid*ones(1,numel(columns));
+      case 'gaps';    out=obj.nr_gaps* ones(1,numel(columns));
       %one line, two lines, three lines, many lines
       case {'str','str-2l','str-3l','str-nl'} 
         out=cell(size(p.Results.struct_fields));
@@ -1032,22 +980,116 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       case 'obj'
         %get structure with requested stats
         s=stats@simpledata(obj,varargin{:},'mode','struct');
+        % use correct abcissae
+        if ismethod(obj,'t_masked')
+          x_now=mean(obj.t_masked);
+        else
+          x_now=mean(obj.x_masked);
+        end
         % use the correct object constructor
         init=str2func(class(obj));
-        % use correct abcissae
-        switch class(obj)
-        case 'simpledata'
-          x_now=mean(obj.x_masked);
-        case {'simpletimeseries','gravity','simplegrid'}
-          x_now=mean(obj.t_masked);
-        otherwise
-          error([mfilename,': cannot handle objects of class ''',class(obj),'''.'])
-        end
-        %loop over all structure fields and create a object
+        %loop over all structure fields and create an object
         fields=fieldnames(s);
-        for i=1:numel(fields)
-          out.(fields{i})=init(x_now,s.(fields{i}));
-          out.(fields{i})=out.(fields{i}).copy_metadata(obj);
+        if numel(fields)==1
+          out=init(x_now,s.(fields{i}));
+          out=out.copy_metadata(obj);
+        else          
+          for i=1:numel(fields)
+            out.(fields{i})=init(x_now,s.(fields{i}));
+            out.(fields{i})=out.(fields{i}).copy_metadata(obj);
+          end
+        end
+      otherwise
+        error([mfilename,': unknown mode.'])
+      end
+      %bug traps
+      if isnumeric(out)
+        if any(isnan(out(:)))
+          error([mfilename,': BUG TRAP: detected NaN in <out>. Debug needed.'])
+        end
+        if size(out,2)~=numel(columns)
+          error([mfilename,': BUG TRAP: data width changed. Debug needed.'])
+        end
+      end
+    end
+    function out=stats2(obj1,obj2,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('mode',       'struct', @(i) ischar(i));
+      p.addParameter('minlen',            2, @(i) isscalar(i));
+      p.addParameter('columns', 1:min([obj1.width,obj2.width]), @(i) isnumeric(i) || iscell(i));
+      p.addParameter('outlier',           0, @(i) isfinite(i));
+      p.addParameter('outlier_sigma',...
+simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i));
+      p.addParameter('struct_fields',...
+        {'cov','corrcoef','length','rmsdiff'},...
+        @(i) iscellstr(i)...
+      )
+      % parse it
+      p.parse(varargin{:});
+      %need compatible objects
+      compatible(obj1,obj2)
+      %remove outliers
+      for i=1:p.Results.outlier
+        obj1=obj1.outlier(p.Results.outlier_sigma);
+        obj2=obj2.outlier(p.Results.outlier_sigma);
+      end
+      %need the x-domain and masks to be identical
+      [obj1,obj2]=merge(obj1,obj2);
+      [obj1,obj2]=mask_match(obj1,obj2);
+      %trivial call
+      switch p.Results.mode
+      case {'cov','corrcoef'}
+        %bad things happend when deriving statistics of zero or one data points
+        if size(obj1.y_masked,1)<=max([2,p.Results.minlen]);
+          out=nan(1,obj1.width);
+          return
+        end
+      end
+      % type conversions
+      if iscell(p.Results.columns)
+        columns=cell2mat(p.Results.columns);
+      else
+        columns=p.Results.columns;
+      end
+      %branch on mode
+      switch p.Results.mode
+      case 'cov';
+        out=num.cov(obj1.y_masked([],columns),obj1.y_masked([],columns));
+      case {'corrcoef','corrcoeff'}
+        out=num.corrcoef(obj1.y_masked([],columns),obj2.y_masked([],columns));
+      case 'rmsdiff'
+        o=obj1.cols(columns)-obj2.cols(columns);
+        out=o.stats('mode','rms');
+      case 'length';
+        out=(obj1.nr_valid+obj2.nr_valid)*ones(1,numel(columns));
+      case 'gaps';
+        out=(obj1.nr_gaps+obj2.nr_gaps)*ones(1,numel(columns));
+      case 'struct'
+        for f=p.Results.struct_fields;
+          out.(f{1})=obj1.stats2(obj2,varargin{:},'mode',f{1});
+        end
+      case 'obj'
+        %get structure with requested stats
+        s=stats2@simpledata(obj1,obj2,varargin{:},'mode','struct');
+        % use correct abcissae (obj2 should produce the same x_now, since the time simpledata.merge method was used
+        if ismethod(obj1,'t_masked')
+          x_now=mean(obj1.t_masked);
+        else
+          x_now=mean(obj1.x_masked);
+        end
+        % use the correct object constructor
+        init=str2func(class(obj1));
+        %loop over all structure fields and create an object (unless there's only one field)
+        fields=fieldnames(s);
+        if numel(fields)==1
+          out=init(x_now,s.(fields{1}));
+          out=out.copy_metadata(obj1);
+        else          
+          for i=1:numel(fields)
+            out.(fields{i})=init(x_now,s.(fields{i}));
+            out.(fields{i})=out.(fields{i}).copy_metadata(obj1);
+          end
         end
       otherwise
         error([mfilename,': unknown mode.'])
@@ -1102,7 +1144,10 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         'mask',obj.mask(i,:)...
       );
     end
-    function [obj,idx_add,idx_old,x_old]=x_merge(obj,x_add)
+    function [obj,idx_add,idx_old,x_old]=x_merge(obj,x_add,y_new)
+      if ~exist('y_new','var') || isempty(y_new)
+        y_new=NaN;
+      end
       %add epochs given in x_add, the corresponding y are NaN and mask are set as gaps
       if nargout==4
         %save x_old
@@ -1115,9 +1160,9 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         return
       end
       %build extended y and mask
-      y_total=NaN(numel(x_total),obj.width);
+      y_total=ones(numel(x_total),obj.width)*y_new;
       y_total(idx_old,:)=obj.y;
-      mask_total=false(size(x_total));
+      mask_total=true(size(x_total)); %assume valid mask on all entries, so that y_new can propagate
       mask_total(idx_old)=obj.mask;
       %sanitize monotonicity and propagate
       [x_total,y_total,mask_total]=simpledata.monotonic(x_total,y_total,mask_total);
@@ -1141,10 +1186,13 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       if ~isvector(columns)
         error([mfilename,': input ''columns'' must be a vector'])
       end
+      %save relevant labels and y_units
+      labels_now =obj.labels( columns);
+      y_units_now=obj.y_units(columns);
       %retrieve requested columns
       obj=obj.assign(obj.y(:, columns),'reset_width',true);
-      obj.labels =obj.labels( columns);
-      obj.y_units=obj.y_units(columns);
+      obj.labels =labels_now;
+      obj.y_units=y_units_now;
     end
     function obj=get_cols(obj,columns)
       obj=obj.cols(columns);
@@ -1219,6 +1267,14 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end  
         obj=obj.append(obj_new);
       end
+    end
+    function out=iszero(obj,mask)
+      if ~exist('mask','var')
+        o=obj.masked;
+      else
+        o=obj.masked(mask);
+      end
+      out=all(o.y(:)==0);
     end
     %% mask methods
     %NOTICE: these functions only deal with *explicit* gaps, i.e. those in
@@ -1607,9 +1663,9 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       % parse it
       p.parse(varargin{:});
       %basic sanity
-      if ~strcmp(class(obj1),class(obj2))
-        error([mfilename,': incompatible objects: different classes'])
-      end
+%       if ~strcmp(class(obj1),class(obj2))
+%         error([mfilename,': incompatible objects: different classes'])
+%       end
       if (obj1.width ~= obj2.width)
         error([mfilename,': incompatible objects: different number of columns'])
       end
@@ -1628,16 +1684,21 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end 
       end
     end
-    function [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2)
+    function [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2,y_new)
       %NOTICE:
       % - idx1 contains the index of the x in obj1 that were added from obj2
       % - idx2 contains the index of the x in obj2 that were added from obj1
       % - no data is propagated between objects, only the time domain is changed!
       %add as gaps in obj2 those x that are in obj1 but not in obj2
-      [obj1_out,idx2]=obj1.x_merge(obj2.x);
+      % - y_new sets the value of the data at the new entries of x, both obj1
+      %   and obj2 (default to NaN)
+      if ~exist('y_new','var') || isempty(y_new)
+        y_new=NaN;
+      end
+      [obj1_out,idx2]=obj1.x_merge(obj2.x,y_new);
       if nargout>1
         %add as gaps in obj2 those x that are in obj1 but not in obj2
-        [obj2_out,idx1]=obj2.x_merge(obj1.x);
+        [obj2_out,idx1]=obj2.x_merge(obj1.x,y_new);
         %sanity on outputs
         if obj1_out.length~=obj2_out.length && obj1_out.isxequal(obj2_out)
           error([mfilename,': BUG TRAP: merge operation failed.'])
@@ -1833,9 +1894,14 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       obj1.labels=[obj1.labels(:);obj2.labels(:)]';
       obj1.y_units =[obj1.y_units(:); obj2.y_units(:) ]';
     end
-    %% algebra
+    %% algebra (all operations assume the time domains are in-phase and no interpolation is done)
     function obj1=plus(obj1,obj2)
-      if isnumeric(obj2)
+      %empty acts as zero
+      if isempty(obj1)
+        obj1=obj2;
+      elseif isempty(obj2)
+        %do nothing
+      elseif isnumeric(obj2)
         obj1.y=obj1.y+obj2;
       elseif isnumeric(obj1)
         obj1=obj1+obj2.y;
@@ -1849,7 +1915,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
           obj1=obj1.assign(ones(obj1.length,1)*obj2.y+obj1.y,'mask',obj1.mask,'t',obj1.t);
         else
           %consolidate data sets
-          [obj1,obj2]=obj1.merge(obj2);
+          [obj1,obj2]=obj1.merge(obj2,0);
           %operate
           obj1=obj1.assign(obj1.y+obj2.y,'mask',obj1.mask & obj2.mask);
         end
@@ -1859,7 +1925,12 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       end
     end
     function obj1=minus(obj1,obj2)
-      if isnumeric(obj2)
+      %empty acts as zero
+      if isempty(obj1)
+        obj1=-obj2;
+      elseif isempty(obj2)
+        %do nothing
+      elseif isnumeric(obj2)
         obj1.y=obj1.y-obj2;
       elseif isnumeric(obj1)
         obj1=obj1-obj2.y;
@@ -1873,7 +1944,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
           obj1=obj1.assign(obj1.y-ones(obj1.length,1)*obj2.y,'mask',obj1.mask,'t',obj1.t);
         else
           %consolidate data sets
-          [obj1,obj2]=obj1.merge(obj2);
+          [obj1,obj2]=obj1.merge(obj2,0);
           %operate
           obj1=obj1.assign(obj1.y-obj2.y,'mask',obj1.mask & obj2.mask);
         end
@@ -1883,7 +1954,10 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       end
     end
     function obj=scale(obj,scl)
-      if isscalar(scl)
+      %empty acts as unit
+      if isempty(scl)
+        %do nothing
+      elseif isscalar(scl)
         obj.y=scl*obj.y;
       elseif isvector(scl)
         if numel(scl)==obj.width
@@ -1909,7 +1983,12 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       obj=obj.scale(1);
     end
     function obj1=times(obj1,obj2) %this is .* (not *)
-      if isnumeric(obj2)
+      %empty acts as unit
+      if isempty(obj1)
+        obj1=obj2;
+      elseif isempty(obj2)
+        %do nothing
+      elseif isnumeric(obj2)
         obj1=obj1.scale(obj2);
       elseif isnumeric(obj1)
         obj1=obj2.scale(obj1).y;
@@ -1922,7 +2001,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
           obj1=obj1.assign(ones(obj1.length,1)*obj2.y.*obj1.y,'mask',obj1.mask,'t',obj1.t);
         else
           %consolidate data sets
-          [obj1,obj2]=obj1.merge(obj2);
+          [obj1,obj2]=obj1.merge(obj2,1);
           %operate
           obj1=obj1.assign(obj1.y.*obj2.y,'mask',obj1.mask & obj2.mask);
         end
@@ -1931,7 +2010,35 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
+    function obj1=mtimes(obj1,obj2,map) %this is * (not .*)
+      %shortcuts
+      n=obj1.width;
+      %use matlab's default column-first mapping
+      if ~exist('map','var') || isempty(map)
+        map=1:n*n;
+      end
+      %sanity
+      assert(numel(map)==n*n,'Input ''map'' must have the same number of elements as obj2.width')
+      assert(obj2.width==n*n,'Input ''obj2'' must represent a square matrix and have nr cols equal to obj1.width')
+      %consolidate data sets
+      [obj1,obj2]=obj1.merge(obj2,1);
+      %get data
+      y1=obj1.y;y2=obj2.y;
+      %operate
+      for i=1:obj1.length
+        y1(i,:)=transpose(...
+          reshape(y2(i,map),[n,n])*transpose(y1(i,:))...
+        );
+      end
+      %save result
+      obj1=obj1.assign(y1);
+      %update descriptor
+      obj1.descriptor=[obj1.descriptor,'*',obj2.descriptor];
+      obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';      
+    end
     function obj1=rdivide(obj1,obj2)
+      %empty is not supported
+      assert(~isempty(obj1)&&~isempty(obj2),'Cannot handle empty inputs')
       if isnumeric(obj2)
         obj1=scale(obj1,1/obj2);
       elseif isnumeric(obj1)
@@ -1945,7 +2052,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
           obj1=obj1.assign(obj1.y./ones(obj1.length,1)*obj2.y,'mask',obj1.mask,'t',obj1.t);
         else
           %consolidate data sets
-          [obj1,obj2]=obj1.merge(obj2);
+          [obj1,obj2]=obj1.merge(obj2,1);
           %operate
           obj1=obj1.assign(obj1.y./obj2.y,'mask',obj1.mask & obj2.mask);
         end
@@ -1955,6 +2062,8 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       end
     end
     function obj1=power(obj1,obj2)
+      %empty is not supported
+      assert(~isempty(obj1)&&~isempty(obj2),'Cannot handle empty inputs')
       if isnumeric(obj2)
         obj1.y=obj1.y.^obj2;
       elseif isnumeric(obj1)
@@ -1968,7 +2077,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
           obj1=obj1.assign(ones(obj1.length,1)*obj2.y.^obj1.y,'mask',obj1.mask,'t',obj1.t);
         else
           %consolidate data sets
-          [obj1,obj2]=obj1.merge(obj2);
+          [obj1,obj2]=obj1.merge(obj2,1);
           %operate
           obj1=obj1.assign(obj1.y.^obj2.y,'mask',obj1.mask & obj2.mask);
         end
@@ -1977,9 +2086,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         obj1.labels=arrayfun(@(i) [obj1.labels{i},'^',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
-    function obj=sqrt(obj)
-      obj=obj.power(0.5);
-    end
+    %% logical ops
     function obj=and(obj,obj_new)
       %consolidate data sets
       [obj,obj_new]=obj.merge(obj_new);
@@ -2000,38 +2107,71 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       %assign to output
       obj=obj.assign(y_now,'x',x_now);
     end
-    function obj=cumsum(obj)
-      obj.y(obj.mask,:)=cumsum(obj.y_masked);
+    %% directly-overloadable ops
+    function obj=op(obj,operation)
+      if ischar(operation)
+        operation=str2func(operation);
+      end
+      assert(isa(operation,'function_handle'),['Input ''operation'' must be a function handle, not a ',class(operation),'.'])
+      obj.y(obj.mask,:)=operation(obj.y_masked);
     end
-    function obj=abs(obj)
-      obj.y(obj.mask,:)=abs(obj.y_masked);
-    end
+    function obj=sqrt(   obj); obj=obj.op(@sqrt  );    end
+    %cumulative ops
+    function obj=cumsum( obj); obj=obj.op(@cumsum );    end
+    function obj=cummax( obj); obj=obj.op(@cummax );    end
+    function obj=cummin( obj); obj=obj.op(@cummin );    end
+    function obj=cumprod(obj); obj=obj.op(@cumprod);    end
+    %complex numbers
+    function obj=abs(   obj); obj=obj.op(@abs   );    end
+    function obj=conj(  obj); obj=obj.op(@conj  );    end
+    function obj=imag(  obj); obj=obj.op(@imag  );    end
+    function obj=real(  obj); obj=obj.op(@real  );    end
+    function obj=sign(  obj); obj=obj.op(@sign  );    end
+    %logarithms
+    function obj=log(   obj); obj=obj.op(@log   );    end
+    function obj=log10( obj); obj=obj.op(@log10 );    end
+    function obj=log2(  obj); obj=obj.op(@log2  );    end
+    %trigonometry
+    function obj=sin(   obj); obj=obj.op(@sin   );    end
+    function obj=cos(   obj); obj=obj.op(@cos   );    end
+    function obj=tan(   obj); obj=obj.op(@tan   );    end
+    function obj=cot(   obj); obj=obj.op(@cot   );    end
+    function obj=sec(   obj); obj=obj.op(@sec   );    end
+    function obj=csc(   obj); obj=obj.op(@csc   );    end
+    function obj=asin(  obj); obj=obj.op(@asin  );    end
+    function obj=acos(  obj); obj=obj.op(@acos  );    end
+    function obj=atan(  obj); obj=obj.op(@atan  );    end
+    function obj=acot(  obj); obj=obj.op(@acot  );    end
+    function obj=asec(  obj); obj=obj.op(@asec  );    end
+    function obj=acsc(  obj); obj=obj.op(@acsc  );    end
+    function obj=sinh(  obj); obj=obj.op(@sinh  );    end
+    function obj=cosh(  obj); obj=obj.op(@cosh  );    end
+    function obj=tanh(  obj); obj=obj.op(@tanh  );    end
+    function obj=coth(  obj); obj=obj.op(@coth  );    end
+    function obj=sech(  obj); obj=obj.op(@sech  );    end
+    function obj=csch(  obj); obj=obj.op(@csch  );    end
+    function obj=asinh( obj); obj=obj.op(@asinh );    end
+    function obj=acosh( obj); obj=obj.op(@acosh );    end
+    function obj=atanh( obj); obj=obj.op(@atanh );    end
+    function obj=acoth( obj); obj=obj.op(@acoth );    end
+    function obj=asech( obj); obj=obj.op(@asech );    end
+    function obj=acsch( obj); obj=obj.op(@acsch );    end
     %% decomposition
     function out=parametric_decomposition(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('phi',          [], @(i) isnumeric(i) || isempty(i));
       p.addParameter('polynomial',[1 1], @(i) isnumeric(i) || isempty(i));
       p.addParameter('sinusoidal',   [], @(i) isnumeric(i) || isduration(i) || isempty(i));
       p.addParameter('t_mod_f',      [], @(i) isnumeric(i) || isempty(i));
+      p.addParameter('t0',     obj.x(1), @(i) isnumeric(i) && isscalar(i));
       % parse it
       p.parse(varargin{:});
-      %handle unknown phase angles
-      if any(strcmp(p.UsingDefaults,'phi'))
-        % no initial phase given, find it out
-        args={'mode','solve_phi'};
-      else
-        % use given initial phase
-        args={'mode','struct'};
-      end
       % call mother routine
       s.msg=['Parametric decomposition of ',obj.descriptor]; s.n=obj.width;
       x_now=obj.x_masked;
       y_now=obj.y_masked;
       for i=1:obj.width
-        d(i)=num.pardecomp(x_now,y_now(:,i),...
-          args{:},varargin{:}...
-        );%#ok<AGROW>
+        d(i)=num.pardecomp(x_now,y_now(:,i),'mode','struct',varargin{:});%#ok<AGROW>
         s=time.progress(s,i);
       end
       %check if higher x-domain resolution for the model is needed
@@ -2088,19 +2228,21 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         o=o.copy_metadata(obj);
         o.descriptor=['s',num2str(i),' of ',str.clean(obj.descriptor,'file')];
         out.(['s',num2str(i)])=o;
-        %save initial phases
-        if any(strcmp(p.UsingDefaults,'phi'))
-          %save sinusoidal coefficients
-          o=init(x_now(1),transpose(num.struct_deal(d,'phi',i,[])));
-          o=o.copy_metadata(obj);
-          o.descriptor=['s',num2str(i),' of ',str.clean(obj.descriptor,'file')];
-          out.(['phi',num2str(i)])=o;
-        end
+        %save co-sinusoidal coefficients
+        o=init(x_now(1),transpose(num.struct_deal(d,'cosinusoidal',i,[])));
+        o=o.copy_metadata(obj);
+        o.descriptor=['c',num2str(i),' of ',str.clean(obj.descriptor,'file')];
+        out.(['c',num2str(i)])=o;
         %save sinusoidal timeseries
         o=init(x_mod,num.struct_deal(d,'y_sinusoidal',[],i));
         o=o.copy_metadata(obj); %don't merge with obj here, breaks with t_mod_f
-        o.descriptor=['s',num2str(i),' of ',str.clean(obj.descriptor,'file')];
+        o.descriptor=['ts_s',num2str(i),' of ',str.clean(obj.descriptor,'file')];
         out.(['ts_s',num2str(i)])=o;
+        %save cosinusoidal timeseries
+        o=init(x_mod,num.struct_deal(d,'y_cosinusoidal',[],i));
+        o=o.copy_metadata(obj); %don't merge with obj here, breaks with t_mod_f
+        o.descriptor=['ts_c',num2str(i),' of ',str.clean(obj.descriptor,'file')];
+        out.(['ts_c',num2str(i)])=o;
       end
       %save residuals
       o=init(x_now,num.struct_deal(d,'y_res',[],1));
@@ -2117,21 +2259,6 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       o=o.copy_metadata(obj);
       o.descriptor=['signal and residual norms ratio for ',str.clean(obj.descriptor,'file')];
       out.rnorm=o;
-%       %paranoid sanity
-%       fieldnames=fields(out);
-%       check=[];
-%       for i=1:numel(fieldnames)
-%         if ~isempty(strfind(fieldnames{i},'ts_'))
-%           if isempty(check)
-%             check=out.(fieldnames{i});
-%           else
-%             check=check+out.(fieldnames{i});
-%           end
-%         end
-%       end
-%       check=check+out.res-obj;
-%       assert(norm(check.masked.norm)/norm(obj.masked.norm)<1e-12,...
-%         [mfilename,': norm of circular check is too high. Debug needed!'])
     end
     %% differentiation
     function obj=diff(obj,varargin)
@@ -2313,7 +2440,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
     end
     %% plot methods
     function out=plot(obj,varargin)
-      % Parse inputs
+      % Parse inputs TODO: use varargs
       p=inputParser;
       p.KeepUnmatched=true;
       % optional arguments
@@ -2324,7 +2451,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       p.addParameter('outlier',    0,          @(i)isfinite(i)  && isscalar(i));
       p.addParameter('title',      '',         @(i)ischar(i));
       p.addParameter('smooth_span',0,          @(i)isfinite(i)  && isscalar(i) && i>=0);
-      p.addParameter('scale',      1,          @(i)isfinite(i)  && isscalar(i));
+      p.addParameter('scale',      1,          @(i)all(isfinite(i)));
       % parse it
       p.parse(varargin{:});
       % type conversions
@@ -2333,8 +2460,20 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       else
         columns=p.Results.columns;
       end
+      % dimension conversions
+      if numel(p.Results.scale)==1
+        scale=ones(size(p.Results.columns))*p.Results.scale;
+      else
+        str.sizetrap(p.Results.scale,p.Results.columns)
+        scale=p.Results.scale;
+      end
       % plot
       for i=1:numel(columns)
+        if columns(i)>obj.width
+          disp(['WARNING: not plotting column ',num2str(columns(i)),' of ',obj.descriptor,...
+            ' because width is limited to ',num2str(obj.width),'.'])
+          continue
+        end
         % get the data
         y_plot=obj.y(:,columns(i));
         % define a working mask
@@ -2392,7 +2531,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         % apply mask to y data
         y_plot=y_plot(out.mask{i});
         % compute (de-meaned and/or normalized) ordinate
-        y_plot=(y_plot-out.y_mean{i})/out.y_scale{i}*p.Results.scale;
+        y_plot=(y_plot-out.y_mean{i})/out.y_scale{i}*scale(i);
         % plot it
         if isempty(p.Results.line)
           out.handle{i}=plot(x_plot,y_plot);hold on
@@ -2457,7 +2596,10 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       %anotate
       if ~isempty(out.title);   title(str.clean(out.title, 'title')); end
       if ~isempty(out.xlabel); xlabel(str.clean(out.xlabel,'title')); end
-      if ~isempty(out.ylabel); ylabel(str.clean(out.ylabel,'title')); end
+      if ~isempty(out.ylabel);
+         if p.Results.normalize;ylabel('[ ]');
+         else                   ylabel(str.clean(out.ylabel,'title')); end
+      end
       if ~isempty(out.legend); legend(str.clean(out.legend,'title')); end
       %special annotations
       if p.Results.normalize; ylabel('[ ]'); end
