@@ -1,0 +1,16 @@
+plot_product: true
+method: gswarm.plot_low_degrees
+sources: [gswarm.grace.gfz.rl05,gswarm.swarm.vce.Mixed,gswarm.swarm.vce.AIUB_KO,gswarm.swarm.vce.DAA_GFEA,gswarm.swarm.vce.SAA_GFEA]
+stats_relative_to: gswarm.grace.gfz.rl05
+explicit_fields: true
+storage_period: direct
+model_types: [signal]
+degrees: [  2,  3,  4,  5,  6,  7]
+orders:  [inf,inf,inf,inf,inf,inf]
+plot_outlier: 1
+plot_automean: true
+plot_autoscale: true
+plot_xdateformat: yy
+plot_legend_suppress: [gswarm,swarm,vce]
+plot_legend_align: '='
+plot_visible: false

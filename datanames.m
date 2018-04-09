@@ -134,11 +134,18 @@ classdef datanames
       out=[{obj.name_clean},obj.field_path];
     end
     %% names
-    function out=filename(obj)       %e.g. grace.calpar.csr.estim.AC0X.A
-      out=strjoin([{obj.name},obj.field_path],datanames.separator);
+    function out=filename(obj)       %e.g. grace.calpar.csr
+%NOTICE: filename used to be like this but i don't think it makes much sense: the data should all be contained inside the
+%        the file with name equalt to the product name, which is the same as the metadata name. The advantage is that a
+%        product can be referred from a sub field and still the correct file is picked.
+%       out=strjoin([{obj.name},obj.field_path],datanames.separator);
+      out=obj.name;
     end
     function out=codename(obj)       %e.g. grace_calpar_csr.estim.AC0X.A
       out=strjoin(obj.global_field_path,'.');
+    end
+    function out=dotname(obj)        %e.g. grace.calpar.csr.estim.AC0X.A
+      out=strjoin([{obj.name};obj.field_path(:)],'.');
     end
     function out=str(obj)            %e.g. grace.calpar.csr/estim/AC0X/A
       out=fullfile(obj.name,obj.field_path{:});
@@ -203,8 +210,11 @@ classdef datanames
       end
       %make sure dir exists, if requested
       if p.Results.ensure_dir
-        if ~exist(fileparts(out),'dir') && ~isempty(fileparts(out))
+        dir_now=fileparts(out);
+        if ~isempty(dir_now) && exist(dir_now,'dir')==0
+          warning('off','MATLAB:MKDIR:DirectoryExists')
           mkdir(fileparts(out))
+          warning('on','MATLAB:MKDIR:DirectoryExists')
         end
       end
     end
@@ -218,7 +228,7 @@ classdef datanames
     end
     %% operator overloading
     function out=eq(obj1,obj2)
-      out=strcmp(obj1.name,obj2.name);
+      out=strcmp(datanames(obj1).name,datanames(obj2).name);
     end
   end
 end

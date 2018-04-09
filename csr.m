@@ -4,7 +4,21 @@ classdef csr
     arc_timeline_file=[getenv('HOME'),'/data/csr/GraceAccCal/arctimeline.GraceAccCal'];
     estim_dir_root=[getenv('HOME'),'/data/csr/EstimData/RL05'];
     estimdir_file=[csr.estim_dir_root,'/EstimDirs_RL05'];
-  end
+    %calpar_meaning is used to connect with constant, linear, quadratic time functions; therefore, it have the same length as calpar_suffixes
+    calpar_suffixes={     '',     'D',   'Q'};
+    calpar_meaning= {'const','linear','quad'}; %these need to be in agreement with what is defined in csr.arc_apply_meaning
+    %define correspondence between coordinates and columns
+    calpar_coords= {'X','Y','Z','XY','XZ','YZ','YX','ZX','ZY'};
+    calpar_col_idx=[ 1 , 2 , 3 ,  4 ,  5 ,  6 ,  7 ,  8 ,  9 ]; %defines which columns get to have the corresp calpar (biases or scales)
+%     calpar_mat_idx=[ 1 , 4 , 5 ;  7 ,  2 ,  6 ;  8 ,  9 ,  3 ]; %maps a 1x9 vector into a 3x3 matrix, calpar_coords(calpar_mat_idx) should be pretty
+    calpar_mat_idx=[ 1 , 7 , 8 ;  4 ,  2 ,  9 ;  5 ,  6 ,  3 ]; %maps a 1x9 vector into a 3x3 matrix, calpar_coords(calpar_mat_idx) should be pretty
+    %define the names of the types of calpars and their corresponding codeword prefix
+    calpar_names =  {'bias','scale'};
+    calpar_prefixes={'AC0' ,'AC1'  };
+    calpar_max_col =[  3   ,   9   ];
+    %define default grace names
+    grace_sats={'A','B'};
+  end 
   methods(Static)
     %% utilities
     function timetag=gitversion
@@ -214,14 +228,13 @@ classdef csr
       %internal:
       % MJD        AC0X         AC0Y*        AC0Z
       % 0         -0.24827E-10  0.17811E-08  0.49781E-10  %linear term
-      % 52640.00  -0.54818E-06  0.86557E-05 -0.77612E-06  %bias term
+      % 52640.00  -0.54818E-06  0.86557E-05 -0.77612E-06  %contant term
       out=flipud(transpose(dlmread(filename)));
     end
     function out=ltb_args(i)
       out=varargs({
         'field',    'all', @(i) ischar(i)    &&                ~isempty(i);...
         'ltb_scale',    1, @(i) isnumeric(i) && isscalar(i) && ~isempty(i);...
-        'calpar_scale', 1, @(i) isnumeric(i) && isscalar(i) && ~isempty(i);...
         'sat',        'A', @(i) ischar(i)                   && ~isempty(i);...
         'bias_files', {...
           [getenv('HOME'),'/data/csr/corral-tacc/input/bsA2003'],...
@@ -250,9 +263,9 @@ classdef csr
         lbt_idx=3;
       case {'Z','AC0Z'}
         lbt_idx=4;
-      case {'ALL','-ALL'}
+      case {'ALL','-ALL','RESTORE','REMOVE'}
         %if mode is '-all', then "remove" the long-term bias
-        if strcmpi(v.field,'-ALL');v.ltb_scale=-v.ltb_scale;end
+        if any(strcmpi(v.field,{'-ALL','REMOVE'}));v.ltb_scale=-v.ltb_scale;end
         x=csr.ltb(v.varargin{:},'field','x');
         y=csr.ltb(v.varargin{:},'field','y');
         z=csr.ltb(v.varargin{:},'field','z')';
@@ -282,7 +295,7 @@ classdef csr
     end
     function out=ltb_apply(varargin)
       v=varargs.wrap('sources',{{...
-        'ts',    [], @(i) isa(i,'simpletimeseries') && ~isempty(i);...
+        'ts',        [], @(i) isa(i,'simpletimeseries') && ~isempty(i);...
       },csr.ltb_args},varargin{:});
       %get long-term biases
       ltb=csr.ltb('t',v.ts.t,v.varargin{:});
@@ -290,7 +303,11 @@ classdef csr
       if isempty(ltb)
         out=v.ts;
       else
-        out=v.ts.scale(v.calpar_scale)+ltb;
+        %NOTICE: this was previously, but it doesn't really make sense and can be confusing
+        %out=v.ts.scale(v.calpar_scale)+ltb;
+        assert(~v.isparameter('calpar_scale'),'BUG TRAP: ''calpar_scale'' is no longer supported!')
+        %add LTB
+        out=v.ts+ltb;
       end
     end
     %% importers
@@ -1211,11 +1228,58 @@ classdef csr
       end
       obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
     end
-    %% atomic loading of calibration parameters
+    %% estimedir data handling
+    function out=estimdata_load(varargin)
+      persistent estimdata
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{{...
+        'estimdir_file', csr.estimdir_file,  @(i) ischar(i) && exist(i,'file')~=0;...
+      }},varargin{:});
+      if isempty(estimdata)
+        %load estimdir file
+        fid=file.open(v.estimdir_file);
+%     0 2005 February  200502_180.GEO /corral-tacc/utexas/csr/byaa705/grace/grav/RL05_05-02/a/iter/ ./solution ./postfit ./L2 53402 53430
+        estimdata=textscan(fid,'%1d %4d %s %s %s %s %s %s %d %d','MultipleDelimsAsOne',true);
+        fclose(fid);
+      end
+      out=estimdata;
+    end
+    function out=estimdata_get(varargin)
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{{...
+        'year',          [],  @(i) isnumeric(i) && isscalar(i) && ~isempty(i);...
+        'month',         [],  @(i) isnumeric(i) && isscalar(i) && ~isempty(i);...
+        'release',   'RL05',  @(i) ischar(i);...
+        'mode',       'dir',  @(i) ischar(i);...
+        'estim_dir_root',csr.estim_dir_root,@(i) ischar(i);...
+      }},varargin{:});
+      %load the data
+      estimdata=csr.estimdata_load(v.varargin{:});
+      %get solution index
+      date_particle=[num2str(time.millennium_rm(v.year),'%02d'),'-',num2str(v.month,'%02d')];
+      idx=cells.isstrfind(estimdata{5},[v.release, '_',date_particle]) | ...
+          cells.isstrfind(estimdata{5},[v.release,'b_',date_particle]);
+      %ensure it exists
+      assert(any(idx),['There is no GRACE ',v.release,' solution for 20',date_particle])
+      %ensure it is unique
+      assert(sum(idx)==1,['There are multiple GRACE ',v.release,' solutions for 20',date_particle])
+      switch lower(v.mode)
+      case 'dir'
+        %pluck solution and split it into its directory path
+        estimdir=strsplit(estimdata{5}{idx},'/');
+        %append subdir to local estim_dir_root
+        out=fullfile(v.estim_dir_root,estimdir{8:10},estimdata{6}{idx});
+      case 'start'
+        out=time.ToDateTime(double(estimdata{9}(idx)),'modifiedjuliandate');
+      case 'stop'
+        out=time.ToDateTime(double(estimdata{10}(idx)),'modifiedjuliandate')-seconds(1);
+      otherwise
+        error(['Cannot handle mode ''',mode,'''.'])
+      end
+    end
+    %% estim file handling
     function out=estim_translate_param(in)
-      if ~isempty(strfind(in,'AC0'))
-        out=in;
-      elseif ~isempty(strfind(in,'AC'))
+      if ~isempty(regexp(in,'AC[XYZ][DQ]','once'))
         out=[in(1:2),'0',in(3:4)];
       elseif ~isempty(strfind(in,'C0Y'))
         out=['AC',in(3:4),in(1)];
@@ -1235,53 +1299,66 @@ classdef csr
         out=in;
       end
     end
-    function out=estim_dir_default(varargin)
-      persistent estimdata
-      %parse optional arguments
-      p=inputParser;p.KeepUnmatched=true;
-      p.addParameter('estim_dir',     '',  @(i) ischar(i)                   || isempty(i));
-      p.addParameter('year',          [],  @(i) isnumeric(i) && isscalar(i) || isempty(i));
-      p.addParameter('month',         [],  @(i) isnumeric(i) && isscalar(i) || isempty(i));
-      p.addParameter('release',   'RL05',  @(i) ischar(i));
-      p.addParameter('estim_dir_root',csr.estim_dir_root,@(i) ischar(i));
-      p.parse(varargin{:});
-      %honour given estim_dir
-      if ~isempty(p.Results.estim_dir)
-        out=p.Results.estim_dir;
-      else
-        assert(~isempty(p.Results.year) && ~isempty(p.Results.month),['If argument ''estim_dir'' is empty, ',...
-          'then need both arguments ''year'' and ''month.'])
-        if isempty(estimdata)
-          %load estimdir file
-          fid=file.open(csr.estimdir_file);
-%       0 2005 February  200502_180.GEO /corral-tacc/utexas/csr/byaa705/grace/grav/RL05_05-02/a/iter/ ./solution ./postfit ./L2 53402 53430
-          estimdata=textscan(fid,'%1d %4d %s %s %s %s %s %s %d %d','MultipleDelimsAsOne',true);
-          fclose(fid);
+    function [names,meaning,col_idx]=estim_build_param(prefix,coords,suffixes)
+      %sanity
+      assert(ischar(prefix) && iscellstr(coords) && iscellstr(suffixes),'Ilegal input argument')
+      %init outputs
+      names=cell(1,numel(coords)*numel(suffixes));
+      meaning=cell(size(names));
+      col_idx=zeros(size(names));
+      c=0;
+      for i=1:numel(coords)
+        for j=1:numel(suffixes)
+          c=c+1;
+          names{c}=[prefix,coords{i},suffixes{j}];
+          meaning(c)=csr.calpar_meaning(cells.strfind(csr.calpar_suffixes,suffixes{j}));
+          col_idx(c)=csr.calpar_col_idx(cells.strcmp( csr.calpar_coords,    coords{i}));
         end
-        %get solution index
-        date_particle=[num2str(p.Results.year-2000,'%02d'),'-',num2str(p.Results.month,'%02d')];
-        idx=cells.iscellstrempty(estimdata{5},[p.Results.release, '_',date_particle]) | ...
-            cells.iscellstrempty(estimdata{5},[p.Results.release,'b_',date_particle]); 
-        %ensure it exists
-        assert(any(idx),['There is no GRACE ',p.Results.release,' solution for 20',date_particle])
-        %ensure it is unique
-        assert(sum(idx)==1,['There are multiple GRACE ',p.Results.release,' solutions for 20',date_particle])
-        %pluck solution and split it into its directory path
-        estimdir=strsplit(estimdata{5}{idx},'/');
-        %append subdir to local estim_dir_root
-        out=fullfile(p.Results.estim_dir_root,estimdir{8:10},'solution');
       end
     end
+    function out=estim_dir_default(varargin)
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{{...
+        'estim_dir',     '',  @(i) ischar(i)                   || isempty(i);...
+        'year',          [],  @(i) isnumeric(i) && isscalar(i) || isempty(i);...
+        'month',         [],  @(i) isnumeric(i) && isscalar(i) || isempty(i);...
+        'release',   'RL05',  @(i) ischar(i);...
+      }},varargin{:});
+      %honour given estim_dir
+      if ~isempty(v.estim_dir)
+        %make sure keywords are implemented
+        out=str.rep(v.estim_dir,...
+          'MONTH',num2str(v.month,'%02d'),...
+          'YEAR',num2str(time.millennium_add(v.year)),...
+          'MM',num2str(v.month,'%02d'),...
+          'YY',num2str(time.millennium_rm(v.year)),...
+          'YYYY',num2str(time.millennium_add(v.year))...
+        );
+      else
+        %append subdir to local estim_dir_root
+        out=csr.estimdata_get(v.varargin{:},'mode','dir');
+      end
+    end
+    function out=estim_isglobal(varargin) %true if this "arc" is global (false if common; local is not supported in any way)
+      v=varargs.wrap('sources',{{...
+        'estim_file_prefix', '', @(i) ischar(i);...
+      }},varargin{:});
+      out=str.contains(v.estim_file_prefix,'global');
+    end
     function out=estim_filename(varargin)
-      %parse optional arguments
-      p=inputParser;p.KeepUnmatched=true;
-      p.addParameter('estim_dir',     csr.estim_dir_default(varargin{:}), @(i) ischar(i));
-      p.addParameter('arc',           [],  @(i) ((isnumeric(i) && ~isempty(i) && isscalar(i)) || strcmp(i,'*')) );
-      p.addParameter('enforce_scalar',true,@(i)   islogical(i) && ~isempty(i) && isscalar(i));
-      p.parse(varargin{:});
-      out=file.wildcard(fullfile(p.Results.estim_dir,...
-        ['R.common.arc',num2str(p.Results.arc),'.to.arc',num2str(p.Results.arc),'.*.estim']));
-      if p.Results.enforce_scalar
+      v=varargs.wrap('sources',{{...
+        'arc',                      [], @(i) ((isnumeric(i) && ~isempty(i) && isscalar(i)) || strcmp(i,'*'));...
+        'enforce_scalar',         true, @(i)   islogical(i) && ~isempty(i) && isscalar(i);...
+        'estim_file_prefix','R.common', @(i)      ischar(i);...
+        'estim_file_ext',      'estim', @(i)      ischar(i);...
+      }},varargin{:});
+      if csr.estim_isglobal(v.varargin{:},varargin{:})
+        filename=[v.estim_file_prefix,'.*.',v.estim_file_ext];
+      else
+        filename=[v.estim_file_prefix,'.arc',num2str(v.arc),'.to.arc',num2str(v.arc),'.*.',v.estim_file_ext];
+      end
+      out=file.wildcard(fullfile(csr.estim_dir_default(v.varargin{:},varargin{:}),filename));
+      if v.enforce_scalar
         assert(numel(out)==1,['Can only handle one estim file at a time, not ',num2str(numel(out)),':',10,strjoin(out(:),char(10))])
         out=out{1};
       end
@@ -1289,8 +1366,10 @@ classdef csr
     function out=estim_load(filename)
       if exist([filename,'.mat'],'file')
         load([filename,'.mat'])
+        msg='mat file';
       elseif strcmp(filename(end-3:end),'.mat')
         load(filename)
+        msg='mat file';
       else
         %init the outputs
         out=struct('A',[],'B',[]);
@@ -1319,8 +1398,11 @@ classdef csr
           out.(strrep(dat{i,1},'GRC-','')).(fn)=dat{i,5};
         end
         save([filename,'.mat'],'out')
+        msg='estim file';
       end
+      str.say('loaded',[filename,' (',msg,')'])
     end
+    %% arc timeline
     function T=arctimeline_load(filename)
       persistent arctimeline_table arctimeline_filename
       if isempty(arctimeline_table) || ~strcmp(arctimeline_filename,filename)
@@ -1339,7 +1421,7 @@ classdef csr
         arc=dat{1};
         month=dat{2};
         day=dat{3};
-        year=2000+dat{4};
+        year=time.millennium_add(dat{4});
         date=datetime([year,month,day]);
         mjd=dat{5};
         assert(all(mjd==time.mjd(date)),['Discrepancy between date and MJD in the file ''',filename,'''.'])
@@ -1353,87 +1435,142 @@ classdef csr
       T=arctimeline_table;
     end
     function out=arctimeline_get(varargin)
-      %parse optional arguments
-      p=inputParser;p.KeepUnmatched=true;
-      p.addParameter('arc_timeline_file',csr.arc_timeline_file, @(i) ischar(i) && ~isempty(i));
-      p.addParameter('year', [], @(i) iscell(i) || isnumeric(i)  ||  isempty(i));
-      p.addParameter('month',[], @(i) iscell(i) || isnumeric(i)  ||  isempty(i));
-      p.addParameter('arc',  [], @(i) iscell(i) || isnumeric(i)  ||  isempty(i));
-      p.addParameter('day',  [], @(i) iscell(i) || isnumeric(i)  ||  isempty(i));
-      p.addParameter('start',[], @(i) iscell(i) || isdatetime(i) ||  isempty(i));
-      p.addParameter('stop', [], @(i) iscell(i) || isdatetime(i) ||  isempty(i));
-      p.addParameter('out',  {}, @(i) iscell(i)                  && ~isempty(i));
-      p.parse(varargin{:});
+      v=varargs.wrap('sources',{{...
+        'arc_timeline_file',csr.arc_timeline_file, @(i) ischar(i) && ~isempty(i);...
+        'year', [], @(i) iscell(i) || isnumeric(i)  ||  isempty(i);...
+        'month',[], @(i) iscell(i) || isnumeric(i)  ||  isempty(i);...
+        'arc',  [], @(i) iscell(i) || isnumeric(i)  ||  isempty(i);...
+        'day',  [], @(i) iscell(i) || isnumeric(i)  ||  isempty(i);...
+        'start',[], @(i) iscell(i) || isdatetime(i) ||  isempty(i);...
+        'stop', [], @(i) iscell(i) || isdatetime(i) ||  isempty(i);...
+        'out',  {}, @(i) iscell(i)                  && ~isempty(i);...
+      }},varargin{:});
       %load the arc timeline
-      arctimeline=csr.arctimeline_load(p.Results.arc_timeline_file);
-      %may need to change parameters, so need to get them out of the parser object
-      par=p.Results;
-      %init logic key
-      key=true(height(arctimeline),1);
-      %build logic key
-      for i={'year','month','arc','day','start','stop'}
-        if ~isempty(par.(i{1}))
-          %make cells into matrices
-          par.(i{1})=cells.c2m(par.(i{1}));
-          key_now=false(size(key));
-          for j=1:numel(par.(i{1}))
-            key_now=key_now| (arctimeline.(i{1})==par.(i{1})(j));
+      arctimeline=csr.arctimeline_load(v.arc_timeline_file);
+      %some sanity
+      if ~isempty(v.year)
+        v.year=time.millennium_add(v.year);
+      end
+      %check if monthly solution is requested
+      if ~isempty(v.year)  && isscalar(v.year) &&...
+         ~isempty(v.month) && isscalar(v.month)
+        %init logic key
+        key=false(height(arctimeline),1);
+        %use input arc(s), if given (trumps the input day)
+        if ~isempty(v.arc)
+          %loop over all input arcs and add to logic key (months are ignored for now)
+          for i=v.arc
+            key=key | (arctimeline.year  == v.year   & ...
+                       arctimeline.arc   == i        );
           end
-          key=key&key_now;
+          %get solution start/stop (input month comes into play)
+          [sol_start,sol_stop]=csr.arctimeline_startstop(v.year,v.month);
+          %only get those arcs that fall within this month's solution period
+          key_idx=find(key);
+          for i=1:numel(key_idx)
+            date_now=datetime(...
+              arctimeline(key_idx(i),'year').year,...
+              arctimeline(key_idx(i),'month').month,...
+              arctimeline(key_idx(i),'day').day...
+            );
+            key(key_idx(i))=sol_start <= date_now && date_now <= sol_stop;
+          end
+        %use input day(s)
+        elseif ~isempty(v.day)
+          %loop over all input days and add to logic key
+          for i=v.day
+            key=key | (arctimeline.year  == v.year   & ...
+                       arctimeline.month == v.month  & ...
+                       arctimeline.day   == i        );
+%             str.say('key len',sum(key),'year',v.year,'month',v.month,'day',i)
+          end
+        %build complete arcs for this year/month
+        else
+          %get solution start/stop
+          [sol_start,sol_stop]=csr.arctimeline_startstop(v.year,v.month);
+          %build default day list
+          day_list=sol_start:days(1):sol_stop;
+          %loop over all days and add to logic key
+          for i=day_list
+            key=key | (arctimeline.year  == year(i)  & ...
+                       arctimeline.month == month(i) & ...
+                       arctimeline.day   == day(i)   );
+%             str.say('key len',sum(key),'year',year(i),'month',month(i),'day',day(i))
+          end 
+        end
+      else
+        %NOTICE: this algorithm is extremely flexible and accepts any of the inputs as vectors but it fails to
+        %        resolve those days outside the nominal month of a solution (e.g. 29/1/2016 for the solution of Feb 2016)
+        %init logic key
+        key=true(height(arctimeline),1);
+        %build logic key: if only month and year are given, 
+        for i={'year','month','arc','day','start','stop'}
+          if ~isempty(v.(i{1}))
+            %make cells into matrices
+            v.(i{1})=cells.c2m(v.(i{1}));
+            %fix millennium
+            if strcmp(i{1},'year'); v.(i{1})=time.millennium_add(v.(i{1}));end
+            key_now=false(size(key));
+            for j=1:numel(v.(i{1}))
+              key_now=key_now | (arctimeline.(i{1})==v.(i{1})(j));
+            end
+            key=key&key_now;
+          end
         end
       end
       %warn if nothing is returned
       if ~any(key)
         %try to patch things up
-        if ~isempty(par.year) && ~isempty(par.month) && ~isempty(par.day)
-          out=cell(size(par.out));
-          for i=1:numel(par.out)
-            switch par.out{i}
-            case 'start'; out{i}=datetime(par.year,par.month,par.day,0,0,0);
-            case 'stop';  out{i}=datetime(par.year,par.month,par.day,23,59,59);
+        if ~isempty(v.year) && ~isempty(v.month) && ~isempty(v.day)
+          out=cell(size(v.out));
+          for i=1:numel(v.out)
+            switch v.out{i}
+            case 'start'; out{i}=datetime(v.year,v.month,v.day,0,0,0);
+            case 'stop';  out{i}=datetime(v.year,v.month,v.day,23,59,59);
             case 'arc';   out{i}=[];
             end
           end
+          keyboard %maybe this is not needed anymore?
           str.say('Patched default arc for',...
-            str.show(cellfun(@(i) {[i,':'],p.Results.(i),';'},{'year','month','arc','day','start','stop'},'UniformOutput',false))...
+            str.show(cellfun(@(i) {[i,':'],v.(i),';'},{'year','month','arc','day','start','stop'},'UniformOutput',false))...
           )
-        elseif ~isempty(par.year) && ~isempty(par.month) && ~isempty(par.arc)
+        elseif ~isempty(v.year) && ~isempty(v.month) && ~isempty(v.arc)
           %define indexes of the stuff we knoe
-          idx=arctimeline.year==par.year & arctimeline.month==par.month;
+          idx=arctimeline.year==v.year & arctimeline.month==v.month;
           %get list of arcs
           arc_list=table2array(arctimeline(idx,'arc'));
           %get closest arc
-          closest_arc=abs(arc_list-par.arc);
+          closest_arc=abs(arc_list-v.arc);
           closest_arc=arc_list(closest_arc==min(closest_arc));
           %get corresponding start
           closest_arc_start=table2array(arctimeline(idx & arctimeline.arc==closest_arc,'start'));
           %guess this arc start
-          start=dateshift(closest_arc_start+days(par.arc-closest_arc),'start','day');
-          out=cell(size(par.out));
-          for i=1:numel(par.out)
-            switch par.out{i}
+          start=dateshift(closest_arc_start+days(v.arc-closest_arc),'start','day');
+          out=cell(size(v.out));
+          for i=1:numel(v.out)
+            switch v.out{i}
             case 'start'; out{i}=start;
             case 'stop';  out{i}=start+days(1);
             end
           end
-          str.say('Wildly guessed arc for',...
-            str.show(cellfun(@(i) {[i,':'],p.Results.(i),';'},{'year','month','arc','day','start','stop'},'UniformOutput',false))...
+          str.say('Wildly guessed start/stop for arc (do not ignore this message!)',...
+            str.show(cellfun(@(i) {[i,':'],v.(i),';'},{'year','month','arc','day','start','stop'},'UniformOutput',false))...
           )
         else
           out=[];
           str.say('No arc found for',...
-            str.show(cellfun(@(i) {[i,':'],p.Results.(i),';'},{'year','month','arc','day','start','stop'},'UniformOutput',false))...
+            str.show(cellfun(@(i) {[i,':'],v.(i),';'},{'year','month','arc','day','start','stop'},'UniformOutput',false))...
           )
         end
         return
       end
-      relevant=arctimeline(key,par.out);
+      relevant=arctimeline(key,v.out);
       %reduce from table the fields requested in par.out
-      out=cell(size(par.out));
-      for i=1:numel(par.out)
-        out{i}=relevant.(par.out{i});
+      out=cell(size(v.out));
+      for i=1:numel(v.out)
+        out{i}=relevant.(v.out{i});
         %special handling
-        switch par.out{i}
+        switch v.out{i}
         case 'stop'
           %shave 1 second from stop time
           out{i}=out{i}-seconds(1);
@@ -1442,12 +1579,11 @@ classdef csr
     end
     function [start,stop]=arctimeline_startstop(year,month)
       %call mother routine
-      out=csr.arctimeline_get('year',year,'month',month,'out',{'start','stop'});
-      %assign outputs
-      start=out{1}(1);
-      stop=out{2}(end);
+      start=csr.estimdata_get('year',year,'month',month,'mode','start');
+      stop =csr.estimdata_get('year',year,'month',month,'mode','stop');
     end
-    function t=subarc_startstop(startstop,nr_sub_arcs)
+    %% atomic loading of calibration parameters
+    function t=subarc_startstop(startstop,nr_sub_arcs,sub_arc_idx)
       %zero sub-arcs need to be reduced to one
       if nr_sub_arcs==0;nr_sub_arcs=1;end
       %short-circuit trivial calls
@@ -1492,189 +1628,195 @@ classdef csr
         ];
         %singularity
         if diff(t_now)<=0
-          return
+          break
         end
         %append
         t=[t;t_now]; %#ok<AGROW>
       end
+      %return specific sub-arc if requested
+      if exist('sub_arc_idx','var')
+        t=t(sub_arc_idx,:);
+      end
     end
-    function arc=arc_timeseries(startstop,calpars,varargin)
+    %agregates sub-arcs into arc-wise constant time series of all calpars (including D and Q pars)
+    function arc=arc_timeseries(startstop,varargin)
       %get persistent vars 
-      persistent v units
+      persistent v 
       if isempty(v)
         % add input arguments and metadata to collection of parameters 'v'
         v=varargs.wrap('sources',{{...
-          'calpar_prefix',         'AC0', @(i) ischar(i)    && ~isempty(i);...
-          'calpar_suffixes',{'','D','Q'}, @(i) iscellstr(i) && ~isempty(i);...
-          'calpar_coords'  {'X','Y','Z'}, @(i) iscellstr(i) && ~isempty(i);...
-          'calpar_cyclesperday', [1,8,1], @(i) isnumeric(i) && ~isempty(i);...
-          },csr.ltb_args},varargin{:});
-        %these units are wrong but they need to agree with each other to build the cal mod (which is done elsewhere)
-        units={'m/s^2','m/s^2','m/s^2'}; 
+          'timestep',                        seconds(5), @(i) isduration(i)&& ~isempty(i);...
+          'calpar_pattern',                        'AC', @(i) ischar(i) && ~isempty(i);...
+          'calpar_cyclesperday_value',    [     8,   1], @(i) isnumeric(i);...
+          'calpar_cyclesperday_pattern',  {'AC0Y','.*'}, @(i) iscellstr(i);...
+          'calpar_units',struct('AC0','m/s^2','AC1',''), @(i) isstruct(i);... %these units are wrong but they need to agree with each other to build the cal mod (which is done elsewhere)
+        }},varargin{:});
       end
+      %find out if this "arc" represents common or global parameters
+      global_flag = csr.estim_isglobal(varargin{:});
+      %load calpars
+      calpars=csr.estim_load(csr.estim_filename(varargin{:}));
+      %get units fieldnames
+      ufn=fieldnames(v.calpar_units);
       %get sats
       sats=fieldnames(calpars);
       %loop over all sats
       for s=1:numel(sats)
-        %loop over all components
-        for c=1:numel(v.calpar_coords)
-          %loop over all suffixes
-          for i=1:numel(v.calpar_suffixes)
-            %build field name
-            field=[v.calpar_prefix,upper(v.calpar_coords{c}),v.calpar_suffixes{i}];
-            %build ordinate: get sub-arc start/stop
-            t=csr.subarc_startstop(startstop,v.calpar_cyclesperday(c));
-            %add a gap at the end of each arc (it's prettier)
-            t=[t(:,1),t(:,2)-seconds(1),t(:,2)];
-            %loop over all sub-arcs
-            for day_loc=1:size(t,1)
-              %retrieve (sub-) arc data
-              if v.calpar_cyclesperday(c)>1
-                field_now=[field,num2str(day_loc)];
-              else
-                field_now=field;
-              end
-              %skip if this calpar does not exists
-              if ~isfield(calpars.(sats{s}),field_now)
-                continue
-              end
-              y=ones(2,1)*calpars.(sats{s}).(field_now);
-              %build timeseries object (with gap at the last entry)
-              ts=simpletimeseries(transpose(t(day_loc,:)),[y;NaN],...
-                'format','datetime',...
-                'labels',{field_now},...
-                'units',units(i),...
-                'timesystem','gps',...
-                'descriptor',field_now...
-              );
-              %init/append output
-              if day_loc==1
-                arc.(sats{s}).(field)=ts;
-              else
-                arc.(sats{s}).(field)=arc.(sats{s}).(field).append(ts);
+        %make sure there are calpars
+        if isempty(calpars.(sats{s}));arc.(sats{s})=[];continue;end
+        %loop over all fields
+        fn=fieldnames(calpars.(sats{s}));
+        for f=1:numel(fn)
+          %skip if this parameters does not match the requested pattern
+          if isempty(regexp(fn{f},v.calpar_pattern,'once'));continue;end
+          %get units
+          for uf=1:numel(ufn)
+            if ~isempty(regexp(fn{f},ufn{uf},'once')); units=v.calpar_units.(ufn{uf}); end
+          end
+          %build ordinate
+          if global_flag
+            %there's no "sub-arcs" in global parameters
+            t=transpose(startstop(1):v.timestep:startstop(end));
+            %output field name
+            fn_out=fn{f};
+          else
+            %get sub-arc start/stop
+            for j=1:numel(v.calpar_cyclesperday_pattern)
+              if ~isempty(regexp(fn{f},v.calpar_cyclesperday_pattern{j},'once'))
+                %reset sub-arc index
+                sub_arc_idx=-1;
+                %find sub-arc index
+                switch v.calpar_cyclesperday_value(j) 
+                  case         1      ; sub_arc_idx=1;                           fn_out=fn{f};
+                  case num2cell(2 : 9); sub_arc_idx=str2double((fn{f}(end)));    fn_out=fn{f}(1:end-1);
+                  case num2cell(10:99); sub_arc_idx=str2double(fn{f}(end-1:end));fn_out=fn{f}(1:end-2);
+                end
+                t=csr.subarc_startstop(startstop,v.calpar_cyclesperday_value(j),sub_arc_idx);
+                break
               end
             end
+            t=transpose(t(1):v.timestep:t(2));
+          end
+          %build data domain
+          y=ones(size(t))*calpars.(sats{s}).(fn{f});
+          %add gap to last entry
+          y(end)=NaN;
+          %build timeseries object (with gap at the last entry)
+          ts=simpletimeseries(transpose(t),y,...
+            'format','datetime',...
+            'labels',fn(f),...
+            'units',{units},...
+            'timesystem','gps',...
+            'descriptor',fn{f}...
+          );
+          %init/append output
+          if ~exist('arc','var') || ~isfield(arc,sats{s}) || ~isfield(arc.(sats{s}),fn_out)
+            arc.(sats{s}).(fn_out)=ts;
+          elseif arc.(sats{s}).(fn_out).stop<ts.start
+            arc.(sats{s}).(fn_out)=arc.(sats{s}).(fn_out).append(ts);
+%           else
+%             arc.(sats{s}).(fn_out)=arc.(sats{s}).(fn_out)+ts;
+          else
+            error(['Cannot append arc between ',datestr(ts.start),...
+              ' and ',datestr(ts.stop),' of calpar ',fn{f},...
+              ' to output calpar ',fn_out,', already defined between ',...
+              datestr(arc.(sats{s}).(fn_out).start),' and ',...
+              datestr(arc.(sats{s}).(fn_out).stop),'.'])
           end
         end
       end
     end
-    function calmod=arc_build(varargin)
+    function inc=arc_apply_meaning(meaning,t,ts)
+      switch meaning
+      case 'const';  inc=ts;
+      case 'linear'; inc=ts.times(t(1:ts.length)   );
+      case 'quad';   inc=ts.times(t(1:ts.length).^2);
+      otherwise
+        error(['Calibration parameter with meaning ''',meaning,''' is not implemented.'])
+      end
+    end
+    %reduces calpars into AC0,AC1/X,Y,Z components, interpreting '', D and Q calpars
+    function calpar=arc_build(varargin)
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{{...
-        'year',                     [], @(i) isnumeric(i) && isscalar(i);...
-        'month',                    [], @(i) isnumeric(i) && isscalar(i);...
-        'arc',                      [], @(i) isnumeric(i) && isscalar(i);...
-        'sats',              {'A','B'}, @(i) iscellstr(i) && ~isempty(i);...
-        'desc',              'unknown', @(i) ischar(i)    && ~isempty(i);...
-        'timestep',         seconds(5), @(i) isduration(i)&& ~isempty(i);...
-        'calpar_coords'  {'X','Y','Z'}, @(i) iscellstr(i) && ~isempty(i);...
-        'calpar_prefix',         'AC0', @(i) ischar(i)    && ~isempty(i);...
-        'calpar_suffixes',{'','D','Q'}, @(i) iscellstr(i) && ~isempty(i);...
-        'calpar_meaning', {'bias','linear','quad'}, @(i) iscellstr(i) && ~isempty(i);...
+        'sats',          csr.grace_sats, @(i) iscellstr(i) && ~isempty(i);...
+        'desc',               'unknown', @(i) ischar(i)    && ~isempty(i);...
+        'units',                'm/s^2', @(i) ischar(i)    && ~isempty(i);...
+        'calpar_coords'   csr.calpar_coords(1:3),   @(i) iscellstr(i) && ~isempty(i);...
+        'calpar_prefix',  csr.calpar_prefixes{1},   @(i) ischar(i)    && ~isempty(i);...
+        'calpar_suffixes',csr.calpar_suffixes(1:3), @(i) iscellstr(i) && ~isempty(i);...
       },csr.ltb_args},varargin{:});
-      %calpar_meaning is used to connect with bias, linear, quadratic time functions
-      %therefore, it have the same length as calpar_suffixes
-      assert(numel(v.calpar_meaning)==numel(v.calpar_suffixes),['The number of elements in ''calpar_suffixes'' must be ',...
-        'the same as in ''calpar_meaning''.'])
-      %derived parameters
-      units=cell(size(v.calpar_coords));units(:)={'m/s^2'};
       %get start/stop of current arc(s)
-      startstop=cells.c2m(...
-          csr.arctimeline_get(varargin{:},...
-            'year', v.year,...
-            'month',v.month,...
-            'arc',  v.arc,...
-            'out',{'start','stop'}...
-        )...
-      );
+      startstop=cells.c2m(csr.arctimeline_get(varargin{:},'out',{'start','stop'}));
       %check if this arc is part of the final solution (if not, then csr.arctimeline_get returned empty startstop)
       if isempty(startstop)
-        calmod=[];
+        bias=[];scale=[];
         return
       end
-      %load calpars
-      calpars=csr.estim_load(csr.estim_filename(varargin{:}));
       %build calibration parameters time series
-      arc=csr.arc_timeseries(startstop,calpars);
-      %define field names (this is arbitrary but must have the same length as calpar_suffixes)
-      fields=v.calpar_meaning ;
-      %set calibration model time domain
-      t=startstop(1):seconds(1):startstop(2);
-      %set the time domain in units compatible with the calibration parameters:
-      %units are days and zero epoch is the start of the arc
-      tc=days(t-startstop(1));
+      arc=csr.arc_timeseries(startstop,varargin{:});
       %loop over all satellites
       for s=1:numel(v.sats)
-        %gather calibration parameters
-        for c=1:numel(v.calpar_coords)
-          %init this calpar
-          cal.(v.calpar_coords{c})=struct();
-          %loop over all calpars for this coordinate and sat
-          for f=1:numel(fields)
-            %build calpar field name (e.g. AC0X or AC0YD1)
-            field_now=[v.calpar_prefix,v.calpar_coords{c},v.calpar_suffixes{f}];
-            %make sure this calpar is available
-            if isfield(arc.(v.sats{s}),field_now)
-              %interpolate blindly over the whole time domain
-              cal.(v.calpar_coords{c}).(fields{f})=arc.(v.sats{s}).(field_now).interp(t);
-              %remove transient calpars, this is indicative of a gap (interpolation is done blindly over any gap length)
-              cal.(v.calpar_coords{c}).(fields{f})=cal.(v.calpar_coords{c}).(fields{f}).mask_and([...
-                     cal.(v.calpar_coords{c}).(fields{f}).mask(1);...
-                diff(cal.(v.calpar_coords{c}).(fields{f}).y(:,1))==0]...
+        %handle biases
+        [fields,meaning,col_idx]=csr.estim_build_param(v.calpar_prefix,v.calpar_coords,v.calpar_suffixes);
+        %init time domain and biases timeseries
+        tc=[];t=[];calpar.(v.sats{s})=[];
+        %loop over all calibration parameters
+        for f=1:numel(fields)
+          if isfield(arc.(v.sats{s}),fields{f})
+            str.say('sat',v.sats{s},'calpar',fields{f})
+            %shortcut to the time domain (sub-arcs may be dropped if small, so no point in time domain consistency checks)
+            if isempty(t); t=arc.(v.sats{s}).(fields{f}).t;end
+%             else assert(arc.(v.sats{s}).(fields{f}).isteq(t),'Time domain discrepancy.');  
+            %set the time domain in units compatible with the calibration parameters:
+            %units are days and zero epoch is the start of the arc
+            if isempty(tc); tc=days(t-startstop(1)); end
+            %init calibration model time series
+            if isempty(calpar.(v.sats{s}))
+              calpar.(v.sats{s})=simpletimeseries(t,zeros(numel(t),numel(v.calpar_coords)),...
+                'format','datetime',...
+                'labels',v.calpar_coords,...
+                'units',cellfun(@(i) v.units,cell(size(v.calpar_coords)),'UniformOutput',false),...
+                'timesystem','gps',...
+                'descriptor',['calibration model ',v.desc,', GRACE-',v.sats{s}]...
               );
             end
+            %get the meaning of this calpar
+            increment=csr.arc_apply_meaning(meaning{f},tc,arc.(v.sats{s}).(fields{f}).cols(1));
+            %increment calmod timeseries
+            calpar.(v.sats{s})=calpar.(v.sats{s}).set_cols(col_idx(f),...
+              calpar.(v.sats{s}).get_cols(col_idx(f))+increment...
+            );
           end
         end
-        %init calibration model time series
-        calmod.(v.sats{s})=simpletimeseries(t,zeros(numel(t),numel(v.calpar_coords)),...
-          'format','datetime',...
-          'labels',v.calpar_coords,...
-          'units',units,...
-          'timesystem','gps',...
-          'descriptor',['calibration model ',v.desc,', GRACE-',v.sats{s}]...
-        );
-        %build calibration model
-        for c=1:numel(v.calpar_coords)
-          for f=1:numel(fields)
-            if isfield(cal.(v.calpar_coords{c}),fields{f})
-              switch fields{f}
-              case 'bias';   increment=cal.(v.calpar_coords{c}).(fields{f}).cols(1);
-              case 'linear'; increment=cal.(v.calpar_coords{c}).(fields{f}).cols(1).times(tc   );
-              case 'quad';   increment=cal.(v.calpar_coords{c}).(fields{f}).cols(1).times(tc.^2);
-              otherwise
-                error(['Calibration parameter with meaning ''',fields{f},''' is not implemented.'])
-              end
-              calmod.(v.sats{s})=calmod.(v.sats{s}).set_cols(c,calmod.(v.sats{s}).get_cols(c)+increment);
-            end
-          end
-        end
-        %apply long-term biases
-        calmod.(v.sats{s})=csr.ltb_apply(v.varargin{:},...
-          'ts',calmod.(v.sats{s}),...
-          'sat',v.sats{s},...
-          'field','all'...
-        );
       end
     end
-    function out=arcs_build(varargin)
+    function [out,v]=arcs_build(varargin)
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{{...
-        'year',     [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i);...
-        'month',    [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i);....
-        'day',      [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i);....
-        'arc',      [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i);...
+        'year',      [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i);...
+        'month',     [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i);...
+        'day',       [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i);...
+        'arc',       [], @(i) isnumeric(i) && ~isempty(i) && isscalar(i);...
+        'calpar_names',  csr.calpar_names,        @(i) iscellstr(i) && ~isempty(i);...
+        'bias_coords'    csr.calpar_coords(1:3),  @(i) iscellstr(i) && ~isempty(i);...
+        'bias_prefix',   csr.calpar_prefixes{1},  @(i) ischar(i)    && ~isempty(i);...
+        'bias_suffixes', csr.calpar_suffixes(1:3),@(i) iscellstr(i) && ~isempty(i);...
+        'scale_coords',  csr.calpar_coords(1:9),  @(i) iscellstr(i) && ~isempty(i);...
+        'scale_prefix',  csr.calpar_prefixes{2},  @(i) ischar(i)    && ~isempty(i);...
+        'scale_suffixes',csr.calpar_suffixes(1:2),@(i) iscellstr(i) && ~isempty(i);...
       }},varargin{:});
       %translate days into arcs (estim files are arc-wise)
       if isempty(v.arc)
         if ~isempty(v.day)
           %get arcs of current day
-          v.arc=cells.c2m(csr.arctimeline_get(...
+          v.arc=csr.arctimeline_get(...
             'arc_timeline_file',v.arc_timeline_file,...
             'year', v.year,...
             'month',v.month,...
             'day',  v.day,...
             'out',{'arc'}...
-          ));
+          );
         %if no day or arc is given, then need to find them all
         else
           %get all arcs in estim_dir
@@ -1682,6 +1824,11 @@ classdef csr
             'arc','*',...
             'enforce_scalar',false...
           );
+          %sanity
+          assert(~isempty(estim_files),['Could not find any files for arcs of ',...
+            'year(s) ',str.show(v.year),...
+            ', month(s) ',str.show(v.month),...
+            ' in directory ',varargs(varargin).get('estim_dir').value,'.'])
           %parse filenames to retrieve arc numbers
           arcs=cell(size(estim_files));
           for i=1:numel(arcs)
@@ -1689,45 +1836,59 @@ classdef csr
             arcs{i}=strsplit(strrep(f,'R.common.arc',''),'.to.arc');
             arcs{i}=str2double(arcs{i}{1});
           end
-          v.arc=sort(cells.c2m(arcs));
+          v.arc=cells.m2c(sort(cells.c2m(arcs)));
         end
       end
-      %handle scalar inputs
-      n=max([...
-        numel(v.year),...
-        numel(v.month),...
-        numel(v.day),...
-        numel(v.arc)...
-      ]);
-      for i={'year','month','day','arc'}
-        v.(i{1})=cells.deal(v.(i{1}),[n,1]);
-      end
-      %sanity: all inputs must have the same length
-      assert(all(cellfun(@(i) numel(v.(i)),{'year','month','day','arc'})==n),...
-        'All time parameters must have the same length, debug needed!')
       %init outputs
       out=[];
       %loop over all inputs
-      s.msg='Assembling arcs';s.n=n;
-      for i=1:n
-        tmp=csr.arc_build(varargin{:},...
-          'year',     v.year{i},...
-          'month',    v.month{i},...
-          'day',      v.day{i},...
-          'arc',      v.arc{i}...
-        );
-        %save if this arc is not empty
-        if ~isempty(tmp)
-          if isempty(out)
-            out=tmp;
-          else
-            out=structs.objmethod2('append',out,tmp);
-          end
-        end
+      s.msg='Assembling arcs';s.n=numel(v.arc);
+      for i=1:numel(v.arc)
+        bias=csr.arc_build(varargin{:},...
+          'year',     v.year,...  
+          'month',    v.month,...
+          'arc',      v.arc{i},...
+          'calpar_coords',  v.bias_coords,...
+          'calpar_prefix',  v.bias_prefix,...
+          'calpar_suffixes',v.bias_suffixes...
+        ); %'day',      v.day{i},...
+        scale=csr.arc_build(varargin{:},...
+          'year',     v.year,...  'year',     v.year{i},...
+          'month',    v.month,... 'month',    v.month{i},...
+          'arc',      v.arc{i},...
+          'calpar_coords',  v.scale_coords,...
+          'calpar_prefix',  v.scale_prefix,...
+          'calpar_suffixes',v.scale_suffixes...
+        ); %'day',      v.day{i},...
+        %save if this arc (empty checks, and existance of fields are done in struct.build)
+        out=structs.build(out,v.calpar_names,{bias,scale},'append');
+        %user feedback
         s=time.progress(s);
+        str.say([newline,structs.str(structs.objmethod('str',out),'','out', false)])
       end
+      %load global parameters
+      bias=csr.arc_build(varargin{:},...
+        'estim_file_prefix','R.global',...
+        'year', v.year,...
+        'month',v.month,...
+        'calpar_coords',  v.bias_coords,...
+        'calpar_prefix',  v.bias_prefix,...
+        'calpar_suffixes',v.bias_suffixes...
+      );
+      scale=csr.arc_build(varargin{:},...
+        'estim_file_prefix','R.global',...
+        'year', v.year,...
+        'month',v.month,...
+        'calpar_coords',  v.scale_coords,...
+        'calpar_prefix',  v.scale_prefix,...
+        'calpar_suffixes',v.scale_suffixes...
+      );
+      %add the global parameters (empty checks, and existance of fields are done in struct.build)
+      out=structs.build(out,v.calpar_names,{bias,scale},'plus');
+      %user feedback
+      str.say([newline,structs.str(structs.objmethod('str',out),'','out', false)])
     end
-    function obj=import_estim(obj,product,varargin)
+    function [obj,v]=import_estim(obj,product,varargin)
       %This contructor needs the following arguments:
       % - 'estim_dir' (if empty, it retrieves the RL05 estim data)
       % - 'year'
@@ -1741,19 +1902,140 @@ classdef csr
       %
       %The mandatory argument 'level' serves as a sort of descriptor, to 
       %differentiate different types of estim files.
-      
       obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{{...
-        'desc',  product.str, @(i) ischar(i);...
+        'desc',                              product.str, @(i) ischar(i);...
         'year',  year( obj.start+(obj.stop-obj.start)/2), @(i) isnumeric(i) && isscalar(i);...
         'month', month(obj.start+(obj.stop-obj.start)/2), @(i) isnumeric(i) && isscalar(i);...
       },product.metadata},varargin{:});
       %build the arc time series 
-      arcs=csr.arcs_build(v.varargin{:});
+      [arcs,v]=csr.arcs_build(v.varargin{:},varargin{:});
       %save it
       obj=obj.data_set(product,arcs);
       obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
+    end
+    function [obj,out]=plot_estim(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
+      %gather inputs
+      v=varargs.wrap('sources',{{...
+          'calpar_names', csr.calpar_names, @(i) ischar(i);...
+          'sats',         csr.grace_sats,   @(i) iscellstr(i);...
+        },plotting.default,...
+        product.plot_args...
+      },varargin{:});
+      %make room for outputs
+      out=cell(1,numel(v.sats)*numel(v.calpar_names)*max(csr.calpar_max_col));oc=0;
+      %loop over sat names
+      for s=1:numel(v.sats)
+        %loop over calpar names
+        for n=1:numel(v.calpar_names)
+          %update calpar name and sat in dn_list and dn
+          dn_list=datanames.array(product.source_list,{v.calpar_names{n},v.sats{s}});
+          dn     =product.dataname.set_field_path(    {v.calpar_names{n},v.sats{s}});
+          %get columns to plot
+          plot_columns=1:csr.calpar_max_col(cells.strfind(csr.calpar_names,v.calpar_names{n}));
+          %loop over all columns
+          for c=1:numel(plot_columns)
+            obj.log('@','iter','sat',v.sats{s},'calpar_names',v.calpar_names{n},'column',plot_columns(c),'start',obj.start,'stop',obj.stop)
+            %plot filename arguments
+            filename_args=[product.file_args('plot'),{...
+              'start',obj.start,...
+              'stop', obj.stop,...
+              'timestamp',true,...
+              'remove_part','',...
+              'prefix',v.plot_file_prefix...
+              'suffix',strjoin(cells.rm_empty([...
+                csr.calpar_names(n),...
+                v.sats(s),...
+                csr.calpar_coords(plot_columns(c)),...
+                {v.plot_file_suffix}...
+              ]),'.')...
+            }];
+            filename=dn.file(filename_args{:});
+            if isempty(dir(filename))
+              %make sure there is data
+              if any(cell2mat(obj.vector_method_tr('all','nr_valid'))>1)
+                %increment output counter
+                oc=oc+1;
+                %plot it
+                plotting.figure(v.varargin{:});
+                [~,out{oc}]=obj.plot_mult(dn,dn_list,plot_columns(c),...
+                  v.varargin{:},...
+                  'plot_title',strjoin(cells.rm_empty([...
+                    {v.plot_title_prefix},...
+                    csr.calpar_names(n),...
+                    ['GRACE-',v.sats{s}],...
+                    [csr.calpar_coords{plot_columns(c)},'-component'],...
+                    {v.plot_title_suffix}...
+                  ]),' ')...
+                );
+                out{oc}.filename=filename;
+                out{oc}.fig_handle=gcf;
+                %check if any data was plotted
+                if all(isempty(out{oc}));  str.say('Skipped plot',filename,'(no data plotted)'); close(gcf) %nothing plotted
+                else saveas(gcf,filename); str.say('Created plot',filename)                                 %save this plot
+                end
+              else str.say('Skipped plot',filename,['(no data in ',product.name,')']); out{c}={};
+              end
+            else   str.say('Skipped plot',filename,'(file already exists)');           out{c}={};
+            end
+          end
+        end
+      end
+      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
+    end
+    %% calibration of acc data using atomically-loaded calibration parameters
+    function obj=calibrate_estim(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
+      %gather inputs
+      v=varargs.wrap('sources',{{...
+          'calpar_names',   csr.calpar_names, @(i) iscellstr(i) && ~isempty(i);...
+          'sats',           csr.grace_sats,   @(i) iscellstr(i);...
+          'product_l1b',   product.sources(1),@(i) ischar(i) || isa(i,'datanames') || isa(i,'dataproduct');...
+          'product_calmod',product.sources(2),@(i) ischar(i) || isa(i,'datanames') || isa(i,'dataproduct');...
+        'scale_matrix_map',csr.calpar_mat_idx,@(i) isnumeric(i) && all(size(i)==3);...
+        },product.metadata...
+      },varargin{:});
+      %data type normalization
+      v.product_l1b   =dataproduct(v.product_l1b   );
+      v.product_calmod=dataproduct(v.product_calmod);
+      %loop over all satellites
+      for s=1:numel(v.sats)
+        %easier names: L1B data
+        product_l1b=v.product_l1b.dataname.set_field_path(v.sats{s});
+        l1b=obj.data_get_scalar(product_l1b);
+        assert(isa(l1b,'simpletimeseries'),['Expecting product ',product_l1b.str,...
+          ' to be of class simpletimeseries, not class ',class(l1b),'.'])
+        %easier names: calmod data
+        for i=1:numel(v.calpar_names)
+          product_calmod.(v.calpar_names{i})=v.product_calmod.dataname.set_field_path({v.calpar_names{i},v.sats{s}});
+                  calmod.(v.calpar_names{i})=obj.data_get_scalar(product_calmod.(v.calpar_names{i}));
+          assert(isa(calmod.(v.calpar_names{i}),'simpletimeseries'),['Expecting product ',product_calmod.(v.calpar_names{i}).str...
+            ' to be of class timeseries, not class ',class(calmod.(v.calpar_names{i})),'.'])
+        end
+        str.say('GRACE',v.sats{s},'l1b         ',l1b.stats('mode','str','struct_fields',{'mean'}))
+        %remove long-term biases from L1B data
+        out=csr.ltb_apply(varargin{:},...
+          'ts',l1b,...
+          'sat',v.sats{s},...
+          'field','restore'...
+        ); 
+        str.say('GRACE',v.sats{s},'l1b-LTB     ',out.stats('mode','str','struct_fields',{'mean'}))
+        %let's look at the scales
+        str.say('GRACE',v.sats{s},'S           ',calmod.scale.stats('mode','str','struct_fields',{'mean'}))
+        %apply scale factors
+        out=out.mtimes(calmod.scale.interp(out.t),v.scale_matrix_map);
+        str.say('GRACE',v.sats{s},'S(l1b-LTB)  ',out.stats('mode','str','struct_fields',{'mean'}))
+        %let's look at the biases
+        str.say('GRACE',v.sats{s},'b           ',calmod.bias.stats('mode','str','struct_fields',{'mean'}))
+        %add estimated bias
+        out=out+calmod.bias.interp(out.t);
+        str.say('GRACE',v.sats{s},'S(l1b-LTB)+b',out.stats('mode','str','struct_fields',{'mean'}))
+        %save the data
+        obj=obj.data_set(product.dataname.set_field_path(v.sats{s}),out);
+      end
+      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)   
     end
     %% operators
     function obj=compute_calmod(obj,product,varargin)
@@ -1771,9 +2053,9 @@ classdef csr
       
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{{...
-        't'   ,1,        @(i) isnumeric(i) && ~isempty(i);...
-        't2'  ,1,        @(i) isnumeric(i) && ~isempty(i);...
-        'sats',{'A','B'},@(i) iscellstr(i) && ~isempty(i);...
+        't'   ,1,             @(i) isnumeric(i) && ~isempty(i);...
+        't2'  ,1,             @(i) isnumeric(i) && ~isempty(i);...
+        'sats',csr.grace_sats,@(i) iscellstr(i) && ~isempty(i);...
       },product.metadata},varargin{:});
 
       %loop over the sats
@@ -1918,7 +2200,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{product.metadata,{...
         'coords',    {'X','Y','Z'}, @(i) iscellstr(i) && ~isempty(i);...
-        'sats',          {'A','B'}, @(i) iscellstr(i) && ~isempty(i);...
+        'sats',          csr.grace_sats, @(i) iscellstr(i) && ~isempty(i);...
         'calpar_cyclesperday',    [1,8,1], @(i) isnumeric(i) && ~isempty(i);...
         'calpar_poly_order', [2,2,2], @(i) isnumeric(i) && ~isempty(i);...
         'l1b_median_order',     10, @(i) isnumeric(i) && ~isempty(i) && isscalar(i);...
@@ -1985,7 +2267,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         str.say('Computing the calibration model ',product)
         %loop over all coordinates
         for c=1:numel(v.coords)
-          col_idx=cells.cellstrfind({'X','Y','Z'},v.coords{c});
+          col_idx=cells.strfind({'X','Y','Z'},v.coords{c});
           %loop over all relevant (sub-) arcs
           for d=1:size(startstop,1)
             %retrieve (sub-) arcs
@@ -2062,7 +2344,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
           ' is expected to be 1, not ',num2str(product.nr_sources),'.'])
         % get the sats
         v=varargs.wrap('sources',{product.metadata,{...
-          'sats',          {'A','B'}, @(i) iscellstr(i) && ~isempty(i);...
+          'sats',          csr.grace_sats, @(i) iscellstr(i) && ~isempty(i);...
         }},varargin{:});
         %check if the product satellites include the one in the current product
         sat_now=product.dataname.field_path;
@@ -2141,7 +2423,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{{...
         'coords',        {'X','Y','Z'}, @(i) iscellstr(i) && ~isempty(i);...
-        'sats',              {'A','B'}, @(i) iscellstr(i) && ~isempty(i);...
+        'sats',              csr.grace_sats, @(i) iscellstr(i) && ~isempty(i);...
         'bandpass',            [inf,0], @(i)(isnumeric(i) || isduration(i)) && ~isempty(i);...
         'smooth',             hours(3), @(i)(isnumeric(i) || isduration(i)) && ~isempty(i);...
         'median',                    0, @(i)(isnumeric(i) || isduration(i)) && ~isempty(i);...
@@ -2188,7 +2470,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       % loop over all coordinates
       for c=1:numel(v.coords)
         %get index of this coordinate
-        ci=cells.cellstrfind({'x','y','z'},lower(v.coords{c}));
+        ci=cells.strfind({'x','y','z'},lower(v.coords{c}));
         for i=1:2
           switch i
           case 1
@@ -2338,6 +2620,88 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       res=res-ones(size(res,1),1)*mean(Tb);
       res=res+mean(Tt);
       out=sum(res.^2);
+    end
+    %% SLR data
+    function obj=import_slr_Ries(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
+      % sanity
+      assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{{...
+        'import_dir','',@(i) ischar(i);...
+        'format',    '',@(i) ischar(i)...
+      },product.metadata},varargin{:});
+      %sanity
+      assert(numel(v.prefixes)==numel(v.degrees)&& numel(v.prefixes)==numel(v.orders),...
+        'Metadata ''prefixes'' ''degrees'' and ''orders'' must all have the same size.')
+      %init records
+      ts=cell(size(v.prefixes));
+      %loop over all data
+      for i=1:numel(v.prefixes)
+        %load the data
+        ts{i}=simpletimeseries.import(...
+          fullfile(v.import_dir,[v.prefixes{i},v.suffix]),...
+          'cut24hrs',false,...
+          'save_mat',false,...
+          'format',v.format...
+        );
+      end
+      %sanity on the time domain
+      for i=2:numel(ts)
+        if ~ts{1}.isteq(ts{i})
+          ts{i}=ts{i}.interp(ts{1}.t);
+        end
+      end
+      %init gravity object
+      g=gravity.unit(max(v.degrees),'scale',0,'t',ts{1}.t);
+      %propagate the data
+      for i=1:numel(v.degrees);
+        for j=1:numel(v.orders{i});
+          d=v.degrees(i);o=v.orders{i}(j);if iscell(o); o=o{1};end
+          for t=1:ts{i}.length
+            g=g.setC(d,o,ts{i}.y(t,j),ts{i}.t(t));
+          end
+        end
+      end
+      %apply model processing options
+      g=gswarm.load_models_op('all',v,product,g);
+      %save model
+      obj=obj.data_set(product.dataname,g);
+      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
+    end
+    function obj=import_slr_Cheng(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
+      % sanity
+      assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{{...
+        'import_dir',        '',@(i) ischar(i);...
+        'filename',          '',@(i) ischar(i);...
+        'format','slr-csr-Chen',@(i) ischar(i)...
+      },product.metadata},varargin{:});
+      %sanity
+      assert(numel(v.degrees)==numel(v.orders),...
+        'Metadata ''degrees'' and ''orders'' must all have the same size.')
+      %load the data
+      ts=simpletimeseries.import(...
+        fullfile(v.import_dir,v.filename),...
+        'cut24hrs',false,...
+        'format',v.format...
+      );
+      %init gravity object
+      g=gravity.unit(max(v.degrees),'scale',0,'t',ts.t);
+      %propagate the data
+      for i=1:numel(v.degrees);
+        d=v.degrees(i);o=v.orders(i);
+        for t=1:ts.length
+          g=g.setC(d,o,ts.y(t,i),ts.t(t));
+        end
+      end
+      %apply model processing options
+      g=gswarm.load_models_op('all',v,product,g);
+      %save model
+      obj=obj.data_set(product.dataname,g);
+      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
     end
     %% manual interfaces
     function obj=plot(start,stop,product,plot_dir)

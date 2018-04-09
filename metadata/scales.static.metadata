@@ -1,0 +1,8 @@
+import_dir: <getenv('HOME')>/data/scales/GEO/static
+method: gswarm.load_models
+model_types: [signal,error]
+wilcarded_filename: GIF48.2007.GEO
+model_format: csr
+date_parser: static
+submetadata1: scales.processing.submetadata
+storage_period: none

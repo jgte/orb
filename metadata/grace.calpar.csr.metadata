@@ -27,4 +27,4 @@ plot_outlier: 0
 plot_zeromean: true
 plot_xdateformat: HH:MM dd/mm
 plot_title_suppress: [grace,calpar,csr]
-plot_visible: 'off'
+plot_visible: true 

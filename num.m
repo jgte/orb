@@ -38,89 +38,97 @@ classdef num
       p.KeepUnmatched=true;
       p.addRequired( 't', @(i) isnumeric(i) && isvector(i) && size(i,2)==1          && ~any(isnan(i)) );
       p.addRequired( 'y', @(i) isnumeric(i) && isvector(i) && all(size(i)==size(t)) && ~any(isnan(i)) );
-      p.addParameter('polynomial',[1 1],                                @(i) isnumeric(i) || isempty(i));
-      p.addParameter('sinusoidal',[2*min(diff(t)),(t(end)-t(1))/2],     @(i) isnumeric(i) || isempty(i) || isduration(i));
-      p.addParameter('phi',       [0,0],                                @(i) isnumeric(i) || isempty(i));
-      p.addParameter('mode',      'struct',                             @(i) ischar(i));
+      p.addParameter('polynomial',[0 1],                                     @(i) isnumeric(i) || isempty(i));
+      p.addParameter('sinusoidal',seconds([2*min(diff(t)),(t(end)-t(1))/2]), @(i) isduration(i)|| isempty(i));
+      p.addParameter('t0',        t(1),                                      @(i) isnumeric(i) && isscalar(i));
+      p.addParameter('mode',      'struct',                                  @(i) ischar(i));
       %these parameters are only valid for the "model" mode.
-      p.addParameter('x',         [],                                   @(i) isnumeric(i) || isempty(i));
+      p.addParameter('x',         [],                                        @(i) isnumeric(i) || isempty(i));
       % parse it
       p.parse(t,y,varargin{:});
       %simpler names
       np=numel(p.Results.polynomial);
       ns=numel(p.Results.sinusoidal);
       ny=numel(y);
+      %start from t0
+      t=t-p.Results.t0;
       % trivial call
       if ~any(y~=0)
         %assign outputs
         out=struct(...
             'polynomial',zeros(np,1),...
             'sinusoidal',zeros(ns,1),...
+          'cosinusoidal',zeros(ns,1),...
           'y_polynomial',zeros(ny,np),...
           'y_sinusoidal',zeros(ny,ns),...
+        'y_cosinusoidal',zeros(ny,ns),...
           'y_res',zeros(ny,1),...
           'rnorm',0,...
           'norm',0 ...
         );
-        %handle special modes
-        switch p.Results.mode
-        case 'solve_phi'
-          out.phi=zeros(ns,1);
-        end
         %we're done
         return
-      end
-      %handle empty phi
-      if any(strcmp(p.UsingDefaults,'phi'))
-        phi=zeros(size(p.Results.sinusoidal));
-      else
-        phi=p.Results.phi;
       end
       % branch on mode
       switch p.Results.mode
         case 'test'
           s=1;
           n=1000;
-          randn_scale=0.2;
+          randn_scale=0.05;
           poly_scale=[0.3 0.8 1.6];
+          T=s*n./[3 5];
           sin_scale=[0.8 0.5];
-          sin_T=s*n./[3 5];
-          sin_phi=[pi/3 pi/4]; %randn(numel(sin_scale));
+          cos_scale=[0.4 0.6]; 
           %derived parameters
           legend_str=cell(1,numel(poly_scale)+numel(sin_scale));
           t=transpose(1:s:(n*s));
-          y=randn_scale*randn(n,1);
+          y=randn_scale*randn(n,1);c=0;
           for i=1:numel(poly_scale)
-            legend_str{i}=['t^',num2str(i-1)];
+            c=c+1;legend_str{c}=['t^',num2str(i-1)];
             y=y+poly_scale(i)*(t/n/s).^(i-1);
           end
           for i=1:numel(sin_scale)
-            legend_str{i+numel(poly_scale)}=['sin_',num2str(i)];
-            y=y+sin_scale(i)*sin(2*pi/sin_T(i)*t+sin_phi(i));
+            c=c+1;legend_str{c}=['sin_',num2str(i)];
+            y=y+sin_scale(i)*sin(2*pi/T(i)*t);
+          end
+          for i=1:numel(cos_scale)
+            c=c+1;legend_str{c}=['cos_',num2str(i)];
+            y=y+cos_scale(i)*cos(2*pi/T(i)*t);
           end
           %decompose
-          a=num.pardecomp(t,y,'polynomial',ones(size(poly_scale)),'sinusoidal',sin_T,'mode','solve_phi');
+          a=num.pardecomp(t,y,'polynomial',ones(size(poly_scale)),'sinusoidal',T,'mode','struct');
           %show results
           figure
-          plot(t,y,t,a.y_polynomial,t,a.y_sinusoidal,t,a.y_res)
+          plot(t,y,'b','LineWidth',2), hold on
+          plot(t,a.y_polynomial,'r','LineWidth',2)
+          plot(t,a.y_sinusoidal,'g','LineWidth',2)
+          plot(t,a.y_cosinusoidal,'m','LineWidth',2)
+          plot(t,a.y_res,'k','LineWidth',2)
           legend('original',legend_str{:},'res')
-          title(['norm(mod+res)=',num2str(norm(sum([a.y_polynomial,a.y_sinusoidal,a.y_res,-y],2)))])
+          title(['norm(x+res-y)=',num2str(norm(sum([a.y_polynomial,a.y_sinusoidal,a.y_cosinusoidal,a.y_res,-y],2))),...
+            newline,'A=',num2str(a.amplitude(:)'),newline,'phi=',num2str(180/pi*a.phase(:)')])
+          fs=16;
+          set(    gca,          'FontSize',fs);
+          set(get(gca,'Title' ),'FontSize',round(fs*1.3));
+          set(get(gca,'XLabel'),'FontSize',round(fs*1.1));
+          set(get(gca,'YLabel'),'FontSize',round(fs*1.2));
         case 'design'
-          %handle durations
-          if isduration(p.Results.sinusoidal)
-            T=seconds(p.Results.sinusoidal);
-          else
-            T=p.Results.sinusoidal;
-          end
+          %convert to seconds and remove total time length
+          %(only simpledata connects to this function, so time must be its implicit time scale, which is defined in simpletimeseries)
+          T=simpletimeseries.timescale(p.Results.sinusoidal);
           % init design matrix
-          A=zeros(ny,np+ns);
+          A=zeros(ny,np+2*ns);
           % build design matrix: polynomial coefficients
           for i=1:np
-            A(:,i)=(t/t(end)).^(i-1);
+            A(:,i)=t.^p.Results.polynomial(i);
           end
           % build design matrix: sinusoidal coefficients
           for i=np+(1:ns)
-            A(:,i)=sin(2*pi/T(i-np)*t+phi(i-np));
+            A(:,i)=sin(2*pi/T(i-np)*t);
+          end
+          % build design matrix: co-sinusoidal coefficients
+          for i=np+ns+(1:ns)
+            A(:,i)=cos(2*pi/T(i-np-ns)*t);
           end
           %outputs
           out=A;
@@ -149,34 +157,15 @@ classdef num
           %assign outputs
           out=struct(...
             'polynomial',x(1:np),...
-            'sinusoidal',x(np+1:end),...
+            'sinusoidal',x(np+1:np+ns),...
+            'cosinusoidal',x(np+ns+1:end),...
             'y_polynomial',y_mod(:,1:np),...
-            'y_sinusoidal',y_mod(:,np+1:end),...
+            'y_sinusoidal',y_mod(:,np+1:np+ns),...
+            'y_cosinusoidal',y_mod(:,np+ns+1:end),...
             'y_res',y_res,...
             'rnorm',norm(y_res)./norm(y),...
             'norm',norm(y_res)...
           );
-        case 'solve_phi'
-          %declare function to optimize
-          fun=@(phi) (...
-            num.pardecomp(t,y,...
-              varargin{:},...
-              'phi',phi,...
-              'mode','struct'...
-            ).norm ...
-          );
-          %find the phase angles
-          phi=fminsearch(fun,phi);
-          %get all info (the system is solved one more time, but with the correct phi)
-          out=num.pardecomp(t,y,varargin{:},'phi',phi,'mode','struct');
-          %append initial phase
-          out.phi=phi(:);
-          %sanity
-          field_names=fields(out);
-          for i=1:numel(field_names)
-            assert(~any(isnan(out.(field_names{i})(:))),...
-              [mfilename,': found NaNs in field ''',field_names{i},''': debug needed!'])
-          end
       otherwise
         error([mfilename,': unknown output mode ''',p.Results.mode,'''.'])
       end
@@ -396,6 +385,32 @@ classdef num
         error('cannot determine the operating system type')
       end
       if isnan(out);keyboard;end
+    end
+    %% statistics
+    function out = rms(x,w,dim)
+      if ~exist('dim','var') || isempty(dim)
+        dim=0;
+      else
+        assert(dim <= numel(size(w)),'the value of input <dim> must not be larger than the number of dimensions in <x>')
+      end
+      if ~exist('w','var') || isempty(w)
+        w=ones(size(x));
+      else
+        assert(all(size(w) == size(x)),'inputs <x> and <w> must have the same size')
+      end
+      switch dim
+      case 0
+        %filtering NaNs
+        i = ~isnan(x) & ~isnan(w);
+        %compute
+        out= sqrt(sum(w(i).*(x(i).^2))/sum(w(i)));
+      case 1 %computes the RMS along columns, so a row is returned
+        out=arrayfun(@(i) num.rms(x(:,i),w(:,i),0),1:size(x,2));
+      case 2 %computes the RMS along rows, so a column is returned
+        out=transpose(arrayfun(@(i) num.rms(x(i,:),w(i,:),0),1:size(x,1)));
+      otherwise
+        error(['dim=',num2str(dim),' not implemented.'])
+      end
     end
   end
 end

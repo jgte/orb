@@ -944,12 +944,12 @@ classdef simplegrid < simpletimeseries
     %% (spatial) units convertion
     function obj=convert(obj,units,scale)
       switch lower(units)
-      case {'rad','radians'}
+      case {'rad','radian','radians'}
         switch obj.sp_units
         case 'deg'; scale=deg2rad(1);
         case 'rad'; scale=1;
         end
-      case {'deg','degrees'}
+      case {'deg','degree','degrees'}
         switch obj.sp_units
         case 'deg'; scale=1;
         case 'rad'; scale=rad2deg(1);
@@ -959,6 +959,9 @@ classdef simplegrid < simpletimeseries
       if scale==1,return,end
       %scale maps
       obj=obj.scale(scale);
+      %scale the lat/lon domains
+      obj.lati=obj.lati*scale;
+      obj.loni=obj.loni*scale;
       %update units
       obj.sp_units=units;
     end
@@ -1059,6 +1062,12 @@ classdef simplegrid < simpletimeseries
     function out=lat_length(obj)
       out=numel(obj.lat);
     end
+    function out=lat_rad(obj)
+      switch obj.sp_units
+      case 'deg'; out=deg2rad(obj.lat);
+      case 'rad'; out=obj.lat;
+      end
+    end
     %% lon handling
     function obj=set.lon(obj,lon_now)
       %trivial call
@@ -1109,6 +1118,12 @@ classdef simplegrid < simpletimeseries
     end
     function out=lon_length(obj)
       out=numel(obj.lon);
+    end
+    function out=lon_rad(obj)
+      switch obj.sp_units
+      case 'deg'; out=deg2rad(obj.lon);
+      case 'rad'; out=obj.lon;
+      end
     end
     %% spatial domain
     function out=sp_limits(obj)
@@ -1195,11 +1210,24 @@ classdef simplegrid < simpletimeseries
       out=simpletimeseries(obj.t,m.map(:)).copy_metadata(obj);
     end
     %% utilities
-    function obj=area(obj)
-      lon_new=mean([obj.lon(1:end-1);obj.lon(2:end)]);
-      lat_new=mean([obj.lat(1:end-1),obj.lat(2:end)],2);
+    function obj=area(obj,radius)
+      if ~exist('radius','var') || isempty(radius)
+        radius=varargs(gravity.parameter_list).get('Rm').value;
+      end
+      original_units=obj.sp_units;
+      obj=obj.convert('rad');
+      lat1=obj.lat(1:end-1);
+      lat2=obj.lat(2:end);
+      lon1=obj.lon(1:end-1);
+      lon2=obj.lon(2:end);
+      map_now=abs( (sin(lat1)-sin(lat2)) * (lon1-lon2) )*radius^2;
+      %new lat/lon domain
+      lon_new=mean([lon1;lon2]);
+      lat_new=mean([lat1,lat2],2);
       %save results
-      obj=obj.assign(repmat(diff(obj.lat)*diff(obj.lon),1,1,numel(obj.t)),'t',obj.t,'lat',lat_new,'lon',lon_new);
+      obj=obj.assign(map_now,'t',obj.t,'lat',lat_new,'lon',lon_new);
+      %convert back to original units
+      obj=obj.convert(original_units);
     end
     function obj=height(obj)
       lon_new=mean([obj.lon(1:end-1);obj.lon(2:end)]);
@@ -1220,6 +1248,22 @@ classdef simplegrid < simpletimeseries
     end
     function obj=volume(obj)
       obj=obj.area.*obj.height;
+    end
+    function [y,x]=rms(obj,mode)
+      h=obj.map;
+      w=(cos(obj.lat_rad))*ones(size(obj.lon));
+      switch mode
+      case {'total','tot',0}
+        y=num.rms(h,w,0);
+      case {'lat','row',1}
+        y=num.rms(h,w,1);
+        x=h.lon;
+      case {'lon','col',2}
+        y=num.rms(h,w,2);
+        x=h.lat;
+      otherwise
+        error(['Cannot understand mode ''',mode,'''.'])
+      end
     end
     %% convert to spherical harmonics
     function out=sh(obj)

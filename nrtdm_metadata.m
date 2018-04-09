@@ -47,7 +47,7 @@ classdef nrtdm_metadata
       %search for this product
       line_nr=0;
       for i=1:numel(newlines)-1
-        if contains(text(newlines(i)+1:newlines(i+1)),['Orbital: ',obj.product.name])
+        if str.contains(text(newlines(i)+1:newlines(i+1)),['Orbital: ',obj.product.name])
           line_nr=i;
           break
         end

@@ -45,7 +45,7 @@ classdef structs
         if strcmp(varname,'_')
           out{i}=[strjoin(field_list{i},','),str.show(v,'',varname)];
         else
-          out{i}=[varname,'.(',strjoin(field_list{i},').('),')=',str.show(v)];
+          out{i}=[varname,'.',strjoin(field_list{i},'.'),'=',str.show(v)];
           if show_class
             out{i}=[out{i},', class=',class(v)];
           end
@@ -152,6 +152,14 @@ classdef structs
         end
       end
     end
+    %returns true if field lists are the same in both structure
+    function [out,fl1,fl2]=iseq_field_list(S1,S2,parents1,parents2)
+      if ~exist('parents1','var');parents1={};end
+      if ~exist('parents2','var');parents2={};end
+      fl1=structs.field_list(S1,parents1);
+      fl2=structs.field_list(S2,parents2);
+      out=all(strcmp(cells.flatten(fl1),cells.flatten(fl2)));
+    end
     %like field_list but accepts '*' entries in field_path
     function out=field_list_glob(S,field_path)
       %sanity on type
@@ -194,17 +202,25 @@ classdef structs
     function S=objmethod(method,S,varargin)
       %get field list
       fl=structs.field_list(S);
-      %loop over all fields
-      for i=1:numel(fl)
-        %get the object
-        o=structs.get_value(S,fl{i});
-        %apply the method
-        o=o.(method)(varargin{:});
-        %save the operated object back in the structure
-        S=structs.set_value(S,fl{i},o);
+      %maybe this is not a structure
+      if isempty(fl)
+        S=S.(method);
+      else
+        %loop over all fields
+        for i=1:numel(fl)
+          %get the object
+          o=structs.get_value(S,fl{i});
+          if ~isempty(o)
+            %apply the method
+            o=o.(method)(varargin{:});
+          end
+          %save the operated object back in the structure
+          S=structs.set_value(S,fl{i},o);
+        end
       end
     end
     %applies 'method' to the object at the leafs of structure 'Sout', considering the corresponding leafs of 'Sin'
+    %NOTICE: empty entries in Sout are assigned with the corresponding entry in Sin, i.e. the 'method' implicitly becomes '='
     function Sout=objmethod2(method,Sout,Sin,varargin)
       %get field list
       fl=structs.field_list(Sout);
@@ -214,8 +230,12 @@ classdef structs
         Oin=structs.get_value(Sin,fl{i});
         %get the output object
         Oout=structs.get_value(Sout,fl{i});
-        %apply the method
-        Oout=Oout.(method)(Oin,varargin{:});
+        %apply the method, if Oout is not empty
+        if ~isempty(Oout)
+          Oout=Oout.(method)(Oin,varargin{:});
+        else
+          Oout=structs.get_value(Sin,fl{i});
+        end
         %save the operated object back in the structure
         Sout=structs.set_value(Sout,fl{i},Oout);
       end
@@ -283,6 +303,24 @@ classdef structs
       fn=fieldnames(S);
       for i=1:numel(fn)
         S.(fn{i})=f(S.(fn{i}));
+      end
+    end
+    %if S does not have 'fieldname', adds 'field' to it; if S has 'fieldname', use 'method' on existing 'field'
+    function S=build(S,fieldname,field,method)
+      %check for vector mode
+      if iscellstr(fieldname) && iscell(field)
+        str.sizetrap(fieldname,field)
+        for i=1:numel(fieldname)
+          S=structs.build(S,fieldname{i},field{i},method);
+        end
+      else
+        if ~isempty(field)
+          if isempty(S) || ~isfield(S,fieldname)
+            S.(fieldname)=field;
+          else
+            S.(fieldname)=structs.objmethod2(method,S.(fieldname),field);
+          end
+        end
       end
     end
     %% multi-object manipulation

@@ -1,0 +1,3 @@
+sources: [gswarm.swarm.vce.Mixed,gswarm.grace.gfz.rl05]
+submetadata1: model.residual.submetadata
+submetadata2: model.plotting.submetadata

@@ -180,7 +180,7 @@ function outfile=nrtdm_convert(metadata,t,varargin)
 
   %set time system as defined in the metadata
   for tsys=simpletimeseries.valid_timesystems
-    if contains(lower(metadata.entries.epoch),lower(tsys{1}))
+    if str.contains(lower(metadata.entries.epoch),lower(tsys{1}))
       timesystem=lower(tsys{1});
       break
     end
@@ -279,7 +279,7 @@ function [time,values]=nrtdm_read(product,timearg,nrtdm_args,exportdata)
   end
 
   %handle junk coming for the system command
-  if contains(data_str,27)
+  if str.contains(data_str,27)
     %create a random anchor
     anchor=char(floor(25*rand(1,20)) + 65);
     %use system to echo the random anchor (along with the junk we want to remove)

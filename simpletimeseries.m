@@ -14,6 +14,10 @@ classdef simpletimeseries < simpledata
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
     compatible_parameter_list={'timesystem'};
+    %define periods when CSR calmod is upside down
+    csr_acc_mod_invert_periods=datetime({...
+      '2016-01-28','2016-03-02';...
+    });
   end
   properties(Constant)
     valid_timesystems={'utc','gps'};
@@ -366,7 +370,7 @@ classdef simpletimeseries < simpledata
       fn=fields(b);tot=[];legend_str={};
       for i=1:numel(fn);
         if ~isempty(strfind(fn{i},'ts_'))
-          legend_str{end+1}=fn{i}; %#ok<AGROW>
+          legend_str{end+1}=fn{i};
           b.(fn{i}).plot('columns',1)
           if isempty(tot)
             tot=b.(fn{i});
@@ -385,130 +389,18 @@ classdef simpletimeseries < simpledata
 
     end
     %% import methods
-    function filenames=unwrap_datafiles(in,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired(  'in',                                        @(i) ischar(i) || iscellstr(i));
-      p.addParameter( 'start',       time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
-      p.addParameter( 'stop',        time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
-      p.addParameter( 'period',      days(1),                      @(i) isscalar(i) && isduration(i));
-      p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @(i) ischar(i));
-      p.addParameter( 'only_existing',true,                        @(i) islogical(i));
-      p.parse(in,varargin{:})
-      %loop over all inputs
-      if iscellstr(in)
-        filenames=cell(size(in));
-        for i=1:numel(in);
-          filenames{i}=simpletimeseries.unwrap_datafiles(in{i},varargin{:});
-        end
-        filenames=cells.flatten(filenames);
-        %remove empty entries
-        filenames=cells.rm_empty(filenames);
-        return
-      end
-      %need fileparts
-      [d,f,e]=fileparts(in);
-      
-      %if argument filename has a wild card, build a cell string with those names
-      if ~isempty(strfind(in,'*'))
-        file_list=dir(in);
-        filenames=cell(size(file_list));
-        for i=1:numel(file_list)
-          filenames{i}=fullfile(d,file_list(i).name);
-        end
-        %unwrap these files again
-        filenames=simpletimeseries.unwrap_datafiles(filenames,varargin{:});
-        %done
-        return
-      end
-      
-      %if argument filename has a date place holder, build a cell string with those dates
-      if ~isempty(strfind(in,'DATE_PLACE_HOLDER'))
-        %sanity
-        if p.Results.start>=p.Results.stop
-          error([mfilename,': input ''start'' (',datestr(p.Results.start),...
-            ') is not after input ''stop'' (',datestr(p.Results.stop),').'])
-        end
-        date_list=time.list(p.Results.start,p.Results.stop,p.Results.period);
-        filenames=cell(size(date_list));
-        for i=1:numel(date_list)
-          filenames{i}=strrep(in,'DATE_PLACE_HOLDER',datestr(date_list(i),p.Results.date_fmt));
-        end
-        %unwrap these files again
-        filenames=simpletimeseries.unwrap_datafiles(filenames,varargin{:});
-        %done
-        return
-      end
-      
-      %if there's a .mat file along the argument filename, pass that on
-      matfile=fullfile(d,[f,'.mat']);
-      if ~isempty(dir(matfile))
-        filenames=matfile;
-        return
-      end
-      
-      %now handling compressed files: prepend tar to extension if there
-      if strcmp(f(end-3:end),'.tar')
-        e=['.tar',e];
-      end
-      %try to uncompress archives
-      try
-        switch lower(e)
-        case {'.z','.zip'}
-          arch=true;
-          filenames=unzip(in,d);
-        case {'.tgz','.tar.gz','.tar'}
-          arch=true;
-          filenames=untar(in,d);
-          %get rid of PaxHeaders
-          filenames(cells.iscellstrempty(filenames,'PaxHeaders'))=[];
-        case {'.gz','.gzip'}
-          arch=true;
-          filenames=gunzip(in,d);
-        otherwise
-          arch=false;  
-        end
-        if arch
-          disp(['Extracted archive ''',in,'''.'])
-        end
-      catch
-        %if the zip file is corrupted, assume data file is missing
-        disp(['WARNING: error extracting archive ''',in,'''.'])
-        return
-      end
-      %handle zipped files
-      if arch
-        %some sanity
-        if ~iscell(filenames)
-          error([mfilename,': expecting variable ''unzipped_filename'' to be a cellstr, not a ''',...
-            class(filenames),'''.'])
-        end
-        if numel(filenames)~=1
-          error([mfilename,': expecting zip archive ''',filenames,''' to contain one file only, not ',...
-            num2str(numel(filenames)),':',10,strjoin(filenames,'\n')])
-        end
-        %and we're done (no recursive unwrapping!)
-        return
-      end
-      
-      %if none of the conditions above were met, this is the name of a single file (return char!)
-      if isempty(dir(in)) && p.Results.only_existing
-        filenames='';
-      else
-        filenames=in;
-      end
-    end
     function obj=import(filename,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
       p.addParameter( 'save_mat', true,  @(i) isscalar(i) && islogical(i))
       p.addParameter( 'cut24hrs', true,  @(i) isscalar(i) && islogical(i))
       p.addParameter( 'del_arch', true,  @(i) isscalar(i) && islogical(i))
+      p.addParameter( 'format',   '',    @(i) ischar(i))
       p.parse(varargin{:})
       %use this flag to skip saving mat data (e.g. if input file is empty)
       skip_save_mat=false;
       %unwrap wildcards and place holders (output is always a cellstr)
-      filename=simpletimeseries.unwrap_datafiles(filename,varargin{:});
+      filename=file.unwrap(filename,varargin{:});
       %if argument is a cell string, then load all those files
       if iscellstr(filename)
         for i=1:numel(filename)
@@ -543,8 +435,8 @@ classdef simpletimeseries < simpledata
         end
         return
       end
-      %split into parts
-      [d,f,e]=fileparts(filename);
+      %split into parts and propagate the extension as the format
+      [d,f,format]=fileparts(filename);
       %check if mat file is available
       datafile=fullfile(d,[f,'.mat']);
       if ~isempty(dir(datafile))
@@ -563,12 +455,16 @@ classdef simpletimeseries < simpledata
         'grc[AB]_gps_orb_.*\.acc'...
       }
         if ~isempty(regexp(filename,i{1},'once'))
-          e=i{1};
+          format=i{1};
           break
         end
       end
+      %enforce format given as argument
+      if ~isempty(p.Results.format)
+        format=p.Results.format;
+      end
       %branch on extension/format ID
-      switch e
+      switch format
       case '.resid'
         fid=file.open(filename);
         raw = textscan(fid,'%f %f %f %f %f %f %f','delimiter',' ','MultipleDelimsAsOne',1,'Headerlines',1);
@@ -582,7 +478,7 @@ classdef simpletimeseries < simpledata
         y=[raw{5:7}];
         %determine coordinate
         coords={'AC0X','AC0Y','AC0Z'};
-        idx=cells.iscellstrfind(filename,coords);
+        idx=cells.strfind(filename,coords);
         %sanity
         assert(sum(idx)==1,[mfilename,': the name for .resid files must include (one of) AC0X, AC0Y or AC0Z, not ''',...
           filename,'''.'])
@@ -835,12 +731,85 @@ classdef simpletimeseries < simpledata
             'descriptor',strjoin(header,'\n')...
            ).fill;
         end
+        %flip model upside down if needed
+        for j=1:size(simpletimeseries.csr_acc_mod_invert_periods,1)
+          invert_idx=simpletimeseries.csr_acc_mod_invert_periods(j,1) <= t & ...
+                     simpletimeseries.csr_acc_mod_invert_periods(j,2) >= t;
+          if any(invert_idx)
+            assert(all(invert_idx),['Expecting all data between ',datestr(t(1)),' and ',datestr(t(end)),' to be withing ',...
+              'one single inverted period, as defined in ''simpletimeseries.csr_acc_mod_invert_periods''.'])
+            obj=obj.scale(-1);
+          end
+        end
       case {'GNV1B','KBR1B','MAS1B','SCA1B','THR1B','CLK1B','GPS1B','IHK1B','MAG1B','TIM1B','TNK1B','USO1B','VSL1B'}
         error([mfilename,': implementation needed'])
       case 'msodp-acc'
         error([mfilename,': implementation needed'])
+      case {'slr-csr','slr-csr-grace','slr-csr-corr'}
+        %load the header
+        header=file.header(filename,20);
+        %branch on files with one or two coefficients
+        if ~isempty(strfind(header,'C21')) || ~isempty(strfind(header,'C22'))
+          %2002.0411  2.43934614E-06 -1.40026049E-06  0.4565  0.4247 -0.0056  0.1782   20020101.0000   20020201.0000
+          file_fmt='%f %f %f %f %f %f %f %f %f';
+          data_cols=[2 3];
+          corr_cols=[5 6];
+          units={'',''};
+          if isempty(strfind(header,'C21'))
+            labels={'C2,1','C2,-1'};
+          else
+            labels={'C2,2','C2,-2'};
+          end
+        else
+          %2002.0411  -4.8416939379E-04  0.7852  0.3148  0.6149   20020101.0000   20020201.0000
+          file_fmt='%f %f %f %f %f %f %f';
+          data_cols=2;
+          corr_cols=5;
+          units={''};
+          if ~isempty(strfind(header,'C20')); labels={'C2,0'}; end
+          if ~isempty(strfind(header,'C40')); labels={'C4,0'}; end
+        end
+        raw=file.textscan(filename,file_fmt);
+        %build the time domain
+        t=datetime([0 0 0 0 0 0])+years(raw(:,1));
+        %building data domain
+        switch format
+        case 'slr-csr'
+          y=raw(:,data_cols);
+        case 'slr-csr-grace'
+          y=raw(:,data_cols)-raw(:,corr_cols)*1e-10;
+        case 'slr-csr-corr'
+          y=raw(:,corr_cols)*1e-10;
+        end
+        %building object
+        obj=simpletimeseries(t,y,...
+          'format','datetime',...
+          'y_units',units,...
+          'labels', labels,...
+          'timesystem','gps',...
+          'descriptor',['SLR Stokes coeff. from ',filename]...
+        );
+      case 'slr-csr-Cheng'
+        %define data cols
+        data_cols=3:9;
+        %load the data
+        [raw,header]=file.textscan(filename,'%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f');
+        %get the labels (from the header)
+        labels=strsplit(header,' ');
+        %build units
+        units=cell(size(data_cols));
+        units(:)={''};
+        t=datetime([0 0 0 0 0 0])+years(raw(:,2));
+        %building object
+        obj=simpletimeseries(t,raw(:,data_cols)*1e-10,...
+          'format','datetime',...
+          'y_units',units,...
+          'labels', labels(data_cols),...
+          'timesystem','gps',...
+          'descriptor',['SLR Stokes coeff. from ',filename]...
+        );        
       otherwise
-        error([mfilename,': cannot handle files of type ''',e,'''.'])
+        error([mfilename,': cannot handle files of type ''',format,'''.'])
       end
       %save mat file if requested
       if p.Results.save_mat && ~skip_save_mat
@@ -872,70 +841,11 @@ classdef simpletimeseries < simpledata
         out=out(1:end-1);
       end
     end
-    function out=stats2(obj1,obj2,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addParameter('period', 30*max([obj1.step,obj2.step]), @(i) isduration(i));
-      p.addParameter('overlap',seconds(0),                    @(i) isduration(i));
-      % parse it
-      p.parse(varargin{:});
-      % call upstream method if period is infinite
-      if ~isfinite(p.Results.period)
-        out=simpledata.stats2(obj1,obj2,varargin{:});
-        return
+    function out=t_mergev(obj_list)
+      for i=2:numel(obj_list)
+        obj_list{1}=obj_list{1}.t_merge(obj_list{i}.t);
       end
-      % separate time series into segments
-      ts=segmentedfreqseries.time_segmented(...
-        simpledata.union(obj1.t,obj2.t),...
-        p.Results.period,...
-        p.Results.overlap...
-      );
-      % derive statistics for each segment
-      s.msg=['deriving segment-wise statistics for ',...
-        str.clean(obj1.descriptor,'file'),' and ',...
-        str.clean(obj2.descriptor,'file')...
-      ]; s.n=numel(ts);
-      for i=1:numel(ts)
-        %call upstream procedure
-        dat(i)=simpledata.stats2(...
-          obj1.trim(ts{i}(1),ts{i}(end)),...
-          obj2.trim(ts{i}(1),ts{i}(end)),...
-          'mode','struct',varargin{:}...
-        ); %#ok<AGROW>
-        % inform about progress
-        s=time.progress(s,i);
-      end
-      % add time stamps
-      for i=1:numel(ts)
-        dat(i).t=mean(ts{i});
-      end
-      % unwrap data and build timeseries obj
-      fn=fieldnames(dat);
-      for i=1:numel(fn)
-        %skip time
-        if strcmp(fn{i},'t')
-          continue
-        end
-        %resolving units
-        units=cell(1,obj1.width);
-        for j=1:numel(units)
-          switch lower(fn{i})
-          case 'cov'
-            units{j}=[obj1.units{j},'.',obj2.units{j}];
-          case {'corrcoef','length'}
-            units{j}=' ';
-          end
-        end
-        out.(fn{i})=simpletimeseries(...
-          [dat.t],...
-          transpose(reshape([dat.(fn{i})],size(dat(1).(fn{i}),2),numel(dat))),...
-          'format','datetime',...
-          'labels',obj1.labels,...
-          'timesystem',obj1.timesystem,...
-          'units',units,...
-          'descriptor',[fn{i},' ',str.clean(obj1.descriptor,'file'),'x',str.clean(obj2.descriptor,'file')]...
-        );
-      end
+      out=obj_list{1}.t;
     end
     %constructors
     function out=unitc(t,width,varargin)
@@ -1082,6 +992,74 @@ classdef simpletimeseries < simpledata
           'descriptor',[fn{i},' ',str.clean(obj.descriptor,'file')]...
         );
       end
+    end
+    function out=stats2(obj1,obj2,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('period', 30*max([obj1.step,obj2.step]), @(i) isduration(i));
+      p.addParameter('overlap',seconds(0),                    @(i) isduration(i));
+      % parse it
+      p.parse(varargin{:});
+      % call upstream method if period is infinite
+      if ~isfinite(p.Results.period)
+        out=stats2@simpledata(obj1,obj2,varargin{:});
+        return
+      end
+      % separate time series into segments
+      ts=segmentedfreqseries.time_segmented(...
+        simpledata.union(obj1.t,obj2.t),...
+        p.Results.period,...
+        p.Results.overlap...
+      );
+      % derive statistics for each segment
+      s.msg=['deriving segment-wise statistics for ',...
+        str.clean(obj1.descriptor,'file'),' and ',...
+        str.clean(obj2.descriptor,'file')...
+      ]; s.n=numel(ts);
+      for i=1:numel(ts)
+        %call upstream procedure
+        dat(i)=stats2@simpledata(...
+          obj1.trim(ts{i}(1),ts{i}(end)),...
+          obj2.trim(ts{i}(1),ts{i}(end)),...
+          'mode','struct',varargin{:}...
+        ); %#ok<AGROW>
+        % inform about progress
+        s=time.progress(s,i);
+      end
+      % add time stamps
+      for i=1:numel(ts)
+        dat(i).t=mean(ts{i});
+      end
+      % unwrap data and build timeseries obj
+      fn=fieldnames(dat);
+      for i=1:numel(fn)
+        %skip time
+        if strcmp(fn{i},'t')
+          continue
+        end
+        %resolving units
+        units=cell(1,obj1.width);
+        for j=1:numel(units)
+          switch lower(fn{i})
+          case 'cov'
+            units{j}=[obj1.units{j},'.',obj2.units{j}];
+          case {'corrcoef','length'}
+            units{j}=' ';
+          end
+        end
+        out.(fn{i})=simpletimeseries(...
+          [dat.t],...
+          transpose(reshape([dat.(fn{i})],size(dat(1).(fn{i}),2),numel(dat))),...
+          'format','datetime',...
+          'labels',obj1.labels,...
+          'timesystem',obj1.timesystem,...
+          'units',units,...
+          'descriptor',[fn{i},' ',str.clean(obj1.descriptor,'file'),'x',str.clean(obj2.descriptor,'file')]...
+        );
+      end
+    end
+    function out=str(obj)
+      out=[datestr(obj.start),' -> ',datestr(obj.stop),' (',num2str(obj.nr_gaps),' gaps)'];
     end
     %% t methods
     function x_out=t2x(obj,t_now)
@@ -1312,7 +1290,7 @@ classdef simpletimeseries < simpledata
       if ~simpletimeseries.valid_timesystem(in)
         error([mfilename,': need a valid time system, i.e. one of ',strjoin(simpletimeseries.valid_timesystems,', '),'.'])
       end
-      obj.t=simpletimeseries.([obj.timesystem,'2',in])(obj.t);
+      obj.t=time.([obj.timesystem,'2',in])(obj.t);
       obj.timesystem=in;
     end
     %% management methods
@@ -1562,7 +1540,11 @@ classdef simpletimeseries < simpledata
     end
     %% multiple object manipulation
     function out=isteq(obj1,obj2)
-      out=~any(~simpletimeseries.ist('==',obj1.t,obj2.t,min([obj1.t_tol,obj2.t_tol])));
+      if isdatetime(obj2)
+        out=obj1.length==length(obj2) && ~any(~simpletimeseries.ist('==',obj1.t,obj2,obj1.t_tol));
+      else
+        out=obj1.length==obj2.length && ~any(~simpletimeseries.ist('==',obj1.t,obj2.t,min([obj1.t_tol,obj2.t_tol])));
+      end
     end
     function compatible(obj1,obj2,varargin)
       %call mother routine
@@ -1582,17 +1564,22 @@ classdef simpletimeseries < simpledata
         end 
       end
     end
-    function [obj1,obj2,idx1,idx2]=merge(obj1,obj2)
+    function [obj1,obj2,idx1,idx2]=merge(obj1,obj2,y_new)
       %add as gaps the t in obj1 that are in obj2 but not in obj1 (and vice-versa)
       %NOTICE:
       % - idx1 contains the index of the x in obj1 that were added from obj2
       % - idx2 contains the index of the x in obj2 that were added from obj1
       % - no data is propagated between objects, only the time domain is changed!
+      % - y_new sets the value of the data at the new entries of x, both obj1
+      %   and obj2 (default to NaN)
+      if ~exist('y_new','var') || isempty(y_new)
+        y_new=NaN;
+      end
       if isprop(obj1,'epoch') && isprop(obj2,'epoch')
         [obj1,obj2]=matchepoch(obj1,obj2);
       end
       %call upstream method
-      [obj1,obj2,idx1,idx2]=merge@simpledata(obj1,obj2);
+      [obj1,obj2,idx1,idx2]=merge@simpledata(obj1,obj2,y_new);
       %sanity
       if ~isteq(obj1,obj2)
         error([mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])

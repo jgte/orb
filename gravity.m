@@ -16,14 +16,14 @@ classdef gravity < simpletimeseries
 %                     the output represents the gravity anomalies.
 %                     Otherwise, it represents (-dU/dr - 2/r*U).
 %       'vertgravgrad' - vertical gravity gradient.
-    functional_units_list=struct(...
-      'nondim',        '',...
-      'eqwh',          '[m]',...
-      'geoid',         '[m]',...
-      'potential',     '[m^2.s^{-2}]',...
-      'anomalies',     '[m.s^{-2}]',...
-      'vertgravgrad',  '[s^{-2}]',...
-      'gravity',       '[m.s^{-2}]'...
+    functional_details=struct(...
+      'nondim',        struct('units','',          'name','Stokes Coeff.'),...
+      'eqwh',          struct('units','m',         'name','Eq. Water Height'),...
+      'geoid',         struct('units','m',         'name','Geoid Height'),...
+      'potential',     struct('units','m^2.s^{-2}','name','Geopotential'),...
+      'anomalies',     struct('units','m.s^{-2}',  'name','Gravity Anomalies'),...
+      'vertgravgrad',  struct('units','s^{-2}',    'name','Vert. Gravity Gradient'),...
+      'gravity',       struct('units','m.s^{-2}',  'name','Gravity Acc.')...
     );
     %default value of some internal parameters
     parameter_list={...
@@ -55,7 +55,7 @@ classdef gravity < simpletimeseries
                   150    -0.010;...
                   200    -0.007],@(i) isnumeric(i) && size(i,2)==2;...     % Love numbers
         'origin',   'unknown',  @(i) ischar(i);...                        % (arbitrary string)
-        'functional','nondim',   @(i) ischar(i) && any(strcmp(i,gravity.functional_units_list)); %see above
+        'functional','nondim',   @(i) ischar(i) && any(strcmp(i,gravity.functionals)); %see above
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -77,6 +77,7 @@ classdef gravity < simpletimeseries
     tri
     mod
     checksum
+    funct %handles empty values of functional
   end
   methods(Static)
     function out=parameters(i,method)
@@ -117,10 +118,21 @@ classdef gravity < simpletimeseries
       out=(in_sqrt-round(in_sqrt)==0);
     end
     function out=functionals
-      out=fieldnames(gravity.functional_units_list);
+      out=fieldnames(gravity.functional_details);
     end
     function out=functional_units(functional)
-      out=gravity.functional_units_list.(functional);
+      assert(gravity.isfunctional(functional),['Ilegal functional ''',functional,'''.'])
+      out=gravity.functional_details.(functional).units;
+    end
+    function out=functional_names(functional)
+      assert(gravity.isfunctional(functional),['Ilegal functional ''',functional,'''.'])
+      out=gravity.functional_details.(functional).name;
+    end
+    function out=functional_label(functional)
+      out=[gravity.functional_names(functional),' [',gravity.functional_units(functional),']'];
+    end
+    function out=isfunctional(in)
+      out=isfield(gravity.functional_details,in);
     end
     %% y representation
     function out=y_valid(y)
@@ -333,7 +345,7 @@ classdef gravity < simpletimeseries
         error([mfilename,': unknown data type ''',from,'''.'])
       end
     end
-    %% mapping
+    %% degree/order index mapping
     function out=mapping(lmax)
       %create triangular matrix for degrees
       d=(0:lmax)'*ones(1,2*lmax+1).*gravity.dtc('mat','tri',ones(lmax+1));
@@ -354,6 +366,17 @@ classdef gravity < simpletimeseries
         u=cell(size(l));
         u(:)={units_str};
       end
+    end
+    function out=colidx(d,o,lmax)
+      if any(size(d)~=size(o))
+        error([mfilename,': inputs ''d'' and ''o'' must have the same size(s).'])
+      end
+      m=gravity.mapping(lmax);
+      out=false(1,size(m,2));
+      for i=1:numel(d)
+        out=out | (m(1,:)==d(i) & m(2,:)==o(i));
+      end
+      out=find(out);
     end
     %% constructors
     function obj=unit(lmax,varargin)
@@ -475,6 +498,14 @@ classdef gravity < simpletimeseries
       stop =dateshift(datetime([f(15:18),'-',f(19:20),'-01']),'end',  'month');
       out=mean([start,stop]);
     end
+    function out=parse_epoch_aiub_slr(filename)
+      [~,f]=fileparts(filename);
+      %AIUB-SLR_0301_1010.gfc
+      %123456789012345678901234567890
+      start=dateshift(datetime(['20',f(10:11),'-',f(12:13),'-01']),'start','month');
+      stop =dateshift(datetime(['20',f(10:11),'-',f(12:13),'-01']),'end',  'month');
+      out=mean([start,stop]);
+    end
     function out=parse_epoch_asu(filename)
       [~,f]=fileparts(filename);
       %asu-swarm-2014-10-nmax40-orbits-aiub.gfc
@@ -491,6 +522,40 @@ classdef gravity < simpletimeseries
       stop =dateshift(datetime([f(07:10),'-',f(12:13),'-01']),'end',  'month');
       out=mean([start,stop]);
     end
+    function out=parse_epoch_csr(filename)
+      %2016-11.GEO.716424
+      %12345678901234567890
+      [~,file]=fileparts(filename);
+      year =str2double(file(1:4));
+      month=str2double(file(6:7));
+      out=gravity.CSR_RL05_date(year,month);
+    end
+    function out=parse_epoch_gswarm(filename)
+      [~,file]=fileparts(filename);
+      persistent kv
+      if isempty(kv)
+      %GSWARM_GF_SABC_COMBINED_2014-11_01.gfc
+      %0000000001111111111222222222233333333334
+      %1234567890123456789012345678901234567890
+        kv={...
+          'COMBINED',25;...
+          'AIUB',    21;...
+          'ASU',     20;...
+          'IFG',     20;...
+        };
+      end
+      idx=0;
+      for i=1:size(kv,1)
+        if strcmp(file(16:16+length(kv{i,1})-1),kv{i,1})
+          idx=kv{i,2}; break
+        end
+      end
+      assert(idx>0,['Cannot find any of the keywords ''',strjoin(kv(:,1),''', '''),''' in the filename ''',filename,'''.'])
+      year =str2double(file(idx  :idx+3));
+      month=str2double(file(idx+5:idx+6));
+      out=datetime(year,month,1);
+      out=out+(dateshift(out,'end','month')-out)/2;
+    end
     function [m,e]=load_dir(dirname,format,date_parser,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -503,7 +568,7 @@ classdef gravity < simpletimeseries
       p.addParameter('stop',  [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i)));
       p.parse(dirname,format,date_parser,varargin{:})
       %retrieve all gsm files in the specified dir
-      filelist=file.wildcard(fullfile(dirname,p.Results.wilcarded_filename));
+      filelist=file.unwrap(fullfile(dirname,p.Results.wilcarded_filename));
       %this counter is needed to report the duplicate models correctly
       c=0;init_flag=true;
       %loop over all models
@@ -521,12 +586,13 @@ classdef gravity < simpletimeseries
           t=p.Results.date_parser(filelist{i});
           %skip if this t is outside the required range
           if time.isvalid(p.Results.start) && time.isvalid(p.Results.stop) && (t<p.Results.start || p.Results.stop<t)
+            c=c+1;
             continue
           end
         end
         %user feedback
         [~,f]=fileparts(filelist{i});
-        disp(['Loading  ',f])
+        disp(['Loading  ',f,' (to date ',datestr(t),')'])
         %load the data
         if init_flag
           %init output objects
@@ -654,6 +720,77 @@ classdef gravity < simpletimeseries
     end
     function hwl=deg2hwl(deg)
       hwl=gravity.deg2wl(deg)/2;
+    end
+    function rad=gauss_smoothing_radius(deg)
+      rad=gravity.deg2hwl(deg)/2;
+    end
+    function deg=gauss_smoothing_degree(rad)
+      deg=round(gravity.hwl2deg(rad*2));
+    end
+    function out=gauss_smoothing_type(in)
+      % This is a weak criteria but will work as long as there's no need
+      % to smooth at degrees larger than 10000 or radii smaller than 10km.
+      if in>10e3;
+        out='rad';
+      else
+        out='deg';
+      end      
+    end
+    function out=gauss_smoothing_degree_translate(in)
+      switch gravity.gauss_smoothing_type(in)
+      case 'rad'; out=gravity.gauss_smoothing_degree(in);
+      case 'deg'; out=in;
+      end
+    end
+    function out=gauss_smoothing_name(in)
+      switch gravity.gauss_smoothing_type(in)
+      case 'rad'; out=[num2str(in/1e3),'km'];
+      case 'deg'; out=[num2str(round(gravity.gauss_smoothing_radius(in)/1e4)*1e1),'km'];
+      end
+    end
+    function out=smoothing_name(in)
+      switch lower(in)
+      case 'gauss';  out='Gaussian';
+      case 'spline'; out='Spline';
+      case 'trunc';  out='Truncation';
+      otherwise; error(['Cannot handle smoothing method ''',in,'''.'])
+      end
+    end
+    %% CSR specific stuff
+    function t=CSR_RL05_date(year,month,varargin)
+      p=inputParser; p.KeepUnmatched=true;
+      p.addParameter('EstimDirs_file',fullfile(getenv('HOME'),'data','csr','EstimData','RL05','EstimDirs_RL05'),@(i) ischar(i))
+      p.parse(varargin{:})
+      %sanity on year
+      if year<1000
+        year=year+2000;
+      end
+      persistent CSR_RL05_date_table 
+      if isempty(CSR_RL05_date_table)
+        fid=file.open(p.Results.EstimDirs_file);
+        d=textscan(fid,'%d %f %s %s %s %s %s %s %f %f');
+        fclose(fid);
+        years=d{2};
+        months=cellfun(@(i) time.month2int(i),d{3});
+        start=time.ToDateTime(d{ 9},'modifiedjuliandate');
+        stop= time.ToDateTime(d{10},'modifiedjuliandate');
+        mid=time.ToDateTime((d{ 9}+d{10})/2,'modifiedjuliandate');
+        CSR_RL05_date_table=table(years,months,start,stop,mid);
+      end
+      rows=CSR_RL05_date_table.years==year & CSR_RL05_date_table.months==month;
+      t=CSR_RL05_date_table{rows,{'mid'}};
+    end
+    function [m,e]=CSR_RL05_SH(varargin)
+      p=inputParser; p.KeepUnmatched=true;
+      p.addParameter('datadir',fullfile(getenv('HOME'),'data','csr','RL05'),@(i) ischar(i) && exist(i,'dir')~=0)
+      p.parse(varargin{:})
+      [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wilcarded_filename','*.GEO.*',varargin{:});
+    end
+    function [m,e]=CSR_RL05_Mascons(varargin)
+      p=inputParser; p.KeepUnmatched=true;
+      p.addParameter('datadir',fullfile(getenv('HOME'),'data','csr','mascons'),@(i) ischar(i) && exist(i,'dir')~=0)
+      p.parse(varargin{:})
+      [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wilcarded_filename','*.GEO',varargin{:});
     end
     %% tests
     %general test for the current object
@@ -824,11 +961,36 @@ classdef gravity < simpletimeseries
       %call superclass
       out=metadata@simpletimeseries(obj,[gravity.parameters;more_parameters(:)]);
     end
+    function out=simpletimeseries(obj)
+      % call superclass
+      out=simpletimeseries(obj.t,obj.y,...
+        'labels',obj.labels,...
+        'units',obj.y_units,...
+        'timesystem',obj.timesystem...
+      );
+    end
     %% labels and units
     function obj=setlabels(obj)
       if numel(obj.labels)~=obj.width
-        [obj.labels,obj.y_units]=gravity.labels(obj.lmax,gravity.functional_units(obj.functional));
+        [obj.labels,obj.y_units]=gravity.labels(obj.lmax,obj.functional_unit);
       end
+    end
+    %% functional
+    function out=get.funct(obj)
+      if isempty(obj.functional)
+        obj.functional=varargs(gravity.parameter_list).functional;
+      end
+      out=obj.functional;
+    end
+    function obj=set.funct(obj,in)
+      assert(gravity.isfunctional(in),['Ilegal functional ''',in,'''.'])
+      obj.functional=in;
+    end
+    function out=functional_name(obj)
+      out=gravity.functional_names(obj.funct);
+    end
+    function out=functional_unit(obj)
+      out=gravity.functional_units(obj.funct);
     end
     %% lmax
     function obj=set.lmax(obj,l)
@@ -856,6 +1018,9 @@ classdef gravity < simpletimeseries
       end
       %assign result
       obj.mat=mat_new;
+    end
+    function obj=set_lmax(obj,l)
+      obj.lmax=l;
     end
     function out=get.lmax(obj)
       out=sqrt(obj.width)-1;
@@ -1009,6 +1174,23 @@ classdef gravity < simpletimeseries
         out(:)=[out_tmp{:}];
       end
     end
+    function ts=ts_C(obj,d,o)
+      idx=gravity.colidx(d,o,obj.lmax);
+      if isempty(idx)
+        ts=[];
+        return
+      end
+      [labels,units]=gravity.labels(obj.lmax,obj.functional_unit);
+      ts=simpletimeseries(...
+        obj.t,...
+        obj.y(:,idx),...
+        'format','datetime',...
+        'labels',labels(idx),...
+        'timesystem',obj.timesystem,...
+        'units',units(idx),...
+        'descriptor',obj.descriptor...
+      );    
+    end
     function obj=setC(obj,d,o,values,time)
       if ~exist('time','var') || isempty(time)
         time=obj.t;
@@ -1026,12 +1208,31 @@ classdef gravity < simpletimeseries
             mat_now{obj.idx(time(ti))}( d( i)+1,o( i)+1)=values( i);
           else
             %retrieve sine coefficients
-            mat_now{obj.idx(time(ti))}(-o(~i)  ,d(~i)+1)=values(~i);
+            mat_now{obj.idx(time(ti))}(-o( i)  ,d( i)+1)=values( i);
           end
         end
       end
       %save new values
       obj.mat=mat_now;
+    end
+    function obj=setdegree(obj,d,values,time)
+      if ~exist('time','var') || isempty(time)
+        time=obj.t;
+      end
+      if any(size(d)~=size(values))
+        error([mfilename,': inputs ''d'' and ''values'' must have the same size'])
+      end
+      %retrieve triangular form
+      tri_now=obj.tri;
+      %get indexes of the cosine-coefficients
+      for ti=1:numel(time)
+        for i=1:numel(d)
+          %set cosine coefficients
+          tri_now{obj.idx(time(ti))}(d(i)+1,:)=values( i);
+        end
+      end
+      %save new values
+      obj.tri=tri_now;
     end
     %% scaling functions
     % GM scaling
@@ -1064,7 +1265,7 @@ classdef gravity < simpletimeseries
       %get nr of degrees
       N=obj.lmax+1;
       %get pre-scaling
-      switch lower(obj.functional)
+      switch lower(obj.funct)
         case 'nondim'
           %no scaling
           pre_scale=ones(N);
@@ -1080,6 +1281,8 @@ classdef gravity < simpletimeseries
         case 'eqwh' %[m]
           love=gravity.parameters('love','value');
           pos_scale=zeros(N);
+          rho_earth=gravity.parameters('rho_earth','value');
+          rho_water=gravity.parameters('rho_water','value');
           %converting Stokes coefficients from non-dimensional to equivalent water layer thickness
           for i=1:N
             deg=i-1;
@@ -1087,7 +1290,7 @@ classdef gravity < simpletimeseries
               love(:,1),...
               love(:,2),...
               deg,'linear','extrap');
-            pos_scale(i,:)=obj.R*obj.rho_earth/obj.rho_water/3*(2*deg+1)/(1+lv);
+            pos_scale(i,:)=obj.R*rho_earth/rho_water/3*(2*deg+1)/(1+lv);
           end
         case 'geoid' %[m]
           pos_scale=ones(N)*obj.R;
@@ -1116,6 +1319,8 @@ classdef gravity < simpletimeseries
     end
     % Gaussan smoothing scaling
     function s=scale_gauss(obj,fwhm_degree)
+      % translate smoothing radius to degree (criteria inside) 
+      fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
       %https://en.wikipedia.org/wiki/Gaussian_function#Properties
       s=exp(-4*log(2)*((0:obj.lmax)/fwhm_degree/2).^2);
 %       find(abs(s-0.5)==min(abs(s-0.5)))
@@ -1210,7 +1415,8 @@ classdef gravity < simpletimeseries
         %call mother routine
         obj=scale@simpledata(obj,s);
       else
-        % input 's' assumes different meanings, dependending on the method
+        % input 's' assumes different meanings, dependending on the method; invoke as:
+        % obj.scale('geoid','functional')
         obj=obj.scale(obj.scale_factor(s,method));
         %need to update metadata in some cases
         switch lower(method)
@@ -1219,8 +1425,8 @@ classdef gravity < simpletimeseries
           case 'r'
             obj.R=s;
           case 'functional'
-            obj.functional=s;
-            obj.y_units=gravity.functional_units(s);
+            obj.funct=s;
+            obj.y_units(:)={gravity.functional_units(s)};
         end
       end
     end
@@ -1255,9 +1461,10 @@ classdef gravity < simpletimeseries
     function out=dmean(obj)
       out=zeros(obj.length,obj.lmax+1);
       tri_now=obj.tri;
+      n=obj.nopd';
       for i=1:obj.length
-        %compute mean over each degree
-        out(i,:) = mean(tri_now{i},2);
+        %compute mean over each degree (don't use 'mean' here, there's lots of zeros in tri_now for the low degrees)
+        out(i,:) = sum(tri_now{i},2)./n;
       end
     end
     %cumulative degree mean
@@ -1274,8 +1481,17 @@ classdef gravity < simpletimeseries
       end
     end
     %cumulative degree RMS
-    function out=cumdrms(obj)
-      out=sqrt(cumsum(obj.drms.^2,2));
+    function ts=cumdrms(obj)
+      d=sqrt(cumsum(obj.drms.^2,2));
+      ts=simpletimeseries(...
+        obj.t,...
+        d(:,end),...
+        'format','datetime',...
+        'labels',{obj.functional_name},...
+        'timesystem',obj.timesystem,...
+        'units',obj.y_units(1),...
+        'descriptor',['degree ',num2str(obj.lmax),' cumdrms of ',obj.descriptor]...
+      );      
     end
     %degree STD
     function out=dstd(obj)
@@ -1283,7 +1499,7 @@ classdef gravity < simpletimeseries
     end
     %cumulative degree mSTD
     function out=cumdstd(obj)
-      out=cumsum(obj.dstd,2);
+      out=sqrt(cumsum(obj.dstd.^2,2));
     end
     % returns degree amplitude spectrum for each row of obj.y. The output
     % matrix has in each row the epochs of obj.y (corresponding to the epochs
@@ -1299,7 +1515,7 @@ classdef gravity < simpletimeseries
     % returns the cumulative degree amplitude spectrum for each row of obj.y.
     % the output matrix is arranged as <das>.
     function out=cumdas(obj)
-      out=cumsum(obj.das,2);
+      out=sqrt(cumsum(obj.das.^2,2));
     end
     % created a timeseries object with the derived quantities above
     function out=derived(obj,quantity)
@@ -1307,7 +1523,7 @@ classdef gravity < simpletimeseries
         obj.t,...
         obj.(quantity),...
         'labels',cellfun(@(i) ['deg. ',i],strsplit(num2str(0:obj.lmax)),'UniformOutput',false),...
-        'units',repmat({gravity.functional_units(obj.functional)},1,obj.lmax+1),...
+        'units',repmat({obj.functional_unit},1,obj.lmax+1),...
         'descriptor',[quantity,' of ',obj.descriptor]...
       );
     end
@@ -1317,17 +1533,21 @@ classdef gravity < simpletimeseries
       p.KeepUnmatched=true;
       p.addParameter( 'Nlat', obj.lmax   , @(i) isnumeric(i) && isscalar(i));
       p.addParameter( 'Nlon', obj.lmax*2 , @(i) isnumeric(i) && isscalar(i));
+      p.addParameter( 'Nfactor',       1 , @(i) isnumeric(i) && isscalar(i));
       % parse it
       p.parse(varargin{:});
+      %easier names for the resolution
+      Nlat=p.Results.Nlat*p.Results.Nfactor;
+      Nlon=p.Results.Nlon*p.Results.Nfactor;
       %retrieve CS-representation
       cs_now=obj.cs;
       %initiate grid 3d-matrix
-      map=nan(p.Results.Nlat,p.Results.Nlon,obj.length);
+      map=nan(Nlat,Nlon,obj.length);
       %get default latitude domain
-      lat=simplegrid.lat_default(p.Results.Nlat);
+      lat=simplegrid.lat_default(Nlat);
       %make synthesis on each set of coefficients
       for i=1:obj.length
-        [lon,~,map(:,:,i)]=mod_sh_synth(cs_now(i).C,cs_now(i).S,deg2rad(lat),p.Results.Nlon);
+        [lon,~,map(:,:,i)]=mod_sh_synth(cs_now(i).C,cs_now(i).S,deg2rad(lat),Nlon);
       end
       %create grid structure in the form of a list
       sl=simplegrid.dti(obj.t,map,transpose(rad2deg(lon(:))),lat(:),'list');
@@ -1377,16 +1597,16 @@ classdef gravity < simpletimeseries
       p=inputParser;
       p.KeepUnmatched=true;
       % optional arguments
-      p.addParameter('method',   'dmean',  @(i)ischar(i));
+      p.addParameter('method',   'drms',   @(i)ischar(i));
       p.addParameter('showlegend',false,   @(i)islogical(i));
       p.addParameter('line',     '-',      @(i)ischar(i));
       p.addParameter('title',    '',       @(i)ischar(i));
-      p.addParameter('functional',obj.functional,@(i) ischar(i));
+      p.addParameter('functional',obj.funct,@(i) ischar(i));
       p.addParameter('time',      [],      @(i) simpletimeseries.valid_t(i) || isempty(i));
       % parse it
       p.parse(varargin{:});
       % enforce requested functional
-      if ~strcmpi(obj.functional,p.Results.functional)
+      if ~strcmpi(obj.funct,p.Results.functional)
         obj=obj.scale(p.Results.functional,'functional');
       end
       %consider only requested
@@ -1403,41 +1623,47 @@ classdef gravity < simpletimeseries
       switch lower(p.Results.method)
       case 'timeseries'
         %call superclass
-        out=plot@simpletimeseries(obj,varargin{:});
+        out.line=plot@simpletimeseries(obj,varargin{:});
+      case {'cumdmean-timeseries','cumdrms-timeseries','cumdstd-timeseries','cumdas-timeseries'}
+        %compute cumdrms for all epochs
+        out=obj.(strrep(p.Results.method,'-timeseries','')).plot(varargin{:});
       case {'triang','trianglog10'}
         %get triangular plots (don't plot invalid entries)
         tri_now=obj.masked.tri;
         for i=1:numel(tri_now)
           bad_idx=(tri_now{i}==0);
           tri_now{i}(bad_idx)=NaN;
-          figure
+          if i>1;figure;end
           if strcmpi(p.Results.method,'trianglog10')
-            imagesc(log10(abs(tri_now{i})))
+            out.image=imagesc([-obj.lmax,obj.lmax],[0,obj.lmax],log10(abs(tri_now{i})));
           else
-            imagesc(tri_now{i})
+            out.image=imagesc([-obj.lmax,obj.lmax],[0,obj.lmax],tri_now{i});
           end
-          set(gca,'xticklabel',strsplit(num2str(get(gca,'xtick')-obj.lmax-1),' '))
-          set(gca,'yticklabel',strsplit(num2str(get(gca,'ytick')-1),' '))
           ylabel('SH degree')
           xlabel('SH order')
-          colorbar
+          out.cb=colorbar;
           cb.nan;
-          cb.label([obj.functional,' [',obj.y_units{1},']']);
-          title([out.title,' - ',datestr(obj.t(i)),', \mu=',num2str(mean(tri_now{i}(~bad_idx)))])
+          if strcmpi(p.Results.method,'trianglog10')
+            cb.label(['log_{10}(',obj.functional_name,') [',obj.y_units,']']);
+          else
+            cb.label([obj.functional_name,' [',obj.y_units{1},']']);
+          end
+          out.title=[out.title,' - ',datestr(obj.t(i)),', \mu=',num2str(mean(tri_now{i}(~bad_idx)))];
+          title(out.title)
         end
       case {'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
         v=transpose(obj.(p.Results.method));
         switch lower(p.Results.method)
         case {'dmean','cumdmean'}
-          out.axishandle=semilogy(0:obj.lmax,abs(v),p.Results.line);hold on
+          out.line=semilogy(0:obj.lmax,abs(v),p.Results.line);hold on
         otherwise
-          out.axishandle=semilogy(0:obj.lmax,v,p.Results.line);hold on
+          out.line=semilogy(0:obj.lmax,v,p.Results.line);hold on
         end
         grid on
         xlabel('SH degree')
-        ylabel([obj.functional,' ',obj.y_units])
+        ylabel([obj.functional_name,'[ ',obj.y_units{1},']'])
         if p.Results.showlegend
-          legend(datestr(obj.t))
+          out.legend=legend(datestr(obj.t));
         end
         %title: append functional if no title specified
         if isempty(p.Results.title)
@@ -1457,7 +1683,7 @@ classdef gravity < simpletimeseries
       otherwise
         error([mfilename,': unknonw method ''',p.Results.method,'''.'])
       end
-
+      out.axis=gca;
     end
     %% export functions
     function filelist=icgem(obj,varargin)
@@ -1643,7 +1869,7 @@ function [m,e]=load_csr(filename,time)
   end
   %open file
   fid=file.open(filename);
-  modelname=''; GM=0; radius=0; Lmax=0; %Mmax=0;
+  modelname=''; Lmax=360; %Mmax=0;
   % Read header
   % skip first line (with a fortran format specifier)
   fgets(fid);
@@ -1663,16 +1889,18 @@ function [m,e]=load_csr(filename,time)
   mi.S=zeros(Lmax+1);
   ei.C=zeros(Lmax+1);
   ei.S=zeros(Lmax+1);
+  Lmax=0;
   % read coefficients
   while (s>=0)
     %skip irrelevant lines
-    if strncmp(s, 'RECOEF', 6) == 0
+    if strncmp(s, 'RECOEF', 6) == 0 && strncmp(s, 'SUMGEO', 6) == 0
       s=fgets(fid);
       continue
     end
     %save degree and order
 %     d=str2num(s( 7: 9))+1;
     d=str.num(s(7:9))+1;
+    if d>Lmax;Lmax=d;end
 %     o=str2num(s(10:12))+1;
     o=str.num(s(10:12))+1;
 %     mi.C(d,o)=str2num(s(13:33));
@@ -1686,6 +1914,11 @@ function [m,e]=load_csr(filename,time)
     % read next line
     s=fgets(fid);
   end
+  %crop containers
+  mi.C=mi.C(1:Lmax,1:Lmax);
+  mi.S=mi.S(1:Lmax,1:Lmax);
+  ei.C=ei.C(1:Lmax,1:Lmax);
+  ei.S=ei.S(1:Lmax,1:Lmax);
 %   %fix permanent_tide
 %   if permanent_tide
 %     mi.C(3,1)=mi.C(3,1)-4.173e-9;
@@ -1699,17 +1932,15 @@ function [m,e]=load_csr(filename,time)
     'descriptor',modelname,...
     'origin',filename...
   );
-  if any(ei.C(:)~=0) || any(ei.S(:)~=0)
-    %initializing error object
-    e=gravity(...
-      time,...
-      gravity.dtc('cs','y',ei),...
-      'GM',GM,...
-      'R',radius,...
-      'descriptor',['error of ',modelname],...
-      'origin',filename...
-    );
-  end
+  %initializing error object
+  e=gravity(...
+    time,...
+    gravity.dtc('cs','y',ei),...
+    'GM',GM,...
+    'R',radius,...
+    'descriptor',['error of ',modelname],...
+    'origin',filename...
+  );
 end
 function [m,e,trnd,acos,asin]=load_icgem(filename,time)
 %This function is an adaptation of icgem2mat.m from rotating_3d_globe, by

@@ -1,0 +1,28 @@
+plot_product: true
+method: gswarm.plot_parametric_decomposition
+sources: [gswarm.grace.gfz.rl05,gswarm.swarm.vce.Mixed,gswarm.swarm.vce.AIUB_KO,gswarm.swarm.vce.DAA_GFEA,gswarm.swarm.vce.SAA_GFEA]
+explicit_fields: true
+storage_period: direct
+model_types: [signal]
+plot_outlier: 1
+plot_xdateformat: yy/mm
+plot_title_suppress: [gswarm,swarm,vce]
+plot_visible: false
+plot_max_degree: 40
+
+polyorder: 1
+polynames: [constant,linear]
+sin_period: [1, 0.5]
+sin_period_unit: years
+sin_names: [yearly,semi-yearly]
+plot_smoothing_method: gauss
+#plot_smoothing_degree: 1000e3
+plot_smoothing_degree: 750e3
+#plot_smoothing_degree: 500e3
+plot_functional: geoid
+plot_amplitude_range: [0.009,0.003,0.001]
+plot_poly_range: [0.012,0.004]
+
+#plot_functional: eqwh
+#plot_poly_range: [0.2,0.1]
+#plot_amplitude_range: [0.1,0.01]

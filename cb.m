@@ -117,7 +117,7 @@ classdef cb
           colormap(new)
       end
     end
-    function nan(color)
+    function cm=nan(color)
       % PLOT_COLORBAR_NAN(COLOR) sets the NaN's in the current figure to be of the
       % specified color. COLOR can be either a color character or an RGB triplet.
       %

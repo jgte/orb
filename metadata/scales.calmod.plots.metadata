@@ -1,0 +1,21 @@
+plot_product: true
+method: csr.plot_estim
+sources: [grace.acc.calmod.estimdir,scales.calmod.f1z1]
+source_fields_from: grace.acc.calmod.estimdir
+storage_period: direct
+plot_autoscale: false
+plot_automean: false
+plot_normalize: false
+plot_outlier: 0
+plot_zeromean: true
+plot_title_suppress: [grace,acc,calmod,scales,f1z1]
+plot_legend_suppress: [grace,acc,scales,calmod]
+plot_legend_replace: [estimdir,RL05]
+plot_ylabel: '[m/s^2]'
+plot_visible: true
+#plot_smooth_span: 0
+plot_together: false
+plot_legend_align: blanks
+explicit_fields: true
+calpar_names: [bias,scale] #the options here are defined in calpar_name_bias and calpar_name_scale
+sats: [A,B]
