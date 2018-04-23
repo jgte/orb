@@ -11,6 +11,8 @@ plot_legend_suppress: [gswarm,swarm,vce]
 plot_title_suppress: [gswarm]
 plot_visible: true
 plot_max_degree: 40
+plot_corrcoeff_caxis: [0,1]
 plot_rmsdiff_caxis: [0,0.0045]
+plot_stddiff_caxis: [0,0.0035]
 #plot_smoothing_degree: 750e3
 #plot_smoothing_method: gauss

@@ -195,6 +195,54 @@ classdef file
       %close the file (if fid not given)
       if close_file, fclose(fid); end
     end
+    %checks if is mat file
+    function out=ismat(in)
+      if iscellstr(in)
+        out=cellfun(@file.ismat,in);
+      else
+        [~,~,e]=fileparts(in);
+        out=strcmp(e,'.mat');
+      end
+    end
+    %add (remove) '.mat' to (from) a file name unless it already has it (not)
+    function io=mat(io,direction)
+      if ~exist('direction','var') || isempty(direction)
+        direction='get';
+      end
+      if iscellstr(io)
+        io=cellfun(@(i) file.mat(i,direction),io,'UniformOutput', false);
+      else
+        switch lower(direction)
+        case 'set'; if ~file.ismat(io); io=[io,'.mat']; end
+        case 'get'; if  file.ismat(io); io=io(1:end-4);          end
+        otherwise; error(['Cannot handle input ''direction'' with value ''',direction,'''.'])
+        end
+      end
+    end
+    % prefers mat or non-mat file in a file list (that may mix mat with non-mat files)
+    function out=mat_preference(in,prefer_non_mat_files)
+      if ~exist('prefer_non_mat_files','var') || isempty(prefer_non_mat_files)
+        prefer_non_mat_files=false;
+      end
+      %first get list of non-mat files
+      out=unique(file.mat(in,'get'));
+      %loop over non-mat files
+      for i=1:numel(out)
+        %get indexes of original files with and without mat extension
+        idx=[cells.strcmp(in,out{i}),cells.strcmp(in,file.mat(out{i},'set'))];
+        %if nothing was found, then there are only mat files, so preference is irrelevant
+        if isempty(idx);
+          % add the mat extension to this entry
+          out{i}=file.mat(out{i},'set');
+        else
+          %check if there is any .mat file in this subset
+          if any(file.ismat(in(idx))) && ~prefer_non_mat_files
+            %if so, then can prefer the mat file, so add the mat extension to this entry
+            out{i}=file.mat(out{i},'set');
+          end
+        end
+      end
+    end
     %handling wildcards and .mat files
     function [filenames,wildcarded_flag]=wildcard(in,varargin)
       % FILENAMES = FILENAME_WILDCARD(STR) looks for files which fit the wilcard
@@ -219,7 +267,7 @@ classdef file
       % Created by J.Encarnacao <J.deTeixeiradaEncarnacao@tudelft.nl>
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'in',@(i) (ischar(i) && i(end)~='*') || iscellstr(i)); %trailing wildcard messes up big time the .mat and zipped files handling
+      p.addRequired( 'in',                         @(i) ischar(i)   || iscellstr(i)); 
       p.addParameter('strict_mat_search'   ,false, @(i) islogical(i) && isscalar(i));
       p.addParameter('prefer_non_mat_files',false, @(i) islogical(i) && isscalar(i));
       p.addParameter('disp',                true,  @(i) islogical(i) && isscalar(i));
@@ -230,7 +278,7 @@ classdef file
       p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @(i) isnumeric(i) && isscalar(i));
       % parse it
       p.parse(in,varargin{:});
-      %reduce scalar
+      %reduce scalar cell to char (avoids infinite loops with vector mode)
       in=cells.scalar(in);
       %vector mode
       if iscellstr(in)
@@ -239,6 +287,8 @@ classdef file
         ));
         return
       end
+      %turn off advanced features: trailing wildcard messes up big time the .mat and zipped files handling
+      simple_file_search=(in(end)=='*');
       %wildcard character '*' needs to be translated to '.*' (if not already)
       [in,wildcarded_flag]=translate_wildcard(in);
       %finding relevant directory
@@ -262,9 +312,9 @@ classdef file
       f=f(1,idx);
       %greping
       f1=reduce_cell_array(regexp(f(:),['^',f_in,'$'],'match'));
-      %handle mat files
-      if p.Results.prefer_non_mat_files
-        f1c=unique(f1);
+      %check if advanced features are available
+      if simple_file_search
+        f1c=f1;
       else
         %taking into account also mat files, find any relevant .mat files in current dir
         if p.Results.strict_mat_search
@@ -273,29 +323,29 @@ classdef file
           f2=reduce_cell_array(regexp(f(:),['^',f_in,'.*\.mat$'],'match'));
         end
         %strip mat extension from f2 list, these are the relevant .mat files that may be in f1
-        f2c_mat=cellfun(@(i) strrep(i,'.mat',''),f2,'UniformOutput',false);
+        f2c_mat=cellfun(@(i) file.mat(i,'get'),f2,'UniformOutput',false);
         %delete mat files that are in also in f1
         f1c=setdiff(f1,f2c_mat);
         %add these mat files to the final file list
         f1c=unique([f1c(:);f2(:)]);
-      end
-      %handle zipped files (pretty much as is done for mat files, but prefer what is in f1c)
-      for i=1:numel(file.archivedfilesext)
-        %find any relevant zipped files in current dir
-        f2=reduce_cell_array(regexp(f(:),['^',f_in,strrep(file.archivedfilesext{i},'.','\.'),'$'],'match'));
-        %avoiding the rest of the loop if there are not archived files with this ext
-        if isempty(f2); continue; end
-        %strip zip extension from f2 list, these are the relevant zipped files that may be in f1
-        f2c=cellfun(@(j) strrep(j,file.archivedfilesext{i},''),f2,'UniformOutput',false);
-        %clean this list of files of those that are in f1
-        tmp=setdiff(f2c,f1);
-        %restore the zip extension
-        tmp=cellfun(@(j) [j,file.archivedfilesext{i}],tmp,'UniformOutput',false);
-        %add these zipped files to the final file list
-        f1c=unique([tmp(:);f1c(:)]);
+        %handle zipped files (pretty much as is done for mat files, but prefer what is in f1c)
+        for i=1:numel(file.archivedfilesext)
+          %find any relevant zipped files in current dir
+          f2=reduce_cell_array(regexp(f(:),['^',f_in,strrep(file.archivedfilesext{i},'.','\.'),'$'],'match'));
+          %avoiding the rest of the loop if there are not archived files with this ext
+          if isempty(f2); continue; end
+          %strip zip extension from f2 list, these are the relevant zipped files that may be in f1
+          f2c=cellfun(@(j) strrep(j,file.archivedfilesext{i},''),f2,'UniformOutput',false);
+          %clean this list of files of those that are in f1
+          tmp=setdiff(f2c,f1);
+          %restore the zip extension
+          tmp=cellfun(@(j) [j,file.archivedfilesext{i}],tmp,'UniformOutput',false);
+          %add these zipped files to the final file list
+          f1c=unique([tmp(:);f1c(:)]);
+        end
       end
       %one filename is frequently empty
-      f1c=cells.rm_empty(f1c);
+      f1c=file.mat_preference(cells.rm_empty(f1c),p.Results.prefer_non_mat_files);
       %inform user if no files found
       if isempty(f1c)
         msg=['found no files named ''',in,'''.'];
@@ -369,7 +419,7 @@ classdef file
         return
       end
       %now handling compressed files: prepend tar to extension if there
-      if strcmp(f(end-3:end),'.tar')
+      if strcmp(f(max([1,end-3]):end),'.tar')
         e=['.tar',e];
       end
       %try to uncompress archives
@@ -418,8 +468,12 @@ classdef file
         filenames=in;
       end
     end
-    function out=ensuredir(filename)
-      d=fileparts(filename);
+    function out=ensuredir(filename,file_flag)
+      if file_flag
+        d=fileparts(filename);
+      else
+        d=filename;
+      end
       if ~exist(d,'dir')
         out=mkdir(d);
       else
@@ -512,7 +566,7 @@ classdef file
     function [newest_file,newest_date]=newest(in,varargin)
       newest_date=0;
       if ~iscellstr(in)
-        in=file.unwrap(in,varargin{:});
+        in=cells.scalar(file.unwrap(in,varargin{:}),'set');
       end
       newest_file='';
       for i=1:numel(in)

@@ -1,4 +1,4 @@
-#leafs of output product will be "low" and "high", preceeded with the names as the leafs of the sources (except the reference), if the usual 'model_types' are ignored (which are the actual leafs)
+#leafs of output product will be "low" and "high", preceeded with the names as the leafs of the sources (except the reference), excluding the usual 'model_types' (which are the actual leafs)
 sources: [scales.GEO,scales.RL05.sh,scales.RL05.mascons]
 reference: scales.RL05.mascons
 explicit_fields: true
@@ -7,6 +7,8 @@ storage_period: yearly
 model_types: [signal]
 lsplit: 15
 plot_outlier: 1
-plot_automean: true
-plot_autoscale: true
+plot_automean: false
+plot_autoscale: false
 plot_xdateformat: yy
+plot_relative_reference: RL05
+plot_dir: plots/plots_split

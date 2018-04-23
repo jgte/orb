@@ -1,15 +1,20 @@
 plot_product: true
 method: scales.plot_low_degrees
-sources: [scales.RL05.sh,scales.GEO]
-stats_relative_to: scales.RL05.sh
+degrees: [  2]
+orders:  [inf]
+sources: [slr.csr.Ries,scales.RL05.sh,scales.GEO]
+stats_relative_to: slr.csr.Ries
+skip_dataname: d31z0
+#degrees: [  2,  3,  4,  5,  6,  7]
+#orders:  [inf,inf,inf,inf,inf,inf]
+#sources: [scales.RL05.sh,scales.GEO]
+#stats_relative_to: scales.RL05.sh
 #sources: [slr.csr.Ries,slr.csr.Cheng,slr.aiub,scales.RL05.sh,scales.GEO]
 #stats_relative_to: slr.csr.Ries
 ##stats_relative_to: slr.csr.Cheng
 explicit_fields: true
 storage_period: global
 model_types: [signal]
-degrees: [  2,  3,  4,  5,  6,  7]
-orders:  [inf,inf,inf,inf,inf,inf]
 plot_outlier: 1
 plot_automean: true
 plot_autoscale: true

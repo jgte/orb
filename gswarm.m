@@ -581,117 +581,131 @@ classdef gswarm
       %assemble title suffix
       title_suffix=[out.title_wrt,' ',out.title_startstop];
       if ~isempty(out.title_smooth);title_suffix=[title_suffix,newline,out.title_smooth];end
-      %loop over all sources
-      for i=1:numel(out.mods);
-        %build filename
-        filename=strrep(out.file_root{1},'.png',['.corrcoeff-triang',out.file_smooth,'.',out.mod_names{i},'.png']);
+      %define the statistics to show
+      stat_list={             'corrcoeff',           'rmsdiff',           'stddiff'};
+      stat_func={                'nondim',             'geoid',             'geoid'};
+      stat_title={'temporal corr. coeff.','temporal RMS\Delta','temporal STD\Delta'};
+      %loop over all statistics
+      for s=1:numel(stat_list)
+        %loop over all sources
+        for i=1:numel(out.mods);
+          %build filename
+          filename=strrep(out.file_root{1},'.png',['.',stat_list{s},'-triang',out.file_smooth,'.',out.mod_names{i},'.png']);
+          %plot only if not done yet
+          if exist(filename,'file')==0
+            plotting.figure(v.varargin{:});
+            %compute the correlation coefficient between this model and mod_ref
+            d=out.mod_ref.scale(stat_func{s},'functional').interp(out.mods{i}.t).stats2(...
+              out.mods{i}.scale(stat_func{s},'functional'),...
+              'mode','obj',...
+              'struct_fields',stat_list(s),...
+              'period',seconds(inf)...
+            );
+            %set y-units
+            d.y_units(:)={gravity.functional_units(stat_func{s})};
+            %plot it
+            d.plot('method','triang');
+            %enforce it
+            product.enforce_plot(v.varargin{:},...
+              'plot_caxis',v.(['plot_',stat_list{s},'_caxis']),...
+              'plot_title',[out.mod_names{i},' ',stat_title{s},' ',title_suffix]...
+            );
+            saveas(gcf,filename)
+            str.say('Plotted',filename)
+          end
+        end
+        %plot degree-mean corrcoeff
+        filename=strrep(out.file_root{1},'.png',['.',stat_list{s},'-dmean',out.file_smooth,'.',strjoin(out.mod_names,'-'),'.png']);
         %plot only if not done yet
         if exist(filename,'file')==0
-          plotting.figure(v.varargin{:});
-          %compute the correlation coefficient between this model and mod_ref
-          corrcoeff=out.mod_ref.interp(out.mods{i}.t).stats2(...
-            out.mods{i},'mode','obj','struct_fields',{'corrcoef'},'period',seconds(inf)...
-          );
-          %set y-units
-          corrcoeff.y_units(:)={' '};
+          %init plot counter and data container
+          d=zeros(numel(out.mods),out.mod_ref.lmax+1);
+          %loop over all sources
+          for i=1:numel(out.mods);
+            %compute it
+            d(i,:)=out.mod_ref.scale(stat_func{s},'functional').interp(out.mods{i}.t).stats2(...
+                   out.mods{i}.scale(stat_func{s},'functional'),...
+                   'mode','obj',...
+                   'struct_fields',stat_list(s),...
+                   'period',seconds(inf)...
+            ).dmean;
+          end
+          %enforce minimum degree
+          d=d(:,v.plot_min_degree+1:end);
+          %filter out nans
+          good_idx=~all(isnan(d),1);
           %plot it
-          corrcoeff.plot('method','triang');
+          plotting.figure(v.varargin{:});
+          bar(v.plot_min_degree:out.mod_ref.lmax,d(:,good_idx)','EdgeColor','none');
+          colormap jet
           %enforce it
           product.enforce_plot(v.varargin{:},...
-            'plot_title',[out.mod_names{i},' temporal corr. coeff. ',title_suffix]...
+            'plot_legend',out.mod_names,...
+            'plot_ylabel',gravity.functional_label(stat_func{s}),...
+            'plot_xlabel','SH degree',...
+            'plot_xlimits',[v.plot_min_degree-1,v.plot_max_degree+1],...
+            'plot_title',['degree-mean ',stat_title{s},' ',title_suffix]...
           );
           saveas(gcf,filename)
           str.say('Plotted',filename)
         end
       end
-      %plot degree-mean corrcoeff
-      filename=strrep(out.file_root{1},'.png',['.corrcoeff-dmean',out.file_smooth,'.',strjoin(out.mod_names,'-'),'.png']);
-      %plot only if not done yet
-      if exist(filename,'file')==0
-        %init plot counter and data container
-        d=zeros(numel(out.mods),out.mod_ref.lmax+1);
-        %loop over all sources
-        for i=1:numel(out.mods);
-          %compute it
-          d(i,:)=out.mod_ref.interp(out.mods{i}.t).stats2(...
-            out.mods{i},'mode','obj','struct_fields',{'corrcoef'},'period',seconds(inf)...
-          ).dmean;
-        end
-        %enforce minimum degree
-        d=d(:,v.plot_min_degree+1:end);
-        %filter out nans
-        good_idx=~all(isnan(d),1);
-        %plot it
-        plotting.figure(v.varargin{:});
-        bar(v.plot_min_degree:out.mod_ref.lmax,d(:,good_idx)','EdgeColor','none');
-        colormap jet
-        %enforce it
-        product.enforce_plot(v.varargin{:},...
-          'plot_legend',out.mod_names,...
-          'plot_ylabel','geoid height [m]',...
-          'plot_xlabel','SH degree',...
-          'plot_xlimits',[v.plot_min_degree-1,v.plot_max_degree+1],...
-          'plot_title',['degree-mean temporal corr. coeff. ',title_suffix]...
-        );
-        saveas(gcf,filename)
-        str.say('Plotted',filename)
-      end
-      %loop over all sources
-      for i=1:numel(out.mods);
-        %build filename
-        filename=strrep(out.file_root{1},'.png',['.rmsdiff-triang',out.file_smooth,'.',out.mod_names{i},'.png']);
-        %plot only if not done yet
-        if exist(filename,'file')==0
-          plotting.figure(v.varargin{:});
-          %compute the correlation coefficient between this model and mod_ref
-          rmsdiff=out.mod_ref.scale('geoid','functional').interp(out.mods{i}.t).stats2(...
-             out.mods{i}.scale('geoid','functional'),'mode','obj','struct_fields',{'rmsdiff'},'period',seconds(inf)...
-          );
-          %set y-units
-          rmsdiff.y_units(:)={'m'};
-          %plot it
-          rmsdiff.plot('method','triang');
-          %enforce it
-          product.enforce_plot(v.varargin{:},...
-            'plot_caxis',v.plot_rmsdiff_caxis,...
-            'plot_title',[out.mod_names{i},' temporal RMS\Delta ',title_suffix]...
-          );
-          saveas(gcf,filename)
-          str.say('Plotted',filename)
-        end
-      end
-      %plot degree-mean corrcoeff
-      filename=strrep(out.file_root{1},'.png',['.rmsdiff-dmean',out.file_smooth,'.',strjoin(out.mod_names,'-'),'.png']);
-      %plot only if not done yet
-      if exist(filename,'file')==0
-        %init plot counter and data container
-        d=zeros(numel(out.mods),out.mod_ref.lmax+1);
-        %loop over all sources
-        for i=1:numel(out.mods);
-          %compute it
-          d(i,:)=out.mod_ref.scale('geoid','functional').interp(out.mods{i}.t).stats2(...
-            out.mods{i}.scale('geoid','functional'),'mode','obj','struct_fields',{'rmsdiff'},'period',seconds(inf)...
-          ).dmean;
-        end
-        %enforce minimum degree
-        d=d(:,v.plot_min_degree+1:end);
-        %filter out nans
-        good_idx=~all(isnan(d),1);
-        %plot it
-        plotting.figure(v.varargin{:});
-        bar(v.plot_min_degree:out.mod_ref.lmax,d(:,good_idx)','EdgeColor','none');
-        colormap jet
-        %enforce it
-        product.enforce_plot(v.varargin{:},...
-          'plot_legend',out.mod_names,...
-          'plot_ylabel','geoid height [m]',...
-          'plot_xlabel','SH degree',...
-          'plot_xlimits',[v.plot_min_degree-1,v.plot_max_degree+1],...
-          'plot_title',['degree-mean temporal RMS\Delta ',title_suffix]...
-        );
-        saveas(gcf,filename)
-        str.say('Plotted',filename)
-      end
+%       %loop over all sources
+%       for i=1:numel(out.mods);
+%         %build filename
+%         filename=strrep(out.file_root{1},'.png',['.rmsdiff-triang',out.file_smooth,'.',out.mod_names{i},'.png']);
+%         %plot only if not done yet
+%         if exist(filename,'file')==0
+%           plotting.figure(v.varargin{:});
+%           %compute the correlation coefficient between this model and mod_ref
+%           rmsdiff=out.mod_ref.scale('geoid','functional').interp(out.mods{i}.t).stats2(...
+%              out.mods{i}.scale('geoid','functional'),'mode','obj','struct_fields',{'rmsdiff'},'period',seconds(inf)...
+%           );
+%           %set y-units
+%           rmsdiff.y_units(:)={'m'};
+%           %plot it
+%           rmsdiff.plot('method','triang');
+%           %enforce it
+%           product.enforce_plot(v.varargin{:},...
+%             'plot_caxis',v.plot_rmsdiff_caxis,...
+%             'plot_title',[out.mod_names{i},' temporal RMS\Delta ',title_suffix]...
+%           );
+%           saveas(gcf,filename)
+%           str.say('Plotted',filename)
+%         end
+%       end
+%       %plot degree-mean corrcoeff
+%       filename=strrep(out.file_root{1},'.png',['.rmsdiff-dmean',out.file_smooth,'.',strjoin(out.mod_names,'-'),'.png']);
+%       %plot only if not done yet
+%       if exist(filename,'file')==0
+%         %init plot counter and data container
+%         d=zeros(numel(out.mods),out.mod_ref.lmax+1);
+%         %loop over all sources
+%         for i=1:numel(out.mods);
+%           %compute it
+%           d(i,:)=out.mod_ref.scale('geoid','functional').interp(out.mods{i}.t).stats2(...
+%             out.mods{i}.scale('geoid','functional'),'mode','obj','struct_fields',{'rmsdiff'},'period',seconds(inf)...
+%           ).dmean;
+%         end
+%         %enforce minimum degree
+%         d=d(:,v.plot_min_degree+1:end);
+%         %filter out nans
+%         good_idx=~all(isnan(d),1);
+%         %plot it
+%         plotting.figure(v.varargin{:});
+%         bar(v.plot_min_degree:out.mod_ref.lmax,d(:,good_idx)','EdgeColor','none');
+%         colormap jet
+%         %enforce it
+%         product.enforce_plot(v.varargin{:},...
+%           'plot_legend',out.mod_names,...
+%           'plot_ylabel','geoid height [m]',...
+%           'plot_xlabel','SH degree',...
+%           'plot_xlimits',[v.plot_min_degree-1,v.plot_max_degree+1],...
+%           'plot_title',['degree-mean temporal RMS\Delta ',title_suffix]...
+%         );
+%         saveas(gcf,filename)
+%         str.say('Plotted',filename)
+%       end
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
     function obj=plot_stats(obj,product,varargin)
