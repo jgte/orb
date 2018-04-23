@@ -560,6 +560,7 @@ classdef datastorage
     end
     %% length operations
     function out=length(obj,dn)
+      if ~exist('dn','var') || isempty(dn); dn='all'; end
       out=cell2mat(obj.vector_method_tr(dn,'length'));
     end
     %% debug utils
@@ -608,7 +609,7 @@ classdef datastorage
         'stop',obj.stop,...
       varargin{:});
       % get file existence
-      file_exists=product.isfile(product_type,'start',obj.start,'stop',obj.stop,varargin{:});
+      file_exists=product.isfile(product_type,'start',obj.start,'stop',obj.stop,'start_timestamp_only',false,varargin{:});
       % check if any file is missing
       if any(~file_exists)
         % debug output

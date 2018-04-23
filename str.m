@@ -218,6 +218,23 @@ classdef str
         out=in;
       end
     end
+    %transforms a matrix into the data part of a latex table
+    function out=latex_table(in,fmt)
+      if ~exist('fmt','var'); fmt='%g'; end
+      assert(isnumeric(in) && numel(size(in)<=2),'Need numeric matrix/vector/scales input')
+      out=cell(size(in));
+      for i=1:size(in,1)
+        for j=1:size(in,2)
+          if j==size(in,2)
+            out{i,j}=[num2str(in(i,j),fmt),' \\',newline];
+          else
+            out{i,j}=[num2str(in(i,j),fmt),' & '];
+          end
+        end
+      end
+      out=strjoin(transpose(out));
+    end
+    %% string manipulation
     function s=clean(s,mode,alt_char)
       if iscellstr(mode)
         for i=1:numel(mode)
@@ -337,6 +354,44 @@ classdef str
         ]))
       end
     end
+    %pads all entries of in with blanks until they all have the same length
+    function out=cellpad(in)
+      assert(iscellstr(in),['Need cell string, not ',class(in),'.'])
+      n=max(cellfun(@numel,in));
+      out=cellfun(@(i) [i,repmat(' ',1,n-numel(i))],in,'UniformOutput',false);
+    end
+    function out=common(in,splitchar)
+      assert(iscellstr(in),['Input ''in'' has to be of class cellstr, not ',class(in),'.'])
+      in=cellfun(@(i) strsplit(i,splitchar),in,'UniformOutput',false);
+      out=in{1};
+      for i=2:numel(in)
+        out=intersect(out,in{i},'stable');
+      end
+      out=strjoin(out,splitchar);
+    end
+    function out=unique(in,splitchar)
+      if ~exist('splitchar','var')
+        out=unique(in);
+        return
+      end
+      common=strsplit(str.common(in,splitchar),splitchar);
+      in=cellfun(@(i) strsplit(i,splitchar),in,'UniformOutput',false);
+      out=cell(size(in));
+      for i=1:numel(in)
+        o=setdiff(in{i},common,'stable');
+        if isempty(o)
+          out{i}='';
+        elseif iscell(o)
+          out{i}=strjoin(o,splitchar);
+        else
+          out{i}=o;
+        end
+      end
+    end
+    function out=contains(str,pattern)
+      out=~isempty(regexp(str,['.*',pattern,'.*'],'once'));
+    end
+    %% conversion
     %first argument is field width, all remaining inputs are values to print.
     function out=tablify(w,varargin)
       %justification scheme
@@ -394,6 +449,41 @@ classdef str
       end
       out=strjoin(out,separator);
     end
+    function out=logical(in,mode)
+      if ~exist('mode','var') || isempty(mode)
+        mode='truefalse';
+      end
+      %first make sure it's logical
+      switch class(in)
+      case 'logical'
+        %do nothing
+      case 'cell'
+        out=cellfun(@str.logical,in);
+      case 'datetime'
+        out=(in~=datetime(0,0,0));
+      case 'duration'
+        out=(in~=seconds(0));
+      otherwise
+        try
+          out=(in~=0);
+        catch
+          error([mfilename,': class ''',class(in),''' is not supported.'])
+        end
+      end
+      %then convert to requested mode
+      switch lower(mode)
+      case 'truefalse'; if in; out='true'; else out='false';end
+      case 'tf';        if in; out='T';    else out='F';    end
+      case 'onoff';     if in; out='on';   else out='off';  end
+      case 'yesno';     if in; out='yes';  else out='no';   end
+      otherwise
+        idx=strfind(mode,'-');
+        assert(~isempty(idx),['Unknown mode ''',mode,'''.'])
+        mode=strsplit(mode,'-');
+        if in; out=mode{1}; else out=mode{2}; end
+      end
+    end
+    %% user feedback
     function say(varargin)
       %default value for internal parameters
       stack_delta=0;
@@ -442,77 +532,7 @@ classdef str
       fprintf(fid,[strjoin(msg,'\n'),'\n']);
       fclose(fid);
     end
-    function out=logical(in,mode)
-      if ~exist('mode','var') || isempty(mode)
-        mode='truefalse';
-      end
-      %first make sure it's logical
-      switch class(in)
-      case 'logical'
-        %do nothing
-      case 'cell'
-        out=cellfun(@str.logical,in);
-      case 'datetime'
-        out=(in~=datetime(0,0,0));
-      case 'duration'
-        out=(in~=seconds(0));
-      otherwise
-        try
-          out=(in~=0);
-        catch
-          error([mfilename,': class ''',class(in),''' is not supported.'])
-        end
-      end
-      %then convert to requested mode
-      switch lower(mode)
-      case 'truefalse'; if in; out='true'; else out='false';end
-      case 'tf';        if in; out='T';    else out='F';    end
-      case 'onoff';     if in; out='on';   else out='off';  end
-      case 'yesno';     if in; out='yes';  else out='no';   end
-      otherwise
-        idx=strfind(mode,'-');
-        assert(~isempty(idx),['Unknown mode ''',mode,'''.'])
-        mode=strsplit(mode,'-');
-        if in; out=mode{1}; else out=mode{2}; end
-      end
-    end
-    %pads all entries of in with blanks until they all have the same length
-    function out=cellpad(in)
-      assert(iscellstr(in),['Need cell string, not ',class(in),'.'])
-      n=max(cellfun(@numel,in));
-      out=cellfun(@(i) [i,repmat(' ',1,n-numel(i))],in,'UniformOutput',false);
-    end
-    function out=common(in,splitchar)
-      assert(iscellstr(in),['Input ''in'' has to be of class cellstr, not ',class(in),'.'])
-      in=cellfun(@(i) strsplit(i,splitchar),in,'UniformOutput',false);
-      out=in{1};
-      for i=2:numel(in)
-        out=intersect(out,in{i},'stable');
-      end
-      out=strjoin(out,splitchar);
-    end
-    function out=unique(in,splitchar)
-      if ~exist('splitchar','var')
-        out=unique(in);
-        return
-      end
-      common=strsplit(str.common(in,splitchar),splitchar);
-      in=cellfun(@(i) strsplit(i,splitchar),in,'UniformOutput',false);
-      out=cell(size(in));
-      for i=1:numel(in)
-        o=setdiff(in{i},common,'stable');
-        if isempty(o)
-          out{i}='';
-        elseif iscell(o)
-          out{i}=strjoin(o,splitchar);
-        else
-          out{i}=o;
-        end
-      end
-    end
-    function out=contains(str,pattern)
-      out=~isempty(regexp(str,['.*',pattern,'.*'],'once'));
-    end
+    %% under development
 %     function out=fmt_f2c(in)
 %       %split input fortran format string into a cell
 %       in=split(in,',');

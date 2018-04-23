@@ -996,8 +996,8 @@ classdef simpletimeseries < simpledata
     function out=stats2(obj1,obj2,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('period', 30*max([obj1.step,obj2.step]), @(i) isduration(i));
-      p.addParameter('overlap',seconds(0),                    @(i) isduration(i));
+      p.addParameter('period', seconds(inf), @(i) isduration(i)); %30*max([obj1.step,obj2.step])
+      p.addParameter('overlap',seconds(0),   @(i) isduration(i));
       % parse it
       p.parse(varargin{:});
       % call upstream method if period is infinite

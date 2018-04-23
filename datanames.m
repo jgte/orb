@@ -157,6 +157,9 @@ classdef datanames
     function out=name_clean(obj)
       out=str.clean(obj.name,'fieldname',datanames.separator_clean);
     end
+    function out=contains(obj,in)
+      out=str.contains(obj.dotname,in);
+    end
     %% filename builders
     function out=file(obj,varargin)
       %NOTICE: this procedure ALWAYS returns a string!

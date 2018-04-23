@@ -1058,9 +1058,9 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         out=num.cov(obj1.y_masked([],columns),obj1.y_masked([],columns));
       case {'corrcoef','corrcoeff'}
         out=num.corrcoef(obj1.y_masked([],columns),obj2.y_masked([],columns));
-      case 'rmsdiff'
+      case {'rmsdiff','stddiff'}
         o=obj1.cols(columns)-obj2.cols(columns);
-        out=o.stats('mode','rms');
+        out=o.stats('mode',strrep(p.Results.mode,'diff',''));
       case 'length';
         out=(obj1.nr_valid+obj2.nr_valid)*ones(1,numel(columns));
       case 'gaps';

@@ -17,7 +17,7 @@ classdef gravity < simpletimeseries
 %                     Otherwise, it represents (-dU/dr - 2/r*U).
 %       'vertgravgrad' - vertical gravity gradient.
     functional_details=struct(...
-      'nondim',        struct('units','',          'name','Stokes Coeff.'),...
+      'nondim',        struct('units',' ',         'name','Stokes Coeff.'),...
       'eqwh',          struct('units','m',         'name','Eq. Water Height'),...
       'geoid',         struct('units','m',         'name','Geoid Height'),...
       'potential',     struct('units','m^2.s^{-2}','name','Geopotential'),...
@@ -53,9 +53,9 @@ classdef gravity < simpletimeseries
                   70     -0.020;...
                   100    -0.014;...
                   150    -0.010;...
-                  200    -0.007],@(i) isnumeric(i) && size(i,2)==2;...     % Love numbers
-        'origin',   'unknown',  @(i) ischar(i);...                        % (arbitrary string)
-        'functional','nondim',   @(i) ischar(i) && any(strcmp(i,gravity.functionals)); %see above
+                  200    -0.007], @(i) isnumeric(i) && size(i,2)==2;...     % Love numbers
+        'origin',      'unknown', @(i) ischar(i);...                        % (arbitrary string)
+        'functional',   'nondim', @(i) ischar(i) && any(strcmp(i,gravity.functionals)); %see above
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -965,7 +965,7 @@ classdef gravity < simpletimeseries
       % call superclass
       out=simpletimeseries(obj.t,obj.y,...
         'labels',obj.labels,...
-        'units',obj.y_units,...
+        'units',obj.functional_unit,...
         'timesystem',obj.timesystem...
       );
     end
@@ -1489,7 +1489,7 @@ classdef gravity < simpletimeseries
         'format','datetime',...
         'labels',{obj.functional_name},...
         'timesystem',obj.timesystem,...
-        'units',obj.y_units(1),...
+        'units',obj.functional_unit,...
         'descriptor',['degree ',num2str(obj.lmax),' cumdrms of ',obj.descriptor]...
       );      
     end
@@ -1512,10 +1512,18 @@ classdef gravity < simpletimeseries
         out(i,:) = sqrt(sum(tri_now{i}.^2,2));
       end
     end
-    % returns the cumulative degree amplitude spectrum for each row of obj.y.
-    % the output matrix is arranged as <das>.
-    function out=cumdas(obj)
-      out=sqrt(cumsum(obj.das.^2,2));
+    % cumulative degree amplitude spectrum
+    function ts=cumdas(obj)
+      d=sqrt(cumsum(obj.das.^2,2));
+      ts=simpletimeseries(...
+        obj.t,...
+        d(:,end),...
+        'format','datetime',...
+        'labels',{obj.functional_name},...
+        'timesystem',obj.timesystem,...
+        'units',obj.functional_unit,...
+        'descriptor',['degree ',num2str(obj.lmax),' cumdas of ',obj.descriptor]...
+      );    
     end
     % created a timeseries object with the derived quantities above
     function out=derived(obj,quantity)
@@ -1573,7 +1581,7 @@ classdef gravity < simpletimeseries
         end
       end
     end
-    function [obj1,obj2]=merge(obj1,obj2,varargin)
+    function [obj1,obj2,idx1,idx2]=merge(obj1,obj2,varargin)
       %match the minimum degree (truncate)
       if obj1.lmax<obj2.lmax
         obj2.lmax=obj1.lmax;
@@ -1589,7 +1597,7 @@ classdef gravity < simpletimeseries
         end
       end
       %extend the time-domain of both objects to be in agreement with the each other.
-      [obj1,obj2]=merge@simpletimeseries(obj1,obj2);
+      [obj1,obj2,idx1,idx2]=merge@simpletimeseries(obj1,obj2);
     end
     %% plot functions
     function out=plot(obj,varargin)
@@ -1644,9 +1652,9 @@ classdef gravity < simpletimeseries
           out.cb=colorbar;
           cb.nan;
           if strcmpi(p.Results.method,'trianglog10')
-            cb.label(['log_{10}(',obj.functional_name,') [',obj.y_units,']']);
+            cb.label(['log_{10}(',obj.functional_name,') [',obj.functional_unit,']']);
           else
-            cb.label([obj.functional_name,' [',obj.y_units{1},']']);
+            cb.label([obj.functional_name,' [',obj.functional_unit,']']);
           end
           out.title=[out.title,' - ',datestr(obj.t(i)),', \mu=',num2str(mean(tri_now{i}(~bad_idx)))];
           title(out.title)
@@ -1661,7 +1669,7 @@ classdef gravity < simpletimeseries
         end
         grid on
         xlabel('SH degree')
-        ylabel([obj.functional_name,'[ ',obj.y_units{1},']'])
+        ylabel([obj.functional_name,'[ ',obj.functional_unit,']'])
         if p.Results.showlegend
           out.legend=legend(datestr(obj.t));
         end
