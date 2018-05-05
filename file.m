@@ -287,6 +287,15 @@ classdef file
         ));
         return
       end
+      %trivial call
+      if isempty(in)
+        if p.Results.scalar_as_strings
+          filenames='';
+        else
+          filenames={''};
+        end
+        return
+      end
       %turn off advanced features: trailing wildcard messes up big time the .mat and zipped files handling
       simple_file_search=(in(end)=='*');
       %wildcard character '*' needs to be translated to '.*' (if not already)
@@ -298,14 +307,23 @@ classdef file
       end
       %rebuilding complete filename
       f_in=[f,e];
+      %check if a simple directory has been passed
+      if isempty(f_in) && ~wildcarded_flag
+        if p.Results.scalar_as_strings
+          filenames=a;
+        else
+          filenames={a};
+        end
+        return
+      end
       %fetching directory listing
       f=dir(a);
       f=struct2cell(f);
       %branch on options
       if p.Results.directories_only
-        idx=[f{4,:}];
+        idx=[f{end-1,:}];
       elseif p.Results.files_only
-        idx=~[f{4,:}];
+        idx=~[f{end-1,:}];
       else
         idx=true(1,size(f,2));
       end
@@ -577,6 +595,7 @@ classdef file
       end
     end
     function out=up(path,n)
+      path=file.wildcard(path,'disp',false,'scalar_as_strings',true);
       switch exist(path,'dir')
       case 2
         path=fileparts(path);
