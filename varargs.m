@@ -125,16 +125,18 @@ classdef varargs < dynamicprops
       %ignored.
       %
       %If the same parameter is in 'sources' and varargin, the value defined in the latter is the one kept. Note that the default
-      %parameters in 'parser' (i.e. those that are not in varargin) are not passed to v (otherwise they may over-write a
+      %parameters in 'parser' (i.e. those that are not in varargin) are not passed to v (otherwise they may over-write the
       %parameters previously defined in a 'source').
       %
       %Both p and v outputs have the same information, which can be retrieved as:
       % - p.Results.(parameter_name) (as usual)
       % - v.Results.(parameter_name), v.value(parameter_name) or simply v.(parameter_name)
       %
-      %The variables sinks is a cell array with the objects passed in 'sinks' (in the same order), with their fields/methods
+      %The variables 'sinks' is a cell array with the objects passed in 'sinks' (in the same order), with their fields/methods
       %set with the (possible) values of any parameter passed in 'parser', 'sources' or varargin, as implemented in the 
-      %varargs.save methods. NOTICE: Any parameter passed in the 'parser' is *not* saved to any of the 'sinks'.
+      %varargs.save methods.
+      %
+      %NOTICE: Any parameter passed in the 'parser' is *not* saved to any of the 'sinks', except for 'p'.
 
       %this is the parser for this method (there's an additional parser going in and out if this method)
       pn=inputParser;
