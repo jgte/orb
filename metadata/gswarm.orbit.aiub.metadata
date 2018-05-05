@@ -1,0 +1,6 @@
+import_dir: <getenv('HOME')>/data/gswarm/aiub/orbit/YEAR/
+wilcarded_filename: GSWARM_KO_SC_AIUB_YEAR-MONTH-DAY_DOY_01.KIN.gz
+model_format: gfc
+date_parser: gravity.parse_epoch_asu
+submetadata1: model.processing.submetadata
+submetadata2: model.plotting.submetadata

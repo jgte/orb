@@ -1290,8 +1290,10 @@ classdef simpletimeseries < simpledata
       if ~simpletimeseries.valid_timesystem(in)
         error([mfilename,': need a valid time system, i.e. one of ',strjoin(simpletimeseries.valid_timesystems,', '),'.'])
       end
-      obj.t=time.([obj.timesystem,'2',in])(obj.t);
-      obj.timesystem=in;
+      if ~strcmpi(obj.timesystem,in)
+        obj.t=time.([obj.timesystem,'2',lower(in)])(obj.t);
+        obj.timesystem=in;
+      end
     end
     %% management methods
     function check_st(obj,t_now)

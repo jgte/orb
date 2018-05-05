@@ -38,28 +38,55 @@ classdef orbit
     %default value of parameters
     %NOTICE: needs updated when adding a new parameter
     parameter_list={...
-      'satname',  'unknown',@(i) ischar(i);...
-      'frame',    'crs',    @(i) orbit.isframe(i);...
-      'geodatum' ,'grs80',  @(i) ischar(i);...
-      'sp3id',    'Xnn',    @(i) ischar(i);...
+      'satname',   'unknown',@(i) ischar(i);...
+      'frame',     'crs',    @(i) orbit.isframe(i);...
+      'geodatum' , 'grs80',  @(i) ischar(i);...
+      'sp3id',     'Xnn',    @(i) ischar(i);...
+      'ctype',     'xyz',    @(i) ischar(i);...
+      'orbit_type','unknown',@(i) ischar(i);...
+      'data_used', 'unknown',@(i) ischar(i);...
+      'agency',    'unknown',@(i) ischar(i);...
       'data_dir', fullfile(getenv('HOME'),'data'),@(i) ischar(i);...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTICE: needs updated when adding a new data type (if relevant)
     compatible_parameter_list={'satname','frame'};
-
+    %These are parameters relevant to the SP3 format; the _f fields defined the convertion from SP3 to SI units
+    %ftp://igs.org/pub/data/format/sp3c.txt
+    %TODO: add vel_cor and ckr_cor
+    sp3_parameter_list=struct(...
+      'pos_f',      1e3,... %km
+      'pos_gap',      0,... %value to patch "Bad or absent positional values"
+      'clk_f',     1e-6,... %microseconds
+      'clk_gap', 999999.999999,... %value to patch "Bad or absent clock values"
+      'pos_cor_f', 1e-3,... %mm (used in the auto-correlation fields, represented by STDs)
+      'pos_cor_gap',  0,... %value to patch non-existing correlations (SP3 standard says it should be blank but that's dum)
+      'clk_cor_f',1e-12,... %picoseconds
+      'clk_cor_gap',  0,... %value to patch non-existing correlations (SP3 standard says it should be blank but that's dum)
+      'xcor_f',    1e-7,... %correlation coefficient factor (used in the cross-correlation fields for pos_cor and clk_cor)
+      'vel_f',      1e1,... %dm/s (go figure...) 
+      'vel_gap',      0,... %value to patch "Bad or absent velocity values"
+      'ckr_f',      1e1,... %10**-4 microseconds/second (I kid you not)
+      'ckr_gap', 999999.999999,... %value to patch "Bad or absent clock-rate values"
+      'version_list',{{'k','c'}}...
+    );
   end
-  %read only
-  %NOTICE: needs updated when adding a new data type
   %NOTICE: needs updated when adding a new parameter
-  properties(SetAccess=private)
+  properties
     %parameters
     satname
     frame
     geodatum
     sp3id
+    ctype
+    orbit_type
+    data_used
+    agency
     data_dir
+  end
+  %NOTICE: needs updated when adding a new data type
+  properties(SetAccess=private)
     %data types
     pos
     vel
@@ -76,11 +103,33 @@ classdef orbit
   properties(Dependent)
     time
     localframe
+    tsys
   end
   methods(Static)
     %interface methods to object constants
     function out=data_types
       out=fieldnames(orbit.data_type_list);
+    end
+    function out=data_type_unit(dt,ctype)
+      if ~exist('ctype','var') || isempty(ctype)
+        ctype=orbit.parameters(dt,'ctype');
+      end
+      out=orbit.data_type_list.(dt).(ctype).units;
+    end
+    function out=data_type_name(dt,ctype)
+      if ~exist('ctype','var') || isempty(ctype)
+        ctype=orbit.parameters(dt,'ctype');
+      end
+      out=orbit.data_type_list.(dt).(ctype).names;
+    end
+    function v=data_type_parameters(n)
+      %build varargs cell array for data_type_list
+      dtl_fn=fieldnames(orbit.data_type_list);
+      v=cell(numel(dtl_fn),3);
+      for i=1:numel(dtl_fn)
+        s=orbit.data_type_list.(dtl_fn{i}).size;
+        v(i,:)={dtl_fn{i}, zeros(n,s), @(i) isnumeric(i) && all(size(i)==[n,s])};
+      end
     end
     function out=parameters(i,method)
       persistent v parameter_names
@@ -114,7 +163,8 @@ classdef orbit
           end
         end
       end
-    end    %translation methods
+    end
+    %translation methods
     function out=translateframe(in)
       if ischar(in)
         switch lower(in)
@@ -178,24 +228,37 @@ classdef orbit
         out=[out,'-',orbit_type_now];
       end
     end
+    function out=translatesatname(in)
+      %search for satellite name
+      switch orbit.translatesat(in)
+        case 'ch'; out='CHAMP';
+        case 'ga'; out='GRACE-A';
+        case 'gb'; out='GRACE-B';
+        case 'sa'; out='Swarm-A';
+        case 'sb'; out='Swarm-B';
+        case 'sc'; out='Swarm-C';
+        case 'go'; out='GOCE';            
+        case {'unknown','test'}; out=in; 
+        otherwise
+          error([mfilename,': cannot handle satellite ''',in,'''.'])
+      end
+    end
     function out=translatesp3id(in)
-      switch lower(in)
-        case 'ch'
-          out='TODO!';
-        case 'ga'
-          out='TODO!';
-        case 'gb'
-          out='TODO!';
-        case 'sa'
-          out='L47';
-        case 'sb'
-          out='L48';
-        case 'sc'
-          out='L49';
-        case 'go'
-          out='TODO!';            
+      switch orbit.translatesat(in)
+%         case 'ch'
+%           out='TODO!';
+%         case 'ga'
+%           out='TODO!';
+%         case 'gb'
+%           out='TODO!';
+        case 'sa'; out='L47';
+        case 'sb'; out='L48';
+        case 'sc'; out='L49';
+%         case 'go'
+%           out='TODO!';            
         otherwise
           out='unknown';
+          disp(['WARNING: could not resolve the SP3 id for satellite ''',in,'''.'])
       end
     end
     %data source definitions
@@ -313,7 +376,7 @@ classdef orbit
       p.addRequired( 'start',       @(i) isdatetime(i) && isscalar(i));
       p.addParameter('data_dir',...
         orbit.parameters('data_dir','value'),...
-        orbit.parameters('data_dir','validation');
+        orbit.parameters('data_dir','validation'));
       p.parse(format,satname,start,varargin{:});
       %picking interface routine
       interface=str2func(['orbit.',format,'_filename']);
@@ -329,56 +392,41 @@ classdef orbit
       p.KeepUnmatched=true;
       p.addRequired( 'filename',                          @(i) ischar(i));
       p.addParameter('asciiformat','',                    @(i) ischar(i));
-      p.addParameter('tmpdir',     ['/tmp/orbit.load_ascii-',str.rand(8)], @(i) ischar(i));
       % parse it
       p.parse(filename,varargin{:});
+      %unwrap wildcards and place holders (output is always a cellstr)
+      filename=file.unwrap(filename,varargin{:});
+      %if argument is a cell string, then load all those files
+      if iscellstr(filename)
+        for i=1:numel(filename)
+          disp([mfilename,': reading data from file ',filename{i}])
+          %read the data from a single file
+          obj_now=orbit.load_ascii(filename{i},varargin{:});
+          %skip if empty
+          if isempty(obj_now)
+            continue
+          end
+          %append or initialize
+          if ~exist('obj','var')
+            obj=obj_now;
+          else
+            try
+              obj=obj.append(obj_now);
+            catch
+              obj=obj.augment(obj_now);
+            end
+          end
+        end
+        %in case there are no files, 'filename' will be empty and the loop will be skipped
+        if ~exist('obj','var')
+          obj=[];
+        end
+        return
+      end
       %trivial call
-      if isempty(dir(filename))
+      if exist(filename,'file')==0
         obj=[];
         disp(['WARNING: cannot find file ''',filename,''', skipping it.'])
-        return
-      end
-      % unzip if needed
-      [~,f,e]=fileparts(filename);
-      %prepend tar if there
-      if strcmp(f(end-3:end),'.tar')
-        e=['.tar',e];
-      end
-      try
-        switch lower(e)
-          case {'.z','.zip'}
-            unzipped_filename=unzip(filename,p.Results.tmpdir);
-          case {'.tgz','.tar.gz','.tar'}
-            unzipped_filename=untar(filename,p.Results.tmpdir);
-            %get rid of PaxHeaders
-            unzipped_filename(~cellfun(@isempty,strfind(unzipped_filename,'PaxHeaders')))=[];
-          case {'.gz','.gzip'}
-            unzipped_filename=gunzip(filename,p.Results.tmpdir);
-          otherwise
-            unzipped_filename={};
-        end
-      catch
-        %if the zip file is corrupted, assume data file is missing
-        disp(['WARNING: error extracting archive ''',filename,'''.'])
-        obj=[];
-        return
-      end
-      %handle zipped files
-      if ~isempty(unzipped_filename)
-        %some sanity
-        if ~iscell(unzipped_filename)
-          error([mfilename,': expecting variable ''unzipped_filename'' to be a cellstr, not a ''',...
-            class(unzipped_filename),'''.'])
-        end
-        if numel(unzipped_filename)~=1
-          error([mfilename,': expecting zip archive ''',filename,''' to contain one file only, not ',...
-            num2str(numel(unzipped_filename)),':',10,strjoin(unzipped_filename,'\n')])
-        end
-        %recursive call
-        obj=orbit.load_ascii(unzipped_filename{1},varargin{:});
-        %clean up
-        rmdir(p.Results.tmpdir,'s')
-        %and we're done
         return
       end
       % retrieve the ascii format from the first line of the file, if not given in input arguments.
@@ -391,12 +439,14 @@ classdef orbit
         hline = fgetl(fid);
         fclose(fid);
         %assign format ID
-        if ~isempty(strfind(hline,'ITSG'))
+        if ~isempty(strfind(hline,'#c'))
+          formatID='sp3c';
+        elseif ~isempty(strfind(hline,'#k'))
+          formatID='sp3k';
+        elseif ~isempty(strfind(hline,'ITSG'))
           formatID='ifg';
         elseif ~isempty(strfind(hline,'LEOPOD')) || ~isempty(strfind(hline,'AIUB'))
           formatID='aiub';
-        elseif ~isempty(strfind(hline,'#c'))
-          formatID='sp3';
         else
           formatID='numeric';
         end
@@ -408,73 +458,34 @@ classdef orbit
       switch lower(formatID)
       case 'ifg'
         [t,p,pc,header] = read_ifg(filename);
-        if ~isempty(t)
-          obj=orbit(simpletimeseries.ToDateTime(t,'modifiedjuliandate'),...
-            'pos',      p,...
-            'pos_cor',  pc,...
-            'format',   header.timeformat,...
-            'satname',  header.satname,...
-            'sp3id',    orbit.translatesp3id(header.satname),...
-            'frame',    header.frame,...
-            'geodatum', header.geodatum,...
-            'descriptor',lower(formatID)...
-          );
-        else
-          obj=[];
-        end
+        args={'pos',p,'pos_cor',pc};
       case 'aiub'
         [t,p,pc,m,header] = read_aiub(filename);
-        if ~isempty(t)
-          obj=orbit(simpletimeseries.ToDateTime(t,'gpsweeksecond'),...
-            'pos',      p,...
-            'pos_cor',  pc,...
-            'mask',     m,...
-            'format',   header.timeformat,...
-            'satname',  header.satname,...
-            'sp3id',    header.sp3id,...
-            'frame',    header.frame,...
-            'geodatum', header.geodatum,...
-            'descriptor',lower(formatID)...
-          );
-        else
-          obj=[];
-        end
+        args={'pos',p,'pos_cor',pc,'mask',m};
       case {'numeric','tudelft'}
         [t,p,pc,c,cc,header] = read_numeric(filename);
-        if ~isempty(t)
-          obj=orbit(simpletimeseries.ToDateTime(t,'datevector'),...
-            'pos',      p,...
-            'pos_cor',  pc,...
-            'clk',      c,...
-            'clk_cor',  cc,...
-            'format',   header.timeformat,...
-            'satname',  header.satname,...
-            'sp3id',    orbit.translatesp3id(header.satname),...
-            'frame',    header.frame,...
-            'geodatum', header.geodatum,...
-            'descriptor',lower(formatID)...
-          );
-        else
-          obj=[];
-        end
-      case {'sp3','sp3xcom'}
-        [t,p,v,header] = read_sp3c(filename);
-        if ~isempty(t)
-          obj=orbit(simpletimeseries.ToDateTime(t,'datevector'),...
-            'pos',      p,...
-            'vel',      v,...
-            'format',   header.timeformat,...
-            'satname',  header.satname,...
-            'sp3id',    header.sp3id,...
-            'frame',    header.frame,...
-            'geodatum', header.geodatum,...
-            'descriptor',lower(formatID)...
-          );
-        else
-          obj=[];
-        end
+        args={'pos',p,'pos_cor',pc,'clk',c,'clk_cor',cc};
+      case {'sp3c','sp3xcom','sp3k'}
+        [t,p,v,pc,c,cc,header] = read_sp3(filename);
+        args={'pos',p,'pos_cor',pc,'vel',v,'clk',c,'clk_cor',cc};
       otherwise
         error([mfilename,': unknown format ''',format,'''.'])
+      end
+      if ~isempty(t)
+        obj=orbit(t,...
+          args{:},...
+          'format',    header.timeformat,...
+          'timesystem',header.timesystem,...
+          'satname',   header.satname,...
+          'sp3id',     header.sp3id,...
+          'frame',     header.frame,...
+          'geodatum',  header.geodatum,...
+          'orbit_type',header.type,...
+          'data_used', header.data_used,...
+          'agency',    header.agency...
+        );
+      else
+        obj=[];
       end
     end
     %reads data in any format, over any time period
@@ -670,7 +681,7 @@ classdef orbit
       case 'char'
         switch lower(l)
         case 'formats'
-          a=orbit.test({'tudelft','aiub','ifg','sp3xcom'});
+          out=orbit.test({'tudelft','aiub','ifg','sp3xcom'});
         case 'rel'
           a=orbit.test_parameters('tudelft',orbit.test_parameters('duration'));
           b=orbit.test_parameters('ifg',    orbit.test_parameters('duration'));
@@ -744,12 +755,12 @@ classdef orbit
         dtn=orbit.data_types{j};
         dts=orbit.data_type_list.(dtn).size;
         %declare data types
-        p.addParameter( dtn,           [],         (@(i) isnumeric(i) && size(i,2)==dts && size(i,1)>0));
-        p.addParameter([dtn,'_units'], cell(1,dts),(@(i) iscellstr(i) && numel(i)==dts));
-        p.addParameter([dtn,'_labels'],cell(1,dts),(@(i) iscellstr(i) && numel(i)==dts));
+        p.addParameter( dtn,           [],      (@(i) isnumeric(i) && size(i,2)==dts && size(i,1)>0));
+        p.addParameter([dtn,'_units'], orbit.data_type_unit(dtn), @(i) iscellstr(i) && numel(i)==dts);
+        p.addParameter([dtn,'_names'], orbit.data_type_name(dtn), @(i) iscellstr(i) && numel(i)==dts);
       end
-      %create argument object v and declare parameters p
-      [v,~,obj]=varargs.wrap('parser',p,'sinks',{obj},'sources',{orbit.parameters([],'obj')},'mandatory',{t},varargin{:});
+      %declare parameters p
+      [~,p,obj]=varargs.wrap('parser',p,'sinks',{obj},'sources',{orbit.parameters([],'obj')},'mandatory',{t},varargin{:});
       %clean varargin
       varargin=cells.vararginclean(varargin,p.Parameters);
       % retrieve each data type
@@ -757,13 +768,13 @@ classdef orbit
         %shorter names
         data_type=orbit.data_types{j};
         %skip if this data type is empty
-        if ~isempty(v.(data_type))
+        if ~isempty(p.Results.(data_type))
           %add new data type
           obj=obj.add_data_type(...
             t,...
-            data_type,v.(data_type),...
-            'units',  v.([data_type,'_units']),...
-            'labels', v.([data_type,'_labels']),...
+            data_type,p.Results.(data_type),...
+            'units',  p.Results.([data_type,'_units']),...
+            'labels', p.Results.([data_type,'_names']),...
             varargin{:}...
           );
         end
@@ -778,61 +789,20 @@ classdef orbit
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired('t'         ,@(i) ~isscalar(i)); %this can be char, double, datetime
-      p.addRequired('data_type' ,@(i)    ischar(i)); 
-      p.addRequired('data_value',@(i) ~isscalar(i)); 
-      p.addParameter('units' ,cell(1,size(data_value,2)),@(i) iscell(i) && numel(i)==size(data_value,2))
-      p.addParameter('labels',cell(1,size(data_value,2)),@(i) iscell(i) && numel(i)==size(data_value,2))
+      p.addRequired('data_type' ,@(i)    ischar(i) && cells.isincluded(fieldnames(orbit.data_type_list),i)); 
+      p.addRequired('data_value',@(i) isnumeric(i) && all(size(data_value)==[numel(t),orbit.data_type_list.(data_type).size])); 
+      p.addParameter('units',orbit.data_type_unit(data_type),@(i) iscellstr(i) && numel(i)==size(data_value,2))
+      p.addParameter('names',orbit.data_type_name(data_type),@(i) iscellstr(i) && numel(i)==size(data_value,2))
       % parse it
       p.parse(t,data_type,data_value,varargin{:});
       varargin=cells.vararginclean(varargin,p.Parameters);
       %sanity
-      if ~isempty(obj.(data_type))
-        error([mfilename,': data of type ''',data_type,''' has already been created. Use another method to append data.'])
-      end
-      %check if this is a valid field and retrieve default details
-      valid_data_type=false;
-      for i=1:numel(orbit.data_types)
-        %shorter names
-        dtn=orbit.data_types{i};
-        if strcmp(data_type,dtn)
-          valid_data_type=true;
-          default_units=orbit.data_type_list.(dtn).xyz.units;
-          default_names=orbit.data_type_list.(dtn).xyz.names;
-          data_width=orbit.data_type_list.(dtn).size;
-          default_label=orbit.data_type_list.(dtn).label;
-          break
-        end
-      end
-      if ~valid_data_type
-        error([mfilename,': cannot handle data of type ''',data_type,'''.'])
-      end
-      %check data width
-      if data_width ~= size(data_value,2)
-        error([mfilename,': for data of type ''',data_type,...
-          ''', expecting the nr of cols to be ',num2str(data_width),...
-          ', not ',num2str(size(data_value,2)),'.'])
-      end
-      %propagate units (cannot write to parse objects)
-      units=p.Results.units;
-      %set default units
-      for i=1:size(data_value,2)
-        if isempty(units{i})
-          units{i}=default_units{i};
-        end
-      end
-      %propagate labels (cannot write to parse objects)
-      labels=p.Results.labels;
-      %set default lavels
-      for i=1:size(data_value,2)
-        if isempty(labels{i})
-          labels{i}=[default_names{i},' ',default_label];
-        end
-      end
+      assert(isempty(obj.(data_type)),['data of type ''',data_type,''' has already been created. Use another method to append data.'])
       %call superclass for this data type
       obj.(data_type)=simpletimeseries(...
         p.Results.t,p.Results.data_value,...
-        'units',units,...
-        'labels',labels,...
+        'units', cells.patch_empty(p.Results.units,orbit.data_type_unit(data_type)),...
+        'labels',cells.patch_empty(p.Results.names,orbit.data_type_name(data_type)),...
         varargin{:}...
       );
     end
@@ -901,9 +871,7 @@ classdef orbit
           break
         end
       end
-      if isempty(t)
-        error([mfilename,': all data types are empty.'])
-      end
+      assert(~isempty(t),'all data types are empty.')
     end
     function obj=set.time(obj,t)
       odt=orbit.data_types;
@@ -915,21 +883,34 @@ classdef orbit
       obj.check_time
     end
     function check_time(obj)
-      t=[];
-      f='';
       odt=orbit.data_types;
+      for i=2:numel(odt)
+        if ~obj.isempty(odt{i})
+          assert(obj.(odt{1}).isteq(obj.(odt{i})),...
+            ['time domain discrepancy between data types ''',odt{1},''' and ''',odt{i},'''.']...
+          )
+        end
+      end
+    end
+    function out=get.tsys(obj)
+      out=obj.get('tsys');
+    end
+    function obj=set.tsys(obj,timesystem)
+      %get data types
+      odt=orbit.data_types;
+      %loop over all data types
       for i=1:numel(odt)
+        %check if this data type is not empty and it responds to method
         if ~isempty(obj.(odt{i}))
-          if isempty(t)
-            t=obj.(odt{i}).t;
-            f=odt{i};
-          else
-            if any(t~=obj.(odt{i}).t)
-              error([mfilename,': time domain discrepancy between fields ''',f,''' and ''',odt{i},'''.'])
-            end
+          %check if this is a member
+          if isprop(obj.(odt{i}),'tsys')
+            %call this member (varargin is ignored)
+            obj.(odt{i}).tsys=timesystem;
           end
         end
       end
+      %sanity
+      obj.check_time
     end
     %% satname property
     function out=get.satname(obj)
@@ -937,6 +918,31 @@ classdef orbit
     end
     function obj=set.satname(obj,in)
       obj.satname=orbit.translatesat(in);
+    end
+    %% general data_type scalar get method 
+    function out=get(obj,method,varargin)
+      %get data types
+      odt=orbit.data_types;
+      %make room for outputs
+      out=cell(size(odt));
+      %loop over all data types
+      for i=1:numel(odt)
+        %check if this data type is not empty and it responds to method
+        if ~isempty(obj.(odt{i}))
+          %check if this is a member
+          if ismethod(obj.(odt{i}),method)
+            %use the method on it, pass additional arguments
+            out{i}=obj.(odt{i}).(method)(varargin{:});
+          elseif isprop(obj.(odt{i}),method)
+            %call this member (varargin is ignored)
+            out{i}=obj.(odt{i}).(method);
+          end
+        end
+      end
+      %remove dups and reduce to scalar if possible
+      out=cells.scalar(cells.rm_duplicates(out),'get');
+      %need to return something
+      assert(~isempty(out),'all data types are empty.')
     end
     %% management
     function compatible(obj1,obj2)
@@ -972,6 +978,17 @@ classdef orbit
       end
       if counter==0
         error([mfilename,': there were no common fields in the input objects.'])
+      end
+    end
+    function out=isempty(obj,data_type)
+      if ~exist('data_type','var') || isempty(data_type)
+        odt=orbit.data_types;
+        for i=1:numel(odt)
+          if ~obj.isempty(odt{i});out=false;return;end
+        end
+        out=true;
+      else
+        out=isempty(obj.(data_type)) || all(obj.(data_type).y(:)==0);
       end
     end
     %% operator
@@ -1157,53 +1174,240 @@ classdef orbit
       end
 
     end
-    
+    %% exporting
+    function obj=sp3(obj,filename,varargin)
+      %parameters (may be useful in future dev)
+      nr_sats=1;
+      %gather inputs
+      v=varargs.wrap('sources',{...
+      {...
+        'timesystem' 'gps', @(i) ischar(i); ...
+        'sp3_version', 'k', @(i) ischar(i) && cells.isincluded(orbit.sp3.version_list,i); ...
+        'nr_epochs',   inf, @(i) isnumeric(i) && isscalar(i); ...
+        'comment',{...
+          ['exported to SP3 format with the "orb" package (https://github.com/jgte/orb) on ',datestr(datetime('now'))],...
+           'SP3c format description: ftp://igs.org/pub/data/format/sp3c.txt',...
+           'SP3k format description: Section 6.2 of https://jgte.github.io/gswarm/TN-01/TN-01.pdf',...
+          ['Reference frame: ',upper(obj.frame)]}, @(i) iscellstr(i); ...
+      }},varargin{:});
+      %branch on SP3 version
+      switch v.sp3_version
+        case 'k'
+          p_fmt='%14.7f';
+          pSTD_fmt='%6.1f';
+          EPid='EPx';
+        case 'c'
+          p_fmt='%14.6f';
+          pSTD_fmt='TBD';
+          EPid='EP '; 
+          error('in development')
+        otherwise
+          error(['Cannot handle version ''',v.sp3_version,''' of the SP3 format.'])
+      end
+      %sp3 is alwasy GPS time system
+      obj.tsys=v.timesystem;
+      %gather info
+      if obj.isempty('vel'); PV='P'; else PV='V'; end
+      epoch=obj.get('epoch');
+      nr_epochs=obj.get('length');
+      [gps_week, gps_sow,~] = time.date2gps(datevec(epoch)); 
+      step=seconds(obj.get('step'));
+      mjd=time.mjd(epoch);
+      fraction = time.fod(epoch);
+      timesystem=obj.tsys;
+      sp3id=str.trunc(obj.sp3id,3); %#ok<*PROPLC>
+      %open the file
+      fid=file.open(filename,'w');
+      %build and write  header
+      fprintf(fid,'%s',strjoin({...
+        [...%first line: #kP2016  7 21  0  0 18.00000000   86382 PHASE IGb08 KIN AIUB
+        '#',v.sp3_version,... Version Symbol
+        PV,...   Pos or Vel Flag
+        datestr(epoch,'yyyy mm dd HH MM'),' ',sprintf(... Year/Month/Day/Hour/Minute start
+          '%11.8f %7d %5s %5s %3s %4s',...
+          second(epoch),...                 Second Start
+          nr_epochs,...                     Number of Epochs
+          str.trunc(obj.data_used, 5,'?????'),...   Data Used
+          str.trunc(obj.geodatum,  5,'?????'),...   Coordinate Sys
+          str.trunc(obj.orbit_type,3,'?????'),...   Orbit Type
+          str.trunc(obj.agency,    4,'?????'))...   Agency
+        ],... %second line: ## 1906 345618.00000000     1.00000000 57590 0.0002083333333
+        sprintf('## %4d %15.8f %14.8f %5d %15.13f',gps_week,gps_sow,step,round(mjd),fraction)...
+        ,... %third line: +    1   L49  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+        sprintf('+   %2d   %3s  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0',nr_sats,sp3id)...
+        ,... %lines four to seven
+        '+          0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0',...
+        '+          0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0',...
+        '+          0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0',...
+        '+          0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0'...
+        ,... %lines eight to twelve
+        '++         0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0',...
+        '++         0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0',...
+        '++         0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0',...
+        '++         0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0',...
+        '++         0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0'...
+        ,... %line thirteen
+        sprintf('%%c L  cc %3s ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc',upper(str.trunc(timesystem,3)))...
+        ,... %line fourteen to eighteen
+        '%c cc cc ccc ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc',...
+        '%f  1.2500000  1.025000000  0.00000000000  0.000000000000000',...
+        '%f  0.0000000  0.000000000  0.00000000000  0.000000000000000',...
+        '%i    0    0    0    0      0      0      0      0         0',...
+        '%i    0    0    0    0      0      0      0      0         0'...
+        ,... %lines nineteen to twenty two
+        ['/* ',v.comment{1}],...
+        ['/* ',v.comment{2}],...
+        ['/* ',v.comment{3}],...
+        ['/* ',v.comment{4}]...
+      },newline));
+      %check for missing ingredients
+          pos_data_available=~obj.isempty('pos');
+          clk_data_available=~obj.isempty('clk');
+          vel_data_available=~obj.isempty('vel');
+      pos_cor_data_available=~obj.isempty('pos_cor');
+      clk_cor_data_available=~obj.isempty('clk_cor');
+          pos_missing=orbit.sp3_parameter_list.pos_gap*ones(1,orbit.data_type_list.pos.size);
+          clk_missing=orbit.sp3_parameter_list.clk_gap*ones(1,orbit.data_type_list.clk.size);
+          vel_missing=orbit.sp3_parameter_list.vel_gap*ones(1,orbit.data_type_list.vel.size);
+      pos_cor_missing=orbit.sp3_parameter_list.pos_cor_gap*ones(1,orbit.data_type_list.pos_cor.size);
+      clk_cor_missing=orbit.sp3_parameter_list.clk_cor_gap*ones(1,orbit.data_type_list.clk_cor.size);
+      % TODO: add ckr (clock-rate)
+      ckr_data_available=false;
+      ckr_missing=orbit.sp3_parameter_list.clk_gap*ones(1,orbit.data_type_list.clk.size);
+      %TODO: add vel_cor and ckr_cor
+      %init user feedback registers
+      s.msg=['Writing SP3',v.sp3_version,' file ',filename]; s.n=nr_epochs;
+      %loop over the data
+      for i=1:min([v.nr_epochs,nr_epochs])
+        %init out container
+        out=cell(4,1);c=0;
+        %epoch line: *  2016  7 21  0  0 17.99999982
+        c=c+1;out{c}=[newline,'*  ',datestr(obj.pos.t(i),'yyyy mm dd HH MM'),' ',sprintf('%11.8f',second(obj.pos.t(i)))];
+        %position line: PL49   786.1596743   221.8934896  6763.0011123      0.182021
+        if pos_data_available && obj.pos.mask(i)
+          pos=obj.pos.y(i,:)/orbit.sp3_parameter_list.pos_f;
+        else
+          pos=pos_missing;
+        end
+        if clk_data_available && obj.clk.mask(i)
+          clk=obj.clk.y(i)/orbit.sp3_parameter_list.clk_f;
+        else
+          clk=clk_missing;
+        end
+        if pos_data_available || clk_data_available
+          c=c+1;out{c}=['P',sp3id,sprintf([p_fmt,p_fmt,p_fmt,'%14.6f'],pos,clk)];
+        end
+        %position/clock variances line: EPx    5.6    2.7   14.9     0.   989965  5432462        0  -326637        0        0
+        if pos_cor_data_available && obj.pos_cor.mask(i)
+          pos_cor =sqrt( obj.pos_cor.y(i,1:3));
+          pos_xcor=obj.pos_cor.y(i,4:6);
+        else
+          pos_cor =pos_cor_missing;
+          pos_xcor=pos_cor_missing;
+        end
+        if clk_cor_data_available && obj.pos_cor.mask(i)
+          clk_cor =sqrt( obj.clk_cor.y(i,1  ));
+          clk_xcor=obj.clk_cor.y(i,2:4);
+        else
+          clk_cor =clk_cor_missing(1);
+          clk_xcor=clk_cor_missing(2:4);
+        end
+        if pos_cor_data_available || clk_cor_data_available
+          tmp_pos_cor=[...
+            pos_cor/orbit.sp3_parameter_list.pos_cor_f,...                               xx yy zz
+            round(pos_xcor(1)/pos_cor(1)/pos_cor(2)/orbit.sp3_parameter_list.xcor_f),... xy
+            round(pos_xcor(2)/pos_cor(1)/pos_cor(3)/orbit.sp3_parameter_list.xcor_f),... xz
+            round(pos_xcor(3)/pos_cor(2)/pos_cor(3)/orbit.sp3_parameter_list.xcor_f),... yz
+          ];
+          tmp_clk_cor=[...
+            round(clk_cor/orbit.sp3_parameter_list.clk_cor_f),...                        tt
+            round(clk_xcor(1)/pos_cor(1)/clk_cor/orbit.sp3_parameter_list.xcor_f),...    xt
+            round(clk_xcor(2)/pos_cor(2)/clk_cor/orbit.sp3_parameter_list.xcor_f),...    yt 
+            round(clk_xcor(3)/pos_cor(3)/clk_cor/orbit.sp3_parameter_list.xcor_f)...     zt
+          ];
+          %patch Nans in clk and pos
+          tmp_pos_cor(isnan(tmp_pos_cor))=orbit.sp3_parameter_list.pos_cor_gap;
+          tmp_clk_cor(isnan(tmp_clk_cor))=orbit.sp3_parameter_list.clk_cor_gap;
+          %tmp_pos_cor: xx yy zz xy xz yz
+          %tmp_clk_cor: tt xt yt zt
+          %        SP3: xx yy zz tt xy xz xt yz yt zt
+          c=c+1;out{c}=[EPid,' ',sprintf(...
+            [pSTD_fmt,' ',pSTD_fmt,' ',pSTD_fmt,' %7d %8d %8d %8d %8d %8d %8d',],...
+            tmp_pos_cor(1:3),...  xx yy zz
+            tmp_clk_cor(1),...    tt
+            tmp_pos_cor(4:5),...  xy xz
+            tmp_clk_cor(2),...    xt
+            tmp_pos_cor(6),...    yz
+            tmp_clk_cor(3:4)...   yt zt
+          )];
+        end
+        %velocity line 
+        if vel_data_available && obj.pos.mask(i)
+          vel=obj.vel.y(i,:)/orbit.sp3_parameter_list.vel_f;
+        else
+          vel=vel_missing;
+        end
+        if vel_data_available || ckr_data_available
+          c=c+1;out{c}=['V',sp3id,sprintf([p_fmt,p_fmt,p_fmt,'%14.6f'],vel,ckr_missing)];
+        end
+        %TODO: add vel_cor and ckr_cor
+        %write this epoch to file
+        fprintf(fid,'%s',strjoin(out(1:c),newline));
+        %user feedback
+        s=time.progress(s,i);
+      end
+      %write EOF
+      fprintf(fid,[newline,'EOF']);
+      %close file
+      fclose(fid);
+    end
   end
 end
 
 function [t,pos,pos_cor,header] = read_ifg(filename)
   %parameters
   formatSpec='%21.15f %15.4f %15.4f %15.4f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f';
-  HeaderLines=2;
   %open the file
   disp([mfilename,': loading file ',filename])
   fid=fopen(filename);
-  %read the data (robustly)
-  try
-    d=textscan(fid,formatSpec,'HeaderLines',HeaderLines,'Delimiter',' ','MultipleDelimsAsOne',true);
-  catch
-    error([mfilename,': could not understand the format of the ASCII orbit in file ''',filename,'''.'])
-  end
-  fclose(fid);
-  %sanity
-  if ~iscell(d)
-    error([mfilename,': BUG TRAP: expecting variable ''d'' to be a cell array, not a ',class(d),'.'])
-  end
-  %propagate
-  t=d{1};
-  pos=[d{2:4}];
-  pos_cor=[d{5:10}];
   %retrieve first line
-  fid=fopen(filename);
   hline = fgetl(fid);
-  fclose(fid);
   %find geodetic datum
   GDstr='Geodetic Datum: ';
   idx=strfind(hline,GDstr);
   if isempty(idx)
-    disp(['WARNING: cannot find string ''',GDstr,''' in the header of file ',filename,'; setting default value.'])
-    header.geodatum='unknown';
+    header.geodatum='IGS08';
+    disp(['WARNING: cannot find string ''',GDstr,''' in the header of file ',filename,'; setting default value ''',header.geodatum,'''.'])
     header.satname=hline; %there is no dedicated field for the satellite name but it is (probably) mentioned in the first line of the header
   else
     header.geodatum=strtrim(hline(idx+length(GDstr):end));
-    header.satname=strrep(strrep(strrep(hline,...
-      [', ',GDstr,header.geodatum],''),...
-      '# ITSG - ',''),...
-      ' kinematic orbit','');
+    header.satname=orbit.translatesatname(str.rep(hline,...
+      [', ',GDstr,header.geodatum],'',...
+      '# ITSG - ','',...
+      ' kinematic orbit',''));
   end
   %set known parameters
+  header.sp3id=orbit.translatesp3id(header.satname);
+  header.data_used='u';
+  header.type='KIN';
+  header.agency='TUG';
   header.timeformat='gpstime';
-  header.frame='trf';
+  header.timesystem='gps';
+  header.frame='crf';
+  %read the data (robustly)
+  try
+    d=textscan(fid,formatSpec,'HeaderLines',1,'Delimiter',' ','MultipleDelimsAsOne',true);
+  catch
+    error([mfilename,': could not understand the format of the ASCII orbit in file ''',filename,'''.'])
+  end
+  %close the file
+  fclose(fid);
+  %sanity
+  assert(iscell(d),['BUG TRAP: expecting variable ''d'' to be a cell array, not a ',class(d),'.'])
+  %propagate
+  t=time.ToDateTime(d{1},'modifiedjuliandate');
+  pos=[d{2:4}];
+  pos_cor=[d{5:10}];
 end
 function [t,pos,pos_cor,mask,header] = read_aiub(filename)
   formatSpec=' %4s %3s         %4f %8f  %14f %14f %14f %1s   %13f%13f%13f%13f%13f%13f';
@@ -1211,32 +1415,8 @@ function [t,pos,pos_cor,mask,header] = read_aiub(filename)
   %open the file
   disp([mfilename,': loading file ',filename])
   fid=fopen(filename);
-  %read the data (robustly)
-  try
-    d=textscan(fid,formatSpec,'HeaderLines',HeaderLines,'Delimiter',' ','MultipleDelimsAsOne',true);
-  catch
-    error([mfilename,': could not determine the format of the ASCII orbit in file ''',filename,'''.'])
-  end
-  fclose(fid);
-  %sanity
-  if ~iscell(d)
-    error([mfilename,': BUG TRAP: expecting variable ''d'' to be a cell array, not a ',class(d),'.'])
-  end
-  %make sure the data refers to the same satellite
-  if ~all(strcmp(d{1},d{1}{1})) || ~all(strcmp(d{2},d{2}{1}))
-    error([mfilename,': there are orbits of multiple satellites in file ''',filename,'''; this is not supported.'])
-  end
-  %propagate
-  t=[d{3:4}];
-  pos=[d{5:7}];
-  pos_cor=[d{9:14}];
-  mask=strcmp(d{8},'K');
   %retrieve third line
-  fid=fopen(filename);
-  for i=1:3
-    hline = fgetl(fid);
-  end
-  fclose(fid);
+  for i=1:3; hline = fgetl(fid); end
   %find geodetic datum
   GDstr='GEODETIC DATUM: ';
   GDidx=strfind(hline,GDstr);
@@ -1247,13 +1427,45 @@ function [t,pos,pos_cor,mask,header] = read_aiub(filename)
     header.geodatum='unknown';
   else
     header.geodatum=strtrim(hline(GDidx+length(GDstr):EPidx-1));
+    %the version 01 KIN orbits uploaded to aristarchos by Daniel Arnolds have the incorrect geodatum (personal communication 1/5/2018)
+    if strcmp('IGS08',header.geodatum); header.geodatum='IGb08'; end
   end
-  %header stuff
-  header.satname=d{1}{1};
-  header.sp3id=d{2}{1};
   %set known parameters
   header.timeformat='gpstime';
+  header.timesystem='gps';
   header.frame='trf';
+  header.type='KIN';
+  header.agency='AIUB';
+  header.data_used='PHASE';
+  %retrieve the 4th line
+  hline = fgetl(fid);
+  RMSstr='RMS=';
+  RMSidx=strfind(hline,RMSstr);
+  assert(~isempty(RMSidx),['cannot find string ''',RMSstr,''' in the header of file ',filename,'.'])
+  RMS=str.num(hline(RMSidx+length(RMSstr):end));
+  %back to the top
+  frewind(fid)
+  %read the data (robustly)
+  try
+    d=textscan(fid,formatSpec,'HeaderLines',HeaderLines,'Delimiter',' ','MultipleDelimsAsOne',true);
+  catch
+    error([mfilename,': could not determine the format of the ASCII orbit in file ''',filename,'''.'])
+  end
+  %sanity
+  if ~iscell(d)
+    error([mfilename,': BUG TRAP: expecting variable ''d'' to be a cell array, not a ',class(d),'.'])
+  end
+  %make sure the data refers to the same satellite
+  assert(all(strcmp(d{1}{1},d{1}(2:end))) && all(strcmp(d{2}{1},d{2}(2:end))),...
+    ['file ',filename,' appears to contain data from multiple satellites; this is not currently supported'])
+  %propagate
+  t=time.ToDateTime([d{3:4}],'gpsweeksecond');
+  pos=[d{5:7}];
+  pos_cor=[d{9:14}]*RMS^2;
+  mask=strcmp(d{8},'K') | strcmp(d{8},'G');
+  %more header stuff
+  header.satname=d{1}{1};
+  header.sp3id=d{2}{1};
 end
 function [t,pos,pos_cor,clk,clk_cor,header] = read_numeric(filename)
   formatSpec='';
@@ -1273,24 +1485,34 @@ function [t,pos,pos_cor,clk,clk_cor,header] = read_numeric(filename)
     error([mfilename,': BUG TRAP: expecting variable ''d'' to be a cell array, not a ',class(d),'.'])
   end
   switch numel(d)
-  case 20
+  case {20,21}
     %propagate
-    t=[d{1:6}];
+    t=time.ToDateTime([d{1:6}],'datevector');
     pos=[d{7:9}]*1e3;
     pos_cor=[d{[11:13,15:16,17]}];
-    clk=sqrt(d{10})/299792458;
-    clk_cor=([sqrt(d{14}),d{[17,19,20]}]/299792458);
+    clk=d{10}*1e-6; %microseconds
+    clk_cor=(sqrt([d{14},d{[17,19,20]}])/physconst('LightSpeed')).^2;
   otherwise
     error([mfilename,': cannot understand format of file ''',filename,'''.'])
   end
+  %derive satellite name from filename
+  if     str.contains(lower(filename),'_sa_'); header.satname='Swarm-A';
+  elseif str.contains(lower(filename),'_sb_'); header.satname='Swarm-B';
+  elseif str.contains(lower(filename),'_sc_'); header.satname='Swarm-C';
+  else header.satname='unknown';
+  end
+  header.sp3id=orbit.translatesp3id(header.satname);
   %set known parameters
   header.timeformat='gpstime';
+  header.timesystem='gps';
   header.frame='trf';
+  header.type='KIN';
+  header.agency='TUD';
+  header.data_used='unknown';
   %set also unknown but mandatory parameters
-  header.satname='unknown';
   header.geodatum='unknown';
 end
-function [t,pos,vel,header] = read_sp3c(filename)
+function [t,pos,vel,pos_cor,clk,clk_cor,header] = read_sp3(filename,show_details)
 
 % function [t,pos,vel,header] = read_sp3c(filename)
 %
@@ -1317,30 +1539,39 @@ function [t,pos,vel,header] = read_sp3c(filename)
 % ab: a pridavam dale take rovnou vystup pro hodiny a minuty
 % ab: spatne nacteni rychlosti:       Vel=str2num(line(5:46));
 %
-% Changes by Joao Encarnacao (2/3/2016):
+% Changes by Joao Encarnacao on 2/3/2016:
 % - removed input argument 'type' (detected automatically)
 % - replaced output arguments 'n_hod' 'n_min' 'rok' 'mesic' 'den' ( hour min year month day) with datevec 't'
 % - replaced output 'M' with outputs 't' 'pos' and 'vel'
 % - added extensive sanity on the header section
 % - added header structure
 % - using fscanf to improve speed (about 2x faster)
+% 24/4/2017:
+% - added show_details optional input argument
+% - added ability to read EP and EPx lines
+
+  %optional arguments
+  if ~exist('show_details','var') || isempty(show_details)
+    show_details=false;
+  end
 
   %open the file
   disp([mfilename,': loading file ',filename])
   fid=fopen(filename);
 
   %first reading of the data, to get header and count data
-  n=0;i=0;
+  n=0;i=0;nP=0;nV=0;nEP=0;nEPx=0;
   while(~feof(fid))
     %read this line
     line=fgetl(fid);
+    l=length(line);
     %increment line counter
     i=i+1;
     %retrieve header info
     if i<=22
       %quick format checking
       switch i
-        case  1;    stop = ~strcmp(line(1:2),'#c') && ~strcmp(line(1:2),'#b');
+        case  1;    stop = ~strcmp(line(1:2),'#k') && ~strcmp(line(1:2),'#c') && ~strcmp(line(1:2),'#b');
         case  2;    stop = ~strcmp(line(1:2),'##');
         case  3:7;  stop = ~strcmp(line(1:2),'+ ');
         case  8:12; stop = ~strcmp(line(1:2),'++');
@@ -1407,46 +1638,74 @@ function [t,pos,vel,header] = read_sp3c(filename)
             header.comment=[header.comment,' ',line(4:end)];
           end
       end
-    else
-      %count the number of epochs
-      if line(1)=='*'
-        n=n+1;
-      end
+    %count the number of epochs
+    elseif l>=1 && line(1)=='*'
+      n=n+1;
+    %count the number of P<sp3id> lines
+    elseif l>=4 && strcmpi(line(1:4),['P',header.sp3id])
+      nP=nP+1;
+    %count the number of V lines
+    elseif l>=2 &&  strcmpi(line(1:2),'V ')
+      nV=nV+1;
+    %count the number of EPx lines
+    elseif l>=3 && strcmpi(line(1:3),'EP ')
+      nEP=nEP+1;
+    %count the number of EPx lines
+    elseif l>=4 && strcmpi(line(1:4),'EPx ')
+      nEPx=nEPx+1;
     end
   end
-  %sanity
-  if n==0
-    error([mfilename,': could not find any valid epochs in file ''',filename,'''.'])
+  %update header info
+  header.EPx_flag=nEPx>0;
+  header.EP_flag=nEP>0;
+  %user feedback
+  if show_details
+    disp([...
+      'File               : ',filename,10,...
+      'Version Symbol     : ',header.version,10,...
+      'Pos or Vel Flag    : ',header.PV,10,...
+      'Year Start         : ',num2str(header.year),10,...
+      'Month Start        : ',num2str(header.month),10,...
+      'Day of Month St    : ',num2str(header.dom),10,...
+      'Hour Start         : ',num2str(header.hour),10,...
+      'Minute Start       : ',num2str(header.min),10,...
+      'Second Start       : ',num2str(header.sec),10,...
+      'Data Used          : ',num2str(header.data_used),10,...
+      'Geodetic Datum     : ',header.geodatum,10,...
+      'Orbit type         : ',header.type,10,...
+      'Agency             : ',header.agency,10,...
+      'GPS Week           : ',num2str(header.gpswk),10,...
+      'Seconds of Week    : ',num2str(header.gpswksec),10,...
+      'Mod Jul Day St     : ',num2str(header.mjd),10,...
+      'Fractional Day     : ',num2str(header.dayfrac),10,...
+      'Nr epochs (header) : ',num2str(header.nrepochs),10,...
+      'Nr epochs (actual) : ',num2str(n),10,...
+      'Nr P lines         : ',num2str(nP),10,...
+      'Nr EP lines        : ',num2str(nEP),10,...
+      'Nr EPx lines       : ',num2str(nEPx),10,...
+      'Nr V lines         : ',num2str(nV),...
+    ]);
   end
-%   %user feedback
-%   disp([...
-%     'File               : ',filename,10,...
-%     'Version Symbol     : ',header.version,10,...
-%     'Pos or Vel Flag    : ',header.PV,10,...
-%     'Year Start         : ',num2str(header.year),10,...
-%     'Month Start        : ',num2str(header.month),10,...
-%     'Day of Month St    : ',num2str(header.dom),10,...
-%     'Hour Start         : ',num2str(header.hour),10,...
-%     'Minute Start       : ',num2str(header.min),10,...
-%     'Second Start       : ',num2str(header.sec),10,...
-%     'Data Used          : ',num2str(header.data_used),10,...
-%     'Geodetic Datum     : ',header.geodatum,10,...
-%     'Orbit type         : ',header.type,10,...
-%     'Agency             : ',header.agency,10,...
-%     'GPS Week           : ',num2str(header.gpswk),10,...
-%     'Seconds of Week    : ',num2str(header.gpswksec),10,...
-%     'Mod Jul Day St     : ',num2str(header.mjd),10,...
-%     'Fractional Day     : ',num2str(header.dayfrac),10,...
-%     'Nr epochs (header) : ',num2str(header.nrepochs),10,...
-%     'Nr epochs (actual) : ',num2str(n)...
-%   ]);
+  %sanity
+  assert(n>0,['Could not find any valid epochs in file ''',filename,'''.'])
+  assert(nP==n,['Number of epochs lines (',num2str(n),') not the same as number of P lines (',num2str(nP),').'])
+  if header.vel_flag
+    assert(nV>0,'Header did not specify V flag in line 1/column 3 but data contains ',num2str(nV),' V lines')
+    assert(nV==n,['Number of epochs lines (',num2str(n),') not the same as number of V lines (',num2str(nV),').'])
+  end
+  assert(~(header.EP_flag && header.EPx_flag),'Cannot handle both EP and EPx lines in the same file')
+  if header.EPx_flag
+    assert(nEPx==n,['Number of epochs lines (',num2str(n),') not the same as number of EPx lines (',num2str(nEPx),').'])
+  end
+  if header.EP_flag
+    assert(header.EP_flag && nEP==n,['Number of epochs lines (',num2str(n),') not the same as number of EP lines (',num2str(nEPx),').'])
+  end
   %fixing nr of epochs
   if n~=header.nrepochs
     disp(['WARNING: the number of epochs stated in the header (',num2str(header.nrepochs),...
       ') does not correspond to the actual data (',num2str(n),').'])
     header.nrepochs=n;
   end
-
   %rewind
   frewind(fid)
   %skip header
@@ -1456,22 +1715,54 @@ function [t,pos,vel,header] = read_sp3c(filename)
   %allocating data
   t=nan(n,6);
   pos=nan(n,3);
-  if header.vel_flag
-    vel=nan(n,3);
-  end
+  clk=zeros(n,1);
+  vel=zeros(n,3);
+  pos_cor=zeros(n,6);
+  clk_cor=zeros(n,4);
   %read data
   for i=1:n
     %*  2014 02 01 00 00 00.00000000
     t(i,:)=fscanf(fid,'* %d %d %d %d %d %f\n',6);
     %PL47  2412.4847619 -2988.1083749 -5695.2157915 999999.999999
-    pos(i,:)=fscanf(fid,'P%*3s %f %f %f %*f\n',5)*1e3;
+    %TODO: update the format below to accomodate multiple satellites
+    tmp=fscanf(fid,'P%*3s %f %f %f %f\n',5);
+    pos(i,:)=tmp(1:3)*orbit.sp3_parameter_list.pos_f;
+    clk(i  )=tmp(4  )*orbit.sp3_parameter_list.clk_f;
+    if header.EPx_flag
+      %00000000011111111112222222222333333333344444444445555555555666666666677777777778888888888
+      %12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
+      %EPx    5.6    2.7   14.9     0.   989025  5428204        0  -326219        0        0
+      %        xx     yy     zz      t       xy       xz       xt       yz       yt       zt
+      %         1      2      3      4        5        6        7        8        9       10
+      tmp=fscanf(fid,'EPx %f %f %f %f %d %d %d %d %d %d\n',10);
+    end
+    if header.EP_flag
+      tmp=fscanf(fid,'EP %f %f %f %f %d %d %d %d %d %d\n',10);
+    end
+    if header.EP_flag || header.EPx_flag
+      %convert STDs to SI units
+      tmp(1:3)=tmp(1:3)*orbit.sp3_parameter_list.pos_cor_f;
+      tmp(4  )=tmp(4  )*orbit.sp3_parameter_list.clk_cor_f;
+      %convert correlation coefficient to covariances
+      tmp(5 )=tmp(5 )*orbit.sp3_parameter_list.xcor_f*tmp(1)*tmp(2);
+      tmp(6 )=tmp(6 )*orbit.sp3_parameter_list.xcor_f*tmp(1)*tmp(3);
+      tmp(8 )=tmp(8 )*orbit.sp3_parameter_list.xcor_f*tmp(2)*tmp(3);
+      tmp(7 )=tmp(7 )*orbit.sp3_parameter_list.xcor_f*tmp(1)*tmp(4);
+      tmp(9 )=tmp(9 )*orbit.sp3_parameter_list.xcor_f*tmp(2)*tmp(4);
+      tmp(10)=tmp(10)*orbit.sp3_parameter_list.xcor_f*tmp(3)*tmp(4);
+      %save auto-covariances and cross-covariances
+      pos_cor(i,:)=[tmp(1:3).^2;tmp([5,6,8 ])];
+      clk_cor(i,:)=[tmp(4  ).^2;tmp([7,9,10])];
+    end
     if header.vel_flag
       %VL47-37019.3690920 50917.4070091-42452.2025333      0.000000
-      vel(i,:)=fscanf(fid,'V%*3s %14f %14f %14f %*f\n',5)*1e-1;
+      vel(i,:)=fscanf(fid,'V%*3s %14f %14f %14f %*f\n',5)*orbit.sp3_parameter_list.vel_f;
     end
   end
   fclose(fid);
+  %convert time
+  t=time.ToDateTime(t,'datevector');
   %add known/derived parameters
-  header.satname   = header.sp3id;
+  header.satname   = orbit.translatesatname(header.sp3id);
   header.frame     = 'trf';
 end

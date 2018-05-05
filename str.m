@@ -391,6 +391,14 @@ classdef str
     function out=contains(str,pattern)
       out=~isempty(regexp(str,['.*',pattern,'.*'],'once'));
     end
+    function io=trunc(io,n,default)
+      if isempty(io)
+        io=default;
+      end
+      if length(io)>n
+        io=io(1:min([n,length(io)]));
+      end
+    end
     %% conversion
     %first argument is field width, all remaining inputs are values to print.
     function out=tablify(w,varargin)

@@ -663,6 +663,10 @@ classdef time
       % Converts the date to second of day.
       out=seconds(in-dateshift(in,'start','day'));
     end
+    function out=fod(in)
+      % Converts the date to fraction of day.
+      out=time.sod(in)/seconds(days(1));
+    end
     function out=doy(in)
       % Converts the date to second of day.
       out=days(in-dateshift(in,'start','year')+1);

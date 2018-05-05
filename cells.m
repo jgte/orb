@@ -57,6 +57,22 @@ classdef cells
     function out=rm_empty(in)
       out=in(~cells.isempty(in));
     end
+    function out=rm_duplicates(in)
+      %ignore empty entries
+      out=cells.rm_empty(in);
+      %repeat the search often enough
+      for c=1:numel(out)-1
+        %loop over all elements of the cell array starting form the second
+        for i=2:numel(out)
+          %adapt to smaller out
+          if numel(out)<i;break;end
+          %if this is the same as the first, delete it
+          if out{1}==out{i}; out(i)=[]; end
+        end
+        %we're done if there's only one element
+        if numel(out)==1;break;end
+      end
+    end
     %% overloading strfind
     function out=isstrfind(cellstrin,strin) %this used to be called iscellstrempty
       if iscellstr(strin) && ischar(cellstrin)
@@ -210,6 +226,9 @@ classdef cells
       for i=1:numel(S)
         out{i}=S{i}.(fieldname);
       end
+    end
+    function io=patch_empty(io,patch)
+      if any(isempty(io));io(isempty(io))=patch(isempty(io));end
     end
     %% stuff to handle varargin
     %removes from the varargin-like cell array 'in' the parameters with names defined in the cell array 'parameters'.
