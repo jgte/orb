@@ -1637,7 +1637,9 @@ classdef gravity < simpletimeseries
         out=obj.(strrep(p.Results.method,'-timeseries','')).plot(varargin{:});
       case {'triang','trianglog10'}
         %get triangular plots (don't plot invalid entries)
-        tri_now=obj.masked.tri;
+        obj_masked=obj.masked;
+        if isempty(obj_masked); out=[];return; end
+        tri_now=obj_masked.tri;
         for i=1:numel(tri_now)
           bad_idx=(tri_now{i}==0);
           tri_now{i}(bad_idx)=NaN;

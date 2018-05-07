@@ -1366,10 +1366,14 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       else
         mask=obj.mask&&mask;
       end
-      obj=obj.assign(obj.y(mask,:),'x',obj.x(mask));
-      %sanity
-      assert(all(obj.mask) && ~any(isnan(obj.y(:))),...
-        [mfilename,': making operation failed: found non-unitary mask entries and/or NaNs in the data.'])
+      if ~any(mask)
+        obj=[];
+      else
+        obj=obj.assign(obj.y(mask,:),'x',obj.x(mask));
+        %sanity
+        assert(all(obj.mask) && ~any(isnan(obj.y(:))),...
+          [mfilename,': making operation failed: found non-unitary mask entries and/or NaNs in the data.'])
+      end
     end
     %% invalid methods
     function obj=demasked(obj,invalid)
