@@ -2369,7 +2369,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
     end
     function obj=dot(obj,obj_new)
       %sanity
-      compatible(obj1,obj2,'compatible_parameters',{'x_units'})
+      compatible(obj,obj_new,'compatible_parameters',{'x_units'})
       %consolidate data sets
       [obj,obj_new]=obj.merge(obj_new);
       %operate
@@ -2377,7 +2377,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
     end
     function obj=cross(obj,obj_new)
       %sanity
-      compatible(obj1,obj2,'compatible_parameters',{'x_units'})
+      compatible(obj,obj_new,'compatible_parameters',{'x_units'})
       %consolidate data sets
       [obj,obj_new]=obj.merge(obj_new);
       %operate
