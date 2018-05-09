@@ -595,6 +595,9 @@ classdef file
       end
     end
     function out=up(path,n)
+      if ~exist('n','var') || isempty(n)
+        n=1;
+      end
       path=file.wildcard(path,'disp',false,'scalar_as_strings',true);
       switch exist(path,'dir')
       case 2
