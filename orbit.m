@@ -1213,9 +1213,17 @@ classdef orbit
       [gps_week, gps_sow,~] = time.date2gps(datevec(epoch)); 
       step=seconds(obj.get('step'));
       mjd=time.mjd(epoch);
-      fraction = time.fod(epoch);
+      fraction = mjd-floor(mjd);
       timesystem=obj.tsys;
       sp3id=str.trunc(obj.sp3id,3); %#ok<*PROPLC>
+      %define the epoch string
+      epoch_str=@(i) sprintf('%4d %02d %02d %02d %02d %11.8f',...
+          year(epoch),...
+          month(epoch),...
+          day(epoch),...
+          hour(epoch),...
+          minute(epoch),...
+          second(epoch));
       %open the file
       fid=file.open(filename,'w');
       %build and write  header
@@ -1223,16 +1231,15 @@ classdef orbit
         [...%first line: #kP2016  7 21  0  0 18.00000000   86382 PHASE IGb08 KIN AIUB
         '#',v.sp3_version,... Version Symbol
         PV,...   Pos or Vel Flag
-        datestr(epoch,'yyyy mm dd HH MM'),' ',sprintf(... Year/Month/Day/Hour/Minute start
-          '%11.8f %7d %5s %5s %3s %4s',...
-          second(epoch),...                 Second Start
+        epoch_str(epoch),' ',... Year/Month/Day/Hour/Minute/Second start
+        sprintf('%7d %5s %5s %3s %4s',...
           nr_epochs,...                     Number of Epochs
           str.trunc(obj.data_used, 5,'?????'),...   Data Used
           str.trunc(obj.geodatum,  5,'?????'),...   Coordinate Sys
           str.trunc(obj.orbit_type,3,'?????'),...   Orbit Type
           str.trunc(obj.agency,    4,'?????'))...   Agency
         ],... %second line: ## 1906 345618.00000000     1.00000000 57590 0.0002083333333
-        sprintf('## %4d %15.8f %14.8f %5d %15.13f',gps_week,gps_sow,step,round(mjd),fraction)...
+        sprintf('## %4d %15.8f %14.8f %5d %15.13f',gps_week,gps_sow,step,floor(mjd),fraction)...
         ,... %third line: +    1   L49  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
         sprintf('+   %2d   %3s  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0',nr_sats,sp3id)...
         ,... %lines four to seven
@@ -1282,7 +1289,7 @@ classdef orbit
         %init out container
         out=cell(4,1);c=0;
         %epoch line: *  2016  7 21  0  0 17.99999982
-        c=c+1;out{c}=[newline,'*  ',datestr(obj.pos.t(i),'yyyy mm dd HH MM'),' ',sprintf('%11.8f',second(obj.pos.t(i)))];
+        c=c+1;out{c}=[newline,'*  ',epoch_str(obj.pos.t(i))];
         %position line: PL49   786.1596743   221.8934896  6763.0011123      0.182021
         if pos_data_available && obj.pos.mask(i)
           pos=obj.pos.y(i,:)/orbit.sp3_parameter_list.pos_f;
@@ -1491,14 +1498,14 @@ function [t,pos,pos_cor,clk,clk_cor,header] = read_numeric(filename)
     pos=[d{7:9}]*1e3;
     pos_cor=[d{[11:13,15:16,17]}];
     clk=d{10}*1e-6; %microseconds
-    clk_cor=(sqrt([d{14},d{[17,19,20]}])/physconst('LightSpeed')).^2;
+    clk_cor=[(sqrt(d{14})/physconst('LightSpeed')).^2,[d{[17,19,20]}]/physconst('LightSpeed')];
   otherwise
     error([mfilename,': cannot understand format of file ''',filename,'''.'])
   end
   %derive satellite name from filename
-  if     str.contains(lower(filename),'_sa_'); header.satname='Swarm-A';
-  elseif str.contains(lower(filename),'_sb_'); header.satname='Swarm-B';
-  elseif str.contains(lower(filename),'_sc_'); header.satname='Swarm-C';
+  if     str.contains(lower(filename),'_sa_') || str.contains(upper(filename),'SWARMA'); header.satname='Swarm-A';
+  elseif str.contains(lower(filename),'_sb_') || str.contains(upper(filename),'SWARMB'); header.satname='Swarm-B';
+  elseif str.contains(lower(filename),'_sc_') || str.contains(upper(filename),'SWARMC'); header.satname='Swarm-C';
   else header.satname='unknown';
   end
   header.sp3id=orbit.translatesp3id(header.satname);
@@ -1506,11 +1513,11 @@ function [t,pos,pos_cor,clk,clk_cor,header] = read_numeric(filename)
   header.timeformat='gpstime';
   header.timesystem='gps';
   header.frame='trf';
-  header.type='KIN';
+  header.type='FIT';
   header.agency='TUD';
-  header.data_used='unknown';
+  header.data_used='ud';
   %set also unknown but mandatory parameters
-  header.geodatum='unknown';
+  header.geodatum='IGS14';
 end
 function [t,pos,vel,pos_cor,clk,clk_cor,header] = read_sp3(filename,show_details)
 
