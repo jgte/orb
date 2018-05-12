@@ -90,6 +90,14 @@ classdef cells
     function out=strfind(cellstrin,strin) %this used to be called cellstrfind
       out=find(cells.isstrfind(cellstrin,strin));
     end
+    function io=rm_strfind(io,strin)
+      idx=cells.strfind(io,strin);
+      if isempty(idx); return; end
+      for i=1:numel(idx)
+        io{idx(i)}=[];
+      end
+      io=cells.rm_empty(io);
+    end    
     function out=isincluded(cellstrin,strin)
       out=any(cells.isstrfind(cellstrin,strin));
     end
