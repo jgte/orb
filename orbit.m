@@ -1217,13 +1217,13 @@ classdef orbit
       timesystem=obj.tsys;
       sp3id=str.trunc(obj.sp3id,3); %#ok<*PROPLC>
       %define the epoch string
-      epoch_str=@(i) sprintf('%4d %02d %02d %02d %02d %11.8f',...
-          year(epoch),...
-          month(epoch),...
-          day(epoch),...
-          hour(epoch),...
-          minute(epoch),...
-          second(epoch));
+      epoch_str=@(i) sprintf('%4d %02d %02d %02d %02d %011.8f',...
+          year(i),...
+          month(i),...
+          day(i),...
+          hour(i),...
+          minute(i),...
+          second(i));
       %open the file
       fid=file.open(filename,'w');
       %build and write  header
@@ -1491,12 +1491,15 @@ function [t,pos,pos_cor,clk,clk_cor,header] = read_numeric(filename)
   if ~iscell(d)
     error([mfilename,': BUG TRAP: expecting variable ''d'' to be a cell array, not a ',class(d),'.'])
   end
+  %TU Delft format:
+  %1    2  3  4  5  6      7 8 9 10 11 12 13 14 15 16 17 18 19 20
+  %YYYY MM DD hh mm ss.sss x y z t  xx yy zz tt xy xz xt yz yt zt
   switch numel(d)
   case {20,21}
     %propagate
-    t=time.ToDateTime([d{1:6}],'datevector');
-    pos=[d{7:9}]*1e3;
-    pos_cor=[d{[11:13,15:16,17]}];
+    t=time.ToDateTime([d{1:6}],'datevector'); %YYYY MM DD hh mm ss.sss
+    pos=[d{7:9}]*1e3;                         %x y z
+    pos_cor=[d{[11:13,15:16,18]}];            %xx yy zz, xy xz, yz
     clk=d{10}*1e-6; %microseconds
     clk_cor=[(sqrt(d{14})/physconst('LightSpeed')).^2,[d{[17,19,20]}]/physconst('LightSpeed')];
   otherwise
