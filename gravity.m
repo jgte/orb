@@ -461,7 +461,11 @@ classdef gravity < simpletimeseries
         otherwise
           error([mfilename,': cannot handle models of type ''',fmt,'''.'])
         end
-        save(mat_filename,'m','e')
+        try
+          save(mat_filename,'m','e')
+        catch
+          disp(['Could not save ''',mat_filename,'''.'])
+        end
       else
         %NOTICE: input argument 'time' is ignored here; only by coincidence (or design,
         %        e.g. if gravity.load_dir is used) will time be same as the one saved
