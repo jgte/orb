@@ -1605,12 +1605,13 @@ classdef gravity < simpletimeseries
       p=inputParser;
       p.KeepUnmatched=true;
       % optional arguments
-      p.addParameter('method',   'drms',   @(i)ischar(i));
-      p.addParameter('showlegend',false,   @(i)islogical(i));
-      p.addParameter('line',     '-',      @(i)ischar(i));
-      p.addParameter('title',    '',       @(i)ischar(i));
+      p.addParameter('method',   'drms',    @(i) ischar(i));
+      p.addParameter('showlegend',false,    @(i) islogical(i));
+      p.addParameter('line',     '-',       @(i) ischar(i));
+      p.addParameter('title',    '',        @(i) ischar(i));
       p.addParameter('functional',obj.funct,@(i) ischar(i));
-      p.addParameter('time',      [],      @(i) simpletimeseries.valid_t(i) || isempty(i));
+      p.addParameter('time',      [],       @(i) simpletimeseries.valid_t(i) || isempty(i));
+      p.addParameter('colormap',  '',       @(i) ischar(i) || ismatrix(i));
       % parse it
       p.parse(varargin{:});
       % enforce requested functional
@@ -1651,6 +1652,9 @@ classdef gravity < simpletimeseries
           end
           ylabel('SH degree')
           xlabel('SH order')
+          if ~isempty(p.Results.colormap)
+            colormap(p.Results.colormap)
+          end
           out.cb=colorbar;
           cb.nan;
           if strcmpi(p.Results.method,'trianglog10')
