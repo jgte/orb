@@ -506,7 +506,7 @@ classdef file
         str.say('stack_delta',1,r)
         out={};
       else
-        out=cells.rm_empty(strsplit(r,char(10)));
+        out=cells.rm_empty(strsplit(r,newline));
       end
     end
     function [out,s]=rsync(from,to,more_args,args)
