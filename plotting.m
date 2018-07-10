@@ -132,7 +132,7 @@ classdef plotting
         end
         %get colororder according to branch
         switch (branch)
-        case{0}
+        case 0
           colororder=[
             0     0     1 %blue
             1     0     0 %red
@@ -142,7 +142,7 @@ classdef plotting
             1     1     0 %yellow
             0     0     0 %black
           ];
-        case{1}
+        case 1
           % http://blogs.mathworks.com/pick/2008/08/15/colors-for-your-multi-line-plots/#comment-12842
           colororder = [
               0.00  0.00  1.00
@@ -166,7 +166,7 @@ classdef plotting
               0.66  0.34  0.65
               0.99  0.41  0.23
           ];
-        case{2}
+        case 2
           % color spiral map size
           n=length(lines);
           %number of points in the extremeties to remove
@@ -211,6 +211,9 @@ classdef plotting
             clr{i}=colororder(i,:);
         end
       end
+      %make sure variable clr is defined; if not, that usually means
+      %there are no lines in this plot
+      if ~exist('clr','var'); return; end
       %enforce reverse order of colours
       if ~isempty(strfind(mode,'-reversed'))
         clr=flipud(clr);
