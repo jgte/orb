@@ -62,7 +62,6 @@ classdef gravity < simpletimeseries
     %NOTE: edit this if you add a new parameter (if relevant)
     compatible_parameter_list={'GM','R','functional','lmax'};
   end
-  %read only
   properties(SetAccess=public)
     GM
     R
@@ -546,6 +545,7 @@ classdef gravity < simpletimeseries
           'AIUB',    21;...
           'ASU',     20;...
           'IFG',     20;...
+          'OSU',     20;...
         };
       end
       idx=0;
@@ -572,7 +572,7 @@ classdef gravity < simpletimeseries
       p.addParameter('stop',  [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i)));
       p.parse(dirname,format,date_parser,varargin{:})
       %retrieve all gsm files in the specified dir
-      filelist=file.unwrap(fullfile(dirname,p.Results.wilcarded_filename));
+      filelist=cells.scalar(file.unwrap(fullfile(dirname,p.Results.wilcarded_filename)),'set');
       %this counter is needed to report the duplicate models correctly
       c=0;init_flag=true;
       %loop over all models
@@ -1384,6 +1384,10 @@ classdef gravity < simpletimeseries
     function s=scale_nopd(obj,~)
       s=1./obj.nopd;
     end
+    % trap for no scaling
+    function s=scale_none(obj,~)
+      s=ones(1,obj.lmax+1);
+    end
     % scale operation agregator
     function out=scale_factor(obj,s,method)
       out=obj.(['scale_',method])(s);
@@ -1491,9 +1495,9 @@ classdef gravity < simpletimeseries
         obj.t,...
         d(:,end),...
         'format','datetime',...
-        'labels',{obj.functional_name},...
+        'labels',{['cumulative RMS @ degree ',num2str(obj.lmax)]},...
         'timesystem',obj.timesystem,...
-        'units',obj.functional_unit,...
+        'units',{obj.functional_unit},...
         'descriptor',['degree ',num2str(obj.lmax),' cumdrms of ',obj.descriptor]...
       );      
     end
