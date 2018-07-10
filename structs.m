@@ -158,7 +158,9 @@ classdef structs
       if ~exist('parents2','var');parents2={};end
       fl1=structs.field_list(S1,parents1);
       fl2=structs.field_list(S2,parents2);
-      out=all(strcmp(cells.flatten(fl1),cells.flatten(fl2)));
+      fl1f=cells.flatten(fl1);
+      fl2f=cells.flatten(fl2);
+      out=numel(fl1f) == numel(fl2f) && all(strcmp(fl1f,fl2f));
     end
     %like field_list but accepts '*' entries in field_path
     function out=field_list_glob(S,field_path)
