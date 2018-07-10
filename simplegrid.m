@@ -10,6 +10,19 @@ classdef simplegrid < simpletimeseries
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
     compatible_parameter_list={'sp_units'};
+    %catchment list: name, lat, lon
+    catchment_list={...
+      'Amazon',        [ -16,  4],[ -70 -47];...
+      'Greenland',     [  65  85],[ -60 -23];...
+%       'W Antarctica',  [ -80 -72],[-130 -80];...
+%       'E Antarctica',  [ -80 -68],[  80 130];...
+%       'Siberia',       [  50  65],[  68 102];...
+      'W Sub-Sahara',  [   7  15],[ -15  -1];...
+%       'Great Lakes',   [  50  67],[-100 -70];...
+%       'Severny Island',[  66  78],[  38  67];...
+      'Zambezi',       [ -21  -7],[  18  38];...
+      'Ganges-Brahm',  [  15  30],[  80 105];...
+    };
   end
   %read only
   properties(SetAccess=private)
@@ -84,6 +97,7 @@ classdef simplegrid < simpletimeseries
     end
     %% lon and lat handlers
     function out=getLimits(lon,lat)
+      lon=wrapTo360(lon);
       out = [ min(lon(:)) max(lon(:)) min(lat(:)) max(lat(:)) ];
     end
     function out=lon_default(n)
@@ -161,7 +175,7 @@ classdef simplegrid < simpletimeseries
       out=size(vecmat.map);
     end
     function vectmat=vecmat_init(t,map,lon,lat)
-      vectmat=struct('t',t,'lon',lon,'lat',lat,'map',map);
+      vectmat=struct('t',t,'lon',wrapTo360(lon),'lat',lat,'map',map);
     end
     %% list representation (lat, lon and t are vectors, map is a 2D matrix, with time changing along the rows)
     function       out=list_valid(list)
@@ -239,7 +253,7 @@ classdef simplegrid < simpletimeseries
       out = [ numel(unique(list.lon(:))) numel(unique(list.lat(:))) numel(list.t) ];
     end
     function      list=list_init(t,map,lon,lat)
-      list=struct('t',t,'lon',lon,'lat',lat,'map',map);
+      list=struct('t',t,'lon',wrapTo360(lon),'lat',lat,'map',map);
     end
     %% flatlist representation (lat, lon, t and map are vectors, all have the same length)
     function       out=flatlist_valid(flatlist)
@@ -324,7 +338,7 @@ classdef simplegrid < simpletimeseries
       out = [ numel(unique(list.lon(:))) numel(unique(list.lat(:))) numel(unique(list.t)) ];
     end
     function      list=flatlist_init(t,map,lon,lat)
-      list=struct('t',t,'lon',lon,'lat',lat,'map',map);
+      list=struct('t',t,'lon',wrapTo360(lon),'lat',lat,'map',map);
     end
     %% matrix representation (lat and lon are 2D matrices, map is a 3D matrix with time changing along the right-most dim)
     function    out=matrix_valid(matrix)
@@ -402,7 +416,7 @@ classdef simplegrid < simpletimeseries
       out=size(matrix.map);
     end
     function matrix=matrix_init(t,map,lon,lat)
-      matrix=struct('t',t,'lon',lon,'lat',lat,'map',map);
+      matrix=struct('t',t,'lon',wrapTo360(lon),'lat',lat,'map',map);
     end
     %% vecmat and list convertions
     function [vecmat,idx]=list2vecmat(list)
@@ -669,7 +683,20 @@ classdef simplegrid < simpletimeseries
         isnan(coast.lat) | isnan(coast.long)  ...
       );
       h=plot(coast.long(keep_idx),coast.lat(keep_idx),'LineWidth',p.Results.line_width,'Color',p.Results.line_color);
-  end
+    end
+    %% catchment handling
+    function out=catchment_idx(name)
+      out=cells.strfind(simplegrid.catchment_list(:,1),name);
+      assert(~isempty(out),['Cannot handle catchment ''',name,'''.'])
+    end
+    function out=catchment_details(name,field)
+      idx=simplegrid.catchment_idx(name);
+      switch field
+      case 'lat'; out=simplegrid.catchment_list{idx,2};
+      case 'lon'; out=simplegrid.catchment_list{idx,3};
+      otherwise; error(['Cannot handle field ''',field,'''.'])
+      end    
+    end
     %% tests
     %general test for the current object
     function out=test_parameters(field,l,w)
@@ -1177,8 +1204,9 @@ classdef simplegrid < simpletimeseries
       %get the spatial mask
       mask=struct(...
         'lat',obj.lat>=lat_limits(1) & obj.lat<=lat_limits(2), ...
-        'lon',wrapTo180(obj.lon)>=wrapTo180(lon_limits(1)) & wrapTo180(obj.lon)<=wrapTo180(lon_limits(2)) ...
+        'lon',obj.lon360>=wrapTo360(lon_limits(1)) & wrapTo360(obj.lon)<=wrapTo360(lon_limits(2)) ...
       );
+%         'lon',wrapTo180(obj.lon)>=wrapTo180(lon_limits(1)) & wrapTo180(obj.lon)<=wrapTo180(lon_limits(2)) ...
       %apply the mask
       m.lat=m.lat(mask.lat,mask.lon);
       m.lon=m.lon(mask.lat,mask.lon);
@@ -1336,7 +1364,8 @@ classdef simplegrid < simpletimeseries
       p.addParameter('cb_loc','SouthOutside',@(i) ischar(i));
       p.addParameter('cb_title',       '', @(i) ischar(i));
       p.addParameter('bias',            0, @(i) isscalar(i) && isnumeric(i));
-      p.addParameter('boxes',          {}, @(i) isstruct(i));
+      p.addParameter('boxes',          {}, @(i) iscell(i));
+      p.addParameter('boxes_fmt', {'r--'}, @(i) iscellstr(i));
       p.parse(varargin{:});
       %interpolate at the requested time and resample to center of grid
       obj_interp=obj.interp(p.Results.t).center_resample;
@@ -1373,11 +1402,12 @@ classdef simplegrid < simpletimeseries
       %add boxes
       if ~isempty(p.Results.boxes)
         b=p.Results.boxes;
-        for i=1:numel(b)
+        b_fmt=cells.deal(p.Results.boxes_fmt,numel(b));
+        for i=1:size(b,1)
           plot(...
-            wrapTo180([b(i).lon(1) b(i).lon(2) b(i).lon(2) b(i).lon(1) b(i).lon(1)]),...
-            [b(i).lat(1) b(i).lat(1) b(i).lat(2) b(i).lat(2) b(i).lat(1)],...
-            b(i).line{:}...
+  wrapTo180([b{i,3}(1) b{i,3}(2) b{i,3}(2) b{i,3}(1) b{i,3}(1)]),...
+            [b{i,2}(1) b{i,2}(1) b{i,2}(2) b{i,2}(2) b{i,2}(1)],...
+            b_fmt{i},'LineWidth',3 ...
           );
         end
       end
@@ -1435,6 +1465,40 @@ classdef simplegrid < simpletimeseries
 %         end
 %       end
 %     end
+
+    function out=catchment(obj,name,varargin)
+      %TODO: needs testing
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('parametric_decomposition', false, @(i) islogical(i)); %turn on for additional plotting of parametric decomposition
+      p.addParameter('plot_parametric_components',{''}, @(i) iscellstr(i)); %define the parametric components *to plot* (use 
+                                                                            %'polynomial' and 'sinusoidal' to define the decomposition)
+      p.addParameter('parametric_components_line_fmt',{'--'},@(i) isstring(i));
+      p.parse(varargin{:});
+      %save name of this catchment
+      out.name=name;
+      %compute storage timeseries on this catchment
+      out.ws=obj.spatial_crop(simplegrid.catchment_details(name,'lon'),simplegrid.catchment_details(name,'lat')).spatial_mean;
+      %plot it
+      out.plot=out.ws.plot(varargin{:});
+      %add parametric decompositions (if requested)
+      if p.Results.parametric_decomposition
+        %decompose
+        out.pws=out.ws.parametric_decomposition(varargin{:});
+        %accumulate components to plot
+        for i=1:numel(p.Results.plot_parametric_components)
+          if i==1
+            out.pwst=out.pws.(['ts_',p.Results.plot_parametric_components{i}]);
+          else
+            out.pwst=out.pwst+out.pws.(['ts_',p.Results.plot_parametric_components{i}]);
+          end
+          out.pwst_val.(p.Results.plot_parametric_components{i})=out.pws.(p.Results.plot_parametric_components{i}).y_masked;
+        end
+        %plot it
+        out.pwst.plot('line',p.Results.parametric_components_line_fmt)
+      end
+      title(name)
+    end
   end
 end
 
