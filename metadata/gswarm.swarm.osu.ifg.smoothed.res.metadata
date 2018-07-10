@@ -1,0 +1,3 @@
+sources: [gswarm.swarm.osu.ifg.smoothed,gswarm.grace.gfz.rl05.smoothed]
+submetadata1: model.residual.submetadata
+submetadata2: model.plotting.submetadata

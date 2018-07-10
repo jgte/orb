@@ -1,0 +1,3 @@
+sources: [gswarm.swarm.osu.ifg]
+submetadata1: model.smoothing.submetadata
+submetadata2: model.plotting.submetadata

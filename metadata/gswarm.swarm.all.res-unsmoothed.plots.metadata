@@ -3,8 +3,12 @@ method: gswarm.plot_stats
 sources: [
   gswarm.grace.gfz.rl05,
   gswarm.swarm.aiub.aiub,
+  gswarm.swarm.asu.aiub,
   gswarm.swarm.asu.ifg,
+  gswarm.swarm.asu.tud,
+  gswarm.swarm.ifg.aiub,
   gswarm.swarm.ifg.ifg,
+  gswarm.swarm.ifg.tud,
   gswarm.swarm.osu.ifg
 ]
 stats_relative_to: gswarm.grace.gfz.rl05
@@ -17,10 +21,8 @@ plot_xdateformat: yy/mm
 plot_functional: geoid
 plot_legend_suppress: [smoothed,res]
 plot_title_suppress: [gswarm,swarm,smoothed,res,signal]
-plot_visible: true
+plot_visible: false
 plot_max_degree: 40
-plot_corrcoeff_caxis: [0,1]
-plot_rmsdiff_caxis: [0,0.0045]
-plot_stddiff_caxis: [0,0.0035]
+plot_temp_stat_list: [none]
 plot_smoothing_degree: 750e3
 plot_smoothing_method: gauss

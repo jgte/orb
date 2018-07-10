@@ -1,6 +1,6 @@
-import_dir: <getenv('HOME')>/data/gswarm/ifg/gravity/
+import_dir: <getenv('HOME')>/data/gswarm/osu/gravity/
 model_types: [signal,error]
-wilcarded_filename: GSWARM_GF_SABC_IFG_*_AIUB.gfc
+wilcarded_filename: GSWARM_GF_SABC_OSU_*_IFG.gfc
 model_format: gfc
 date_parser: gravity.parse_epoch_gswarm
 submetadata1: model.processing.submetadata

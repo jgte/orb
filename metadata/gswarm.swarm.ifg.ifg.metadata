@@ -1,7 +1,7 @@
-import_dir: <getenv('HOME')>/data/gswarm/ifg/gravity/ifg/03/
+import_dir: <getenv('HOME')>/data/gswarm/ifg/gravity/
 model_types: [signal,error]
-wilcarded_filename: coeff-*-SaSbSc-IfG.gfc
+wilcarded_filename: GSWARM_GF_SABC_IFG_*_IFG.gfc
 model_format: gfc
-date_parser: gravity.parse_epoch_ifg
+date_parser: gravity.parse_epoch_gswarm
 submetadata1: model.processing.submetadata
 submetadata2: model.plotting.submetadata
