@@ -3,6 +3,10 @@ classdef file
     %NOTICE: this used to be called 'DATE_PLACE_HOLDER'
     dateplaceholder='DATE_PLACEHOLDER';
     archivedfilesext={'.gz','.gzip','.z','.zip','.tgz','.tar.gz','.tar'};
+    homes={...
+      '/home1/00767/byaa676';...
+      '/Users/teixeira';...
+    };
   end
   methods(Static)
     function valid=isfid(fid)
@@ -243,6 +247,15 @@ classdef file
         end
       end
     end
+    %resolves filenames that exist in multiple machines, each one with a home directory listed in file.homes
+    function io=resolve(io)
+      for i=1:numel(file.homes)
+        io=str.rep(io,file.homes{i},'~');
+      end
+    end
+    function io=unresolve(io)
+      io=str.rep(io,'~',getenv('HOME'));
+    end
     %handling wildcards and .mat files
     function [filenames,wildcarded_flag]=wildcard(in,varargin)
       % FILENAMES = FILENAME_WILDCARD(STR) looks for files which fit the wilcard
@@ -296,6 +309,8 @@ classdef file
         end
         return
       end
+      %resolve home dirs
+      in=file.resolve(in);
       %turn off advanced features: trailing wildcard messes up big time the .mat and zipped files handling
       simple_file_search=(in(end)=='*');
       %wildcard character '*' needs to be translated to '.*' (if not already)
@@ -445,15 +460,15 @@ classdef file
         switch lower(e)
         case {'.z','.zip'}
           arch=true;
-          filenames=unzip(in,d);
+          filenames=file.resolve(unzip(in,file.unresolve(d)));
         case {'.tgz','.tar.gz','.tar'}
           arch=true;
-          filenames=untar(in,d);
+          filenames=file.resolve(untar(in,file.unresolve(d)));
           %get rid of PaxHeaders
           filenames(cells.cellstrin(filenames,'PaxHeaders'))=[];
         case {'.gz','.gzip'}
           arch=true;
-          filenames=gunzip(in,d);
+          filenames=file.resolve(gunzip(in,file.unresolve(d)));
         otherwise
           arch=false;  
         end
@@ -563,10 +578,6 @@ classdef file
       end
     end
     function io=exist(io)
-      io=str.rep(io,...
-        '/Users/teixeira/cloud/Work/projects','~/projects',...
-        '/Users/teixeira','~',...
-        '/home1/00767/byaa676','~');
       io=~isempty(file.unwrap(io,...
         'disp',             false,...
         'directories_only', false,...
