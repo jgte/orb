@@ -1,5 +1,5 @@
 classdef cells
-  methods(Static)
+    methods(Static)
     function y = flatten(x)
       % https://github.com/ronw/ronw-matlab-tools/blob/master/celltools/flatten.m
       if ~iscell(x)
@@ -99,6 +99,8 @@ classdef cells
       io=cells.rm_empty(io);
     end    
     function out=isincluded(cellstrin,strin)
+      %N.B. this is not the same as ismember (isincluded returns true of strin is a sub-string
+      %of any entries in cellstrin, unlike ismember where the whole entry must be the same)
       out=any(cells.isstrfind(cellstrin,strin));
     end
     function out=cellstrget(cellstrin,strin)
@@ -217,7 +219,7 @@ classdef cells
     end
     %depending on the value of 'direction' (defaults to 'set'):
     % - if get: checks if there is only one cell entry, if so return it; otherwise nothing changes
-    % - if set: checks if it's a cell array, if so return it; otherwise make it a cell and return in
+    % - if set: checks if it's a cell array, if so return it; otherwise make it a cell and return io
     function io=scalar(io,direction)
       if ~exist('direction','var') || isempty(direction)
         direction='get';
