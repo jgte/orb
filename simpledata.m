@@ -451,6 +451,25 @@
       y_now=cell2mat(arrayfun(@(i) sin(x(:)*i),w,'UniformOutput',false));
       out=simpledata(x(:),y_now,varargin{:});
     end
+    %% aux routines
+    function out=parametric_component_fieldnames(varargin)
+      %converts {'polynomial',[1 1 1],'sinusoidal',[n1, n2, n3]} into {p0,p1,p2,s1,s2,s3,c1,c2,c3}
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('polynomial',[], @(i) isnumeric(i) || isempty(i));
+      p.addParameter('sinusoidal',[], @(i) isnumeric(i) || isduration(i) || isempty(i));
+      p.parse(varargin{:});
+      out=cell(1,numel(p.Results.polynomial)+2*numel(p.Results.sinusoidal));
+      for i=1:numel(p.Results.polynomial)
+        out{i}=['p',num2str(i-1)];
+      end
+      for i=1:numel(p.Results.sinusoidal)
+        out{numel(p.Results.polynomial)+i}=['s',num2str(i)];
+      end
+      for i=1:numel(p.Results.sinusoidal)
+        out{numel(p.Results.polynomial)+numel(p.Results.sinusoidal)+i}=['c',num2str(i)];
+      end
+    end
     %% general test for the current object
     function out=test_parameters(field,varargin)
       %basic parameters
