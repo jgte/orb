@@ -1231,7 +1231,7 @@ classdef csr
     %% estimedir data handling
     function out=estimdata_load(varargin)
       persistent estimdata
-      % add input arguments and metadata to collection of parameters 'v'
+      % add input arguments to collection of parameters 'v'
       v=varargs.wrap('sources',{{...
         'estimdir_file', csr.estimdir_file,  @(i) ischar(i) && exist(i,'file')~=0;...
       }},varargin{:});
@@ -2188,7 +2188,8 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
     end
     function obj=estimate_poly_calmod(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
-
+      %TODO: calpar_cyclesperday has been replaced with calpar_cyclesperday_value and calpar_cyclesperday_pattern (in arc_timeseries) to handle scales
+      %TODO: implement estimating scales along with biases
       %sanity
       assert(product.nr_sources==2,...
         ['number of sources in product ',product.str,...
@@ -2456,7 +2457,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       %set clearer labels
       ts{1}.labels={'L1B','L1B','L1B'};
       ts{2}.labels={'mod','mod','mod'};
-      ts{3}.labels={'calmod','calmod','calmod'};
+      ts{3}.labels={'cal','cal','cal'};
       %enforce common gaps
       ts=simpledata.op_multiple({'merge','mask_match'},ts,'estimate_temp_corr');
       %make room for outputs
