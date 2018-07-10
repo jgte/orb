@@ -1,7 +1,7 @@
-import_dir: <getenv('HOME')>/data/gswarm/asu/gravity/ASU-Swarm-nmax40-orbits_AIUB-gfc/
+import_dir: <getenv('HOME')>/data/gswarm/asu/gravity/
 model_types: [signal,error]
-wilcarded_filename: asu-swarm-*-nmax40-orbits-aiub.gfc
+wilcarded_filename: GSWARM_GF_SABC_ASU_*_AIUB.gfc
 model_format: gfc
-date_parser: gravity.parse_epoch_asu
+date_parser: gravity.parse_epoch_gswarm
 submetadata1: model.processing.submetadata
 submetadata2: model.plotting.submetadata

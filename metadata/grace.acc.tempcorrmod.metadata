@@ -1,5 +1,5 @@
 method: csr.estimate_temp_corr
-sources: [grace.acc.l1b.csr,grace.acc.mod.nrtdm,grace.acc.calmod.csr_direct,grace.ahk.l1b]
+sources: [grace.acc.l1b.csr,grace.acc.mod.nrtdm,grace.acc.cal.estimdir,grace.ahk.l1b]
 source_fields_from: grace.acc.l1b.csr
 storage_period: daily
 plot_columns: [1,2,3]

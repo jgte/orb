@@ -12,3 +12,5 @@ metadata/csr.to-delete
 startup.m
 yamlmatlab
 import_calpar
+obsolete
+retired

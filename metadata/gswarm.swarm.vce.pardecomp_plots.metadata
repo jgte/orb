@@ -19,6 +19,7 @@ plot_smoothing_method: gauss
 #plot_smoothing_degree: 1000e3
 plot_smoothing_degree: 750e3
 #plot_smoothing_degree: 500e3
+
 plot_functional: geoid
 plot_amplitude_range: [0.009,0.003,0.001]
 plot_poly_range: [0.012,0.004]

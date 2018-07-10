@@ -1,6 +1,6 @@
 storage_period: global
 method: gswarm.stats
-derived_quantity: cumdas
+derived_quantity: cumdrms
 functional: geoid
 stats: [mean,std,max,min]
 stats_outlier: 0
