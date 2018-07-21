@@ -1,0 +1,6 @@
+method: gswarm.combine_models
+sources: [gswarm.swarm.aiub.aiub,gswarm.swarm.asu.ifg,gswarm.swarm.ifg.ifg]
+storage_period: monthly
+combination_type: mean
+submetadata1: model.plotting.submetadata
+

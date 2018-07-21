@@ -3,7 +3,7 @@ sources: [
   gswarm.swarm.aiub.aiub.smoothed,
   gswarm.swarm.asu.ifg.smoothed,
   gswarm.swarm.ifg.ifg.smoothed,
-  gswarm.swarm.combined.smoothed,
+  gswarm.swarm.mean.smoothed,
   gswarm.grace.gfz.rl05.smoothed
 ]
 storage_period: global

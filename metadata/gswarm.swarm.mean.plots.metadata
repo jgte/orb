@@ -3,7 +3,7 @@ sources: [
   gswarm.swarm.aiub.aiub,
   gswarm.swarm.asu.ifg,
   gswarm.swarm.ifg.ifg,
-  gswarm.swarm.combined,
+  gswarm.swarm.mean,
   gswarm.grace.gfz.rl05
 ]
 plot_product: true
