@@ -83,12 +83,18 @@ classdef cells
       end
       if isempty(strin)
         out=cellfun(@isempty,cellstrin);
+      elseif isempty(cellstrin)
+        out={};
       else
         out=~cellfun(@isempty,strfind(cellstrin,strin));
       end
     end
     function out=strfind(cellstrin,strin) %this used to be called cellstrfind
-      out=find(cells.isstrfind(cellstrin,strin));
+      if isempty(cellstrin)
+        out={};
+      else
+        out=find(cells.isstrfind(cellstrin,strin));
+      end
     end
     function io=rm_strfind(io,strin)
       idx=cells.strfind(io,strin);
