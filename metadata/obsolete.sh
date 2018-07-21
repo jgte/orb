@@ -71,11 +71,11 @@ do
           fi
         done
       done 
-      #check for references to this metadata in remaning metadata files
+      #check for references to this metadata in remaining metadata files
       for j in $METADATA_LIST
       do
         OUT=$(grep -l $(basename ${j/.metadata}) *.metadata)
-        [ -z "$OUT" ] ||echo "$(basename $j) mentioned in:"
+        [ -z "$OUT" ] || echo -e "'$(basename $j)' mentioned in:\n$OUT"
       done
     ;;
   esac
