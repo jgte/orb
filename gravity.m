@@ -31,7 +31,7 @@ classdef gravity < simpletimeseries
       'GM',       398600.4415e9, @(i) isnumeric(i) && isscalar(i);...      % Standard gravitational parameter [m^3 s^-2]
       'R',        6378136.460,   @(i) isnumeric(i) && isscalar(i);...      % Earth's equatorial radius [m]
       'Rm',       6371000,       @(i) isnumeric(i) && isscalar(i);...      % Earth's mean radius [m]
-      'rho_earth',5514.3231,     @(i) isnumeric(i) && isscalar(i);...      % average density of the Earth = (GM/G) / (4/3*pi*R_av^3) [kg/m3]
+      'rho_earth',5514.323108293622, @(i) isnumeric(i) && isscalar(i);...      % average density of the Earth = (GM/G) / (4/3*pi*R_av^3) [kg/m3]
       'rho_water',1000,          @(i) isnumeric(i) && isscalar(i);...      % water density
       'love',  [  0       0.000;...   
                   1       0.027;...
@@ -80,6 +80,11 @@ classdef gravity < simpletimeseries
   end
   methods(Static)
     function out=parameters(i,method)
+      %gravity.parameters                  : returns list of parameters
+      %gravity.parameters([],'obj')        : returns varargs with gravity.parameter_list
+      %gravity.parameters([],parameter)    : returns a parameter value
+      %gravity.parameters(parameter)       : returns a parameter value
+      %gravity.parameters(parameter,method): returns a parameter value/name/validation (as defined in method)
       persistent v parameter_names
       if isempty(v)
         v=varargs(gravity.parameter_list);
@@ -98,7 +103,7 @@ classdef gravity < simpletimeseries
         end
       else
         if ~exist('method','var') || isempty(method)
-          method='name';
+          method='value';
         end
         if strcmp(method,'name') && isnumeric(i)
           out=parameter_names{i};
@@ -161,7 +166,10 @@ classdef gravity < simpletimeseries
       out=all(size(in.C)==size(in.S)) && size(in.C,1) == size(in.C,2) && all(z(:)==0) ;
     end
     function lmax=cs_lmax(cs)
-      lmax=gravity.y_lmax(cs.C(:));
+      lmax=gravity.y_lmax(cs(1).C(:));
+      for i=2:numel(cs)
+        assert(lmax==gravity.y_lmax(cs(i).C(:)),'found discrepancy in sizes in ''cs'' representation. Debug needed.');
+      end
     end
     function s=cs_length(lmax)
       s=gravity.mat_length(lmax);
@@ -1126,6 +1134,13 @@ classdef gravity < simpletimeseries
       %assign data
       obj=obj.assign(y_now);
     end
+    function out=obj2mod(obj)
+      mod_list=obj.mod;
+      out=cell(size(mod_list));
+      for i=1:obj.length
+      	out{i}=struct('mod',mod_list{i},'GM',obj.GM,'R',obj.R,'t',obj.t(i));
+      end
+    end
     %% checksum of the models
     function out=get.checksum(obj)
       out=obj.norm-sqrt(obj.C(0,0).^2);
@@ -1290,10 +1305,7 @@ classdef gravity < simpletimeseries
           %converting Stokes coefficients from non-dimensional to equivalent water layer thickness
           for i=1:N
             deg=i-1;
-            lv=interp1(...
-              love(:,1),...
-              love(:,2),...
-              deg,'linear','extrap');
+            lv=interp1(love(:,1),love(:,2),deg,'linear','extrap');
             pos_scale(i,:)=obj.R*rho_earth/rho_water/3*(2*deg+1)/(1+lv);
           end
         case 'geoid' %[m]
@@ -1413,8 +1425,16 @@ classdef gravity < simpletimeseries
         case 1
           %global scaling: already handled downstream
         case obj.width
+          %get CS representation
+          c=obj.cs;
           %per-coefficients scaling: expand over all time domain
-          s=ones(obj.length,1)*transpose(s(:));
+          for i=1:numel(c)
+            c(i).C= c(i).C.*s;
+            c(i).S= c(i).S.*s;
+          end
+          obj.cs=c;
+          %we're done, bail now
+          return
         otherwise
           error([mfilename,': cannot handle scaling factors with number of elements equal to ',...
             num2str(numel(s)),'; either 1, max degree+1 (',num2str(obj.lmax+1),') or nr of coeffs (',...
@@ -2425,3 +2445,6 @@ function [t,s,e]=GetGraceC20(varargin)
     error([mfilename,': unknown mode ''',p.Results.mode,'''.'])
   end
 end
+
+
+
