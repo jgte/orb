@@ -57,6 +57,14 @@ classdef structs
         out=strjoin(out,char(10));
       end
     end
+    %returns true if all leafs are empty
+    function out=isempty(S)
+      if isstruct(S)
+        out=all(cellfun(@isempty,structs.get_value_all(S)));
+      else
+        out=isempty(S);
+      end
+    end
     %% get/set values
     %'field_path' is cell array with the sub-field path to the value to be retrieved from structure in 'in' (i.e. a cell of cells)
     function out=get_value(S,field_path,search_flag)
