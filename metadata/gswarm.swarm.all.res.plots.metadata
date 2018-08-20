@@ -8,7 +8,7 @@ sources: [
   gswarm.swarm.osu.ifg
 ]
 stats_relative_to: gswarm.grace.gfz.rl05
-derived_quantity: cumdrms
+plot_derived_quantity: cumdrms
 explicit_fields: true
 storage_period: direct
 model_types: [signal]

@@ -1,12 +1,11 @@
-import_dir: <getenv('HOME')>/data/csr/RL05
+import_dir: <getenv('HOME')>/data/singleacc/GEO
 model_types: [signal]
+scenarios: [d31b6,f31b5,f31b6,f1z6]
 wilcarded_filename: '*.GEO.*'
 model_format: csr
 date_parser: gravity.parse_epoch_csr
-method:  gswarm.load_models
+method:  gswarm.load_project_models
 static_model: scales.static
-#submetadata1: scales.processing.submetadata
 submetadata1: singleacc.processing.submetadata
 plot_xdate: true
 plot_xdateformat: yy
-overwrite_common_t: true
