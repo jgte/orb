@@ -2625,8 +2625,6 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
     %% SLR data
     function obj=import_slr_Ries(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
-      % sanity
-      assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{{...
         'import_dir','',@(i) ischar(i);...
@@ -2659,9 +2657,12 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       for i=1:numel(v.degrees);
         for j=1:numel(v.orders{i});
           d=v.degrees(i);o=v.orders{i}(j);if iscell(o); o=o{1};end
+          s.msg=['Propagating data for degree ',num2str(d),' order ',num2str(o)]; s.n=ts{i}.length;
           for t=1:ts{i}.length
             g=g.setC(d,o,ts{i}.y(t,j),ts{i}.t(t));
+            s=time.progress(s,t);
           end
+          clear s
         end
       end
       %apply model processing options
