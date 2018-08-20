@@ -507,26 +507,26 @@
         out=simpledata.test_parameters('y_randn_scale')*randn(l,w);
       case 'y_poly'
         c=simpledata.test_parameters('y_poly_scale');
-        x=simpledata.test_parameters('x',l);
+        x1=simpledata.test_parameters('x',l);
         out=zeros(l,w);
         for i=1:numel(c)
-          out=out+c(i)*(x/l).^(i-1)*ones(1,w);
+          out=out+c(i)*(x1/l).^(i-1)*ones(1,w);
         end
       case 'y_sin_T'
         c=simpledata.test_parameters('y_sin_scale');
         T=simpledata.test_parameters('T',l);
-        x=simpledata.test_parameters('x',l);
+        x1=simpledata.test_parameters('x',l);
         out=zeros(l,w);
         for i=1:numel(T)
-          out=out+c(i)*sin(2*pi/T(i)*x*ones(1,w) + ones(l,1)*[pi/3 pi/4 pi/5]);
+          out=out+c(i)*sin(2*pi/T(i)*x1*ones(1,w) + ones(l,1)*[pi/3 pi/4 pi/5]);
         end
       case 'y_sin'
         c=simpledata.test_parameters('y_sin_scale');
         T=simpledata.test_parameters('T',l);
-        x=simpledata.test_parameters('x',l);
+        x1=simpledata.test_parameters('x',l);
         out=zeros(l,w);
         for i=1:numel(T)
-          out=out+c(i)*sin(2*pi/T(i)*x*randn(1,w) + ones(l,1)*randn(1,w));
+          out=out+c(i)*sin(2*pi/T(i)*x1*randn(1,w) + ones(l,1)*randn(1,w));
         end
       case 'y_all'
         out=...
@@ -1010,7 +1010,7 @@
         %loop over all structure fields and create an object
         fields=fieldnames(s);
         if numel(fields)==1
-          out=init(x_now,s.(fields{i}));
+          out=init(x_now,s.(fields{1}));
           out=out.copy_metadata(obj);
         else          
           for i=1:numel(fields)
@@ -1293,7 +1293,11 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       else
         o=obj.masked(mask);
       end
-      out=all(o.y(:)==0);
+      if ~isempty(o)
+        out=all(o.y(:)==0);
+      else
+        out=true;
+      end
     end
     %% mask methods
     %NOTICE: these functions only deal with *explicit* gaps, i.e. those in
@@ -1674,7 +1678,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
     end
     %% multiple object manipulation
     function out=isxequal(obj1,obj2)
-      out=obj1.length==obj2.length && ~any(~simpledata.ist('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol])));
+      out=obj1.length==obj2.length && ~any(~simpledata.isx('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol])));
     end
     function compatible(obj1,obj2,varargin)
       %This method checks if the objects are referring to the same
@@ -1683,13 +1687,15 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       p=inputParser;
       p.KeepUnmatched=true;
       p.addParameter('compatible_parameters',simpledata.compatible_parameter_list,@(i) iscellstr(i))
+      p.addParameter('check_width',true,@(i) islogical(i))
+      p.addParameter('skip_par_check',{''},@(i) iscellstr(i))
       % parse it
       p.parse(varargin{:});
       %basic sanity
 %       if ~strcmp(class(obj1),class(obj2))
 %         error([mfilename,': incompatible objects: different classes'])
 %       end
-      if (obj1.width ~= obj2.width)
+      if p.Results.check_width && (obj1.width ~= obj2.width)
         error([mfilename,': incompatible objects: different number of columns'])
       end
       %shorter names
@@ -1702,7 +1708,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
            ( ischar(obj2.(par{i})) && isempty( obj2.(par{i})    ) )
           continue
         end
-        if ~isequal(obj1.(par{i}),obj2.(par{i}))
+        if ~cells.isincluded(p.Results.skip_par_check,par{i}) && ~isequal(obj1.(par{i}),obj2.(par{i}))
           error([mfilename,': discrepancy in parameter ',par{i},'.'])
         end 
       end
@@ -1747,7 +1753,10 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       %interpolate obj2 over x_total
       obj2=obj2.interp(x_total,varargin{:});
     end
-    function [obj,idx1,idx2]=append(obj1,obj2)
+    function [obj,idx1,idx2]=append(obj1,obj2,over_write_flag,varargin)
+      if ~exist('over_write_flag','var') || isempty(over_write_flag)
+        over_write_flag=false;
+      end
       %trivial call
       if isempty(obj2)
         idx1=true( obj1.length,1);
@@ -1756,7 +1765,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         return
       end
       %sanity
-      compatible(obj1,obj2)
+      compatible(obj1,obj2,varargin{:})
       %append with awareness
       if all(obj1.x(end) < obj2.x)
         x_now=[obj1.x;obj2.x];
@@ -1792,9 +1801,11 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
           y2(idx2,:)=obj2.y;
           %mask common data entries
           ic=ic & m1 & m2;
-          %check it
-          assert(all(all(y1(ic,:)==y2(ic,:))),...
-            'cannot append objects that have different values at common epochs')
+          %check it (unless not needed)
+          if ~over_write_flag
+            assert(all(all(y1(ic,:)==y2(ic,:))),...
+              'cannot append objects that have different values at common epochs')
+          end
         end
       end
       %update object
@@ -1823,7 +1834,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       % parse it
       p.parse(varargin{:});
       %need compatible data
-      obj1.compatible(obj2);
+      obj1.compatible(obj2,varargin{:});
       %merge x domain, also get idx2, which is needed to propagate data
       if p.Results.skip_gaps
         [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2.masked);
@@ -1908,10 +1919,11 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       %they are the same
       out=true;
     end
-    function obj1=glue(obj1,obj2)
+    function obj1=glue(obj1,obj2,varargin)
       %objects need to have the same time domain
-      assert(obj1.length==obj2.length && all(obj1.x==obj2.x),...
-        'Input objects do not share the same x-domain.')
+      assert(obj1.isxequal(obj2),'Input objects do not share the same x-domain.')
+      %make sure objects are compatible
+      compatible(obj1,obj2,varargin{:})
       %augment the data, labels and units
       obj1=obj1.assign([obj1.y,obj2.y],'reset_width',true);
       obj1.labels=[obj1.labels(:);obj2.labels(:)]';
@@ -2429,7 +2441,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       obj.y=[px.y,py.y,pz.y];
     end
     %% calibration
-    function obj1=calibrate_poly(obj1,obj2,order)
+    function obj1=calibrate_poly(obj1,obj2,order,varargin)
       % Determines coefficients of the polynomial expansion (y2i=obj2.y(:,i), y1i=obj1.y(:,i), k=order):
       %
       %  y2i=c0+c1*y1i+c2*y1i^2+...+ck*y1i^k
@@ -2443,7 +2455,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         order=1;
       end
       %sanity
-      compatible(obj1,obj2)
+      compatible(obj1,obj2,varargin{:})
       %need to match the gaps
       [obj1,obj2]=mask_match(obj1,obj2);
       %go column-by column
