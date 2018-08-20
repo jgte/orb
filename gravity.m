@@ -578,6 +578,7 @@ classdef gravity < simpletimeseries
       p.addParameter('descriptor',        'unknown',     @(i) ischar(i))
       p.addParameter('start', [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i)));
       p.addParameter('stop',  [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i)));
+      p.addParameter('overwrite_common_t',  false, @(i) islogical(i));
       p.parse(dirname,format,date_parser,varargin{:})
       %retrieve all gsm files in the specified dir
       filelist=cells.scalar(file.unwrap(fullfile(dirname,p.Results.wilcarded_filename)),'set');
@@ -585,6 +586,8 @@ classdef gravity < simpletimeseries
       c=0;init_flag=true;
       %loop over all models
       for i=1:numel(filelist)
+        %skip png files (some plots inheret the name of the models)
+        if strcmp(filelist{i}(end-3:end),'.png'); c=c+1; continue; end
         %get time of the model in this file
         if strcmpi(func2str(p.Results.date_parser),'static')
           %if a static field is requested, there should be only one file
@@ -593,13 +596,12 @@ classdef gravity < simpletimeseries
               num2str(numel(filelist)),'.'])
           end
           %patch missing start epoch (static fields have no epoch)
-          t=gravity.zero_date;
+          t=time.zero_date;
         else
           t=p.Results.date_parser(filelist{i});
-          %skip if this t is outside the required range
-          if time.isvalid(p.Results.start) && time.isvalid(p.Results.stop) && (t<p.Results.start || p.Results.stop<t)
-            c=c+1;
-            continue
+          %skip if this t is outside the required range (or invalid)
+          if isempty(t) || ( time.isvalid(p.Results.start) && time.isvalid(p.Results.stop) && (t<p.Results.start || p.Results.stop<t) )
+            c=c+1; continue
           end
         end
         %user feedback
@@ -618,16 +620,19 @@ classdef gravity < simpletimeseries
           if m.istavail(m1.t)
             %find the model with the same epoch that has already been loaded
             [~,f_saved  ]=fileparts(filelist{m.idx(m1.t)+c});
-            disp(['Ignoring ',f,' because this epoch was already loaded from model ',f_saved,'.'])
-            c=c+1;
-          else
-            %ensure R and GM are compatible
-            m1=m1.scale(m);
-            e1=e1.scale(e);
-            %append to output objects
-            m=m.append(m1);
-            e=e.append(e1);
+            if p.Results.overwrite_common_t
+              disp(['Replacing ',f_saved,' with ',f,' (same epoch).'])
+            else
+              disp(['Ignoring ',f,' because this epoch was already loaded from model ',f_saved,'.'])
+              c=c+1; continue
+            end              
           end
+          %ensure R and GM are compatible
+          m1=m1.scale(m);
+          e1=e1.scale(e);
+          %append to output objects
+          m=m.append(m1,p.Results.overwrite_common_t);
+          e=e.append(e1,p.Results.overwrite_common_t);
         end
       end
       %fix some parameters
@@ -977,13 +982,15 @@ classdef gravity < simpletimeseries
       % call superclass
       out=simpletimeseries(obj.t,obj.y,...
         'labels',obj.labels,...
-        'units',obj.functional_unit,...
+        'units',obj.functional_unit(true),...
         'timesystem',obj.timesystem...
       );
     end
     %% labels and units
     function obj=setlabels(obj)
       if numel(obj.labels)~=obj.width
+        obj.labels={};
+        obj.y_units=[];
         [obj.labels,obj.y_units]=gravity.labels(obj.lmax,obj.functional_unit);
       end
     end
@@ -1001,8 +1008,16 @@ classdef gravity < simpletimeseries
     function out=functional_name(obj)
       out=gravity.functional_names(obj.funct);
     end
-    function out=functional_unit(obj)
+    function out=functional_unit(obj,cellstr_flag)
+      if ~exist('cellstr_flag','var') || isempty(cellstr_flag)
+        cellstr_flag=false;
+      end
       out=gravity.functional_units(obj.funct);
+      if cellstr_flag
+        tmp=out;
+        out=cell(1,obj.width);
+        out(:)={tmp};
+      end
     end
     %% lmax
     function obj=set.lmax(obj,l)
@@ -1018,7 +1033,7 @@ classdef gravity < simpletimeseries
       if obj.lmax<l
         for i=1:obj.length
           %make room for this epoch
-          mat_new{i}=zeros(l,l);
+          mat_new{i}=zeros(l+1);
           %propagate existing coefficients
           mat_new{i}(1:obj.lmax+1,1:obj.lmax+1)=mat_old{i};
         end
@@ -1592,6 +1607,10 @@ classdef gravity < simpletimeseries
     end
     %% multiple operands
     function compatible(obj1,obj2,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('skip_par_check',{''},@(i) iscellstr(i))
+      p.parse(varargin{:});
       %call mother routine
       compatible@simpletimeseries(obj1,obj2,varargin{:});
       %shorter names
@@ -1604,7 +1623,7 @@ classdef gravity < simpletimeseries
            ( ischar(obj2.(par{i})) && isempty( obj2.(par{i})    ) )
           continue
         end
-        if ~isequal(obj1.(par{i}),obj2.(par{i}))
+        if ~cells.isincluded(p.Results.skip_par_check,par{i}) && ~isequal(obj1.(par{i}),obj2.(par{i}))
           error([mfilename,': discrepancy in parameter ',par{i},'.'])
         end
       end
@@ -1626,6 +1645,35 @@ classdef gravity < simpletimeseries
       end
       %extend the time-domain of both objects to be in agreement with the each other.
       [obj1,obj2,idx1,idx2]=merge@simpletimeseries(obj1,obj2);
+    end
+    function obj1=glue(obj1,obj2,varargin)
+      %objects need to have the same time domain
+      assert(obj1.isteq(obj2),'Input objects do not share the same time domain.')
+      %get maximum degree
+      lmax_now=max([obj1.lmax,obj2.lmax]);
+      %match lmax
+      obj1.lmax=lmax_now; obj2.lmax=lmax_now;
+      %make sure objects are compatible
+      compatible(obj1,obj2,varargin{:})
+      %get mapping
+      map=gravity.mapping(lmax_now);
+      %augment the data, labels and units, coefficient-wise
+      for i=1:size(map,2)
+        y1=obj1.y_masked([],i);
+        y2=obj2.y_masked([],i);
+        if     any(y1~=0) && all(y2==0)
+          %do nothing, obj1 has the correct data at this column
+        elseif all(y1==0) && any(y2~=0)
+          %propagate this column from obj2 to obj1
+          obj1=obj1.set_cols(i,obj2.y(:,i));
+        elseif all(y1==0) && all(y2==0)
+          %do nothing, obj1 has already zeros at this column
+        else
+          %ensure data is consistent
+          assert(all(y1==y2),['Cannot glue objects at degree ',num2str(map(1,i)),' and  order ',num2str(map(2,i)),...
+            'because data is not consistent.'])
+        end
+      end
     end
     %% plot functions
     function out=plot(obj,varargin)
