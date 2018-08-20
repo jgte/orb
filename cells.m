@@ -73,6 +73,15 @@ classdef cells
         if numel(out)==1;break;end
       end
     end
+    %checks if a method/field/property exists for a general object
+    function out=respondto(cellstrin,method)
+      out=cellfun(@(i) isfield(i, method) || ...
+         any(strcmp(   methods(i),method))|| ...
+         any(strcmp(properties(i),method)),cellstrin);
+    end
+    function out=allrespondto(cellstrin,method)
+      out=cellfun(@(i) all(cells.respondto(cellstrin,i)),cells.scalar(method,'set'));
+    end
     %% overloading strfind
     function out=isstrfind(cellstrin,strin) %this used to be called iscellstrempty
       if iscellstr(strin) && ischar(cellstrin)
