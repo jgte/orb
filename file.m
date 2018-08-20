@@ -673,6 +673,13 @@ function [io,wildcarded_flag] = translate_wildcard(io)
       end
     end
   end
+  %handle special characters, reduce them to literals
+  special_chars={'+'};
+  for i=1:numel(special_chars)
+    if ~isempty(strfind(io,special_chars{i}))
+      io=str.rep(io,special_chars{i},['\',special_chars{i}]);
+    end
+  end
 end
 function out = reduce_cell_array(in)
   out=cell(size(in));
