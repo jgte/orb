@@ -7,13 +7,13 @@ classdef datastorage
       'stop',           time.inf_date, @(i) isdatetime(i);...
       'debug',          false,         @(i) islogical(i);...
       'start_timestamp_only',true,     @(i) islogical(i);...
-%       'metadata_dir',   dataproduct.parameters('metadata_dir','value'),@(i) ischar(i);...
+      'inclusive',      false,         @(i) islogical(i);...
     };
   end
   %public
   properties(GetAccess=public,SetAccess=public)
     debug
-%     metadata_dir
+    inclusive
   end
   %read only
   properties(SetAccess=private)
@@ -165,7 +165,8 @@ classdef datastorage
           msg(:)={'-'};
         else
           for m=1:numel(p.Results.info_methods)
-            if ismethod(obj_list{i},p.Results.info_methods{m}) || isprop(obj_list{i},p.Results.info_methods{m})
+            %any(isprop(...)) catches when obj_list{i} is a string 
+            if ismethod(obj_list{i},p.Results.info_methods{m}) || any(isprop(obj_list{i},p.Results.info_methods{m}))
               msg{m}=obj_list{i}.(p.Results.info_methods{m});
             else
               msg{m}='N/A';
@@ -420,43 +421,90 @@ classdef datastorage
       %propagate cell array back to object
       obj=obj.data_set(dn_list,obj_list);
     end
-    % Applies the 2-argument function f to the data given by dataname_list
-    function obj=vector_obj_op2(obj,dn,obj2,f,varargin)
+    % Applies a 2-argument method to the data given by obj and obj2
+    function obj=vector_obj_op2(obj,dn,obj2,method,varargin)
       %operate on the requested set
       values1=obj.data_get(dn);
-      validv1=cells.rm_empty(values1);
       values2=obj2.data_get(dn);
-      validv2=cells.rm_empty(values2);
       %sanity
       if numel(values1) ~= numel(values2)
         error([mfilename,': the given dataname list does not correspond to the same number of data entries in both input obj.'])
       end
-      if any(validv1~=validv2)
+      if any(numel(cells.rm_empty(values1))~=numel(cells.rm_empty(values2)))
         error([mfilename,': the given dataname list does not have data in both objects. Debug needed.'])
       end
       %outputs
       result=cell(size(values1));
       %operate
       for i=1:numel(values1)
-        result{i}=values1{i}.(f)(values2{i},varargin{:});
+        result{i}=values1{i}.(method)(values2{i},varargin{:});
       end
       %propagate cell array with results back to object
       obj=obj.data_set(dn,result);
     end
+    % Applies a 2-argument method f to the data given by dn1 and dn2 and
+    % saves it in dn_out
+    function obj=vector_obj_op3(obj,dn1,dn2,method,dn_out,varargin)
+      %operate on the requested set
+      values1=obj.data_get(dn1);
+      values2=obj.data_get(dn2);
+      %sanity
+      if numel(values1) ~= numel(values2)
+        error([mfilename,': the given dataname list does not correspond to the same number of data entries in both input obj.'])
+      end
+      %outputs
+      result=cell(size(values1));
+      %operate
+      for i=1:numel(values1)
+        %enforce common time domain both ways
+        values2{i}=values2{i}.interp2(values1{i},varargin{:},'check_width',false,'skip_par_check',{'lmax'});
+        values1{i}=values1{i}.interp2(values2{i},varargin{:},'check_width',false,'skip_par_check',{'lmax'});
+        %apply method
+        result{i}=values1{i}.(method)(values2{i},varargin{:});
+      end
+      %propagate cell array with results back to object
+      obj=obj.data_set(dn_out,result);
+    end
     %% start/stop operations
+    function io=start_criteria(obj,io)
+      assert(~isempty(io),'Cannot handle empty ''values''.')
+      assert(iscell(io) && all(cellfun(@isdatetime,io)),'Can only handle cell arrays of datetime')
+      %need to filter out invalids (zero and inf dates)
+      invalid_idx=~time.isvalid(io);
+      if any(invalid_idx); io(invalid_idx)={time.zero_date}; end
+      %hanle inclusive datasets (span over all boundaries)
+      if obj.inclusive
+        if isempty(io)
+          io=time.zero_date;
+        else
+          io=min([io{:}]);
+        end
+      else
+        io=max([io{:}]);
+      end
+    end
+    function io=stop_criteria(obj,io)
+      assert(~isempty(io),'Cannot handle empty ''values''.')
+      assert(iscell(io) && all(cellfun(@isdatetime,io)),'Can only handle cell arrays of datetime')
+      %need to filter out invalids (zero and inf dates)
+      invalid_idx=~time.isvalid(io);
+      if any(invalid_idx); io(invalid_idx)={time.inf_date}; end
+      %hanle inclusive datasets (span over all boundaries)
+      if obj.inclusive
+        if isempty(io)
+          io=time.inf_date;
+        else
+          io=max([io{:}]);
+        end
+      else
+        io=min([io{:}]);
+      end
+    end
     function out=start_retrieve(obj,dn)
-      out=obj.vector_method_tr(dn,'start');
-      %need to filter out zero_dates
-      out(~time.isvalid(out))={time.zero_date};
-      %take the maximum of all starts
-      out=max([out{:}]);
+      out=obj.start_criteria(obj.vector_method_tr(dn,'start'));
     end
     function out=stop_retrieve(obj,dn)
-      out=obj.vector_method_tr(dn,'stop');
-      %need to filter out zero_dates
-      out(~time.isvalid(out))={time.inf_date};
-      %take the minimum of all stops
-      out=min([out{:}]);
+      out=obj.stop_criteria(obj.vector_method_tr(dn,'stop'));
     end
     function out=get.start(obj)
       out=obj.starti;
@@ -468,7 +516,8 @@ classdef datastorage
       %save current global start value
       old_start=obj.starti;
       %check if updating is needed
-      if isempty(obj.starti) || start>obj.starti
+      if isempty(obj.starti) || start==obj.start_criteria({obj.starti,start})
+        obj.log('@','start update','from',obj.starti,'to',start)
         %update internal record
         obj.starti=start;
       end
@@ -481,13 +530,14 @@ classdef datastorage
     function obj=set.stop(obj,stop)
       %save current global stop value
       old_stop=obj.stopi;
-      %check if updating is needed
-      if isempty(obj.stopi) || stop<obj.stopi
+      %update if needed
+      if isempty(obj.stopi) || stop==obj.stop_criteria({obj.stopi,stop})
+        obj.log('@','stop update','from',obj.stopi,'to',stop)
         %update internal record
         obj.stopi=stop;
       end
       %check if something changed (also trims newly added data that end after old_stop)
-      if isempty(old_stop) || stop~=obj.stopi
+      if isempty(old_stop) || stop~=old_stop
         %trim all data entries
         obj=obj.vector_method_set('all','stop',obj.stopi);
       end
@@ -518,7 +568,10 @@ classdef datastorage
       end
     end
     function obj=startstop_retrieve_update(obj,dn)
-      obj=obj.startstop_update('start',obj.start_retrieve(dn),'stop',obj.stop_retrieve(dn));
+      start_now=obj.start_retrieve(dn);
+      stop_now=obj.stop_retrieve(dn);
+      obj=obj.startstop_update('start',start_now,'stop',stop_now);
+      obj.log('@','out','product',dn,'start',obj.start,'stop',obj.stop)
     end
     %% time operations
     function out=isteq(obj,dn)
@@ -595,6 +648,19 @@ classdef datastorage
       if nargout>1; dn=product.dataname; end
     end
     %% load/save operations
+    function out=data_edges(obj,product,mode)
+      switch mode
+      case 'start'; f=@max;
+      case 'stop';  f=@min;
+      otherwise
+        error(['Unknown mode ''',mode,'''.'])
+      end
+      if product.ismdfield(mode)
+        out=f(obj.(mode),product.mdget(mode));
+      else
+        out=obj.(mode);
+      end
+    end
     function [obj,success]=load(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
       if product.mdget('plot_product','default',false)
@@ -604,8 +670,8 @@ classdef datastorage
       end
       % get the file list
       file_list=product.file(product_type,...
-        'start',obj.start,...
-        'stop',obj.stop,...
+        'start',obj.data_edges(product,'start'),...
+        'stop',obj.data_edges(product,'stop'),...
         'start_timestamp_only',datastorage.parameters('start_timestamp_only','value'),... %this needs to be in agreement with what is used in datastorage.save
         'discover',false,...
         'ensure_dir',false,...
@@ -613,8 +679,8 @@ classdef datastorage
       );
       % get file existence
       file_exists=product.isfile(product_type,...
-        'start',obj.start,...
-        'stop',obj.stop,...
+        'start',obj.data_edges(product,'start'),...
+        'stop',obj.data_edges(product,'stop'),...
         'start_timestamp_only',datastorage.parameters('start_timestamp_only','value'),... %this needs to be in agreement with what is used in datastorage.save
       varargin{:});
       % check if any file is missing
@@ -649,11 +715,11 @@ classdef datastorage
             end
           end
           % debug output
-          start_now=max(cells.c2m(cells.rm_empty(structs.get_value_all(structs.objmethod('start',  s_out)))));
-          stop_now =min(cells.c2m(cells.rm_empty(structs.get_value_all(structs.objmethod('stop',   s_out)))));
+          start_now=obj.start_criteria(cells.scalar(cells.rm_empty(structs.get_value_all(structs.objmethod('start',  s_out))),'set'));
+          stop_now =obj.stop_criteria( cells.scalar(cells.rm_empty(structs.get_value_all(structs.objmethod('stop',   s_out))),'set'));
           nr_gaps  =max(cells.c2m(cells.rm_empty(structs.get_value_all(structs.objmethod('nr_gaps',s_out)))));
           [~,file_now,e]=fileparts(file_list{f});
-          obj.log(['loaded file ',num2str(f),' '],[' ',file_now,e],'start',start_now,'stop',stop_now,'gaps',nr_gaps)
+          obj.log(['loaded file ',num2str(f),' '],[' ',file_now,e],'cum start',start_now,'cum stop',stop_now,'gaps',nr_gaps)
         end
         % save the data in the object
         obj=obj.data_set(product,s_out);
@@ -670,6 +736,11 @@ classdef datastorage
         return
       end
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('recompute',false,@(i) islogical(i) && isscalar(i)); %forces saving the data even if the data is already saved 
+      % parse it
+      p.parse(varargin{:});
       % get the data
       s_out=obj.value_get(product);
       if isstruct(s_out)
@@ -677,6 +748,11 @@ classdef datastorage
         s_cells=structs.get_value_all(s_out);
       else
         s_cells={s_out};
+      end
+      % catch unvalid s_out
+      if any(~cells.allrespondto(s_cells,{'start','stop'}))
+        obj.log('@','out','no data to save for',product)
+        return
       end
       % get list of start/stop dates from the data
       startlist=cells.c2m(cellfun(@(i) i.start,s_cells,'UniformOutput',false));
@@ -712,73 +788,87 @@ classdef datastorage
             s=s_out.trim(startlist(f),stoplist(f));
           end
         end
+        %skip if this entry is empty
+        if structs.isempty(s)
+          obj.log(['skip saving file ',num2str(f)],['no data for ',datestr(startlist(f),29)])
+          continue
+        end
         %check if this file already exists
         if exist(file_list{f},'file')
-          %save new variable
-          s_new=s;
-          %load this file
-          load(file_list{f},'s');
-          %re-align data if needed
-          if ~strcmp(class(s),class(s_new))
-            disp(['Data type in newly-computed object (',class(s_new),...
-            ') differs from what is saved in file ',file_list{f},' (',class(s),')',...
-            '; replacing data saved in file'])
-            %discard saved data
+          %save the data if recompute is true
+          if p.Results.recompute
             replace_flag=true;
-            s=s_new;
-          elseif isstruct(s)
-            replace_flag=false;
-            [good_fnl,fnl,fnl_new]=structs.iseq_field_list(s,s_new);
-            if good_fnl
-              %skip saving if start/stop dates in s_new are not wider than those already in file
-              for i=1:numel(fnl)
-                s_new_now=structs.get_value(s_new,fnl{i});
-                s_now    =structs.get_value(s,    fnl{i});
-                s_old    =structs.get_value(s,    fnl{i});
-                if s_new_now.start>=s_now.start && s_new_now.stop<=s_now.stop
-                  %do nothing
-                elseif s_new_now.start<s_old.start || s_new_now.stop>s_old.stop
-                  %augment saved data
-                  s=structs.set_value(s,fnl{i},s_now.augment(s_new_now));
-                  replace_flag=true;
-                else
-                  replace_flag=true;
-                end
-              end
-            else
-              disp(['structure fields in newly-computed object (',...
-                strjoin(cellfun(@(i) strjoin(i,'.'),fnl_new,'UniformOutput',false),', '),...
-                ') differ from what is saved in file ',file_list{f},' (',...
-                strjoin(cellfun(@(i) strjoin(i,'.'),fnl,'UniformOutput',false)),...
-                '); replacing data saved in file'])
+          else
+            %save new variable
+            s_new=s;
+            %load this file
+            load(file_list{f},'s');
+            %re-align data if needed
+            if ~strcmp(class(s),class(s_new))
+              disp(['Data type in newly-computed object (',class(s_new),...
+              ') differs from what is saved in file ',file_list{f},' (',class(s),')',...
+              '; replacing data saved in file'])
               %discard saved data
               replace_flag=true;
               s=s_new;
-            end
-          else
-            assert(...
-              (ismethod(s,'start') || isprop(s,'start')) && ...
-              (ismethod(s,'stop' ) || isprop(s,'stop' )),...
-              ['Cannot handle data of type ',class(s),', no support for start/stop.']...
-            );
-            assert(...
-              (ismethod(s_new,'start') || isprop(s_new,'start')) && ...
-              (ismethod(s_new,'stop' ) || isprop(s_new,'stop' )),...
-              ['Cannot handle data of type ',class(s_new),', no support for start/stop.']...
-            );
-            replace_flag=false;
-            if s_new.start>=s.start && s_new.stop<=s.stop
-              %do nothing
-            elseif s_new.start<s.start || s_new.stop>s.stop
-              %augment saved data
-              s=s.augment(s_new);
-              replace_flag=true;
+            elseif isstruct(s)
+              replace_flag=false;
+              [good_fnl,fnl,fnl_new]=structs.iseq_field_list(s,s_new);
+              if good_fnl
+                %skip saving if start/stop dates in s_new are not wider than those already in file
+                for i=1:numel(fnl)
+                  s_new_now=structs.get_value(s_new,fnl{i});
+                  s_now    =structs.get_value(s,    fnl{i});
+                  s_old    =structs.get_value(s,    fnl{i});
+                  if s_new_now.start>=s_now.start && s_new_now.stop<=s_now.stop
+                    %do nothing
+                  elseif s_new_now.start<s_old.start || s_new_now.stop>s_old.stop
+                    %augment saved data
+                    s=structs.set_value(s,fnl{i},s_now.augment(s_new_now));
+                    replace_flag=true;
+                  else
+                    replace_flag=true;
+                  end
+                end
+              else
+                disp(['structure fields in newly-computed object (',...
+                  strjoin(cellfun(@(i) strjoin(i,'.'),fnl_new,'UniformOutput',false),', '),...
+                  ') differ from what is saved in file ',file_list{f},' (',...
+                  strjoin(cellfun(@(i) strjoin(i,'.'),fnl,'UniformOutput',false)),...
+                  '); replacing data saved in file'])
+                %discard saved data
+                replace_flag=true;
+                s=s_new;
+              end
             else
-              replace_flag=true;
+              assert(...
+                (ismethod(s,'start') || isprop(s,'start')) && ...
+                (ismethod(s,'stop' ) || isprop(s,'stop' )),...
+                ['Cannot handle data of type ',class(s),', no support for start/stop.']...
+              );
+              assert(...
+                (ismethod(s_new,'start') || isprop(s_new,'start')) && ...
+                (ismethod(s_new,'stop' ) || isprop(s_new,'stop' )),...
+                ['Cannot handle data of type ',class(s_new),', no support for start/stop.']...
+              );
+              replace_flag=false;
+              if s_new.start>=s.start && s_new.stop<=s.stop
+                %do nothing
+              elseif s_new.start<s.start || s_new.stop>s.stop
+                %augment saved data
+                s=s.augment(s_new);
+                replace_flag=true;
+              else
+                replace_flag=true;
+              end
             end
           end
           if replace_flag
-            obj.log(['replacing file ',num2str(f)],'new data found')
+            if p.Results.recompute
+              obj.log(['replacing file ',num2str(f)],'recompute flag is true')
+            else
+              obj.log(['replacing file ',num2str(f)],'new data found')
+            end
           else
             obj.log(['skip saving file ',num2str(f)],'all data already saved')
             s=[];
@@ -792,14 +882,14 @@ classdef datastorage
         end
       end
       % debug output
-      obj.log('@','out','product',product)
+      obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
     %% datatype initialization
     function obj=init(obj,id,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('force',    false,@(i) islogical(i) && isscalar(i));
-      p.addParameter('recompute',false,@(i) islogical(i) && isscalar(i));
+      p.addParameter('force',    false,@(i) islogical(i) && isscalar(i)); %re-loads the data if already loaded
+      p.addParameter('recompute',false,@(i) islogical(i) && isscalar(i)); %calls the init method even if the data is already saved
       p.addParameter('subcat',   '',   @(i) ischar(i));
       % parse it
       p.parse(varargin{:});
@@ -895,7 +985,9 @@ classdef datastorage
             case 'csr.estimate_temp_corr'
               obj.log('@','save: skipped saving because this product truncates data internally.')
             otherwise
-              obj=obj.startstop_retrieve_update(product_list{i});
+              if ~product.mdget('plot_product')
+                obj=obj.startstop_retrieve_update(product_list{i});
+              end
             end
           end
         else
@@ -907,7 +999,8 @@ classdef datastorage
         str.say('initialized',product.str)
       end
       %check if this product is too old for the requested start/stop dates
-      assert(obj.start<obj.stop,['Requested start/stop dates are incompatible with product ',product.str,...
+      %NOTICE: the == test is needed to handle static models (which have the same start/stop)
+      assert(obj.start<=obj.stop,['Requested start/stop dates are incompatible with product ',product.str,...
         '; consider updating the data in that product.'])
       obj.log('@','out','id',id,'start',obj.start,'stop',obj.stop)
     end
@@ -1631,6 +1724,36 @@ classdef datastorage
       end
       %propagate result
       obj=obj.data_set(product,out);
+      obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
+    end
+    %TODO: merge this with the above
+    function obj=operation(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
+      %gather inputs
+      v=varargs.wrap('sources',{...
+        {...
+          'operation',       'error',               @(i) ischar(i) || iscellstr(i);...
+          'operation_order', 1:product.nr_sources, @(i) isnumeric(i) && numel(i)<=product.nr_sources;...
+        },...
+        product.metadata,...
+      },varargin{:});   
+      obj.log('@','in','operation',v.operation)
+      %expand the operations, if scalar
+      v.operation=cells.deal(cells.scalar(v.operation,'set'),size(v.operation_order));
+      %operate on all sources
+      for i=1:numel(v.operation_order)
+        idx=v.operation_order(i);
+        if i==1
+          %propagate first source
+          obj=obj.data_set(product,obj.data_get(product.sources(idx)));
+          msg=[product.str,' = ',product.sources(idx).str];
+        else
+          %operate on this source
+          obj=obj.vector_obj_op3(product,product.sources(idx),v.operation{i},product);
+          msg=[msg,' ',v.operation,' ',product.sources(idx).str]; %#ok<AGROW>
+        end
+        obj.log('@','iter','operation',msg)
+      end
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
     function obj=filter(obj,product,varargin)
