@@ -81,6 +81,30 @@ classdef time
         ])
       end
     end
+    function out=iszero(in)
+      switch class(in)
+      case 'cell'
+          out=cellfun(@time.iszero,in);
+      case 'datetime'
+        out=(in==time.zero_date);
+      case {'double','single','uint8','uint16','uint32','uint64','int8','int16','int32','int64'}
+        out=(datenum(in)==0);
+      otherwise
+        error(['Cannot handle class ''',class(in),'''.'])
+      end
+    end
+    function out=isinf(in)
+      switch class(in)
+      case 'cell'
+          out=cellfun(@time.iszero,in);
+      case 'datetime'
+        out=(in==time.inf_date);
+      case {'double','single','uint8','uint16','uint32','uint64','int8','int16','int32','int64'}
+        out=~isfinite(datenum(in));
+      otherwise
+        error(['Cannot handle class ''',class(in),'''.'])
+      end
+    end
     function out=scale(in)
       out=find(in<=time.magnt_list,1,'first');
     end
@@ -176,6 +200,7 @@ classdef time
       %     <do something>
       %     s=time.progress(s,i);
       % end
+      % clear s
       % %or:
       % s.msg='something'; s.n=n;
       % while criteria
