@@ -945,7 +945,7 @@ classdef orbit
       assert(~isempty(out),'all data types are empty.')
     end
     %% management
-    function compatible(obj1,obj2)
+    function compatible(obj1,obj2,varargin)
       %This method checks if the objectives are referring to the same
       %type of data, i.e. the data length is not important.
       parameters=orbit.compatible_parameter_list;
@@ -959,14 +959,14 @@ classdef orbit
       odt=orbit.data_types;
       for i=1:numel(odt)
         if ~isempty(obj1.(odt{i})) && ~isempty(obj2.(odt{i}))
-          obj1.(odt{i}).compatible(obj2.(odt{i}))
+          obj1.(odt{i}).compatible(obj2.(odt{i}),varargin{:})
         end
       end
     end
     %object obj1 will have the time domain of obj2 (interpolated if needed)
-    function [obj1,obj2]=consolidate(obj1,obj2)
+    function [obj1,obj2]=consolidate(obj1,obj2,varargin)
       %compatibility check
-      compatible(obj1,obj2)
+      compatible(obj1,obj2,varargin{:})
       %consolidate all data types
       counter=0;
       odt=orbit.data_types;
