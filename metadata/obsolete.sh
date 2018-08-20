@@ -4,7 +4,9 @@
 
 METADATADIR=$(cd $(dirname BASH_SOURCE);pwd)
 DATADIR=$(cd $METADATADIR/../data/;pwd)
+RETIREDIR='retired'
 OBSOLETEDIR='obsolete'
+FIND_ARGS_SKIP_DIRS="-not -wholename \*$RETIREDIR\* -not -wholename \*$OBSOLETEDIR\*"
 
 GSTAT=$(which gstat || which stat)
 
@@ -29,15 +31,17 @@ do
       #do nothing
     ;;
     *)
-      METADATA_LIST=$(find $METADATADIR -name \*$i\* -not -wholename \*$OBSOLETEDIR\*)
+      METADATA_LIST=$(find $METADATADIR $FIND_ARGS_SKIP_DIRS -name \*$i\*)
+      [ -z "$ECHO" ] || echo METADATA_LIST=$METADATA_LIST
       for j in $METADATA_LIST
       do
         #get list of files
         if $BACK; then
-          DATA_LIST=$(find $DATADIR/$OBSOLETEDIR/ -type d -name $(basename ${j/.metadata})\*)
+          DATA_LIST=$(find $DATADIR/$OBSOLETEDIR $FIND_ARGS_SKIP_DIRS -type d -name $(basename ${j/.metadata})\*)
         else
-          DATA_LIST=$(find $DATADIR/ -not -wholename \*$OBSOLETEDIR\* -type d -name $(basename ${j/.metadata})\*)
+          DATA_LIST=$(find $DATADIR/ $FIND_ARGS_SKIP_DIRS -type d -name $(basename ${j/.metadata})\*)
         fi
+        [ -z "$ECHO" ] || echo DATA_LIST=$DATA_LIST
         #move data dirs
         for k in $DATA_LIST
         do
@@ -66,7 +70,7 @@ do
               echo "Directory $k is empty, removing it..."
               $ECHO rmdir $k || exit $?
             else
-              $ECHO mv -v $k/*.mat $SINK/ || exit $?
+              $ECHO mv -v $k/*.mat $SINK || exit $?
             fi
           fi
         done
