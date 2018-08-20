@@ -2,8 +2,31 @@ import_dir: <getenv('HOME')>/data/SLR/csr/Ries
 method: csr.import_slr_Ries
 format: slr-csr-grace
 storage_period: yearly
+static_model: scales.static
+start: 2002-01-01
+
+#WARNING: C40 ends in 2015
+#NOTICE: need file sufixes complete with C40
 suffix: '_RL05_2017_11.txt'
+stop: 2017-11-30
 prefixes: [C20,C21_S21,C22_S22,C40]
 degrees: [2, 2,     2,    4]
 orders:  [0,[1,-1],[2,-2],0]
-static_model: scales.static
+
+suffix: '_RL05_2017_11.txt'
+stop: 2017-11-30
+prefixes: [C20,C21_S21,C22_S22]
+degrees: [2, 2,     2,   ]
+orders:  [0,[1,-1],[2,-2]]
+
+#WARNING: this alternative is not compatible with the above (C40 is not available)
+#NOTICE: you need to delete data/slr.csr.Ries/* before using this
+#suffix: '_RL06_2018_04.txt'
+#stop: 2018-04-30
+#prefixes: [C20,C21_S21,C22_S22]
+#degrees: [2, 2,     2,   ]
+#orders:  [0,[1,-1],[2,-2]]
+
+
+
+

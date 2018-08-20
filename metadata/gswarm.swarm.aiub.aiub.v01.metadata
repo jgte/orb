@@ -1,0 +1,7 @@
+import_dir: <getenv('HOME')>/data/gswarm/aiub/gravity/
+model_types: [signal,error]
+wilcarded_filename: GSWARM_GF_SABC_AIUB_*_01_AIUB.gfc
+model_format: gfc
+date_parser: gravity.parse_epoch_gswarm
+submetadata1: model.processing.submetadata
+submetadata2: model.plotting.submetadata

@@ -1,0 +1,16 @@
+method: operation
+operation: glue
+sources: [slr.csr.Ries,slr.csr.Cheng]
+storage_period: yearly
+explicit_fields: true
+
+plot_autoscale: false
+plot_automean: false
+plot_normalize: false
+plot_outlier: 0
+plot_zeromean: true
+plot_title_suppress: [Ries,Cheng]
+plot_legend_suppress: [Ries,Cheng]
+plot_visible: true
+plot_together: true
+plot_legend_align: blanks

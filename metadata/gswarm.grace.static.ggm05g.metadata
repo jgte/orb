@@ -1,8 +1,8 @@
-import_dir: <getenv('HOME')>/data/grace/L2/
-storage_period: none
+import_dir: <getenv('HOME')>/data/static/
+storage_period: global
 method: gswarm.load_models
 model_types: [signal,error]
-wilcarded_filename: ggm05g.gfc
+wilcarded_filename: GGM05C.gfc
 model_format: gfc
 date_parser: static
 use_GRACE_C20: false

@@ -1,0 +1,42 @@
+plot_product: true
+method: gswarm.plot_stats
+sources: [
+  gswarm.grace.gfz.rl05,
+  gswarm.swarm.aiub.aiub.v01,
+  gswarm.swarm.asu.ifg.v01,
+  gswarm.swarm.ifg.ifg.v03,
+  gswarm.swarm.osu.ifg.v01,
+]
+stats_relative_to: gswarm.grace.gfz.rl05
+explicit_fields: true
+storage_period: direct
+model_types: [signal,error]
+
+#plotting
+plot_outlier: 0
+plot_xdateformat: yy/mm
+plot_functional: geoid
+plot_legend_suppress: [smoothed,res,v01,v06]
+plot_title_suppress: [gswarm,swarm,smoothed,res,signal]
+plot_visible: false
+plot_legend_replace: ['combined v06','NEQ comb','combined v05','mean']
+plot_legend_location: best
+plot_stddiff_caxis: [0,0.0035]
+plot_rmsdiff_caxis: [0,0.0045]
+plot_corrcoeff_caxis: [0,1]
+plot_legend_box: false
+
+# plot_temporal_stats
+plot_temp_stat_func: []      #[nondim,geoid,geoid]
+
+#plot_spatial_stats
+plot_functional: geoid
+plot_derived_quantity: cumdrms
+plot_type: line
+plot_spatial_stat_list: [monthly]
+plot_monthly_error: true
+
+#plot_low_degrees
+degrees: []
+orders: []
+

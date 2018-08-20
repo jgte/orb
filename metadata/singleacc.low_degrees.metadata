@@ -1,0 +1,20 @@
+#NOTICE: unless datastorage parameter 'inclusive' is true, these plots will be cropped 
+
+plot_product: true
+method: gswarm.plot_low_degrees
+
+degrees: [  2,  3,  4]
+orders:  [inf,inf,inf,inf,inf,inf]
+sources: [slr.csr,scales.RL05.sh,singleacc.GEO,scales.GEO]
+stats_relative_to: slr.csr
+
+explicit_fields: true
+storage_period: global
+model_types: [signal]
+plot_outlier: 1
+plot_automean: true
+plot_autoscale: true
+plot_autoscale_factor: 6
+plot_xdateformat: yy/mm
+plot_legend_suppress: [signal,scales,singleacc,GEO,Ries,Cheng]
+plot_legend_box: false
