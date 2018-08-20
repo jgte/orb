@@ -13,6 +13,7 @@ classdef plotting
         'plot_legend_align',   '',        @(i) ischar(i);...    %empty means no alignment
      'plot_legend_align_scale_bias',false,@(i) islogical(i);... %this is done after plot_legend_align, destroying it
      'plot_scale_legend_str',' x ',       @(i) ischar(i);...
+        'plot_legend_box',   true,        @(i) islogical(i);...
         'plot_ylabel',         '',        @(i) ischar(i);...
         'plot_xlabel',         '',        @(i) ischar(i);...
         'plot_xdate',          false,     @(i) islogical(i);...
@@ -38,6 +39,7 @@ classdef plotting
         'plot_colormap',        '',       @(i) ischar(i) || ishandle(i);...
         'plot_psd',          false,       @(i) islogical(i);...
         'plot_autoscale',    false,       @(i) islogical(i);... %y-scale is derived from the data (in plotting.enforce)
+        'plot_autoscale_factor', 4,       @(i) isnumeric(i) && isscalar(i); ...
         'plot_automean',     false,       @(i) islogical(i);... %middle-point of y axis is derived from the data (in plotting.enforce)
         'plot_zeromean',     false,       @(i) islogical(i);... %mean of data is removed before plotting (in simpledata.plot)
         'plot_outlier',          0,       @(i) isnumeric(i) && isscalar(i); ...
@@ -224,6 +226,13 @@ classdef plotting
       for i=1:min([numel(lines),numel(clr)])
         set(lines(fix_idx(i)),'Color',clr{i})
       end
+    end
+    function line_color_set_last(axis_handle)
+      if ~exist('axis_handle','var') || isempty(axis_handle)
+        axis_handle = gca;
+      end
+      lines=findobj(axis_handle,'Type','line');
+      set(lines(2),'Color',get(lines(1),'Color'))
     end
     function line_width(w,axis_handle)
       % handle inputs
@@ -522,11 +531,11 @@ classdef plotting
         if ~isempty(dat) && diff(minmax(dat))~=0
           %enforce data-driven mean and/or scale
           if v.plot_automean && v.plot_autoscale
-            a(3:4)=mean(dat)+4*std(dat)*[-1,1];
+            a(3:4)=mean(dat)+v.plot_autoscale_factor*std(dat)*[-1,1];
           elseif v.plot_automean
             a(3:4)=minmax(dat);
           elseif v.plot_autoscale
-            a(3:4)=mean(a(3:4))+4*std(dat)*[-1,1];
+            a(3:4)=mean(a(3:4))+v.plot_autoscale_factor*std(dat)*[-1,1];
           end
           %fix non-negative data sets
           if all(dat>=0) && a(3)<0
@@ -676,7 +685,12 @@ classdef plotting
       %set the legend text
       legend_handle=legend(v.axis_handle,v.plot_legend);
       %adjust the location of the legend (even if the default 'best', it may happen that it is no longer in a good position)
-      set(legend_handle,'location',v.plot_legend_location,'FontSize',v.plot_fontsize_legend,'FontName',v.plot_legend_fontname)
+      set(legend_handle,...
+        'location',v.plot_legend_location,...
+        'box',str.logical(v.plot_legend_box,'onoff'),...
+        'FontSize',v.plot_fontsize_legend,...
+        'FontName',v.plot_legend_fontname...
+        )
     end
     %% nice plotting stuff
     function out=hist(x,varargin)
