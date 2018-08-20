@@ -1549,6 +1549,10 @@ classdef simpletimeseries < simpledata
       end
     end
     function compatible(obj1,obj2,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('skip_par_check',{''},@(i) iscellstr(i))
+      p.parse(varargin{:});
       %call mother routine
       compatible@simpledata(obj1,obj2,varargin{:});
       %shorter names
@@ -1561,7 +1565,7 @@ classdef simpletimeseries < simpledata
            ( ischar(obj2.(par{i})) && isempty( obj2.(par{i})    ) )
           continue
         end
-        if ~isequal(obj1.(par{i}),obj2.(par{i}))
+        if ~cells.isincluded(p.Results.skip_par_check,par{i}) && ~isequal(obj1.(par{i}),obj2.(par{i}))
           error([mfilename,': discrepancy in parameter ',par{i},'.'])
         end 
       end
@@ -1606,7 +1610,7 @@ classdef simpletimeseries < simpledata
         };
       end
       %need to match the epoch
-      if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
+      if ismethod(obj1,'matchepoch') && ismethod(obj2,'matchepoch')
         [obj1,obj2]=matchepoch(obj1,obj2);
       end
       %call upstream method
@@ -1616,12 +1620,12 @@ classdef simpletimeseries < simpledata
         error([mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])
       end
     end
-    function [obj,idx1,idx2]=append(obj1,obj2)
+    function [obj,idx1,idx2]=append(obj1,obj2,varargin)
       if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
         [obj1,obj2]=matchepoch(obj1,obj2);
       end
       %call upstream method
-      [obj,idx1,idx2]=append@simpledata(obj1,obj2);
+      [obj,idx1,idx2]=append@simpledata(obj1,obj2,varargin{:});
     end
     function obj1_out=augment(obj1,obj2,varargin)
       if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
@@ -1631,10 +1635,10 @@ classdef simpletimeseries < simpledata
       obj1_out=augment@simpledata(obj1,obj2,varargin{:});
     end
     %NOTICE: this function used to be called consolidate
-    function [obj1,obj2]=interp2_lcm(obj1,obj2)
+    function [obj1,obj2]=interp2_lcm(obj1,obj2,varargin)
       %extends the time domain of both objects to be in agreement
       %with the each other
-      compatible(obj1,obj2)
+      compatible(obj1,obj2,varargin{:})
       %trivial call
       if isteq(obj1,obj2)
         return
@@ -1691,7 +1695,7 @@ classdef simpletimeseries < simpledata
         return
       end
       %match epochs
-      obj2.epoch=obj1.epoch;
+      obj1.epoch=obj2.epoch;
     end
     function [obj1,obj2]=matchtime(obj1,obj2)
       %match step and epoch (checks for trivial call done inside)
@@ -1701,7 +1705,7 @@ classdef simpletimeseries < simpledata
     function obj1=glue(obj1,obj2)
       %objects need to have the same epoch
       assert(obj1.epoch==obj2.epoch,...
-        'Input objects do not share the same time domain.')
+        'Input objects do not share the same epoch.')
       %call mother routine
       obj1=glue@simpledata(obj1,obj2);
     end
