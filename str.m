@@ -220,17 +220,35 @@ classdef str
     end
     %transforms a matrix into the data part of a latex table
     function out=latex_table(in,fmt)
-      if ~exist('fmt','var'); fmt='%g'; end
-      assert(isnumeric(in) && numel(size(in)<=2),'Need numeric matrix/vector/scales input')
+      assert(numel(size(in))<=2,'Need numeric matrix/vector/scales input')
       out=cell(size(in));
-      for i=1:size(in,1)
-        for j=1:size(in,2)
-          if j==size(in,2)
-            out{i,j}=[num2str(in(i,j),fmt),' \\',newline];
-          else
-            out{i,j}=[num2str(in(i,j),fmt),' & '];
+      if isnumeric(in)
+        if ~exist('fmt','var'); fmt='%g'; end
+        for i=1:size(in,1)
+          for j=1:size(in,2)
+            if j==size(in,2)
+              out{i,j}=[num2str(in(i,j),fmt),' \\',newline];
+            else
+              out{i,j}=[num2str(in(i,j),fmt),' & '];
+            end
           end
         end
+      else
+        for i=1:size(in,1)
+          if strcmp(in{i,1},'\rowcolor{Gray}');
+            out{i,1}=in{i,1};
+            out(i,2:end-1)={''};
+            out{i,end}=newline;
+          else
+            for j=1:size(in,2)
+              if j==size(in,2)
+                out{i,j}=[in{i,j},' \\',newline];
+              else
+                out{i,j}=[in{i,j},' & '];
+              end
+            end
+          end
+        end       
       end
       out=strjoin(transpose(out));
     end
@@ -468,14 +486,14 @@ classdef str
       case 'logical'
         %do nothing
       case 'cell'
-        out=cellfun(@str.logical,in);
+        out=cellfun(@str.logical,in);return
       case 'datetime'
-        out=(in~=datetime(0,0,0));
+        in=(in~=datetime(0,0,0));
       case 'duration'
-        out=(in~=seconds(0));
+        in=(in~=seconds(0));
       otherwise
         try
-          out=(in~=0);
+          in=(in~=0);
         catch
           error([mfilename,': class ''',class(in),''' is not supported.'])
         end
