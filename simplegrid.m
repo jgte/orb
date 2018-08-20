@@ -1308,6 +1308,10 @@ classdef simplegrid < simpletimeseries
     end
     %% multiple operands
     function compatible(obj1,obj2,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('skip_par_check',{''},@(i) iscellstr(i))
+      p.parse(varargin{:});
       %call mother routine
       compatible@simpledata(obj1,obj2,varargin{:});
       %shorter names
@@ -1320,7 +1324,7 @@ classdef simplegrid < simpletimeseries
            ( ischar(obj2.(par{i})) && isempty( obj2.(par{i})    ) )
           continue
         end
-        if ~isequal(obj1.(par{i}),obj2.(par{i}))
+        if ~cells.isincluded(p.Results.skip_par_check,par{i}) && ~isequal(obj1.(par{i}),obj2.(par{i}))
           error([mfilename,': discrepancy in parameter ',par{i},'.'])
         end 
       end
