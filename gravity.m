@@ -596,7 +596,7 @@ classdef gravity < simpletimeseries
               num2str(numel(filelist)),'.'])
           end
           %patch missing start epoch (static fields have no epoch)
-          t=time.zero_date;
+          t=gravity.zero_date;
         else
           t=p.Results.date_parser(filelist{i});
           %skip if this t is outside the required range (or invalid)
