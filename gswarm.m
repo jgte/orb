@@ -13,14 +13,16 @@ classdef gswarm
         'delete_C00',      false,@(i) islogical(i);...
         'delete_C20',      false,@(i) islogical(i);...
         'model_span', {time.zero_date,time.inf_date},@(i) isnumeric(i) && numel(i)==2;...
-        'static_model',   'none',@(i) ischar(i)...
+        'static_model',   'none',@(i) ischar(i);...
+        'overwrite_common_t',false,@(i) islogical(i);...
       },product.metadata},varargin{:});
       %load all available data 
       [s,e]=gravity.load_dir(v.import_dir,v.model_format,str2func(v.date_parser),...
         'wilcarded_filename',v.wilcarded_filename,...
         'start',obj.start,...
         'stop',obj.stop,...
-        'descriptor',product.name...
+        'descriptor',product.name,...
+        'overwrite_common_t',v.overwrite_common_t...
       );
       %apply model processing options
       [s,e]=gswarm.load_models_op('all',v,product,s,e);
@@ -139,7 +141,7 @@ classdef gswarm
           if v.isparameter('model_span') && v.model_span{1}~=time.zero_date && v.model_span{1}<mod.start
             mod=mod.append(gravity.nan(mod.lmax,'t',v.model_span{1},'R',mod.R,'GM',mod.GM));
             if exist('err','var')
-              err=mod.append(gravity.nan(err.lmax,'t',v.model_span{1},'R',err.R,'GM',err.GM));
+              err=err.append(gravity.nan(err.lmax,'t',v.model_span{1},'R',err.R,'GM',err.GM));
             end
             msg{end+1}=['from ',datestr(v.model_span{1})];
             show_msg=true;
@@ -147,7 +149,7 @@ classdef gswarm
           if v.isparameter('model_span') && v.model_span{2}~=time.inf_date && v.model_span{2}>mod.stop
             mod=mod.append(gravity.nan(mod.lmax,'t',v.model_span{2},'R',mod.R,'GM',mod.GM));
             if exist('err','var')
-              err=mod.append(gravity.nan(err.lmax,'t',v.model_span{2},'R',err.R,'GM',err.GM));
+              err=err.append(gravity.nan(err.lmax,'t',v.model_span{2},'R',err.R,'GM',err.GM));
             end
             msg{end+1}=['to ',datestr(v.model_span{2})];
             show_msg=true;
@@ -159,12 +161,13 @@ classdef gswarm
             %load model (only if not already done)
             if isempty(dir([v.static_model,'.mat']))
               static=datastorage().init(v.static_model);
+              %reduce to gravity class
+              static=static.data_get_scalar(datanames(v.static_model).set_field_path('signal'));
+              %save it
               save([v.static_model,'.mat'],'static')
             else
               load([v.static_model,'.mat'])
             end
-            %reduce to gravity class
-            static=static.data_get_scalar(datanames(v.static_model).set_field_path('signal'));
             %adjust the start/stop
             switch static.length
             case 1
@@ -189,6 +192,18 @@ classdef gswarm
         end
         if show_msg;str.say(product.str,':',mode,msg);end
       end
+    end
+    function obj=load_project_models(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{product.metadata},varargin{:});
+      %loop over all requested scenarios
+      for i=1:numel(v.scenarios)
+        p=product;
+        p.dataname=p.dataname.append_field_leaf(v.scenarios{i});
+        obj=gswarm.load_models(obj,p,'import_dir',fullfile(v.import_dir,[v.project_name,'-',v.scenarios{i}]),varargin{:});
+      end
+      obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
     function obj=smooth_models(obj,product,varargin)
       %retrieve relevant parameters
@@ -234,7 +249,7 @@ classdef gswarm
     end
     function obj=stats(obj,product,varargin)
       %retrieve relevant parameters
-      derived_quantity=product.mdget('derived_quantity');
+      derived_quantity=product.mdget('plot_derived_quantity');
       functional      =product.mdget('functional');
       stats           =product.mdget('stats');
       stats_outlier   =product.mdget('stats_outlier');
@@ -262,7 +277,7 @@ classdef gswarm
     function obj=plot_rms_ts(obj,product,varargin)
       obj.log('@','in','product',product)
       plot_functional =product.mdget('plot_functional');
-      derived_quantity=product.mdget('derived_quantity');
+      derived_quantity=product.mdget('plot_derived_quantity');
       p=inputParser;
       p.KeepUnmatched=true;
       %parse optional parameters as defined in the metadata
@@ -354,14 +369,30 @@ classdef gswarm
       out.sources=cell(product.nr_sources,1);out.source_datanames=cell(size(out.sources));mc=0;
       for i=1:product.nr_sources
         dn_sources=obj.data_list(product.sources(i));
+        %dn_sources is usually 'signal' (and 'error' sometimes)
         for j=1:numel(dn_sources)
           %only plot the relevant model types
-          if ~cells.isincluded(product.metadata.model_types,dn_sources{j}.field_path{end}); continue;end
-          mc=mc+1;
-          out.source_datanames(mc)=dn_sources(j);
-          out.sources{mc}=obj.data_get_scalar(out.source_datanames{mc});
+          if ~isempty(dn_sources{j}.field_path) && ~cells.isincluded(product.metadata.model_types,dn_sources{j}.field_path{end}); continue;end
+          %get this model type (assume signal if empty)
+          if isempty(dn_sources{j}.field_path)
+            model_type='signal';
+          else
+            model_type=dn_sources{j}.field_path{end};
+          end
+          %this is legacy but still needed
+          if strcmp(model_type,'signal')
+            %only iterate on the signal
+            mc=mc+1;
+            %save general dataname
+            out.source_datanames(mc)=dn_sources(j);
+            %save signal in dedicated place
+            out.sources{mc}=obj.data_get_scalar(dn_sources(j));
+          end
+          %save this source/model_type
+          out.(['sources_',model_type]){mc}=obj.data_get_scalar(dn_sources(j));
           %handle default value of plot_max_degree
-          v.plot_max_degree=min([out.sources{mc}.lmax,v.plot_max_degree]);
+          %TODO: fix this, it makes it impossible to plot degree ranges above inclusive maximum
+          v.plot_max_degree=min([out.(['sources_',model_type]){mc}.lmax,v.plot_max_degree]);
         end
       end
       %enforce maximum degree
@@ -481,12 +512,16 @@ classdef gswarm
             %add statistics to the legend (unless this is the produce from which the stats are derived)
             if k~=out.mod_ref_idx
               mod_ref_now=out.mod_ref.ts_C(d,o).interp(ts_now.t);
-              stats=ts_now.stats2(mod_ref_now,'mode','struct','struct_fields',{'corrcoef','rmsdiff'},'period',seconds(inf));
-              legend_str{k}=[out.source_legend_str{k},...
-                ' corr=',num2str(stats.corrcoef,'%.2f'),...
-                ', RMS{\Delta}=',num2str(stats.rmsdiff,'%.2g')];
+              if all(isnan(mod_ref_now.y(:)))
+                stats.corrcoef='NaN';stats.rmsdiff='NaN';
+              else
+                stats=ts_now.stats2(mod_ref_now,'mode','struct','struct_fields',{'corrcoef','rmsdiff'},'period',seconds(inf));
+              end
+                legend_str{k}=[out.source_legend_str{k},...
+                  ' corr=',num2str(stats.corrcoef,'%.2f'),...
+                  ', RMS{\Delta}=',num2str(stats.rmsdiff,'%.2g')];
             else
-              legend_str{k}=[legend_str{k},' (reference)'];
+              legend_str{k}=[out.source_legend_str{k},' (reference)'];
             end
           end
           product.enforce_plot(varargin{:},...
@@ -508,7 +543,10 @@ classdef gswarm
           'plot_min_degree',         2, @(i) isnumeric(i) && isscalar(i);...
           'plot_max_degree',       inf, @(i) isnumeric(i) && isscalar(i);...
           'plot_functional',   'geoid', @(i) gravity.isfunctional(i);...
-          'derived_quantity','cumdrms', @(i) ismethod(gravity.unit(1),i);...
+          'plot_type',         'line',  @(i) cells.isincluded(i,{'line','bar'});...
+          'plot_derived_quantity','cumdrms', @(i) ismethod(gravity.unit(1),i);...
+          'plot_spatial_stat_list',{'diff','monthly'},@(i) iscellstr(i); ... TODO: corr
+          'plot_monthly_error',false, @(i) islogical(i);...
         },plotting.default,...
         product.plot_args...
       },varargin{:});
@@ -520,58 +558,32 @@ classdef gswarm
       end
       %collect the models 
       out=gswarm.plot_ops(obj,product,v.varargin{:});
-      %build filename
-      filename=strrep(out.file_root{1},'.png',['.cumdrms',out.file_smooth,'.',strjoin(str.rep(out.source_names,' ','_'),'-'),'.png']);
-      if isempty(dir(filename))
-        %build data array
-        bar_y=zeros(numel(out.t),numel(out.res));
-        for di=1:numel(out.res)
-          tmp=out.res{di}.interp(out.t).scale(v.plot_functional,'functional').(v.derived_quantity);
-          bar_y(:,di)=tmp.y;
-        end
-        %plot it
-        plotting.figure(v.varargin{:});
-        h=bar(datenum(out.t),bar_y,'EdgeColor','none');
-        %remove outline
-        set(h,'edgecolor','none')
-        %enforce it
-        product.enforce_plot(v.varargin{:},...
-          'plot_legend',out.mod_names,...
-          'plot_ylabel',gravity.functional_label(v.plot_functional),...
-          'plot_xdate',true,...
-          'plot_xlimits',datenum([out.t(1),out.t(end)+days(1)]),...
-          'plot_title',['Residual ',out.title_wrt,out.title_smooth]...
-        );
-        colormap jet
-        saveas(gcf,filename)
-        str.say('Plotted',filename)
-      else
-        disp(['NOTICE: plot already available: ',filename])
-      end
-      for i=1:numel(out.t)
-        %gather models valid now
-        dat    =cellfun(@(j) j.interp(out.t(i)),out.sources,'UniformOutput',false);
-        dat_idx=cellfun(@(j) j.nr_valid>0,dat);
-        %check if there's any data to plot
-        if all(~dat_idx); continue;end
-        %reduce data
-        dat=dat(dat_idx);
-        legend_str=out.source_names(dat_idx);
+      %check if this plot is requested
+      if cells.isincluded(v.plot_spatial_stat_list,'diff')
         %build filename
-        filename=cells.scalar(product.file('plot',...
-          'start',out.t(i),'stop',out.t(i),...
-          'suffix',['drms',out.file_smooth,'.',strjoin(str.rep(out.source_names,' ','_'),'-')]...
-        ),'get');
+        filename=strrep(out.file_root{1},'.png',['.cumdrms',out.file_smooth,'.',strjoin(str.rep(out.source_names,' ','_'),'-'),'.png']);
         if isempty(dir(filename))
+          %build data array
+          y=zeros(numel(out.t),numel(out.res));
+          for di=1:numel(out.res)
+            tmp=out.res{di}.interp(out.t).scale(v.plot_functional,'functional').(v.plot_derived_quantity);
+            y(:,di)=tmp.y;
+          end
+          %plot it
           plotting.figure(v.varargin{:});
-          for j=1:numel(dat)
-            dat{j}.plot('mode','drms','functional','geoid');
+          switch v.plot_type
+          case 'bar'
+            bar(datenum(out.t),y,'EdgeColor','none');
+          case 'line'
+            plot(datenum(out.t),y,'Marker','o');
           end
           %enforce it
           product.enforce_plot(v.varargin{:},...
-            'plot_legend',legend_str,...
+            'plot_legend',out.mod_names,...
             'plot_ylabel',gravity.functional_label(v.plot_functional),...
-            'plot_title',[datestr(out.t(i),'yyyy-mm'),' degree-RMS ',out.title_smooth]...
+            'plot_xdate',true,...
+            'plot_xlimits',datenum([out.t(1),out.t(end)+days(1)]),...
+            'plot_title',['Residual ',out.title_wrt,out.title_smooth]...
           );
           colormap jet
           saveas(gcf,filename)
@@ -579,6 +591,66 @@ classdef gswarm
         else
           disp(['NOTICE: plot already available: ',filename])
         end
+      end
+      %check if this plot is requested
+      if cells.isincluded(v.plot_spatial_stat_list,'monthly')
+        for i=1:numel(out.t)
+          %gather models valid now
+          dat    =cellfun(@(j) j.interp(out.t(i)),out.sources,'UniformOutput',false);
+          dat_idx=cellfun(@(j) j.nr_valid>0,dat);
+          %gather error if requested
+          if v.plot_monthly_error
+            dat_error=cellfun(@(j) j.interp(out.t(i)),out.sources_error,'UniformOutput',false);
+          end
+          %check if there's any data to plot
+          if all(~dat_idx); continue;end
+          %reduce data
+          dat=dat(dat_idx);
+          dat_error=dat_error(dat_idx);
+          legend_str=out.source_names(dat_idx);
+          %build filename
+          filename=cells.scalar(product.file('plot',...
+            'start',out.t(i),'stop',out.t(i),...
+            'suffix',['drms',out.file_smooth,'.',strjoin(str.rep(out.source_names,' ','_'),'-')]...
+          ),'get');
+          if isempty(dir(filename))
+            plotting.figure(v.varargin{:});
+            for j=1:numel(dat)
+              dat{j}.plot('mode','drms','functional','geoid');
+            end
+            %enforce it
+            product.enforce_plot(v.varargin{:},...
+              'plot_legend',legend_str,...
+              'plot_ylabel',gravity.functional_label(v.plot_functional),...
+              'plot_colormap','jet',...
+              'plot_title',[datestr(out.t(i),'yyyy-mm'),' degree-RMS ',out.title_smooth]...
+            );
+            if v.plot_monthly_error
+              %get previous lines
+              lines_before=findobj(gca,'Type','line');
+              %plot errors
+              for j=1:numel(dat)
+                dat_error{j}.plot('mode','drms','functional','geoid','line','--');
+              end
+              %get all lines
+              lines_all=findobj(gca,'Type','line');
+              %set consistent line clours
+              for j=1:numel(dat)
+                set(lines_all(j),'Color',get(lines_before(j),'Color'),'LineWidth',v.plot_line_width)
+              end
+              axis auto
+              title([datestr(out.t(i),'yyyy-mm'),' degree-RMS ',out.title_smooth])
+            end
+            saveas(gcf,filename)
+            str.say('Plotted',filename)
+          else
+            disp(['NOTICE: plot already available: ',filename])
+          end
+        end
+      end
+      %check if this plot is requested
+      if cells.isincluded(v.plot_spatial_stat_list,'corr')
+        error('not yet implemented)')
       end
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
@@ -592,6 +664,7 @@ classdef gswarm
           'plot_temp_stat_list', {            'corrcoeff',           'rmsdiff',           'stddiff'},@(i) iscellstr(i); ...
           'plot_temp_stat_func', {               'nondim',             'geoid',             'geoid'},@(i) iscellstr(i); ...
           'plot_temp_stat_title',{'temporal corr. coeff.','temporal RMS\Delta','temporal STD\Delta'},@(i) iscellstr(i); ...
+          'plot_type',         'line',  @(i) cells.isincluded(i,{'line','bar'});...
         },plotting.default,...
         product.plot_args...
       },varargin{:});
@@ -607,7 +680,7 @@ classdef gswarm
         %loop over all sources
         for i=1:numel(out.mods);
           %build filename
-          filename=strrep(out.file_root{1},'.png',['.',v.plot_temp_stat_list{s},'-triang',out.file_smooth,'.',out.source_names{i},'.png']);
+          filename=strrep(out.file_root{1},'.png',['.',v.plot_temp_stat_list{s},'-triang',out.file_smooth,'.',str.rep(out.source_names{i},' ','_'),'.png']);
           %plot only if not done yet
           if exist(filename,'file')==0
             plotting.figure(v.varargin{:});
@@ -632,7 +705,7 @@ classdef gswarm
           end
         end
         %plot degree-mean corrcoeff
-        filename=strrep(out.file_root{1},'.png',['.',v.plot_temp_stat_list{s},'-dmean',out.file_smooth,'.',strjoin(out.source_names,'-'),'.png']);
+        filename=strrep(out.file_root{1},'.png',['.',v.plot_temp_stat_list{s},'-dmean',out.file_smooth,'.',strjoin(str.rep(out.source_names,' ','_'),'-'),'.png']);
         %plot only if not done yet
         if exist(filename,'file')==0
           %init plot counter and data container
@@ -653,12 +726,24 @@ classdef gswarm
           good_idx=~all(isnan(d),1);
           %plot it
           plotting.figure(v.varargin{:});
-          bar(v.plot_min_degree:out.mod_ref.lmax,d(:,good_idx)','EdgeColor','none');
-          colormap jet
+          switch v.plot_type
+          case 'bar'
+            bar(v.plot_min_degree:out.mod_ref.lmax,d(:,good_idx)','EdgeColor','none');
+            colormap jet
+          case 'line'
+            plot(v.plot_min_degree:out.mod_ref.lmax,d(:,good_idx)','Marker','o');
+          end
+          %need to adapt y label for correlation coefficients
+          switch v.plot_temp_stat_list{s}
+          case 'corrcoeff'
+            y_label_str='Corr. Coeff. []';
+          otherwise
+            y_label_str=gravity.functional_label(v.plot_temp_stat_func{s});
+          end
           %enforce it
           product.enforce_plot(v.varargin{:},...
             'plot_legend',out.mod_names,...
-            'plot_ylabel',gravity.functional_label(v.plot_temp_stat_func{s}),...
+            'plot_ylabel',y_label_str,...
             'plot_xlabel','SH degree',...
             'plot_xlimits',[v.plot_min_degree-1,v.plot_max_degree+1],...
             'plot_title',['degree-mean ',v.plot_temp_stat_title{s},' ',title_suffix]...
@@ -728,6 +813,7 @@ classdef gswarm
     function obj=plot_stats(obj,product,varargin)
       obj=gswarm.plot_spatial_stats( obj,product,varargin{:});
       obj=gswarm.plot_temporal_stats(obj,product,varargin{:});
+%       obj=gswarm.plot_low_degrees(obj,product,varargin{:});
     end
     function obj=plot_parametric_decomposition(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
@@ -746,12 +832,12 @@ classdef gswarm
         rmfield(product.metadata,'sources')...
       },varargin{:});
     
-%tmp code
-data_file='tmp_data.mat';
-if exist(data_file,'file')    
-  load(data_file)
-else
-%tmp code
+% %tmp code
+% data_file='tmp_data.mat';
+% if exist(data_file,'file')    
+%   load(data_file)
+% else
+% %tmp code
 
       %collect the models 
       out=gswarm.plot_ops(obj,product,v.varargin{:});
@@ -859,11 +945,11 @@ else
           end
         end
       end
-      
-%tmp code
-save(data_file,'out')
-end
-%tmp code
+%       
+% %tmp code
+% save(data_file,'out')
+% end
+% %tmp code
   
       for j=1:size(simplegrid.catchment_list,1)
         %build filename
@@ -917,25 +1003,66 @@ end
     end
     %% utils
     function production
+      %parameters
+      recompute=false;
+      
       %definitions
 %       datafilename=file.unresolve('~/data/gswarm/analyses/2018-06-24/d.mat');
 %       p=dataproduct('gswarm.swarm.all.res.plots','plot_dir',fileparts(datafilename));
 
-      datafilename=file.unresolve('~/data/gswarm/analyses/2018-07-04/d.mat');
-      p=dataproduct('gswarm.swarm.all.res-unsmoothed.plots','plot_dir',fileparts(datafilename));
+%       datafilename=file.unresolve('~/data/gswarm/analyses/2018-07-04/d.mat');
+%       p=dataproduct('gswarm.swarm.all.res-unsmoothed.plots','plot_dir',fileparts(datafilename));
+
+      datafilename=file.unresolve('~/data/gswarm/analyses/2018-08-16/d.mat');
+      p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...
+        'gswarm.swarm.all.TN-03_1.drms',...
+        'gswarm.swarm.all.TN-03_1.plots'...
+      },'UniformOutput',false);
+%         'gswarm.swarm.all.TN-03_1.catchments',...
+
+      %save version numbers into latex table
+      file.strsave(str.rep(datafilename,'d.mat','versions.tex'),gswarm.sourcelatextable(p{1}));
+      
       %load data if already available
-      if exist(datafilename,'file')~=0
+      if exist(datafilename,'file')~=0 && ~recompute
         load(datafilename)
       else
         d=datastorage('debug',true,'start',datetime('2013-12-01'),'stop',datetime('2016-12-31'));
-        for i=1:p.nr_sources
-          d=d.init(p.sources(i));
+        for i=1:p{1}.nr_sources
+          d=d.init(p{1}.sources(i),'recompute',recompute);
         end
         file.ensuredir(datafilename,true);
         save(datafilename,'d')
       end
       %plot it
-      d.init(p);
+      for i=1:numel(p)
+        d.init(p{i});
+      end
+      
+    end
+    function out=sourcelatextable(p)
+      sourcelist=cellfun(@(i) str.rep(i,'gswarm.',''),p.source_list_str,'UniformOutput',false);
+      out={'\acl{GFM}','version','\acl{KO}'};c=1;
+      %count the number of valid entries
+      for i=1:numel(sourcelist)
+        s=strsplit(sourcelist{i},'.');
+        if ~strcmp(s{1},'swarm'); continue; end
+        c=c+1;
+        if mod(c+1,3)==0; out{c,1}='\rowcolor{Gray}';  c=c+1; end
+        switch numel(s)
+        case 3
+          out{c,1}=s{2}; %gravity field 
+          out{c,2}=str.rep(s{3},'v','');     %version
+          out{c,3}='\ac{N/A}';               %orbit
+        case 4
+          out{c,1}=['\ac{',str.rep(upper(s{2}),'IFG','IfG'),'}']; %gravity field 
+          out{c,2}=str.rep(s{4},'v','');     %version
+          out{c,3}=['\ac{',str.rep(upper(s{3}),'IFG','IfG'),'}']; %orbit
+        otherwise
+          error(['Cannot handle source ''',sourcelist{i},'''.'])
+        end
+      end
+      out=str.latex_table(out);
     end
   end
 end
