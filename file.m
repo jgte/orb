@@ -47,7 +47,7 @@ classdef file
       else
         %make sure dir exists
         d=fileparts(filename);
-        if ~exist(d,'dir') && isempty(strfind(perm,'r'))
+        if ~exist(d,'dir') && ~contains(perm,'r')
           [st,msg]=mkdir(d);
           assert(st,['error creating directory ''',d,''': ',msg])
         end
@@ -235,7 +235,7 @@ classdef file
         %get indexes of original files with and without mat extension
         idx=[cells.strcmp(in,out{i}),cells.strcmp(in,file.mat(out{i},'set'))];
         %if nothing was found, then there are only mat files, so preference is irrelevant
-        if isempty(idx);
+        if isempty(idx)
           % add the mat extension to this entry
           out{i}=file.mat(out{i},'set');
         else
@@ -510,7 +510,7 @@ classdef file
       else
         d=filename;
       end
-      if ~exist(d,'dir')
+      if ~isempty(d) && ~exist(d,'dir')
         out=mkdir(d);
       else
         out=true;
@@ -539,7 +539,7 @@ classdef file
       if s~=0
         out={};
       else
-        out=cells.rm_empty(strsplit(r,char(10)));
+        out=cells.rm_empty(strsplit(r,newline));
         out=cellfun(@(i) strsplit(i),out,'UniformOutput',false);
         out=cellfun(@(i) i{2:end},   out,'UniformOutput',false);
       end
@@ -558,11 +558,11 @@ classdef file
         out=cellfun(@(i) file.fullpath(i),filename,'UniformOutput',false);
       	return
       end
-      if ~isempty(strfind(filename,['~',filesep]))
+      if contains(filename,['~',filesep])
         filename=strrep(filename,['~',filesep],[getenv('HOME'),filesep]);
       elseif numel(filename)==1 && strcmp(filename,'~')
         filename=strrep(filename,'~',[getenv('HOME'),filesep]);
-      elseif ~isempty(strfind(filename,'~'))
+      elseif contains(filename,'~')
         filename=strrep(filename,'~',[getenv('HOME'),filesep,'..',filesep]);
       end
       out = char(java.io.File(filename).getCanonicalPath());
@@ -662,7 +662,7 @@ function out = isnumstr(in)
   %end
 end
 function [io,wildcarded_flag] = translate_wildcard(io)
-  wildcarded_flag=~isempty(strfind(io,'*'));
+  wildcarded_flag=contains(io,'*');
   if wildcarded_flag
     idx=strfind(io,'*');
     for i=1:numel(idx)
