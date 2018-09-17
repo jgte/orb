@@ -884,6 +884,27 @@ classdef datastorage
       % debug output
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
+    function export(obj,id,varargin)
+      obj.log('@','in','id',id,'varargin',varargin,'start',obj.start,'stop',obj.stop)
+      %retrieve product info
+      product=obj.product_get(id,varargin{:});
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('filename',product.codename,@(i) ischar(i));
+      % parse it
+      p.parse(varargin{:});
+      % get the data 
+      s_out=obj.value_get(product);
+      % get the data names
+      s_names=structs.field_list(s_out);
+      % loop over all data elements
+      for i=1:numel(s_names)
+        s_now=get_value(s_out,s_names{i});
+        s_now.export([product.codename,'.',strjoin(s_names{i},'.'),'.dat']);
+      end
+      % debug output
+      obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
+    end
     %% datatype initialization
     function obj=init(obj,id,varargin)
       p=inputParser;
