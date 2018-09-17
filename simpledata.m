@@ -2582,7 +2582,11 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       if obj.length>1
         %get common axis limits (don't crop stuff)
         v=plotting.common_axis_limits(gca);
-        xlim(v(1:2))
+        if isprop(obj,'t')
+          xlim(datetime(v(1:2),'convertfrom','datenum'));
+        else
+          xlim(v(1:2));
+        end
       end
       %annotate
       if isempty(p.Results.title)
@@ -2631,9 +2635,9 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       %anotate
       if ~isempty(out.title);   title(str.clean(out.title, 'title')); end
       if ~isempty(out.xlabel); xlabel(str.clean(out.xlabel,'title')); end
-      if ~isempty(out.ylabel);
+      if ~isempty(out.ylabel)
          if p.Results.normalize;ylabel('[ ]');
-         else                   ylabel(str.clean(out.ylabel,'title')); end
+         else                  ;ylabel(str.clean(out.ylabel,'title')); end
       end
       if ~isempty(out.legend); legend(str.clean(out.legend,'title')); end
       %special annotations
