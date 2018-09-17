@@ -457,8 +457,8 @@ classdef datastorage
       %operate
       for i=1:numel(values1)
         %enforce common time domain both ways
-        values2{i}=values2{i}.interp2(values1{i},varargin{:},'check_width',false,'skip_par_check',{'lmax'});
-        values1{i}=values1{i}.interp2(values2{i},varargin{:},'check_width',false,'skip_par_check',{'lmax'});
+        values2{i}=values2{i}.interp2(values1{i},varargin{:},'check_width',false,'skip_par_check',{'lmax','labels','y_units'});
+        values1{i}=values1{i}.interp2(values2{i},varargin{:},'check_width',false,'skip_par_check',{'lmax','labels','y_units'});
         %apply method
         result{i}=values1{i}.(method)(values2{i},varargin{:});
       end
