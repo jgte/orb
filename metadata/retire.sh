@@ -28,6 +28,14 @@ do
     echo|back)
       #do nothing
     ;;
+    enforce)
+      for i in $METADATADIR/$RETIREDIR/*.metadata
+      do
+        $ECHO mv $i $METADATADIR/
+	$ECHO $0 $(basename ${i/.metadata})
+	$ECHO mv $METADATADIR/$(basename $i) $METADATADIR/$RETIREDIR/
+      done
+    ;;
     *)
       if $BACK; then
         METADATA_LIST=$(find $METADATADIR/$RETIREDIR $FIND_ARGS_SKIP_DIRS  -name \*$i\*)
