@@ -776,7 +776,7 @@ classdef gravity < simpletimeseries
     %% CSR specific stuff
     function t=CSR_RL05_date(year,month,varargin)
       p=inputParser; p.KeepUnmatched=true;
-      p.addParameter('EstimDirs_file',fullfile(getenv('HOME'),'data','csr','EstimData','RL05','EstimDirs_RL05'),@(i) ischar(i))
+      p.addParameter('EstimDirs_file',fullfile(getenv('HOME'),'data','csr','EstimData','EstimDirs','EstimDirs_RL05'),@(i) ischar(i))
       p.parse(varargin{:})
       %sanity on year
       if year<1000
