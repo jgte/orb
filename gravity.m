@@ -431,10 +431,10 @@ classdef gravity < simpletimeseries
     function obj=nan(lmax,varargin)
       obj=gravity.unit(lmax,'scale',nan,varargin{:});
     end
-    function [m,e]=load(filename,fmt,time)
+    function [m,e]=load(file_name,fmt,time)
       %default type
       if ~exist('fmt','var') || isempty(fmt)
-        [~,fn,fmt]=fileparts(filename);
+        [~,fn,fmt]=fileparts(file_name);
         %get rid of the dot
         fmt=fmt(2:end);
         %check if this is CSR format
@@ -447,24 +447,24 @@ classdef gravity < simpletimeseries
         time=datetime('now');
       end
       %handle mat files
-      [~,~,ext]=fileparts(filename);
+      [~,~,ext]=fileparts(file_name);
       if strcmp(ext,'.mat')
-        mat_filename=filename;
-        filename=strrep(filename,'.mat','');
+        mat_filename=file_name;
+        file_name=strrep(file_name,'.mat','');
       else
-        mat_filename=[filename,'.mat'];
+        mat_filename=[file_name,'.mat'];
       end
       %check if mat file is already available
       if isempty(dir(mat_filename))
         switch lower(fmt)
         case 'gsm'
-          [m,e]=load_gsm(filename,time);
+          [m,e]=load_gsm(file_name,time);
         case 'csr'
-          [m,e]=load_csr(filename,time);
+          [m,e]=load_csr(file_name,time);
         case {'icgem','gfc'}
-          [m,e]=load_icgem(filename,time);
+          [m,e]=load_icgem(file_name,time);
         case 'mod'
-          [m,e]=load_mod(filename,time);
+          [m,e]=load_mod(file_name,time);
         otherwise
           error([mfilename,': cannot handle models of type ''',fmt,'''.'])
         end
