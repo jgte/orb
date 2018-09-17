@@ -897,10 +897,18 @@ classdef datastorage
       s_out=obj.value_get(product);
       % get the data names
       s_names=structs.field_list(s_out);
-      % loop over all data elements
-      for i=1:numel(s_names)
-        s_now=get_value(s_out,s_names{i});
-        s_now.export([product.codename,'.',strjoin(s_names{i},'.'),'.dat']);
+      if isempty(s_names)
+        s_out.export([product.codename,'.dat'],'ascii');
+      else
+        % loop over all data elements
+        for i=1:numel(s_names)
+          s_now=structs.get_value(s_out,s_names{i});
+          %----------------------------------------------------------
+          %this can be changed according to what needs to be exported
+          s_now.lmax=4;
+          %----------------------------------------------------------
+          s_now.export([product.codename,'.',strjoin(s_names{i},'.'),'.dat'],'ascii');
+        end
       end
       % debug output
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
