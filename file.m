@@ -502,6 +502,9 @@ classdef file
       end
     end
     function out=ensuredir(filename,file_flag)
+      if ~exist('file_flag','var') || isempty(file_flag)
+        file_flag=true;
+      end
       if file_flag
         d=fileparts(filename);
       else
