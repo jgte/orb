@@ -2583,7 +2583,11 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         %get common axis limits (don't crop stuff)
         v=plotting.common_axis_limits(gca);
         if isprop(obj,'t')
-          xlim(datetime(v(1:2),'convertfrom','datenum'));
+          try
+            xlim(datetime(v(1:2),'convertfrom','datenum'));
+          catch 
+            xlim(v(1:2));
+          end
         else
           xlim(v(1:2));
         end
