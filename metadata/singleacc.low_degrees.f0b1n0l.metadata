@@ -5,7 +5,7 @@ method: gswarm.plot_low_degrees
 
 degrees: [  2,  3,  4]
 orders:  [inf,inf,inf]
-sources: [slr.csr,scales.RL05.sh,singleacc.GEO,scales.GEO]
+sources: [slr.csr,scales.RL05.sh,singleacc.GEO.f0b1n0l,scales.GEO]
 stats_relative_to: slr.csr
 
 explicit_fields: true
@@ -15,6 +15,7 @@ plot_outlier: 1
 plot_automean: true
 plot_autoscale: true
 plot_autoscale_factor: 6
-plot_xdateformat: yy/mm
-plot_legend_suppress: [signal,scales,singleacc,GEO,Ries,Cheng]
+plot_xdateformat: mm
+plot_legend_suppress: [signal,scales,singleacc,GEO,Ries,Cheng,f0b1n0l]
 plot_legend_box: false
+plot_legend_location: eastoutside
