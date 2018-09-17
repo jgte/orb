@@ -35,7 +35,7 @@ classdef plotting
         'plot_grid',            true,     @(i) islogical(i);...
         'plot_line_width',      2,        @(i) isnumeric(i);...
         'plot_line_style',  'none',       @(i) ischar(i) || iscellstr(i);...
-        'plot_line_color',  'spiral',     @(i) ischar(i);...
+        'plot_line_color',  'many',       @(i) ischar(i);...
         'plot_colormap',        '',       @(i) ischar(i) || ishandle(i);...
         'plot_psd',          false,       @(i) islogical(i);...
         'plot_autoscale',    false,       @(i) islogical(i);... %y-scale is derived from the data (in plotting.enforce)
@@ -60,13 +60,18 @@ classdef plotting
     end
     function v=common_axis_limits(axis_handle)
       %set output
-      v=[-inf inf -inf inf];
+      v=[inf -inf inf -inf];
       %get line handles
       lh=plotting.line_handles(axis_handle);
       %loop over all lines
       for i=1:numel(lh)
+        %get x-data
+        xdata=get(lh(i),'XData');
+        if isdatetime(xdata)
+          xdata=datenum(xdata);
+        end
         %get x-data extremeties
-        mm=minmax(get(lh(i),'XData'));
+        mm=minmax(xdata);
         %accumulate inclusive x-axis limits
         v(1)=min([v(1),mm(1)]);
         v(2)=max([v(2),mm(2)]);
@@ -105,7 +110,7 @@ classdef plotting
     
       % handle inputs
       if ~exist('mode','var') || isempty(mode)
-          mode='spiral';
+          mode='many';
       end
       if ~exist('axis_handle','var') || isempty(axis_handle)
           axis_handle = gca;
@@ -472,8 +477,8 @@ classdef plotting
         plotting.line_color(v.plot_line_color,out.axis_handle)
       end
       
-      % start with current axis
-      a=axis(out.axis_handle);
+      % start with x axis
+      ax=xlim(out.axis_handle);
       %check if dates are requested
       if (v.plot_xdate && ~v.plot_psd) || ...
           strcmp(v.plot_xlabel,'time') ||  ...
@@ -481,18 +486,18 @@ classdef plotting
         % enforce (possible) requested x-limits
         for i=1:2
           if isfinite(v.plot_xlimits(i))
-            a(i)=datenum(v.plot_xlimits(i));
+            ax(i)=datenum(v.plot_xlimits(i));
           end
         end
         % set auto x-label, unless one is explicity given
         if isempty(v.plot_xlabel) || strcmp(v.plot_xlabel,'time')
-          if ~strcmp(datestr(a(1),'yyyymmdd'),datestr(a(2),'yyyymmdd')) && ...
-            (~strcmp(datestr(a(2),'HHMMSS'),'000000') || a(2)-a(1)>1)
+          if ~strcmp(datestr(ax(1),'yyyymmdd'),datestr(ax(2),'yyyymmdd')) && ...
+            (~strcmp(datestr(ax(2),'HHMMSS'),'000000') || ax(2)-ax(1)>1)
             out.xlabel_handle=xlabel(out.axis_handle,...
-              [datestr(a(1),'yyyy-mm-dd'),' to ',datestr(a(2),'yyyy-mm-dd')]...
+              [datestr(ax(1),'yyyy-mm-dd'),' to ',datestr(ax(2),'yyyy-mm-dd')]...
             );
           else
-            out.xlabel_handle=xlabel(out.axis_handle,datestr(a(1)));
+            out.xlabel_handle=xlabel(out.axis_handle,datestr(ax(1)));
           end
         end
         %enforce requested x date tick format
@@ -503,14 +508,18 @@ classdef plotting
         % enforce (possible) requested x-limits
         for i=1:2
           if isfinite(v.plot_xlimits(i))
-            a(i)=v.plot_xlimits(i);
+            ax(i)=v.plot_xlimits(i);
           end
         end
       end
+      % set axis limits (can be the ones matlab so wisely set)
+      xlim(out.axis_handle,ax);
+      
       % enforce requested y-limits
+      ay=ylim(out.axis_handle);
       for i=1:2
         if isfinite(v.plot_ylimits(i))
-          a(i+2)=   v.plot_ylimits(i);
+          ay(i)=   v.plot_ylimits(i);
         end
       end
       % enforce auto-scale and/or auto-mean
@@ -531,20 +540,20 @@ classdef plotting
         if ~isempty(dat) && diff(minmax(dat))~=0
           %enforce data-driven mean and/or scale
           if v.plot_automean && v.plot_autoscale
-            a(3:4)=mean(dat)+v.plot_autoscale_factor*std(dat)*[-1,1];
+            ay=mean(dat)+v.plot_autoscale_factor*std(dat)*[-1,1];
           elseif v.plot_automean
-            a(3:4)=minmax(dat);
+            ay=minmax(dat);
           elseif v.plot_autoscale
-            a(3:4)=mean(a(3:4))+v.plot_autoscale_factor*std(dat)*[-1,1];
+            ay=mean(ay)+v.plot_autoscale_factor*std(dat)*[-1,1];
           end
           %fix non-negative data sets
-          if all(dat>=0) && a(3)<0
-            a(3)=0;
+          if all(dat>=0) && ay(2)<0
+            ay(2)=0;
           end
         end
       end
       % set axis limits (can be the ones matlab so wisely set)
-      axis(out.axis_handle,a);
+      ylim(out.axis_handle,ay);
       
       %enforce labels
       if ~isempty(v.plot_xlabel)
