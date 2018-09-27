@@ -2656,13 +2656,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       %propagate the data
       for i=1:numel(v.degrees);
         for j=1:numel(v.orders{i});
-          d=v.degrees(i);o=v.orders{i}(j);if iscell(o); o=o{1};end
-          s.msg=['Propagating data for degree ',num2str(d),' order ',num2str(o)]; s.n=ts{i}.length;
-          for t=1:ts{i}.length
-            g=g.setC(d,o,ts{i}.y(t,j),ts{i}.t(t));
-            s=time.progress(s,t);
-          end
-          clear s
+          g=g.setC(v.degrees(i),cells.scalar(v.orders{i}(j),'get'),ts{i}.y(:,j),ts{i}.t);
         end
       end
       %apply model processing options
@@ -2693,12 +2687,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       %init gravity object
       g=gravity.unit(max(v.degrees),'scale',0,'t',ts.t);
       %propagate the data
-      for i=1:numel(v.degrees);
-        d=v.degrees(i);o=v.orders(i);
-        for t=1:ts.length
-          g=g.setC(d,o,ts.y(t,i),ts.t(t));
-        end
-      end
+      g=g.setC(v.degrees,v.orders,ts.y,ts.t);
       %apply model processing options
       g=gswarm.load_models_op('all',v,product,g);
       %save model
