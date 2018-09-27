@@ -809,6 +809,41 @@ classdef gravity < simpletimeseries
       p.parse(varargin{:})
       [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wilcarded_filename','*.GEO',varargin{:});
     end
+    %% utilities
+    function [degrees,orders]=resolve_degrees_orders(varargin)
+      v=varargs.wrap('sources',{{...
+        'lmax',       inf,@(i) isnumeric(i);...
+        }},varargin{:});
+      if isfinite(v.lmax)
+        %set defaults according to lmax given
+        v=varargs.wrap('sources',{{...
+          'degrees',    0:v.lmax,       @(i) isnumeric(i);...
+          'orders',     inf(1,v.lmax+1),@(i) isnumeric(cell2mat(cells.num(i)));...
+          }},varargin{:});
+      else
+        %set defaults according to lmax given
+        v=varargs.wrap('sources',{{...
+          'degrees',    [2,3],     @(i) isnumeric(i);...
+          'orders',     [inf,inf], @(i) isnumeric(cell2mat(cells.num(i)));...
+          }},varargin{:});
+      end
+      %convert degree-wise orders
+      degrees_out=cell(size(v.degrees));
+       orders_out=cell(size(v.orders));
+      %need to convert keywords in orders ('inf'), if there
+      v.orders=cell2mat(cells.num(v.orders));
+      for i=1:numel(v.degrees)
+        if ~isfinite(v.orders(i))
+           orders_out{i}=-v.degrees(i):v.degrees(i);
+          degrees_out{i}=ones(size(orders_out{i}))*v.degrees(i);
+        else
+           orders_out{i}=v.orders(i);
+          degrees_out{i}=v.degrees(i);
+        end
+      end
+      orders=cell2mat(orders_out);
+      degrees=cell2mat(degrees_out);
+    end
     %% tests
     %general test for the current object
     function out=test_parameters(field,l,w)
@@ -1229,8 +1264,14 @@ classdef gravity < simpletimeseries
       if ~exist('time','var') || isempty(time)
         time=obj.t;
       end
-      if any(size(d)~=size(o)) || any(size(d)~=size(values))
-        error([mfilename,': inputs ''d'', ''o'' and ''values'' must have the same size'])
+      if any(size(d)~=size(o))
+        error([mfilename,': inputs ''d'', ''o'' must have the same size'])
+      end
+      if numel(d)~=size(values,2)
+        error([mfilename,': inputs ''d'' and ''o'' must have the same number of elements as the number of columns of ''values'''])
+      end
+      if numel(time)~=size(values,1)
+        error([mfilename,': input ''time'' must have the same number of elements as the number of rows of ''values'''])
       end
       %retrieve matrix form
       mat_now=obj.mat;
@@ -1239,10 +1280,10 @@ classdef gravity < simpletimeseries
         for i=1:numel(d)
           if o(i)>=0
             %set cosine coefficients
-            mat_now{obj.idx(time(ti))}( d( i)+1,o( i)+1)=values( i);
+            mat_now{obj.idx(time(ti))}( d( i)+1,o( i)+1)=values(ti,i);
           else
             %retrieve sine coefficients
-            mat_now{obj.idx(time(ti))}(-o( i)  ,d( i)+1)=values( i);
+            mat_now{obj.idx(time(ti))}(-o( i)  ,d( i)+1)=values(ti,i);
           end
         end
       end
@@ -1605,6 +1646,46 @@ classdef gravity < simpletimeseries
       %initialize grid object
       out=simplegrid(sl.t,sl.map,'lon',sl.lon,'lat',sl.lat);
     end
+    %% overloading
+    function [obj,stats]=component_split(obj,n,tf,aperiodic_order,varargin)
+      %get collection of degrees/orders
+      [degrees,orders]=gravity.resolve_degrees_orders('lmax',obj.lmax,varargin{:});
+      %make room for optional outputs
+      stats=struct(...
+        'degrees',degrees,...
+        'orders',orders,...
+        'idx',gravity.colidx(degrees,orders,obj.lmax),...
+        'dat',{cell(1,obj.width)}...
+      );
+      %operate over each coefficient individually
+      for i=1:numel(degrees)
+        d=degrees(i);
+        o=orders(i);
+        %inform
+        str.say('Looking at degree ',d,' order ',o)
+        %get time series of this coefficient
+        ts=obj.ts_C(d,o);
+        %get column index
+        colidx=gravity.colidx(d,o,obj.lmax);
+        %skip constant coefficients (usually zero)
+        if all(ts.y_masked(1)==ts.y_masked)
+          %extend time domain
+          ts=ts.append_epochs( (ts.stop+ts.step):ts.step:tf , ts.y_masked(1) );
+        else
+          %call mother routine, save stats to index consistent with columns of y
+          [ts,stats.dat{colidx}]=ts.component_split(n,tf,aperiodic_order,varargin);
+        end
+        %initialize
+        if i==1
+          out=gravity.unit(obj.lmax,'scale',0,'t',ts.t);
+          out=out.copy_metadata(obj);
+        end
+        %accumulate
+        out=out.setC(d,o,ts.y);
+      end
+      %propagate
+      obj=out;
+    end
     %% multiple operands
     function compatible(obj1,obj2,varargin)
       p=inputParser;
@@ -1677,41 +1758,41 @@ classdef gravity < simpletimeseries
     end
     %% plot functions
     function out=plot(obj,varargin)
-      % Parse inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
-      % optional arguments
-      p.addParameter('method',   'drms',    @(i) ischar(i));
-      p.addParameter('showlegend',false,    @(i) islogical(i));
-      p.addParameter('line',     '-',       @(i) ischar(i));
-      p.addParameter('title',    '',        @(i) ischar(i));
-      p.addParameter('functional',obj.funct,@(i) ischar(i));
-      p.addParameter('time',      [],       @(i) simpletimeseries.valid_t(i) || isempty(i));
-      p.addParameter('colormap',  '',       @(i) ischar(i) || ismatrix(i));
-      % parse it
-      p.parse(varargin{:});
+      v=varargs.wrap('sources',{{...
+        'method',   'drms',    @(i) ischar(i);...
+        'showlegend',false,    @(i) islogical(i);...
+        'line',     '-',       @(i) ischar(i);...
+        'title',    '',        @(i) ischar(i);...
+        'functional',obj.funct,@(i) ischar(i);...
+        'time',      [],       @(i) simpletimeseries.valid_t(i) || isempty(i);...
+        'colormap',  '',       @(i) ischar(i) || ismatrix(i);...
+      }},varargin{:}); 
       % enforce requested functional
-      if ~strcmpi(obj.funct,p.Results.functional)
-        obj=obj.scale(p.Results.functional,'functional');
+      if ~strcmpi(obj.funct,v.functional)
+        obj=obj.scale(v.functional,'functional');
       end
-      %consider only requested
-      if ~isempty(p.Results.time)
-        obj=obj.at(p.Results.time);
+      %consider only requested epoch(s)
+      if ~isempty(v.time)
+        obj=obj.at(v.time);
       end
       %build anotate
-      if isempty(p.Results.title)
+      if isempty(v.title)
         out.title=obj.descriptor;
       else
-        out.title=p.Results.title;
+        out.title=v.title;
       end
-      % branch on method
-      switch lower(p.Results.method)
+      %if data columns are specified, then fallback to timeseries plotting
+      if cells.isincluded(varargin,'columns')
+        v.method='timeseries';
+      end
+      %branch on method
+      switch lower(v.method)
       case 'timeseries'
         %call superclass
         out.line=plot@simpletimeseries(obj,varargin{:});
       case {'cumdmean-timeseries','cumdrms-timeseries','cumdstd-timeseries','cumdas-timeseries'}
         %compute cumdrms for all epochs
-        out=obj.(strrep(p.Results.method,'-timeseries','')).plot(varargin{:});
+        out=obj.(strrep(v.method,'-timeseries','')).plot(varargin{:});
       case {'triang','trianglog10'}
         %get triangular plots (don't plot invalid entries)
         obj_masked=obj.masked;
@@ -1721,19 +1802,19 @@ classdef gravity < simpletimeseries
           bad_idx=(tri_now{i}==0);
           tri_now{i}(bad_idx)=NaN;
           if i>1;figure;end
-          if strcmpi(p.Results.method,'trianglog10')
+          if strcmpi(v.method,'trianglog10')
             out.image=imagesc([-obj.lmax,obj.lmax],[0,obj.lmax],log10(abs(tri_now{i})));
           else
             out.image=imagesc([-obj.lmax,obj.lmax],[0,obj.lmax],tri_now{i});
           end
           ylabel('SH degree')
           xlabel('SH order')
-          if ~isempty(p.Results.colormap)
-            colormap(p.Results.colormap)
+          if ~isempty(v.colormap)
+            colormap(v.colormap)
           end
           out.cb=colorbar;
           cb.nan;
-          if strcmpi(p.Results.method,'trianglog10')
+          if strcmpi(v.method,'trianglog10')
             cb.label(['log_{10}(',obj.functional_name,') [',obj.functional_unit,']']);
           else
             cb.label([obj.functional_name,' [',obj.functional_unit,']']);
@@ -1742,22 +1823,22 @@ classdef gravity < simpletimeseries
           title(out.title)
         end
       case {'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
-        v=transpose(obj.(p.Results.method));
-        switch lower(p.Results.method)
+        v=transpose(obj.(v.method));
+        switch lower(v.method)
         case {'dmean','cumdmean'}
-          out.line=semilogy(0:obj.lmax,abs(v),p.Results.line);hold on
+          out.line=semilogy(0:obj.lmax,abs(v),v.line);hold on
         otherwise
-          out.line=semilogy(0:obj.lmax,v,p.Results.line);hold on
+          out.line=semilogy(0:obj.lmax,v,v.line);hold on
         end
         grid on
         xlabel('SH degree')
         ylabel([obj.functional_name,'[ ',obj.functional_unit,']'])
-        if p.Results.showlegend
+        if v.showlegend
           out.legend=legend(datestr(obj.t));
         end
         %title: append functional if no title specified
-        if isempty(p.Results.title)
-          switch lower(p.Results.method)
+        if isempty(v.title)
+          switch lower(v.method)
             case 'dmean',    title_str='degree mean';
             case 'cumdmean', title_str='cumul. degree mean';
             case 'drms',     title_str='degree RMS';
@@ -1771,7 +1852,7 @@ classdef gravity < simpletimeseries
         out.title=[out.title,' - ',title_str];
         title(str.clean(out.title,'title'))
       otherwise
-        error([mfilename,': unknonw method ''',p.Results.method,'''.'])
+        error([mfilename,': unknonw method ''',v.method,'''.'])
       end
       out.axis=gca;
     end
