@@ -107,10 +107,8 @@ classdef gswarm
                 interp1(c20.x_masked,c20.y_masked([],2),c20.x)...
               ],'t',c20.t,'mask',true(size(c20.x)));
             end
-            for i=1:mod.length
-              mod=mod.setC(2,0,c20.y(i,1),mod.t(i));
-              err=err.setC(2,0,c20.y(i,2),mod.t(i));
-            end
+            mod=mod.setC(2,0,c20.y(:,1),mod.t);
+            err=err.setC(2,0,c20.y(:,2),mod.t);
   %           figure
   %           plot(c20.t,c20.y(:,1),'o-'), hold on
   %           plot(m.t,m.C(2,0),'x-')
@@ -136,6 +134,7 @@ classdef gswarm
             show_msg=true;
           end
         case 'model_span'
+          error('no longer supported')
           msg={};
           %append extremeties, if requested
           if v.isparameter('model_span') && v.model_span{1}~=time.zero_date && v.model_span{1}<mod.start
@@ -155,6 +154,42 @@ classdef gswarm
             show_msg=true;
           end
           msg=strjoin(msg,' ');
+        case 'start' %NOTICE: this is only done when loading the raw data (afterwards the matlab data is read directly, bypassing this routine altogher)
+          if v.isparameter('start') && v.start~=time.zero_date
+            if v.start<mod.start
+              %append extremeties 
+              mod=mod.append(gravity.nan(mod.lmax,'t',v.start,'R',mod.R,'GM',mod.GM));
+              if exist('err','var')
+                err=err.append(gravity.nan(err.lmax,'t',v.start,'R',err.R,'GM',err.GM));
+              end
+            elseif v.start>mod.start
+              %trim extremeties (this is redundant unless data is saved before the start metadata is increased)
+              mod=mod.trim(v.start,mod.stop);
+              if exist('err','var')
+                err=err.trim(v.start,mod.stop);
+              end
+            end
+            msg=['at ',datestr(v.start)];
+            show_msg=true;
+          end
+        case 'stop' %NOTICE: this is only done when loading the raw data (afterwards the matlab data is read directly, bypassing this routine altogher)
+          if v.isparameter('stop') && v.stop~=time.inf_date
+            if v.stop>mod.stop
+              %append extremeties
+              mod=mod.append(gravity.nan(mod.lmax,'t',v.stop,'R',mod.R,'GM',mod.GM));
+              if exist('err','var')
+                err=err.append(gravity.nan(err.lmax,'t',v.stop,'R',err.R,'GM',err.GM));
+              end
+            elseif v.stop<mod.stop
+              %trim extremeties (this is redundant unless data is saved before the stop metadata is decreased)
+              mod=mod.trim(mod.start,v.stop);
+              if exist('err','var')
+                err=err.trim(mod.start,v.stop);
+              end
+            end
+            msg=['at ',datestr(v.stop)];
+            show_msg=true;
+          end
         case 'static_model'
           %remove static field (if requested)
           if v.isparameter('static_model') && ~strcmpi(v.static_model,'none')
@@ -463,31 +498,14 @@ classdef gswarm
     function obj=plot_low_degrees(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
       % add input arguments and plot metadata to collection of parameters 'v'
-      v=varargs.wrap('sources',{{...
-        'degrees',    [2   3  ],@(i) isnumeric(i);...
-        'orders',     [inf inf],@(i) isnumeric(i);...
-        },...
+      v=varargs.wrap('sources',{...
         plotting.default,...
         rmfield(product.metadata,'sources')...
       },varargin{:});
       %collect the models 
       out=gswarm.plot_ops(obj,product,v.varargin{:});
-      %convert degree-wise orders
-      degrees_out=cell(size(v.degrees));
-       orders_out=cell(size(v.orders));
-      %need to convert keywords in orders ('inf'), if there
-      v.orders=cell2mat(cells.num(v.orders));
-      for i=1:numel(v.degrees)
-        if ~isfinite(v.orders(i))
-           orders_out{i}=-v.degrees(i):v.degrees(i);
-          degrees_out{i}=ones(size(orders_out{i}))*v.degrees(i);
-        else
-           orders_out{i}=v.orders(i);
-          degrees_out{i}=v.degrees(i);
-        end
-      end
-      orders=cell2mat(orders_out);
-      degrees=cell2mat(degrees_out);
+      %get collection of degrees/orders
+      [degrees,orders]=gravity.resolve_degrees_orders(varargin{:});
       %loop over all requested degrees and orders
       for i=1:numel(degrees)
         d=degrees(i);
