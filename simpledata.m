@@ -921,7 +921,7 @@
       p.addParameter('outier_sigma', obj.outlier_sigma, @(i) isnumeric(i));
       p.addParameter('columns',      1:obj.width,       @(i) isnumeric(i) || iscell(i));
       p.addParameter('struct_fields',...
-        {'min','max','mean','std','rms','meanabs','stdabs','rmsabs','length','gaps'},...
+        {'min','max','mean','std','rms','meanabs','stdabs','rmsabs','length','gaps','norm'},...
         @(i) iscellstr(i)...
       )
       % parse it
@@ -959,6 +959,7 @@
       case 'length';  out=obj.nr_valid*ones(1,numel(columns));
       case 'gaps';    out=obj.nr_gaps* ones(1,numel(columns));
       %one line, two lines, three lines, many lines
+      case 'norm';    out=norm(     obj.y_masked([],columns));
       case {'str','str-2l','str-3l','str-nl'} 
         out=cell(size(p.Results.struct_fields));
         for i=1:numel(p.Results.struct_fields);
@@ -1539,23 +1540,51 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       %propagate requested x-domain only (mask is rebuilt from NaNs in 
       obj=obj.assign(y_now,'x',x_now,'mask',mask_now);
     end
-    function [obj_out,S]=polyfit(obj,order)
+    function [obj,S]=polyfit(obj,order,x_out)
+      %parameters
+      S_fieldnames={'R','df','normr','p'};
+      %defaults
+      if ~exist('x_out','var') || isempty(x_out)
+        x_out=obj.x;
+      end
+      %branch on class of order
+      switch class(order)
+      case 'double'
+        %make room for polyfit struct
+        S=cell(0);
+        %set operational flag
+        polyfit_flag=true;
+      case 'cell'
+        %rename
+        S=order;
+        %sanity
+        assert(cellfun(@(i) isstruct(i) && all(isfield(i,S_fieldnames)),S),...
+          ['Cannot handle cell array ''S'' unless it contains fields ''',...
+          strjoin(S_fieldnames,''','''),'''.'])
+        %patch order
+        order=numel(S{1}.p);
+        %set operational flag
+        polyfit_flag=false;
+      end
       %copy the data
-      obj_out=obj;
-      obj_out.descriptor=['order ',num2str(order),' polyfit of ',obj.descriptor];
-      %get the masked data
-      y_now=obj.y_masked;
-      x_now=obj.x_masked;
+      obj.descriptor=['order ',num2str(order),' polyfit of ',obj.descriptor];
+      if polyfit_flag
+        %get the masked data
+        y_now=obj.y_masked;
+        x_now=obj.x_masked;
+      end
       %make room for data
-      y_polyfitted=zeros(size(y_now));
+      y_polyfitted=zeros(numel(x_out),obj.width);
       %polyfit for all columns
-      S(obj.width)=struct('R',[],'df',[],'normr',[]);
       for i=1:obj.width
-        [p,S(i)]=polyfit(x_now,y_now(:,i),order);
-        y_polyfitted(:,i)=polyval(p,x_now);
+        if polyfit_flag
+          [p,S{i}]=polyfit(x_now,y_now(:,i),order);
+          S{i}.p=p;
+        end
+        y_polyfitted(:,i)=polyval(S{i}.p,x_out);
       end
       %propagate the data
-      obj_out.y(obj_out.mask,:)=y_polyfitted;
+      obj=obj.assign(y_polyfitted,'x',x_out);
     end
     function obj=detrend(obj,mode)
       if ~exist('mode','var') || isempty(mode)
@@ -1956,7 +1985,6 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor
         obj1.descriptor=[obj1.descriptor,'+',obj2.descriptor];
-        obj1.labels=arrayfun(@(i) [obj1.labels{i},'+',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj1=minus(obj1,obj2)
@@ -1985,7 +2013,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor and labels
         obj1.descriptor=[obj1.descriptor,'-',obj2.descriptor];
-        obj1.labels=arrayfun(@(i) [obj1.labels{i},'-',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
+%         obj1.labels=arrayfun(@(i) [obj1.labels{i},'-',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj=scale(obj,scl)
@@ -2042,7 +2070,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor
         obj1.descriptor=[obj1.descriptor,'*',obj2.descriptor];
-        obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
+%         obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj1=mtimes(obj1,obj2,map) %this is * (not .*)
@@ -2069,7 +2097,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       obj1=obj1.assign(y1);
       %update descriptor
       obj1.descriptor=[obj1.descriptor,'*',obj2.descriptor];
-      obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';      
+%       obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';      
     end
     function obj1=rdivide(obj1,obj2)
       %empty is not supported
@@ -2093,7 +2121,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor
         obj1.descriptor=[obj1.descriptor,'/',obj2.descriptor];
-        obj1.labels=arrayfun(@(i) [obj1.labels{i},'/',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
+%         obj1.labels=arrayfun(@(i) [obj1.labels{i},'/',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj1=power(obj1,obj2)
@@ -2118,7 +2146,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         end
         %update descriptor
         obj1.descriptor=[obj1.descriptor,'^',obj2.descriptor];
-        obj1.labels=arrayfun(@(i) [obj1.labels{i},'^',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
+%         obj1.labels=arrayfun(@(i) [obj1.labels{i},'^',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     %% logical ops
@@ -2623,7 +2651,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
           out.legend=obj.labels(columns);
         else
           out.ylabel='';
-          out.legend=strcat(obj.labels(columns),' [',obj.y_units(columns),']');
+          out.legend=arrayfun(@(i) strcat(obj.labels(i),' [',obj.y_units(i),']'),columns);
         end
         if p.Results.zeromean
           for i=1:numel(columns)
@@ -2641,7 +2669,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       if ~isempty(out.xlabel); xlabel(str.clean(out.xlabel,'title')); end
       if ~isempty(out.ylabel)
          if p.Results.normalize;ylabel('[ ]');
-         else                  ;ylabel(str.clean(out.ylabel,'title')); end
+         else                   ylabel(str.clean(out.ylabel,'title')); end
       end
       if ~isempty(out.legend); legend(str.clean(out.legend,'title')); end
       %special annotations
