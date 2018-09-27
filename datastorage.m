@@ -442,7 +442,7 @@ classdef datastorage
       %propagate cell array with results back to object
       obj=obj.data_set(dn,result);
     end
-    % Applies a 2-argument method f to the data given by dn1 and dn2 and
+    % Applies a 2-argument method to the data given by dn1 and dn2 and
     % saves it in dn_out
     function obj=vector_obj_op3(obj,dn1,dn2,method,dn_out,varargin)
       %operate on the requested set
@@ -567,11 +567,24 @@ classdef datastorage
         end
       end
     end
-    function obj=startstop_retrieve_update(obj,dn)
-      start_now=obj.start_retrieve(dn);
-      stop_now=obj.stop_retrieve(dn);
+    function obj=startstop_retrieve_update(obj,product,inclusive_now)
+      %save current value of object-wide inclusive flag
+      inclusive_old=obj.inclusive;
+      %handle inclusive flag
+      if exist('inclusive_now','var') && ~isempty(inclusive_now)
+        obj.inclusive=inclusive_now;
+      elseif product.ismdfield('inclusive')
+        obj.inclusive=product.mdget('inclusive');       
+      end
+      %retrieve start/stop
+      start_now=obj.start_retrieve(product);
+      stop_now=obj.stop_retrieve(product);
+      %update start/stop
       obj=obj.startstop_update('start',start_now,'stop',stop_now);
-      obj.log('@','out','product',dn,'start',obj.start,'stop',obj.stop)
+      %inform
+      obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
+      %recover old value of inclusive flag
+      obj.inclusive=inclusive_old;
     end
     %% time operations
     function out=isteq(obj,dn)
@@ -656,7 +669,7 @@ classdef datastorage
         error(['Unknown mode ''',mode,'''.'])
       end
       if product.ismdfield(mode)
-        out=f(obj.(mode),product.mdget(mode));
+        out=f([obj.(mode),product.(mode)]);
       else
         out=obj.(mode);
       end
@@ -670,10 +683,10 @@ classdef datastorage
       end
       % get the file list
       file_list=product.file(product_type,...
-        'start',obj.data_edges(product,'start'),...
+        'start',obj.data_edges(product,'start'),... %this (and stop) only reduces the number of files to be loaded, it does not garantee that the data is trimmed correctly
         'stop',obj.data_edges(product,'stop'),...
         'start_timestamp_only',datastorage.parameters('start_timestamp_only','value'),... %this needs to be in agreement with what is used in datastorage.save
-        'discover',false,...
+        'discover',false,... %TODO: it may make sense to set this to true, dunno why it's not
         'ensure_dir',false,...
         varargin{:}...
       );
@@ -721,6 +734,10 @@ classdef datastorage
           [~,file_now,e]=fileparts(file_list{f});
           obj.log(['loaded file ',num2str(f),' '],[' ',file_now,e],'cum start',start_now,'cum stop',stop_now,'gaps',nr_gaps)
         end
+        % enforce start/stop in metadata
+        %NOTICE: this handles the case when data is saved first and the start/stop metadata entries are increased/decreased (trimming the saved data)
+        %NOTICE: this does not handle decreasing/increased the start/stop metadata such that no new data file(s) is created (e.g. when using yearly or global storage_period)
+        s_out=structs.objmethod('trim',s_out,obj.data_edges(product,'start'),obj.data_edges(product,'stop'));
         % save the data in the object
         obj=obj.data_set(product,s_out);
         % update start/stop
@@ -741,8 +758,10 @@ classdef datastorage
       p.addParameter('recompute',false,@(i) islogical(i) && isscalar(i)); %forces saving the data even if the data is already saved 
       % parse it
       p.parse(varargin{:});
-      % get the data
-      s_out=obj.value_get(product);
+      % get the data to be saved
+      % NOTICE: it is *always* everything under this product.name, never resolved at the level of the field_path
+      % this is to be in agreement with how the filenames are built in datanames
+      s_out=obj.value_get(product.name);
       if isstruct(s_out)
         % serialize the data
         s_cells=structs.get_value_all(s_out);
@@ -929,6 +948,7 @@ classdef datastorage
 %       obj=obj.product_set(id,varargin{:});
       %retrieve product info
       product=obj.product_get(id,varargin{:});
+      obj.log('@','in','product',product,'start',product.start,'stop',product.stop)
       % make sure all data sources are loaded
       obj=obj.init_sources(product,varargin{:});
       % get init method
@@ -969,6 +989,16 @@ classdef datastorage
         %expand existing leafs in this product (should generally return itself, since this product has not yet been initialized)
         product_list=product.field_path_expand(obj.data_list(product));
       end
+      %sort product_list (needed to resolve save_idx below)
+      [~,sort_idx]=sort(cellfun(@(i) i.name,product_list,'UniformOutput',false));
+      product_list=product_list(sort_idx);
+      %compute indexes of the products that are to be saved (this is needed so that a product with multiple field_paths gets saved in one file)
+      save_idx=true(size(product_list));
+      for i=1:numel(save_idx)-1
+        if strcmp(product_list{i}.name,product_list{i+1}.name)
+          save_idx(i)=false;
+        end
+      end
       %loop over all products
       for i=1:numel(product_list)
         obj.log(...
@@ -1003,8 +1033,8 @@ classdef datastorage
 %                 error(ME.message)
 %               end    
 %             end
-            % save data
-            if ~product.mdget('plot_product','default',false)
+            % save data if this product has been completed (plot_product check done inside)
+            if save_idx(i)
               obj.save(product_list{i},varargin{:});
             end
             % update start/stop
@@ -1012,6 +1042,7 @@ classdef datastorage
             %       saved.
             switch product.mdget('method')
             case 'csr.estimate_temp_corr'
+              %TODO: maybe product.inclusive can help with this
               obj.log('@','save: skipped saving because this product truncates data internally.')
             otherwise
               if ~product.mdget('plot_product')
@@ -1796,6 +1827,30 @@ classdef datastorage
       in=obj.data_get_scalar(product.sources(1));
       %operate
       out=in.(operation)(args{:});
+      %propagate result
+      obj=obj.data_set(product,out);
+      obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
+    end
+    %% special operations
+    function obj=component_split(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
+      assert(product.nr_sources==1,['The component_split method cannot operated on product ''',product.str,...
+        ''' because it only accept one source, not ',num2str(product.nr_sources),'.'])
+      %gather inputs
+      v=varargs.wrap('sources',{...
+        {...
+          'nr_segments',     1, @(i) isnumeric(i) && isscalar(i) ;...
+          'aperiodic_order', 2, @(i) isnumeric(i) && isscalar(i)  ;...
+          'stop',           [], @(i) isdatetime(i) ;...
+        },...
+        product.metadata,...
+      },varargin{:});
+      %get source
+      in=obj.data_get_scalar(product.sources(1));
+      %TEMPORARY: patch descriptor
+      in.descriptor=product.sources(1).codename;
+      %split into components
+      out=in.component_split(v.nr_segments,v.stop,v.aperiodic_order,v.varargin_for_wrap{:});     
       %propagate result
       obj=obj.data_set(product,out);
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
