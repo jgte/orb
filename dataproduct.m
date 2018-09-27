@@ -46,7 +46,9 @@ classdef dataproduct
       'plot_dir',       fullfile(dataproduct.scriptdir,    'plot'), @(i) ischar(i);...
       'data_dir',       fullfile(dataproduct.scriptdir,    'data'), @(i) ischar(i);...
       'metadata',       dataproduct.default_metadata,               @(i) isstruct(i);...
-      'debug_plot',     false,                                      @(i) islogical(i)...
+      'debug_plot',     false,                                      @(i) islogical(i);...
+      'start',          time.zero_date,                             @(i) isdatetime(i);...
+      'stop',           time.inf_date,                              @(i) isdatetime(i);...
     };
     %this is the maximum depth of the structure inside on dataname, i.e. obj.data.(dataname.name)
     %this parameter is arbitrary but keep it as low as possible to prevent time-consuming searches.
@@ -281,14 +283,14 @@ classdef dataproduct
       switch lower(mode)
       case 'data'
         out={...
-          'use_storage_period',true,... % I think this can be removed
+          'use_storage_period',true,...
           'dir',obj.data_dir,...
           'sub_dirs','single',...
           'ext','mat'...
         };
       case 'plot'
         out={...
-          'use_storage_period',false,... % I think this can be removed
+          'use_storage_period',false,...
           'dir',obj.plot_dir,...
           'sub_dirs','none',...
           'ext','png'...
@@ -324,6 +326,12 @@ classdef dataproduct
         if isempty(out);out={};end
       %resolve time stamp
       elseif p.Results.use_storage_period
+        if ~isfinite(p.Results.stop)
+          out={};
+          startlist=time.zero_date;
+          stoplist =time.zero_date;
+          return
+        end
         switch lower(obj.mdget('storage_period'))
         case {'day','daily'}
           [startlist,stoplist]=time.day_list(p.Results.start,p.Results.stop);
@@ -349,8 +357,8 @@ classdef dataproduct
           return
         case {'none'}
           out={};
-          startlist=datetime(0,'ConvertFrom','datenum');
-          stoplist =datetime(0,'ConvertFrom','datenum');
+          startlist=time.zero_date;
+          stoplist =time.zero_date;
           return
         case {'direct'}
           startlist=p.Results.start;
@@ -434,7 +442,7 @@ classdef dataproduct
         %convert numeric cell arrays to normal arrays
         metadata=structs.fun(@cells.c2m,metadata);
       end
-      %load and merge with default/existing metadata
+      %load and merge with default/existing metadata (this needs to come before handling sub-metadata files, so that these entries actually exist in the metadata)
       obj=obj.mdmerge(metadata);
       %load sub-metadata files
       c=0;
@@ -450,6 +458,8 @@ classdef dataproduct
           break
         end
       end
+      %re-load metadata so that any metadata in the main metadata file over-writes that in the sub-metadata files
+      obj=obj.mdmerge(metadata);
       %parse commands (if any)
       obj.metadata=dataproduct.parse_commands(obj.metadata);
     end
@@ -522,6 +532,21 @@ classdef dataproduct
       assert(mod(numel(varargin),2)==0,'Number of optional inputs must be even, debug needed!')
       for i=1:numel(varargin)/2
         obj.metadata.(varargin{2*i-1})=varargin{2*i};
+      end
+    end
+    %% start/stop metadata wrappers
+    function out=start(obj)
+      if obj.ismdfield('start')
+        out=obj.mdget('start');
+      else
+        out=dataproduct.parameters('start');
+      end
+    end
+    function out=stop(obj)
+      if obj.ismdfield('stop')
+        out=obj.mdget('stop');
+      else
+        out=dataproduct.parameters('stop');
       end
     end
     %% data sources (usually spits out type 'datanames')
