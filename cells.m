@@ -83,8 +83,14 @@ classdef cells
       out=cellfun(@(i) all(cells.respondto(cellstrin,i)),cells.scalar(method,'set'));
     end
     %% overloading strfind
+    function io=cellstr(io)
+      io=io(cellfun(@ischar,io));
+    end
+    function out=iscellstr(in)
+      out=iscell(in) && any(cellfun(@ischar,in));
+    end
     function out=isstrfind(cellstrin,strin) %this used to be called iscellstrempty
-      if iscellstr(strin) && ischar(cellstrin)
+      if cells.iscellstr(strin) && ischar(cellstrin)
         %switch it around
         tmp=strin;
         strin=cellstrin;
@@ -95,7 +101,7 @@ classdef cells
       elseif isempty(cellstrin)
         out={};
       else
-        out=~cellfun(@isempty,strfind(cellstrin,strin));
+        out=~cellfun(@isempty,strfind(cellstrin(cellfun(@ischar,cellstrin)),strin));
       end
     end
     function out=strfind(cellstrin,strin) %this used to be called cellstrfind
@@ -193,8 +199,8 @@ classdef cells
     %% handling numeric cells
     %returns true if all entries in 'in' are numeric of strings that can be converted to numeric
     function [out,in]=isnum(in)
-      if isnumeric(in);                   out=true; in=out; return; end
-      if   ~iscell(in) && ~iscellstr(in); out=false; in=[]; return; end
+      if isnumeric(in);                   out=true;  in=num2cell(in); return; end
+      if   ~iscell(in) && ~iscellstr(in); out=false; in=[];           return; end
       for i=1:numel(in)
         try 
           in{i}=str.num(in{i});
