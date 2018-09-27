@@ -163,6 +163,7 @@ classdef datanames
     %% filename builders
     function out=file(obj,varargin)
       %NOTICE: this procedure ALWAYS returns a string!
+      %NOTICE: field_path is never part of the output
       p=inputParser;
       p.KeepUnmatched=true;
       p.addParameter('start',     datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
