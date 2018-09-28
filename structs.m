@@ -214,7 +214,7 @@ classdef structs
       fl=structs.field_list(S);
       %maybe this is not a structure
       if isempty(fl)
-        S=S.(method);
+        S=S.(method)(varargin{:});
       else
         %loop over all fields
         for i=1:numel(fl)
