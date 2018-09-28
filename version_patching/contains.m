@@ -35,21 +35,25 @@ function tf = contains(s, pattern, varargin)
 
     narginchk(2, inf);
 
-    if ~isTextStrict(s)
-        firstInput = getString(message('MATLAB:string:FirstInput'));
-        error(message('MATLAB:string:MustBeCharCellArrayOrString', firstInput));
-    end
+    %old matlab way of doing things    
+    tf=~isempty(strfind(s,pattern));
 
-    try
-        stringS = string(s);
-        
-        if nargin == 2
-            tf = stringS.contains(pattern);
-        else
-            tf = stringS.contains(pattern, varargin{:});
-        end
-
-    catch E
-        throw(E)
-    end
+%     if ~isTextStrict(s)
+%         firstInput = getString(message('MATLAB:string:FirstInput'));
+%         error(message('MATLAB:string:MustBeCharCellArrayOrString', firstInput));
+%     end
+%
+%     %new matlab way (need 'string')
+%     try
+%         stringS = string(s);
+%         
+%         if nargin == 2
+%             tf = stringS.contains(pattern);
+%         else
+%             tf = stringS.contains(pattern, varargin{:});
+%         end
+% 
+%     catch E
+%         throw(E)
+%     end
 end
