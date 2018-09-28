@@ -3,5 +3,7 @@ use_GRACE_C20: false
 delete_C20: false
 delete_C00: true
 max_degree: 60
-model_span: [2002-04-01,2017-06-30]
+# model_span: [2002-04-01,2017-06-30]
+start: 2002-04-01
+stop: 2017-06-30
 project_name: singleacc
