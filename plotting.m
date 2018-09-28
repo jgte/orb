@@ -110,7 +110,7 @@ classdef plotting
     
       % handle inputs
       if ~exist('mode','var') || isempty(mode)
-          mode='many';
+          mode='spiral';
       end
       if ~exist('axis_handle','var') || isempty(axis_handle)
           axis_handle = gca;
