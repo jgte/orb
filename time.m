@@ -157,7 +157,10 @@ classdef time
       end
       out=in./time.scale_from_units(units);
     end
-    function out = str(seconds)
+    function out = str(seconds,element_max)
+      if ~exist('element_max','var') || isempty(element_max)
+        element_max=3;
+      end
       if ~isscalar(seconds)
         error([mfilename,': input must be scalar'])
       end
@@ -168,20 +171,26 @@ classdef time
       else
         steps = [1,60,60*60,60*60*24,60*60*24*7,60*60*24*31,60*60*24*365];
         units = ['s','m','h','d','w','m','y'];
-        out=[];
+        out=cell(size(units));
         seconds = abs(seconds);
         for i=numel(steps):-1:1
           if (seconds > steps(i))
             if i~=1
-              out = [out,num2str(floor(seconds/steps(i))),units(i),',']; %#ok<AGROW>
+              out{i} = [num2str(floor(seconds/steps(i))),units(i)];
             else
-              out = [out,num2str(seconds,3),units(i)]; %#ok<AGROW>
+              out{i} = [num2str(seconds,3),units(i)];
             end
             seconds = rem(seconds,steps(i));
           elseif (i==1)
-            out = [out,num2str(seconds,3),units(i)]; %#ok<AGROW>
+            out{i} = [num2str(seconds,3),units(i)];
           end
         end
+        %remove empty
+        out=cells.rm_empty(out);
+        %enforce max elements
+        out=out(numel(out):-1:numel(out)-min([element_max,numel(out)])+1);
+        %make a string out of it
+        out=strjoin(out,' ');
       end
     end
     function out=num2duration(in,units)
