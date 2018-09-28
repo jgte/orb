@@ -80,7 +80,6 @@ classdef str
         out=strjoin(out,join_char);
         return
       end
-      %branch on s
       %branch on scalar type
       switch class(in)
       case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double'}
@@ -518,7 +517,7 @@ classdef str
       %loop control
       start_idx=1;
       start_idx_old=0;
-      %pass parameters to this method as the first two arguments
+      %pass parameters to this method as the first arguments
       while start_idx~=start_idx_old
         %update loop controls
         start_idx_old=start_idx;
