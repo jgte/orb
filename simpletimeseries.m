@@ -275,7 +275,7 @@ classdef simpletimeseries < simpledata
       end
     end
     %general test for the current object
-    function test(l,w)
+    function out=test(l,w)
       if ~exist('l','var') || isempty(l)
         l=1000;
       end
@@ -288,12 +288,39 @@ classdef simpletimeseries < simpledata
       t=datetime(now-l,'convertfrom','modifiedjuliandate'):...
         datetime(now+l,'convertfrom','modifiedjuliandate');
           
-      an=simpletimeseries.randn(t,w,args{:});
-      as=simpletimeseries.sin(t,days(l./(1:w)),args{:});
-      a=as.scale(rand(1,w))+an.scale(0.1)+ones(as.length,1)*randn(1,w);
-
-      i=0;
+      a=simpletimeseries.randn(t,w,args{:});
+      a=a.scale(0.05);
+      idx=2:4;
+      for i=1:numel(idx)
+        as=simpletimeseries.sin(t,days(l/3)/idx(i)*ones(1,w),args{:});
+        as=as.scale(rand(1,w));
+        a=a+as;
+      end
+      a.descriptor='original';
       
+      a.component_split_plot(days(l/3)./idx,'columns',1);
+      return
+      
+      i=0;c=1;
+      i=i+1;h{i}=figure('visible','on');
+      a.plot('column',c)
+      [m,s,segs]=a.component_ampl(days(2*l/5));
+      for si=1:numel(segs)
+        i=i+1;h{i}=figure('visible','on');
+        segs{si}.plot('column',c)
+      end
+      i=i+1;h{i}=figure('visible','on');
+      plot(m(:,1))
+      title('mean')
+      
+      i=i+1;h{i}=figure('visible','on');
+      plot(s(:,1))
+      title('std')
+      
+      
+      return
+      
+      i=0;
       bn=simpletimeseries.randn(t,w,args{:});
       bs=simpletimeseries.sin(t,days(l./(1:w)),args{:});
       b=bs.scale(rand(1,w))+bn.scale(0.1)+ones(bs.length,1)*randn(1,w);
@@ -307,6 +334,7 @@ classdef simpletimeseries < simpledata
         legend('uncal','target','cal')
         title(['column ',num2str(i)])
       end
+      
       return
       
       lines1=cell(w,1);lines1(:)={'-o'};
@@ -1326,29 +1354,14 @@ classdef simpletimeseries < simpledata
       %update step
       obj=obj.t_reset;
     end
-    function obj=resample(obj,step_now)
-      % this function is a special case of interpolation
-      if ~exist('step_now','var') || isempty(step_now)
-        step_now=obj.step_get;
-      end
-      if ~isduration(step_now)
-        error([mfilename,': expecting input ''step_now'' to be duration, not ',class(step_now),'.'])
-      end
-      % build/retrieve relevant time domain
-      t_now=obj.t_domain(step_now);
-      % trivial call
-      if numel(obj.t)==numel(t_now) && all(obj.t==t_now)
-        return
-      end
-      % interpolate over new time domain
-      obj=obj.interp(t_now,...
-        'interp_over_gaps_narrower_than',3*step_now,...
-        'interp1_args',{'linear'}...
-      );
+    function [obj,S]=polyfit(obj,order,t_now)
+      %call superclass
+      [obj,S]=polyfit@simpledata(obj,order,obj.t2x(t_now));
+      %update step
+      obj=obj.t_reset;
     end
     %the detrend method can be called directly
     %the outlier method can be called directly
-    %the medfilt method can be called directly
     function obj=median(obj,span,keet_time_domain)
       if ~exist('keet_time_domain','var') || isempty(keet_time_domain)
         keet_time_domain=false;
@@ -1378,10 +1391,10 @@ classdef simpletimeseries < simpledata
     end
     %% edit methods (specific to this class)
     function obj=extend(obj,nr_epochs)
-      %sanity
-      if ~obj.ishomogeneous
-        error([mfilename,': cannot handle non-homogeneous time domains.'])
-      end
+%       %sanity
+%       if ~obj.ishomogeneous
+%         error([mfilename,': cannot handle non-homogeneous time domains.'])
+%       end
       switch class(nr_epochs)
       case 'double'
         if nr_epochs==0
@@ -1424,6 +1437,10 @@ classdef simpletimeseries < simpledata
       end
     end
     function obj=append_epochs(obj,t_now,y_now)
+      %trivial call
+      if isempty(t_now)
+        return
+      end
       %shortcuts
       if isscalar(y_now)
         y_now=y_now*ones(numel(t_now),obj.width);
@@ -1509,6 +1526,26 @@ classdef simpletimeseries < simpledata
         [~,idx]=simpledata.union(t_old,t_new);
       end
     end
+    function obj=resample(obj,step_now)
+      % this function is a special case of interpolation
+      if ~exist('step_now','var') || isempty(step_now)
+        step_now=obj.step_get;
+      end
+      if ~isduration(step_now)
+        error([mfilename,': expecting input ''step_now'' to be duration, not ',class(step_now),'.'])
+      end
+      % build/retrieve relevant time domain
+      t_now=obj.t_domain(step_now);
+      % trivial call
+      if numel(obj.t)==numel(t_now) && all(obj.t==t_now)
+        return
+      end
+      % interpolate over new time domain
+      obj=obj.interp(t_now,...
+        'interp_over_gaps_narrower_than',3*step_now,...
+        'interp1_args',{'linear'}...
+      );
+    end
     function obj=resample_full(obj)
       % this function is a special case of resample
       obj=obj.interp(obj.t_domain,...
@@ -1539,6 +1576,18 @@ classdef simpletimeseries < simpledata
       %restore median
       obj_clean=obj_median+obj_res_clean;
       obj_outlier=obj_median+obj_res_outlier;
+    end
+    function obj=repeat(obj,tf)
+      while obj.stop < tf
+        %append data translated in time by obj.span+obj.step
+        obj=obj.append(...
+          obj.set_t(obj.t+obj.span+obj.step)...
+        );
+      end
+      %crop excess
+      if obj.stop>tf
+        obj=obj.trim(obj.start,tf);
+      end
     end
     %% multiple object manipulation
     function out=isteq(obj1,obj2)
@@ -1829,6 +1878,204 @@ classdef simpletimeseries < simpledata
       if nargout>1
         filter_response.f=ff;
         filter_response.a=fP(1:numel(ff));
+      end
+    end
+    %% segment analysis
+    function out=segmentate(obj,seg_length,seg_overlap,varargin)
+      if ~isduration(seg_length)
+        error([mfilename,'input ''seg_length'' must be of class ''duration'', not ''',class(seg_length),'''.'])
+      end
+      if ~isduration(seg_overlap)
+        error([mfilename,'input ''seg_overlap'' must be of class ''duration'', not ''',class(seg_overlap),'''.'])
+      end
+      if seg_overlap>=seg_length
+        error([mfilename,'input ''seg_overlap'' (',num2str(seg_overlap),') must be smaller than input ''seg_length'' (',num2str(seg_length),').'])
+      end
+      %handle infinite segment length
+      if ~isfinite(seg_length)
+        seg_length=obj.span;
+        seg_overlap=seconds(0);
+      end
+      %guess the number of segments
+      n=ceil((obj.span)/seg_length*2);
+      %init outputs
+      out=cell(1,n);
+      %init loop vars
+      ti=obj.start;
+      tf=ti;
+      c=0;
+      %loop it
+      while tf < obj.stop
+        %increment counter
+        c=c+1;
+        %determine stop t
+        tf=ti+seg_length;
+        %build segment
+        out{c}=obj.interp(ti:obj.step:tf);
+        %update descriptor
+        out{c}.descriptor=['segment ',num2str(c),' of ',obj.descriptor];
+        %set start t for next iter
+        ti=tf-seg_overlap;
+      end
+      %remove empty entries
+      out=out(~cells.isempty(out));
+    end
+    function [out,res]=component_ampl(obj,seg_length,tf,varargin)
+      %defaul value for some inputs
+      if ~exist('tf','var') || isempty(tf)
+        tf=obj.stop;
+      end
+      %segmentate
+      segs=obj.segmentate(seg_length,obj.step,varargin{:});
+      %build output time domain (done after getting the segments of the unextended object)
+      obj=obj.extend(tf).resample;
+      %init output
+      m=zeros(segs{1}.length,obj.width);
+      %traverse data width
+      for ci=1:obj.width
+        %make room for segment data
+        ynow=nan(segs{1}.length,numel(segs));
+        %agregate segments
+        for si=1:numel(segs)
+          if segs{si}.length==size(ynow,1)
+            ynow(:,si)=segs{si}.y(:,ci);
+          else
+            ynow(1:segs{si}.length,si)=segs{si}.y(:,ci);
+          end
+        end
+        %compute mean and std
+        m(:,ci)=mean(ynow, 2,'omitnan');
+      end
+      %build timeseries objects
+      switch class(segs{1})
+      case 'simpletimeseries'
+        out=simpletimeseries(segs{1}.t,m);
+      case 'gravity'
+        out=gravity(segs{1}.t,m);
+      otherwise
+        error(['Class ',class(segs{1}),' not yet implemented (easy fix!)'])
+      end
+      out=out.copy_metadata(obj);
+      out.descriptor=['mean amplitude of ',char(seg_length),' period of ',obj.descriptor];
+      %project onto input (and extended) time domain
+      out=out.repeat(tf).interp(obj.t);
+      %compute norm of the residual
+      res=out.minus(obj).stats('mode','norm')/obj.stats('mode','norm');
+    end
+    function component_split_plot(obj,stats,obj_orig)
+      plotting.figure;
+      legend_str=cell(0); i=0;
+      for j=1:numel(stats.periodic)
+        stats.periodic{j}.plot('column',1,'line',{'--'});
+        i=i+1;legend_str{i}=['period ',str.show(stats.seg_lengths(j))];
+        stats.aperiodic{j}.plot('column',1,'line',{'--'});
+        i=i+1;legend_str{i}=[' poly',num2str(stats.polyorder),' ',str.show(stats.seg_lengths(j))];
+      end
+      obj.plot(            'column',1);i=i+1;legend_str{i}='out';
+      stats.rest.plot(     'column',1);i=i+1;legend_str{i}='rest';
+      obj_orig.plot(       'column',1);i=i+1;legend_str{i}='original';
+      plotting.legend('plot_legend',legend_str);
+      plotting.font_size;
+      plotting.line_color;
+      plotting.line_width;
+%       keyboard
+    end
+    function J=component_split_fitness(obj,seg_length,tf,varargin)
+      [~,J]=obj.component_ampl(seg_length,tf,varargin{:});
+    end
+    function [obj,stats]=component_split(obj,seg_lengths,tf,aperiodic_order,varargin)
+      %manual parameters
+      debug_plot=true;
+      %prepare for debug plots
+      if debug_plot
+        obj_orig=obj;
+      end
+      %branch on input seg_lengths
+      switch class(seg_lengths)
+      case 'duration'
+        n=numel(seg_lengths);
+        search_flag=false;
+      case 'double'
+        n=seg_lengths;
+        seg_lengths=seconds(zeros(1,n));
+        search_flag=true;
+      otherwise
+        error(['Cannot handle input ''seg_lengths'' of class ''',class(seg_lengths),'''.'])
+      end
+      periodic=cell(1,n);
+      aperiodic=cell(1,n);
+      S=cell(1,n);
+      %save std of original object
+      std_orig=obj.stats('mode','std');
+      %prepare for search
+      if search_flag
+        %define time scale to pass numeric values to fminbnd
+        tscale=@years;
+        %define bounds
+        lb=tscale(obj.step*4);
+        ub=tscale(obj.span/2);
+      end
+      %init rest
+      rest=obj;
+      %search
+      for i=1:n
+        if search_flag
+          str.say('Estimating',i,'of',n,'periodic components of',obj.descriptor)
+        else
+          str.say('Computing',seg_length(i),'periodic component of',obj.descriptor)
+        end
+        %compute polifit and remove from rest (unextended time domain)
+        warning('off','MATLAB:polyfit:RepeatedPointsOrRescale')
+        [aperiodic{i},S{i}]=rest.polyfit(aperiodic_order,rest.t);
+        warning('on','MATLAB:polyfit:RepeatedPointsOrRescale')
+        %decumulate aperiodic component (unextended time domain)
+        rest=rest-aperiodic{i}.interp(obj.t);
+        %search
+        if search_flag
+          %define function to minimze
+          fun=@(i) rest.component_split_fitness(tscale(i),tf,varargin{:});
+          %get segment length for this iter
+          seg_lengths(i)=tscale(fminbnd(fun,lb,ub,optimset('Display','off')));
+        end
+        %get this periodic component (extended time domain)
+        periodic{i}=rest.component_ampl(seg_lengths(i),tf,varargin{:});
+        %decumulate (unextended time domain)
+        rest=rest-periodic{i}.interp(obj.t);
+      end
+      %accumulate (extended time domain)
+      out=periodic{1}+obj.polyfit(S{1},periodic{1}.t);
+      for i=2:n
+        out=out+periodic{i}+obj.polyfit(S{i},periodic{1}.t);
+      end
+      %update output
+      obj=out;
+      if nargout>1
+        %save data and std ratios
+        stats=struct(...
+          'polyorder',aperiodic_order,...
+          'seg_lengths', seg_lengths,...
+          'periodic',   {periodic},...
+          'aperiodic',  {aperiodic},...
+          'rest',        rest,...
+          'stdr',struct(...
+            'periodic', cellfun(@(i) i.stats('mode','std')./std_orig,periodic),...
+            'aperiodic',cellfun(@(i) i.stats('mode','std')./std_orig,aperiodic),...
+            'rest',               rest.stats('mode','std')./std_orig,...
+            'out',                 out.stats('mode','std')./std_orig...
+          )...
+        );
+        %inform
+        str.say('periods:',stats.seg_lengths,'std ratios:',...
+          'periodic', sqrt(sum(stats.stdr.periodic.^2)),...
+          'aperiodic',sqrt(sum(stats.stdr. periodic.^2)),...
+          'rest',     stats.stdr.rest,...
+          'out',      stats.stdr.out...
+        );
+      end
+      %plot it
+      if debug_plot
+        obj.component_split_plot(stats,obj_orig);
+%          keyboard
       end
     end
     %% plot methots
