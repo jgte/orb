@@ -1,0 +1,16 @@
+sources: [scales.GEO]
+method:  component_split
+inclusive: true
+
+#method parameters
+nr_segments: 3
+aperiodic_order: 3
+# degrees: [  2]
+# orders:  [0]
+degrees: [  2,  3,  4]
+orders:  [inf,inf,inf]
+
+#general parameters
+storage_period: yearly
+start: 2002-04-01
+stop: 2017-08-31
