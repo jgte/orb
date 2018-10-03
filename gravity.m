@@ -1823,12 +1823,12 @@ classdef gravity < simpletimeseries
           title(out.title)
         end
       case {'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
-        v=transpose(obj.(v.method));
+        d=transpose(obj.(v.method));
         switch lower(v.method)
         case {'dmean','cumdmean'}
-          out.line=semilogy(0:obj.lmax,abs(v),v.line);hold on
+          out.line=semilogy(0:obj.lmax,abs(d),v.line);hold on
         otherwise
-          out.line=semilogy(0:obj.lmax,v,v.line);hold on
+          out.line=semilogy(0:obj.lmax,d,v.line);hold on
         end
         grid on
         xlabel('SH degree')
@@ -1879,9 +1879,9 @@ classdef gravity < simpletimeseries
       filelist=cell(obj.length,1);
       % build filenames
       for i=1:obj_now.length
-        f={p.Results.prefix,datestr(obj_now.t(i),p.Results.timefmt),p.Results.suffix,'gfc'};
+        f={p.Results.prefix,datestr(obj_now.t(i),p.Results.timefmt),p.Results.suffix};
         f=strjoin(cells.rm_empty(f),p.Results.delim);
-        filelist{i}=fullfile(p.Results.path,f);
+        filelist{i}=fullfile(p.Results.path,[f,'.gfc']);
       end
       header={...
        ''... %place holder for model epoch
@@ -1939,6 +1939,69 @@ classdef gravity < simpletimeseries
         end
       end
     end
+    function filelist=csr(obj,varargin)
+      % Parse inputs
+      p=inputParser;
+      p.KeepUnmatched=true;
+      % optional arguments
+      p.addParameter('prefix',   '',  @(i)ischar(i));
+      p.addParameter('suffix',   '',  @(i)ischar(i));
+      p.addParameter('delim',    '.', @(i)ischar(i));
+      p.addParameter('path',     '.', @(i)ischar(i));
+      p.addParameter('timefmt',  'yyyymmddTHHMMSS', @(i)ischar(i));
+      p.addParameter('error_obj','',  @(i)isa(i,'gravity') || isempty(i));
+      % parse it
+      p.parse(varargin{:});
+      % get only valid entries
+      obj_now=obj.masked;
+      % init outputs
+      filelist=cell(obj.length,1);
+      % build filenames
+      for i=1:obj_now.length
+        f={p.Results.prefix,datestr(obj_now.t(i),p.Results.timefmt),p.Results.suffix};
+        f=strjoin(cells.rm_empty(f),p.Results.delim);
+        filelist{i}=fullfile(p.Results.path,[f,'.GEO']);
+      end
+      %build header
+      header={...
+        '(2a10,2e20.13)';...
+        [' SOLUTION  FIELD     ',num2str(obj.GM,'%20.13E'),' ',num2str(obj.R,'%20.13E')];...
+        '(A6,2I3,2D21.14,2D11.4,F4.1)';...
+      };...
+      %get the data in a suitable representations
+      sig=obj_now.mod;
+      % handle empty error models
+      if isempty(p.Results.error_obj)
+        err=cell(size(sig));
+        err(:)=gravity.unit(obj.lmax,'scale',0).mod;
+      else
+        err=p.Results.error_obj.mod;
+      end
+      % write data
+      for i=1:obj_now.length
+        %check if file is already available
+        if ~exist(filelist{i},'file')
+          %open file
+          fid=file.open(filelist{i},'w');
+          %write the header
+          fprintf(fid,'%s\n',strjoin(header,'\n'));
+          %paranoid sanity
+          assert(all(sig{i}(:,1)==err{i}(:,1)) && all(sig{i}(:,2)==err{i}(:,2)),...
+            'degree/order domain discrepancy between signal and error')
+          %write the data
+          for j=1:numel(sig{i}(:,1))
+            fprintf(fid,'%6s%3d%3d%21.14e%21.14e%11.4e%11.4e%4.1f\n',...
+              'RECOEF',sig{i}(j,1),sig{i}(j,2),sig{i}(j,3),sig{i}(j,4),err{i}(j,3),err{i}(j,4),-1 ...
+            );
+          end
+          %close the file
+          fclose(fid);
+          disp(['Finished writing:  ',filelist{i}])
+        else
+          disp(['Already available: ',filelist{i}])
+        end
+      end
+    end
   end
 end
 
@@ -1952,7 +2015,7 @@ function [m,e]=load_gsm(filename,time)
   fid=file.open(filename);
   modelname=''; GM=0; radius=0; Lmax=0; %Mmax=0;
   % Read header
-  s=fgets(fid);
+  s=fgets(fid); c=0;
   while(strncmp(s, 'GRCOF2', 6) == 0)
      if (keyword_search(s, 'FIRST'))
        modelname =strtrim(s(7:end));
@@ -1970,6 +2033,35 @@ function [m,e]=load_gsm(filename,time)
        %Mmax=x(2);
        permanent_tide=strfind(s,'inclusive permanent tide');
      end
+     %handle yaml headers
+     if str.contains(s,'End of YAML header')
+       %rewind
+       frewind(fid)
+       %build header strings
+       yaml_header=cell(c,1);
+       for i=1:c
+         yaml_header{i}=fgets(fid);
+       end
+       %define header filename
+       [~,header_filename]=fileparts(filename);
+       header_filename=fullfile('tmp',[header_filename,'.yaml']);
+       %write to file
+       file.strsave(header_filename,strjoin(yaml_header,'\n'));
+       %read yaml from file (that's how it works...)
+       d=ReadYaml(header_filename);
+       %delete file
+       delete(header_filename)
+       %translate header info
+       modelname=d.header.global_attributes.title;
+       GM=d.header.non0x2Dstandard_attributes.earth_gravity_param.value;
+       radius=d.header.non0x2Dstandard_attributes.mean_equator_radius.value;
+       permanent_tide=strfind(d.header.non0x2Dstandard_attributes.permanent_tide_flag,'inclusive');
+       %read end of header string
+       s=fgets(fid);
+     end
+     %increment counter
+     c=c+1;
+     %get next line
      s=fgets(fid);
   end
   %sanity
@@ -1998,7 +2090,7 @@ function [m,e]=load_gsm(filename,time)
     if strcmp(s(1:6),'GRCOF2')
       mi.C(d,o)=x(3);
       mi.S(d,o)=x(4);
-      if (numel(x)>=6),
+      if (numel(x)>=6)
          ei.C(d,o)=x(5);
          ei.S(d,o)=x(6);
       end
@@ -2021,17 +2113,15 @@ function [m,e]=load_gsm(filename,time)
     'descriptor',modelname,...
     'origin',filename...
   );
-  if any(ei.C(:)~=0) || any(ei.S(:)~=0)
-    %initializing error object
-    e=gravity(...
-      time,...
-      gravity.dtc('cs','y',ei),...
-      'GM',GM,...
-      'R',radius,...
-      'descriptor',['error of ',modelname],...
-      'origin',filename...
-    );
-  end
+  %initializing error object
+  e=gravity(...
+    time,...
+    gravity.dtc('cs','y',ei),...
+    'GM',GM,...
+    'R',radius,...
+    'descriptor',['error of ',modelname],...
+    'origin',filename...
+  );
 end
 function [m,e]=load_csr(filename,time)
   %default time
