@@ -1,0 +1,7 @@
+import_dir: <getenv('HOME')>/data/grace/L2/CSR/RL06
+model_types: [signal,error]
+wilcarded_filename: GSM-2_*.mat
+model_format: auto
+date_parser: gravity.parse_epoch_grace
+submetadata1: model.processing.submetadata
+submetadata2: model.plotting.submetadata
