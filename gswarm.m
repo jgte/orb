@@ -57,7 +57,7 @@ classdef gswarm
         msg='';show_msg=false;
         switch mode
         case 'mode_list'
-          mod={'consistent_GM','consistent_R','max_degree','use_GRACE_C20','delete_C00','delete_C20','model_span','static_model'};
+          mod={'consistent_GM','consistent_R','max_degree','use_GRACE_C20','delete_C00','delete_C20','start','stop','static_model'};
         case 'all'
           if exist('err','var')
             [mod,err]=gswarm.load_models_op(gswarm.load_models_op('mode_list'),v,product,mod,err);
@@ -434,12 +434,20 @@ classdef gswarm
       out.sources=cellfun(@(i) i.set_lmax(v.plot_max_degree),out.sources,'UniformOutput',false);
       %enforce smoothing
       if ~isempty(v.plot_smoothing_degree) && ~isempty(v.plot_smoothing_method)
-        out.sources=cellfun(@(i) i.scale(...
-          v.plot_smoothing_degree,...
-          v.plot_smoothing_method...
-        ),out.sources,'UniformOutput',false);
-        out.file_smooth=['.smooth-',v.plot_smoothing_method,'-',gravity.gauss_smoothing_name(v.plot_smoothing_degree)];
-        out.title_smooth=[gravity.gauss_smoothing_name(v.plot_smoothing_degree),' ',...
+        if isscalar(v.plot_smoothing_degree)
+          v.plot_smoothing_degree=v.plot_smoothing_degree*ones(size(out.sources));
+        else
+          assert(numel(v.plot_smoothing_degree)==numel(out.sources),...
+            'If plot_smoothing_degree is a vector, it needs to have the same number of elemets as sources')
+        end
+        for i=1:numel(out.sources)
+          out.sources{i}=out.sources{i}.scale(...
+            v.plot_smoothing_degree(i),...
+            v.plot_smoothing_method...
+          );
+        end
+        out.file_smooth=['.smooth-',v.plot_smoothing_method,'-',gravity.gauss_smoothing_name(v.plot_smoothing_degree(end))];
+        out.title_smooth=[gravity.gauss_smoothing_name(v.plot_smoothing_degree(end)),' ',...
                                 gravity.smoothing_name(v.plot_smoothing_method),' smoothing'];
       else
         out.file_smooth='';
@@ -455,6 +463,8 @@ classdef gswarm
             break
           end
         end
+        assert(isfield(out,'mod_ref_idx'),['None of the sources of product ',product.str,...
+          ' match ''stats_relative_to'' equal to ''',product.metadata.stats_relative_to,'''.'])
         %get the indexes of the sources to plot (i.e. not the reference)
         mod_idx=[1:out.mod_ref_idx-1,out.mod_ref_idx+1:product.nr_sources];
         %get product name difference between products to derive statistics from
@@ -696,9 +706,13 @@ classdef gswarm
         %maybe nothing is requested to be plotted
         if strcmp(v.plot_temp_stat_list{s},'none'); continue; end
         %loop over all sources
+        %NOTICE: out.mods, out.res and out.mod_names have one less element than out.source*, hence the i+1 below
+        %(i.e. sources, source_datanames, sources_signal, sources_error, source_names and source_legend_str)
         for i=1:numel(out.mods);
           %build filename
-          filename=strrep(out.file_root{1},'.png',['.',v.plot_temp_stat_list{s},'-triang',out.file_smooth,'.',str.rep(out.source_names{i},' ','_'),'.png']);
+          filename=strrep(out.file_root{1},'.png',...
+            ['.',v.plot_temp_stat_list{s},'-triang',out.file_smooth,'.',str.rep(out.source_names{i+1},' ','_'),'.png']...
+          );
           %plot only if not done yet
           if exist(filename,'file')==0
             plotting.figure(v.varargin{:});
@@ -718,12 +732,19 @@ classdef gswarm
               'plot_caxis',v.(['plot_',v.plot_temp_stat_list{s},'_caxis']),...
               'plot_title',[out.mod_names{i},' ',v.plot_temp_stat_title{s},' ',title_suffix]...
             );
+            %need to adapt caxis label for correlation coefficients
+            switch v.plot_temp_stat_list{s}
+            case 'corrcoeff'
+              cb.label('Corr. Coeff. []');
+            end
             saveas(gcf,filename)
             str.say('Plotted',filename)
           end
         end
         %plot degree-mean corrcoeff
-        filename=strrep(out.file_root{1},'.png',['.',v.plot_temp_stat_list{s},'-dmean',out.file_smooth,'.',strjoin(str.rep(out.source_names,' ','_'),'-'),'.png']);
+        filename=strrep(out.file_root{1},'.png',...
+          ['.',v.plot_temp_stat_list{s},'-dmean',out.file_smooth,'.',strjoin(str.rep(out.source_names,' ','_'),'-'),'.png']...
+        );
         %plot only if not done yet
         if exist(filename,'file')==0
           %init plot counter and data container
@@ -1031,12 +1052,17 @@ classdef gswarm
 %       datafilename=file.unresolve('~/data/gswarm/analyses/2018-07-04/d.mat');
 %       p=dataproduct('gswarm.swarm.all.res-unsmoothed.plots','plot_dir',fileparts(datafilename));
 
-      datafilename=file.unresolve('~/data/gswarm/analyses/2018-08-16/d.mat');
-      p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...
-        'gswarm.swarm.all.TN-03_1.drms',...
-        'gswarm.swarm.all.TN-03_1.plots'...
+%       datafilename=file.unresolve('~/data/gswarm/analyses/2018-08-16/d.mat');
+%       p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...
+
+      datafilename=file.unresolve('~/data/gswarm/analyses/2018-10-04/d.mat');
+      p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...   
+        'gswarm.swarm.all.TN-03_2.catchments',...
+        'gswarm.swarm.all.TN-03_2.unsmoothed',...
+        'gswarm.swarm.all.TN-03_2.smoothed'...
       },'UniformOutput',false);
-%         'gswarm.swarm.all.TN-03_1.catchments',...
+
+    %NOTICE: There's problem with the handling of model errors!!!
 
       %save version numbers into latex table
       file.strsave(str.rep(datafilename,'d.mat','versions.tex'),gswarm.sourcelatextable(p{1}));
@@ -1045,7 +1071,7 @@ classdef gswarm
       if exist(datafilename,'file')~=0 && ~recompute
         load(datafilename)
       else
-        d=datastorage('debug',true,'start',datetime('2013-12-01'),'stop',datetime('2016-12-31'));
+        d=datastorage('debug',true);
         for i=1:p{1}.nr_sources
           d=d.init(p{1}.sources(i),'recompute',recompute);
         end
