@@ -433,12 +433,12 @@ classdef gravity < simpletimeseries
     end
     function [m,e]=load(file_name,fmt,time)
       %default type
-      if ~exist('fmt','var') || isempty(fmt)
+      if ~exist('fmt','var') || isempty(fmt) || strcmp(fmt,'auto')
         [~,fn,fmt]=fileparts(file_name);
         %get rid of the dot
         fmt=fmt(2:end);
         %check if this is CSR format
-        if strcmp(fn,'GEO')
+        if strcmp(fn,'GEO') || strcmp(fmt,'.GEO')
           fmt='csr';
         end
       end
@@ -582,6 +582,7 @@ classdef gravity < simpletimeseries
       p.parse(dirname,format,date_parser,varargin{:})
       %retrieve all gsm files in the specified dir
       filelist=cells.scalar(file.unwrap(fullfile(dirname,p.Results.wilcarded_filename)),'set');
+      assert(~isempty(filelist),'Need valid dir')
       %this counter is needed to report the duplicate models correctly
       c=0;init_flag=true;
       %loop over all models
@@ -1267,11 +1268,14 @@ classdef gravity < simpletimeseries
       if any(size(d)~=size(o))
         error([mfilename,': inputs ''d'', ''o'' must have the same size'])
       end
-      if numel(d)~=size(values,2)
+      if numel(d)~=size(values,2) && numel(values)>1
         error([mfilename,': inputs ''d'' and ''o'' must have the same number of elements as the number of columns of ''values'''])
       end
-      if numel(time)~=size(values,1)
+      if numel(time)~=size(values,1) && numel(values)>1
         error([mfilename,': input ''time'' must have the same number of elements as the number of rows of ''values'''])
+      end
+      if numel(values)==1
+        values=values*ones(numel(time),numel(d));
       end
       %retrieve matrix form
       mat_now=obj.mat;
@@ -2386,9 +2390,9 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
   fclose(fid);
   %handle the tide system
   switch header.tide_system
-    case 'zero_tide'
+    case {'zero_tide'}
       %do nothing, this is the default
-    case {'free_tide','tide_free'}
+    case {'free_tide','tide_free','tide_tide'}
       mi.C(3,1)=mi.C(3,1)-4.173e-9;
       header.tide_system='zero_tide';
     case 'mean_tide'
