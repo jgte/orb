@@ -665,10 +665,10 @@ classdef dataproduct
       out=obj.islevel_wrapped(1);
     end
     function out=level_vals(obj,level)
-      out=obj.mdget(dataproduct.level_vals_str(level));
-      %need level_vals to be a cell array
-      assert(iscell(out),['BUG TRAP: need metadata entry ''',dataproduct.level_vals_str(level),...
-        ''' to be a cell array, not a ',class(out),'.'])
+      out=cells.scalar(obj.mdget(dataproduct.level_vals_str(level)),'set');
+%       %need level_vals to be a cell array
+%       assert(iscell(out),['BUG TRAP: need metadata entry ''',dataproduct.level_vals_str(level),...
+%         ''' to be a cell array, not a ',class(out),'.'])
     end
     function out=level_name(obj,level)
       out=obj.mdget(dataproduct.level_name_str(level));
