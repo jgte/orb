@@ -450,7 +450,7 @@ classdef dataproduct
         c=c+1;
         fieldname=['submetadata',num2str(c)];
         if obj.ismdfield(fieldname)
-          submetadatafile=fullfile(obj.metadata_dir,obj.mdget(fieldname));
+          submetadatafile=fullfile(obj.metadata_dir,[obj.mdget(fieldname),'.yaml']);
           %sanity
           assert(~isempty(dir(submetadatafile)),['Cannot find sub-metadatafile ',submetadatafile,'.'])
           obj=obj.mdmerge(ReadYaml(submetadatafile));
