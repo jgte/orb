@@ -213,7 +213,7 @@ classdef dataproduct
       assert(exist(metadata_dir,'dir')~=0,[mfilename,': ',...
         'cannot find metadata dir ''',metadata_dir,'''.'])
       % build filename and add path
-      out=fullfile(metadata_dir,[dn.name,'.metadata']);
+      out=fullfile(metadata_dir,[dn.name,'.yaml']);
     end
   end
   methods
