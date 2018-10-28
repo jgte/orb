@@ -23,10 +23,10 @@ plot_title_suppress: [gswarm,swarm,smoothed,res,signal]
 plot_visible: false
 plot_legend_replace: ['combined v06','NEQ comb','combined v05','mean','asu ifg','asu','osu aiub','osu']
 plot_legend_location: northeast
+plot_legend_box: false
 plot_stddiff_caxis: [0,0.0035]
 plot_rmsdiff_caxis: [0,0.0045]
 plot_corrcoeff_caxis: [0,1]
-plot_legend_box: false
 
 # plot_temporal_stats
 plot_min_degree: 2

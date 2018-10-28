@@ -3,10 +3,12 @@
 plot_product: true
 method: gswarm.plot_low_degrees
 
-degrees: [  2,  3,  4]
-orders:  [inf,inf,inf]
-sources: [slr.csr,scales.RL05.sh,singleacc.GEO,scales.GEO]
-stats_relative_to: slr.csr
+#degrees: [  2,  3,  4]
+#orders:  [inf,inf,inf]
+degrees: [  2]
+orders:  [0]
+sources: [scales.RL05.sh.comp,singleacc.GEO,scales.GEO]
+stats_relative_to: scales.RL05.sh.comp
 
 explicit_fields: true
 storage_period: global
@@ -16,5 +18,5 @@ plot_automean: true
 plot_autoscale: true
 plot_autoscale_factor: 6
 plot_xdateformat: yy/mm
-plot_legend_suppress: [signal,scales,singleacc,GEO,Ries,Cheng]
+plot_legend_suppress: [signal,scales,singleacc,GEO,Ries,Cheng,sh,comp]
 plot_legend_box: false
