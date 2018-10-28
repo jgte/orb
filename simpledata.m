@@ -1300,6 +1300,12 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         out=true;
       end
     end
+    function out=iszero_cols(obj,columns)
+      if ~exist('columns','var') || isempty(columns)
+        columns=1:obj.width;
+      end
+      out=all(obj.y_masked([],columns)==0);
+    end
     %% mask methods
     %NOTICE: these functions only deal with *explicit* gaps, i.e. those in
     %the form of:
@@ -2518,6 +2524,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       % parse it
       p.parse(varargin{:});
       % type conversions
+      assert(~isempty(p.Results.columns),'If input argument ''columns'' is given, it cannot be empty')
       if iscell(p.Results.columns)
         columns=cell2mat(p.Results.columns);
       else
@@ -2597,12 +2604,12 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         y_plot=(y_plot-out.y_mean{i})/out.y_scale{i}*scale(i);
         % plot it
         if isempty(p.Results.line)
-          out.handle{i}=plot(x_plot,y_plot);hold on
+          out.line_handle{i}=plot(x_plot,y_plot);hold on
         else
           if iscell(p.Results.line{i})
-            out.handle{i}=plot(x_plot,y_plot,p.Results.line{i}{:});hold on
+            out.line_handle{i}=plot(x_plot,y_plot,p.Results.line{i}{:});hold on
           else
-            out.handle{i}=plot(x_plot,y_plot,p.Results.line{i});hold on
+            out.line_handle{i}=plot(x_plot,y_plot,p.Results.line{i});hold on
           end
         end
       end
@@ -2627,7 +2634,7 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
         out.title=p.Results.title;
       end
       out.xlabel=['[',obj.x_units,']'];
-      if numel(out.handle)==1
+      if numel(out.line_handle)==1
         out.ylabel=[obj.labels{columns},' [',obj.y_units{columns},']'];
         out.legend=obj.labels{columns};
         if p.Results.zeromean
@@ -2667,13 +2674,13 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
       %anotate
       if ~isempty(out.title);   title(str.clean(out.title, 'title')); end
       if ~isempty(out.xlabel); xlabel(str.clean(out.xlabel,'title')); end
-      if ~isempty(out.ylabel)
-         if p.Results.normalize;ylabel('[ ]');
-         else                   ylabel(str.clean(out.ylabel,'title')); end
-      end
+      if ~isempty(out.ylabel); ylabel(str.clean(out.ylabel,'title')); end
       if ~isempty(out.legend); legend(str.clean(out.legend,'title')); end
       %special annotations
       if p.Results.normalize; ylabel('[ ]'); end
+      %maybe useful outside
+      out.axis_handle=gca;
+      out.fig_handle=gcf;
       %outputs
       if nargout == 0
         clear out
@@ -2767,4 +2774,4 @@ simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i
 %       end
 %     end
   end
-end
+ end
