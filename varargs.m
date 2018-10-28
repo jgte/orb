@@ -12,12 +12,14 @@ classdef varargs < dynamicprops
       @(i) isa(i, 'function_handle');...
     };
     nprops=numel(fieldnames(varargs.template));
+    reserved_fields={'parser','mandatory','sources','sinks'};
   end
   properties(Constant,GetAccess=public)
     template_fields=fieldnames(varargs.template)
   end
   properties(GetAccess=public,SetAccess=private)
     S
+    rest
   end
   methods(Static)
     %% S methods
@@ -71,6 +73,7 @@ classdef varargs < dynamicprops
         S.(template_fieldnames{i})=p.Results.(template_fieldnames{i});
       end
     end
+    %% is* methods
     function out=isvarargin(in)
       out=mod(numel(in),2)==0 && size(in,1)==1 && iscellstr(in(1:2:end));
     end
@@ -86,15 +89,14 @@ classdef varargs < dynamicprops
         isstruct(in)           || ...
         isa(in,'varargs');
     end
+    %% utilities
+    %returns the a/all fieldname/s of varargs.template
     function out=prop(i)
       out=fieldnames(varargs.template);
       if exist('i','var') && ~isempty(i)
         out=out{i};
       end
     end
-%     function out=default_cells(parameter_list)
-%       out=varargs(plotting.default).pluck(parameter_list).cell;
-%     end
     %returns the positional index in varargin of the requested parameters (in cell array parameter_list)
     %returns 0 if not a parameter is not present
     function idx=locate(parameter_list,varargin)
@@ -112,6 +114,10 @@ classdef varargs < dynamicprops
           idx(i)=0;
         end
       end
+    end
+    %checks if a field name is reserved
+    function out=isreserved(name)
+      out=any(ismember(varargs.reserved_fields,name));
     end
     %% general wrapper for functions with only optional arguments
     function [v,p,sinks]=wrap(varargin)
@@ -178,6 +184,8 @@ classdef varargs < dynamicprops
       if isscalar(sinks)
         sinks=sinks{1};
       end
+      %save rest: parameter pairs that were not save to object
+      v.rest=cells.vararginclean(varargin,v.Parameters);
     end
   end
   methods
@@ -255,13 +263,19 @@ classdef varargs < dynamicprops
       end
     end
     %function out=S(obj) (already a field)
-    function out=varargin(obj)
+    function out=varargin(obj,hide_rest_flag)
+      if ~exist('hide_rest_flag','var') || isempty(hide_rest_flag)
+        hide_rest_flag=false;
+      end
       out=obj.cell;
       out=reshape(transpose(out(:,[1 2])),[1 obj.length*2]);
+      if ~hide_rest_flag
+        out=[out,obj.rest];
+      end
     end
-    function out=varargin_for_wrap(obj)
-      out=obj.delete('parser','mandatory','sources','sinks').varargin;
-    end
+%     function out=varargin_for_wrap(obj)
+%       out=obj.delete(varargs.reserved_fields{:}).varargin;
+%     end
     %% utilities
     function out=size(obj,varargin)
       out=size(obj.S,varargin{:});
@@ -277,12 +291,27 @@ classdef varargs < dynamicprops
         tab=20;
       end
       c=obj.cell;
+      [~,sort_idx]=sort(c(:,1));
       out=cell(obj.length+1,1);
       out{1}=str.tablify(tab,varargs.prop);
       for i=1:obj.length
-        out{i+1}=str.tablify(tab,c(i,:));
+        out{i+1}=str.tablify(tab,c(sort_idx(i),:));
       end
       out=strjoin(out,char(10));
+    end
+    function out=show(obj)
+      %outputs
+      out=cell(obj.length,1);
+      %get length of longest parameter name
+      l=0;
+      for i=1:obj.length
+        l=max([length(obj.get(i).name),l]);
+      end
+      for i=1:obj.length
+        p=obj.get(i);
+        out{i}=str.show({str.tabbed(p.name,l,true),p.value},'',' : ');
+      end
+      out=strjoin(out,newline);
     end
     function out=Parameters(obj)
       %keep this a column vector, makes is easy to append other vectors
@@ -419,6 +448,23 @@ classdef varargs < dynamicprops
         rmprops(obj,parameters_to_delete{:});
       end
     end
+    function obj=rename(obj,old_name,new_name)
+      assert(obj.isparameter(old_name),...
+        ['Cannot renamed parameter ''',old_name,''' to ''',new_name,''' because the former does not exist.'])
+      assert(~obj.isparameter(new_name),...
+        ['Cannot renamed parameter ''',old_name,''' to ''',new_name,''' because the latter already exists.'])
+      assert(obj.isparameter(old_name),...
+        ['Cannot renamed parameter ''',old_name,''' to ''',new_name,''' because the former does not exist.'])
+      S_now=obj.get(old_name);
+      obj=obj.delete({old_name});
+      S_now.name=new_name;
+      obj=obj.set(S_now);
+    end
+    function obj=rename_silent(obj,old_name,new_name)
+      if obj.isparameter(old_name) && ~obj.isparameter(new_name)
+        obj=obj.rename(old_name,new_name);
+      end
+    end
     %% multi-object methods
     function out=dup(in)
       out=varargs({});
@@ -427,7 +473,7 @@ classdef varargs < dynamicprops
     end
     %obj is updated with the common entries in obj_new. New entries in obj_new are ignored
     function obj=merge(obj,obj_new)
-      if ~isa(obj_new,'varargs');obj_new=varargs(obj_new);end
+      if ~isa(obj_new,'varargs');obj_new=varargs(obj_new).delete(varargs.reserved_fields{:});end
       for i=1:obj_new.length
         name=obj_new.S(i).name;
         if obj.isparameter(name);
@@ -437,7 +483,7 @@ classdef varargs < dynamicprops
     end
     %obj receives the new entries in obj_new. Common entries are ignored.
     function obj=append(obj,obj_new)
-      if ~isa(obj_new,'varargs');obj_new=varargs(obj_new);end
+      if ~isa(obj_new,'varargs');obj_new=varargs(obj_new).delete(varargs.reserved_fields{:});end
       for i=1:obj_new.length
         name=obj_new.S(i).name;
         if ~obj.isparameter(name);
@@ -447,11 +493,11 @@ classdef varargs < dynamicprops
     end
     %obj receives all entries in obj_new. Nothing is ignored.
     function obj=join(obj,obj_new)
-      if ~isa(obj_new,'varargs');obj_new=varargs(obj_new);end
+      if ~isa(obj_new,'varargs');obj_new=varargs(obj_new).delete(varargs.reserved_fields{:});end
       for i=1:obj_new.length
         obj.set(obj_new.get(i));
       end
-    end
+    end    
     %% parser
     function [p,obj]=declare(obj,p)
       for i=1:obj.length
