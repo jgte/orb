@@ -273,9 +273,6 @@ classdef varargs < dynamicprops
         out=[out,obj.rest];
       end
     end
-%     function out=varargin_for_wrap(obj)
-%       out=obj.delete(varargs.reserved_fields{:}).varargin;
-%     end
     %% utilities
     function out=size(obj,varargin)
       out=size(obj.S,varargin{:});
