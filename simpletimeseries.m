@@ -1436,6 +1436,32 @@ classdef simpletimeseries < simpledata
         error([mfilename,': cannot handle input ''nr_epochs'' of class ',class(nr_epochs),'.'])
       end
     end
+    function obj=extend_or_trim_end(obj,t_end)
+      assert(isdatetime(t_end),['Input ''t_cut'' must of of class datetime, not ',class(t_end)])
+      %check if t_ref is outside obj timespan
+      if t_end < obj.start 
+        error(['Expecting input t_ref (',datestr(t_end),') to be larger than obj.start (',datestr(obj.start),').'])
+      elseif obj.stop <= t_end 
+        %extend
+        obj=obj.extend(t_end);
+      else
+        %trim end section
+        obj=obj.trim(obj.start,t_end);
+      end  
+    end
+    function obj=extend_or_trim_start(obj,t_start)
+      assert(isdatetime(t_start),['Input ''t_cut'' must of of class datetime, not ',class(t_start)])
+      %check if t_ref is outside obj timespan
+      if obj.stop < t_end
+        error(['Expecting input t_ref (',datestr(t_end),') to be smaller than obj.stop(',datestr(obj.stop),').'])
+      elseif t_start <= obj.start
+        %extend
+        obj=obj.extend(t_start);
+      else
+        %trim start section
+        obj=obj.trim(t_start,obj.stop);
+      end  
+    end
     function obj=append_epochs(obj,t_now,y_now)
       %trivial call
       if isempty(t_now)
@@ -1928,7 +1954,7 @@ classdef simpletimeseries < simpledata
       %segmentate
       segs=obj.segmentate(seg_length,obj.step,varargin{:});
       %build output time domain (done after getting the segments of the unextended object)
-      obj=obj.extend(tf).resample;
+      obj=obj.extend_or_trim_end(tf).resample;
       %init output
       m=zeros(segs{1}.length,obj.width);
       %traverse data width
@@ -1962,120 +1988,161 @@ classdef simpletimeseries < simpledata
       %compute norm of the residual
       res=out.minus(obj).stats('mode','norm')/obj.stats('mode','norm');
     end
-    function component_split_plot(obj,stats,obj_orig)
-      plotting.figure;
+    function component_split_plot(~,stats)
+      plotting.figure('plot_visible',false);
       legend_str=cell(0); i=0;
       for j=1:numel(stats.periodic)
         stats.periodic{j}.plot('column',1,'line',{'--'});
-        i=i+1;legend_str{i}=['period ',str.show(stats.seg_lengths(j))];
+        i=i+1;legend_str{i}=['period ',str.show(stats.parameters.seg_lengths(j))];
         stats.aperiodic{j}.plot('column',1,'line',{'--'});
-        i=i+1;legend_str{i}=[' poly',num2str(stats.polyorder),' ',str.show(stats.seg_lengths(j))];
+        i=i+1;legend_str{i}=[' poly',num2str(stats.parameters.aperiodic_order),' ',str.show(stats.parameters.seg_lengths(j))];
       end
-      obj.plot(            'column',1);i=i+1;legend_str{i}='out';
-      stats.rest.plot(     'column',1);i=i+1;legend_str{i}='rest';
-      obj_orig.plot(       'column',1);i=i+1;legend_str{i}='original';
-      plotting.legend('plot_legend',legend_str);
+       stats.out.plot('column',1);i=i+1;legend_str{i}='out';
+      stats.rest.plot('column',1);i=i+1;legend_str{i}='rest';
+      stats.orig.plot('column',1);i=i+1;legend_str{i}='original';
+      plotting.legend('plot_legend',legend_str,'plot_legend_location','westoutside');
       plotting.font_size;
       plotting.line_color;
       plotting.line_width;
-%       keyboard
+    end
+    function f=component_split_fileroot(obj,dir,ext,search,lower_durat,upper_durat,nr_seg,t_extrapolate,t_crop,aperiodic_order)
+      %build filename in case it needs to be saved outside
+      f=fullfile(dir,[...;
+        str.show({...
+          obj.descriptor,...
+          str.show({'search',            search         },'',          '_'),...
+          strrep(str.show({'lower_durat',lower_durat    },'',          '_'),' ',''),...
+          strrep(str.show({'upper_durat',upper_durat    },'',          '_'),' ',''),...
+          str.show({'nr_seg',            nr_seg         },'',          '_'),...
+          str.show({'t_extrapolate',     t_extrapolate  },'yyyy-mm-dd','_'),...
+          str.show({'t_crop',            t_crop         },'yyyy-mm-dd','_'),...
+          str.show({'aperiodic_order',   aperiodic_order},'',          '_'),...
+          strjoin(obj.labels,'_')...
+        },'','.'),...
+      ext]);
     end
     function J=component_split_fitness(obj,seg_length,tf,varargin)
       [~,J]=obj.component_ampl(seg_length,tf,varargin{:});
     end
-    function [obj,stats]=component_split(obj,seg_lengths,tf,aperiodic_order,varargin)
-      %manual parameters
-      debug_plot=true;
-      %prepare for debug plots
-      if debug_plot
+    function [obj,stats]=component_split(obj,varargin)
+      v=varargs.wrap('sources',{{...
+        'search',         true,       @islogical;...
+        'lower_durat',    obj.step*4, @isduration;...
+        'upper_durat',    obj.span/2, @isduration;...
+        'nr_seg',         3,          @(i) isnumeric(i) && isscalar(i);...
+        't_extrapolate',  obj.stop,   @isdatetime;...
+        't_crop' ,        obj.stop,   @(i) isdatetime(i) && i<=obj.stop;...
+        'aperiodic_order',3,          @(i) isnumeric(i) && isscalar(i);...
+        'plot_dir',       '',         @ischar;...
+        'data_dir',       '',         @ischar;...
+        'time_scale',     @years,     @(i) isa(i,'function_handle') && isduration(i(1));...
+      }},varargin{:});
+      v=varargs.wrap('sources',{{...
+        'seg_lengths',    linspace(v.lower_durat,v.upper_durat,v.nr_seg), @isduration;...
+      },v},varargin{:});
+      %update some parameters, in case seg_lengths was given explicitly
+      v.nr_seg=numel(v.seg_lengths);
+      %check if data is already available (need data_dir non-empty)
+      recompute=true;
+      if ~isempty(v.data_dir)
+        datafile=obj.component_split_fileroot(v.data_dir,'.mat',...
+          v.search,v.lower_durat,v.upper_durat,v.nr_seg,v.t_extrapolate,v.t_crop,v.aperiodic_order);
+        if exist(datafile,'file')
+          str.say('Loading data file ',datafile)
+          load(datafile)
+          recompute=false;
+        end
+      end
+      %maybe don't need to recompute stuff
+      if recompute
+        %enforce t_crop
+        obj=obj.trim(obj.start,v.t_crop);
+        %save original object
         obj_orig=obj;
-      end
-      %branch on input seg_lengths
-      switch class(seg_lengths)
-      case 'duration'
-        n=numel(seg_lengths);
-        search_flag=false;
-      case 'double'
-        n=seg_lengths;
-        seg_lengths=seconds(zeros(1,n));
-        search_flag=true;
-      otherwise
-        error(['Cannot handle input ''seg_lengths'' of class ''',class(seg_lengths),'''.'])
-      end
-      periodic=cell(1,n);
-      aperiodic=cell(1,n);
-      S=cell(1,n);
-      %save std of original object
-      std_orig=obj.stats('mode','std');
-      %prepare for search
-      if search_flag
-        %define time scale to pass numeric values to fminbnd
-        tscale=@years;
-        %define bounds
-        lb=tscale(obj.step*4);
-        ub=tscale(obj.span/2);
-      end
-      %init rest
-      rest=obj;
-      %search
-      for i=1:n
-        if search_flag
-          str.say('Estimating',i,'of',n,'periodic components of',obj.descriptor)
-        else
-          str.say('Computing',seg_length(i),'periodic component of',obj.descriptor)
+        std_orig=obj.stats('mode','std');
+        %inits
+        periodic=cell(1,v.nr_seg);
+        aperiodic=cell(1,v.nr_seg);
+        S=cell(1,v.nr_seg);
+        %init rest
+        rest=obj;
+        %inform user
+        str.say(obj.descriptor,' is going to be decomposed with the following options:');disp(v.show)
+        %iterate
+        for i=1:v.nr_seg
+          if v.search
+            str.say('For',obj.descriptor,'estimating',str.th(i),'out of',v.nr_seg,'periodic components')
+          else
+            str.say('For',obj.descriptor,'computing',v.nr_seg,'periodic components with lengths',str.show({v.seg_lengths(:)},'',', '))
+          end
+          %compute polifit and remove from rest (unextended time domain)
+          warning('off','MATLAB:polyfit:RepeatedPointsOrRescale')
+          [aperiodic{i},S{i}]=rest.polyfit(v.aperiodic_order,rest.t);
+          warning('on','MATLAB:polyfit:RepeatedPointsOrRescale')
+          %decumulate aperiodic component (unextended time domain)
+          rest=rest-aperiodic{i}.interp(obj.t);
+          %search
+          if v.search
+            %define function to minimze
+            fun=@(i) rest.component_split_fitness(v.time_scale(i),v.t_extrapolate,varargin{:});
+            %get segment length for this iter
+            v.seg_lengths(i)=v.time_scale(fminbnd(fun,...
+              v.time_scale(v.lower_durat),...
+              v.time_scale(v.upper_durat),...
+              optimset('Display','off')...
+            ));
+            str.say(str.th(i),'periodic component has length',v.seg_lengths(i))
+          end
+          %get this periodic component (extended time domain)
+          periodic{i}=rest.component_ampl(v.seg_lengths(i),v.t_extrapolate,varargin{:});
+          %decumulate (unextended time domain)
+          rest=rest-periodic{i}.interp(obj.t);
         end
-        %compute polifit and remove from rest (unextended time domain)
-        warning('off','MATLAB:polyfit:RepeatedPointsOrRescale')
-        [aperiodic{i},S{i}]=rest.polyfit(aperiodic_order,rest.t);
-        warning('on','MATLAB:polyfit:RepeatedPointsOrRescale')
-        %decumulate aperiodic component (unextended time domain)
-        rest=rest-aperiodic{i}.interp(obj.t);
-        %search
-        if search_flag
-          %define function to minimze
-          fun=@(i) rest.component_split_fitness(tscale(i),tf,varargin{:});
-          %get segment length for this iter
-          seg_lengths(i)=tscale(fminbnd(fun,lb,ub,optimset('Display','off')));
+        %accumulate (extended time domain)
+        out=periodic{1}+obj.polyfit(S{1},periodic{1}.t);
+        for i=2:v.nr_seg
+          out=out+periodic{i}+obj.polyfit(S{i},periodic{1}.t);
         end
-        %get this periodic component (extended time domain)
-        periodic{i}=rest.component_ampl(seg_lengths(i),tf,varargin{:});
-        %decumulate (unextended time domain)
-        rest=rest-periodic{i}.interp(obj.t);
-      end
-      %accumulate (extended time domain)
-      out=periodic{1}+obj.polyfit(S{1},periodic{1}.t);
-      for i=2:n
-        out=out+periodic{i}+obj.polyfit(S{i},periodic{1}.t);
-      end
-      %update output
-      obj=out;
-      if nargout>1
+        %update output
+        obj=out;
         %save data and std ratios
         stats=struct(...
-          'polyorder',aperiodic_order,...
-          'seg_lengths', seg_lengths,...
+          'parameters', v,...
           'periodic',   {periodic},...
           'aperiodic',  {aperiodic},...
-          'rest',        rest,...
+          'rest',       rest,...
+          'out',        out,...
+          'orig',       obj_orig,...
           'stdr',struct(...
-            'periodic', cellfun(@(i) i.stats('mode','std')./std_orig,periodic),...
+            'periodic', cellfun(@(i) i.stats('mode','std')./std_orig, periodic),...
             'aperiodic',cellfun(@(i) i.stats('mode','std')./std_orig,aperiodic),...
             'rest',               rest.stats('mode','std')./std_orig,...
             'out',                 out.stats('mode','std')./std_orig...
           )...
         );
         %inform
-        str.say('periods:',stats.seg_lengths,'std ratios:',...
+        str.say('periods:',stats.parameters.seg_lengths,'std ratios:',...
           'periodic', sqrt(sum(stats.stdr.periodic.^2)),...
-          'aperiodic',sqrt(sum(stats.stdr. periodic.^2)),...
+          'aperiodic',sqrt(sum(stats.stdr.aperiodic.^2)),...
           'rest',     stats.stdr.rest,...
           'out',      stats.stdr.out...
         );
+        %save it
+        if ~isempty(v.data_dir)
+          file.ensuredir(datafile);
+          str.say('Saving data file ',datafile)
+          save(datafile,'obj','obj_orig','stats')
+        end
       end
       %plot it
-      if debug_plot
-        obj.component_split_plot(stats,obj_orig);
-%          keyboard
+      if ~isempty(v.plot_dir)
+        obj.component_split_plot(stats);
+        plotfile=obj_orig.component_split_fileroot(v.data_dir,'.png',...
+          v.search,v.lower_durat,v.upper_durat,v.nr_seg,v.t_extrapolate,v.t_crop,v.aperiodic_order);
+        file.ensuredir(plotfile);
+        str.say('Saving plot ',plotfile)
+        saveas(gcf,plotfile)
+        close(gcf)
       end
     end
     %% plot methots
