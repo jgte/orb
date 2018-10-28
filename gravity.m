@@ -367,7 +367,11 @@ classdef gravity < simpletimeseries
       map=gravity.mapping(lmax);
       l=cell(1,size(map,1));
       for i=1:size(map,2)
-        l{i}=['C',num2str(map(1,i)),',',num2str(map(2,i))];
+        if map(2,i)<0
+          l{i}=['S',num2str(map(1,i)),',',num2str(-map(2,i))];
+        else
+          l{i}=['C',num2str(map(1,i)),',',num2str( map(2,i))];
+        end
       end
       if nargin>1 && nargout>1
         u=cell(size(l));
@@ -1023,11 +1027,13 @@ classdef gravity < simpletimeseries
       );
     end
     %% labels and units
-    function obj=setlabels(obj)
-      if numel(obj.labels)~=obj.width
-        obj.labels={};
-        obj.y_units=[];
-        [obj.labels,obj.y_units]=gravity.labels(obj.lmax,obj.functional_unit);
+    function [obj,reset_flag]=setlabels(obj)
+      [l,u]=gravity.labels(obj.lmax,obj.functional_unit);
+      reset_flag=false;
+      if numel(obj.labels)~=obj.width || ~cells.isequal(obj.labels,l)
+        obj.labels=l;
+        obj.y_units=u;
+        reset_flag=true;
       end
     end
     %% functional
@@ -1651,7 +1657,10 @@ classdef gravity < simpletimeseries
       out=simplegrid(sl.t,sl.map,'lon',sl.lon,'lat',sl.lat);
     end
     %% overloading
-    function [obj,stats]=component_split(obj,n,tf,aperiodic_order,varargin)
+    function [obj,stats]=component_split(obj,varargin)
+      v=varargs.wrap('sources',{{...
+        't_extrapolate',  obj.stop,   @isdatetime;...
+      }},varargin{:});
       %get collection of degrees/orders
       [degrees,orders]=gravity.resolve_degrees_orders('lmax',obj.lmax,varargin{:});
       %make room for optional outputs
@@ -1661,31 +1670,45 @@ classdef gravity < simpletimeseries
         'idx',gravity.colidx(degrees,orders,obj.lmax),...
         'dat',{cell(1,obj.width)}...
       );
+      %prepare for parloop
+      ts=cell(size(degrees));
+      for i=1:numel(degrees)
+        %get time series of this coefficient
+        ts{i}=obj.ts_C(degrees(i),orders(i));
+      end
+      dat=cell(size(degrees));
+      out=cell(size(degrees));
+      t_extrapolate=v.t_extrapolate;
       %operate over each coefficient individually
+      parfor i=1:numel(degrees)
+        %inform
+        str.say('Looking at degree ',degrees(i),' order ',orders(i))
+        %skip constant coefficients (usually zero)
+        if all(ts{i}.y_masked(1)==ts{i}.y_masked)
+          %extend time domain
+          ts{i}=ts{i}.append_epochs( (ts{i}.stop+ts{i}.step):ts{i}.step:t_extrapolate , ts{i}.y_masked(1) );
+        else
+          %call mother routine, save stats to index consistent with columns of y
+          [ts{i},dat{i}]=ts{i}.component_split(varargin{:}); %#ok<PFBNS>
+        end
+      end
+      %init outputs
+      stats.dat=cell(size(dat));
+      %collect
       for i=1:numel(degrees)
         d=degrees(i);
         o=orders(i);
-        %inform
-        str.say('Looking at degree ',d,' order ',o)
-        %get time series of this coefficient
-        ts=obj.ts_C(d,o);
-        %get column index
-        colidx=gravity.colidx(d,o,obj.lmax);
-        %skip constant coefficients (usually zero)
-        if all(ts.y_masked(1)==ts.y_masked)
-          %extend time domain
-          ts=ts.append_epochs( (ts.stop+ts.step):ts.step:tf , ts.y_masked(1) );
-        else
-          %call mother routine, save stats to index consistent with columns of y
-          [ts,stats.dat{colidx}]=ts.component_split(n,tf,aperiodic_order,varargin);
-        end
         %initialize
         if i==1
-          out=gravity.unit(obj.lmax,'scale',0,'t',ts.t);
+          out=gravity.unit(obj.lmax,'scale',0,'t',ts{i}.t);
           out=out.copy_metadata(obj);
         end
         %accumulate
-        out=out.setC(d,o,ts.y);
+        out=out.setC(d,o,ts{i}.y);
+        %get column index
+        colidx=gravity.colidx(d,o,obj.lmax);
+        %propagate stats
+        stats.dat(colidx)=dat(i);
       end
       %propagate
       obj=out;
@@ -1779,12 +1802,6 @@ classdef gravity < simpletimeseries
       if ~isempty(v.time)
         obj=obj.at(v.time);
       end
-      %build anotate
-      if isempty(v.title)
-        out.title=obj.descriptor;
-      else
-        out.title=v.title;
-      end
       %if data columns are specified, then fallback to timeseries plotting
       if cells.isincluded(varargin,'columns')
         v.method='timeseries';
@@ -1793,7 +1810,7 @@ classdef gravity < simpletimeseries
       switch lower(v.method)
       case 'timeseries'
         %call superclass
-        out.line=plot@simpletimeseries(obj,varargin{:});
+        out=plot@simpletimeseries(obj,varargin{:});
       case {'cumdmean-timeseries','cumdrms-timeseries','cumdstd-timeseries','cumdas-timeseries'}
         %compute cumdrms for all epochs
         out=obj.(strrep(v.method,'-timeseries','')).plot(varargin{:});
@@ -1811,8 +1828,10 @@ classdef gravity < simpletimeseries
           else
             out.image=imagesc([-obj.lmax,obj.lmax],[0,obj.lmax],tri_now{i});
           end
-          ylabel('SH degree')
-          xlabel('SH order')
+          out.ylabel='SH degree';
+          out.xlabel='SH order';
+          ylabel(out.ylabel)
+          xlabel(out.xlabel)
           if ~isempty(v.colormap)
             colormap(v.colormap)
           end
@@ -1823,7 +1842,7 @@ classdef gravity < simpletimeseries
           else
             cb.label([obj.functional_name,' [',obj.functional_unit,']']);
           end
-          out.title=[out.title,' - ',datestr(obj.t(i)),', \mu=',num2str(mean(tri_now{i}(~bad_idx)))];
+          out.title=[obj.descriptor,' - ',datestr(obj.t(i)),', \mu=',num2str(mean(tri_now{i}(~bad_idx)))];
           title(out.title)
         end
       case {'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
@@ -1852,13 +1871,12 @@ classdef gravity < simpletimeseries
             case 'das',      title_str='degree amplit.';
             case 'cumdas',   title_str='cumul. degree amplit.';
           end
+          out.title=[obj.descriptor,' - ',title_str];
         end
-        out.title=[out.title,' - ',title_str];
         title(str.clean(out.title,'title'))
       otherwise
         error([mfilename,': unknonw method ''',v.method,'''.'])
       end
-      out.axis=gca;
     end
     %% export functions
     function filelist=icgem(obj,varargin)
