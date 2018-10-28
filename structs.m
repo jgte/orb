@@ -31,7 +31,7 @@ classdef structs
     %creates a string with the contents of the deep structure (if 'varname' is '_', the output is appropriate for a filename)
     function out=str(S,field_list,varname,show_class)
       if ~exist('field_list','var') || isempty(field_list)
-        field_list=structs.field_list(S);
+        field_list=structs.field_list(S,[],true);
       end
       if ~exist('varname','var') || isempty(varname)
         varname='struct';
@@ -122,9 +122,12 @@ classdef structs
     end
     %% field list
     %creates a cell array of "field_path"s, each being a cell array with field names, to be used with structs.get/set_value
-    function out=field_list(S,parents)
+    function out=field_list(S,parents,sorted_flag)
       if ~exist('parents','var')
         parents={};
+      end
+      if ~exist('sorted_flag','var') || isempty(sorted_flag)
+        sorted_flag=false;
       end
       %check if this is a structure
       if ~isstruct(S)
@@ -159,6 +162,11 @@ classdef structs
           end
         end
       end
+      %sort if requested
+      if sorted_flag
+        [~,sort_idx]=sort(cellfun(@(i) cells.flatten(i),out));
+        out=out(sort_idx);
+      end
     end
     %returns true if field lists are the same in both structure
     function [out,fl1,fl2]=iseq_field_list(S1,S2,parents1,parents2)
@@ -166,9 +174,7 @@ classdef structs
       if ~exist('parents2','var');parents2={};end
       fl1=structs.field_list(S1,parents1);
       fl2=structs.field_list(S2,parents2);
-      fl1f=cells.flatten(fl1);
-      fl2f=cells.flatten(fl2);
-      out=numel(fl1f) == numel(fl2f) && all(strcmp(fl1f,fl2f));
+      out=numel(fl1) == numel(fl2) && all(arrayfun(@(i) cells.isequal(fl1{i},fl2{i}),1:numel(fl1)));
     end
     %like field_list but accepts '*' entries in field_path
     function out=field_list_glob(S,field_path)
@@ -233,21 +239,21 @@ classdef structs
     %NOTICE: empty entries in Sout are assigned with the corresponding entry in Sin, i.e. the 'method' implicitly becomes '='
     function Sout=objmethod2(method,Sout,Sin,varargin)
       %get field list
-      fl=structs.field_list(Sout);
+      fl_out=structs.field_list(Sout);
       %loop over all fields
-      for i=1:numel(fl)
+      for i=1:numel(fl_out)
         %get the input object
-        Oin=structs.get_value(Sin,fl{i});
+        Oin=structs.get_value(Sin,fl_out{i});
         %get the output object
-        Oout=structs.get_value(Sout,fl{i});
+        Oout=structs.get_value(Sout,fl_out{i});
         %apply the method, if Oout is not empty
         if ~isempty(Oout)
           Oout=Oout.(method)(Oin,varargin{:});
         else
-          Oout=structs.get_value(Sin,fl{i});
+          Oout=structs.get_value(Sin,fl_out{i});
         end
         %save the operated object back in the structure
-        Sout=structs.set_value(Sout,fl{i},Oout);
+        Sout=structs.set_value(Sout,fl_out{i},Oout);
       end
     end
     %% utils
