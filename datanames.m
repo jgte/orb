@@ -32,9 +32,14 @@ classdef datanames
     function out=unique(dn_array)
       %this spits out a vertical cell array
       common=datanames.common(dn_array);
-      out=cell(size(dn_array));
-      for i=1:numel(dn_array)
-        out{i}=setdiff(dn_array{i}.split,common,'stable');
+      %trivial call
+      if numel(dn_array)==1
+        out=common;
+      else
+        out=cell(size(dn_array));
+        for i=1:numel(dn_array)
+          out{i}=setdiff(dn_array{i}.split,common,'stable');
+        end
       end
     end
     function out=transmute(in) 
@@ -154,6 +159,9 @@ classdef datanames
       out=strjoin(obj.field_path,'.');
     end
     %% name operations
+    function out=title(obj)
+      out=strrep(obj.dotname,'.',' ');
+    end
     function out=name_clean(obj)
       out=str.clean(obj.name,'fieldname',datanames.separator_clean);
     end
@@ -163,7 +171,6 @@ classdef datanames
     %% filename builders
     function out=file(obj,varargin)
       %NOTICE: this procedure ALWAYS returns a string!
-      %NOTICE: field_path is never part of the output
       p=inputParser;
       p.KeepUnmatched=true;
       p.addParameter('start',     datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
@@ -173,10 +180,11 @@ classdef datanames
       p.addParameter('timestamp',         false,   @(i) islogical(i));
       p.addParameter('keeptsplaceholder', false,   @(i) islogical(i));
       p.addParameter('ensure_dir',        true,    @(i) islogical(i));
-      p.addParameter('remove_part',       '',      @(i) ischar(i) || iscellstr(i))
-      p.addParameter('prefix',            '',      @(i) ischar(i))
-      p.addParameter('suffix',            '',      @(i) ischar(i))
-      p.addParameter('sub_dirs',          'none',  @(i)ischar(i))
+      p.addParameter('remove_part',       '',      @(i) ischar(i) || iscellstr(i));
+      p.addParameter('prefix',            '',      @(i) ischar(i) || iscellstr(i));
+      p.addParameter('suffix',            '',      @(i) ischar(i) || iscellstr(i));
+      p.addParameter('sub_dirs',          'none',  @(i) ischar(i));
+      p.addParameter('add_field_path',    false,   @(i) islogical(i));
       % parse it
       p.parse(varargin{:});
       %propagate dataname to filename
@@ -191,9 +199,13 @@ classdef datanames
       otherwise
         error(['Cannot understand input ''sub_dirs'' with value ''',p.Results.sub_dirs,'''.'])
       end
+      %add field path if requested
+      if p.Results.add_field_path
+        filename=[filename,obj.field_path];
+      end
       %add prefix and suffix (if non-empty)
       if ~isempty(p.Results.prefix); filename=[{p.Results.prefix},filename]; end
-      if ~isempty(p.Results.suffix); filename=[filename,{p.Results.suffix}]; end
+      if ~isempty(p.Results.suffix); filename{end+1}=p.Results.suffix; end
       %add time stamp placeholder
       filename{end+1}='<TIMESTAMP>';
       %add extension
@@ -201,7 +213,7 @@ classdef datanames
         filename{end+1}=p.Results.ext;
       end
       %assemble components and add path
-      out=fullfile(p.Results.dir,strjoin(filename,datanames.separator));
+      out=fullfile(p.Results.dir,strjoin(cells.rm_empty(cells.flatten(filename)),datanames.separator));
       %include detailed timestamp if requested
       if p.Results.timestamp
         out=strrep(...
@@ -214,12 +226,7 @@ classdef datanames
       end
       %make sure dir exists, if requested
       if p.Results.ensure_dir
-        dir_now=fileparts(out);
-        if ~isempty(dir_now) && exist(dir_now,'dir')==0
-          warning('off','MATLAB:MKDIR:DirectoryExists')
-          mkdir(fileparts(out))
-          warning('on','MATLAB:MKDIR:DirectoryExists')
-        end
+        file.ensuredir(out);
       end
     end
     function out=isfile(obj,varargin)
