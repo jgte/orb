@@ -1,0 +1,30 @@
+sources: [scales.RL05.sh]
+method:  component_split
+inclusive: true
+
+#method parameters
+search: true
+nr_seg: 3
+aperiodic_order: 3
+# degrees: [  2]
+# orders:  [0]
+degrees: [  2,  3,  4]
+orders:  [inf,inf,inf]
+comp_plot_dir: './plots/comp' #make it empty to avoid plotting
+comp_data_dir: './plots/comp' #make it empty to avoid saving data
+t_extrapolate: 2018-12-31
+level1_name: t_crop
+level1_vals: [2015-06-30,2015-12-31, 2016-06-30, 2016-12-31]
+
+#general parameters
+storage_period: yearly
+start: 2002-04-01
+
+#plot parameters
+plot_dir: './plots/comp'
+plot_visible: true
+plot_gravity_method: 'timeseries'
+plot_gravity_functional: 'geoid'
+plot_title_suppress: ['signal','sh','comp','scales']
+plot_legend_replace: ['t_crop','cropping']
+plot_legend_suppress: ['signal','sh','comp','scales']
