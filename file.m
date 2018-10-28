@@ -47,7 +47,7 @@ classdef file
       else
         %make sure dir exists
         d=fileparts(filename);
-        if ~exist(d,'dir') && ~contains(perm,'r')
+        if ~exist(d,'dir') && isempty(strfind(perm,'r'))
           [st,msg]=mkdir(d);
           assert(st,['error creating directory ''',d,''': ',msg])
         end
