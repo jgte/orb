@@ -467,7 +467,7 @@ classdef datastorage
     end
     %% start/stop operations
     function io=start_criteria(obj,io)
-      assert(~isempty(io),'Cannot handle empty ''values''.')
+      assert(~isempty(io),'Cannot handle empty ''io''.')
       assert(iscell(io) && all(cellfun(@isdatetime,io)),'Can only handle cell arrays of datetime')
       %need to filter out invalids (zero and inf dates)
       invalid_idx=~time.isvalid(io);
@@ -650,12 +650,6 @@ classdef datastorage
       end
     end
     %% product interface
-%     function [obj,dn]=product_set(obj,id,varargin)
-%       error('this is not used any more')
-%       %don't use obj.product_get here, this method is used for initialization
-%       product=datastorage.id(id,'product',varargin{:});
-%       out=datanames(in,varargin{:});
-%     end
     function [product,dn]=product_get(~,id,varargin)
       product=dataproduct(id,varargin{:});
       if nargout>1; dn=product.dataname; end
@@ -738,8 +732,26 @@ classdef datastorage
         %NOTICE: this handles the case when data is saved first and the start/stop metadata entries are increased/decreased (trimming the saved data)
         %NOTICE: this does not handle decreasing/increased the start/stop metadata such that no new data file(s) is created (e.g. when using yearly or global storage_period)
         s_out=structs.objmethod('trim',s_out,obj.data_edges(product,'start'),obj.data_edges(product,'stop'));
+        %TEMPORARY: enforce proper gravity object labels
+        gravitylabelfix=false;
+        if isstruct(s_out)
+          fl=structs.field_list(s_out);
+          for i=1:numel(fl)
+            fv=structs.get_value(s_out,fl{i});
+            if isa(fv,'gravity')
+              [fv,r]=fv.setlabels;
+              if r; s_out=structs.set_value(s_out,fl{i},fv);gravitylabelfix=true; end
+            end
+          end
+        else
+          if isa(s_out,'gravity')
+            [s_out,gravitylabelfix]=s_out.setlabels;
+          end
+        end
         % save the data in the object
         obj=obj.data_set(product,s_out);
+        %TEMPORARY: enforce proper gravity object labels
+        if gravitylabelfix; obj.save(product); end
         % update start/stop
         obj=obj.startstop_retrieve_update(product);
       end
@@ -837,13 +849,18 @@ classdef datastorage
                 %skip saving if start/stop dates in s_new are not wider than those already in file
                 for i=1:numel(fnl)
                   s_new_now=structs.get_value(s_new,fnl{i});
-                  s_now    =structs.get_value(s,    fnl{i});
                   s_old    =structs.get_value(s,    fnl{i});
-                  if s_new_now.start>=s_now.start && s_new_now.stop<=s_now.stop
+                  if isempty(s_new_now)
+                    replace_flag=false;
+                  elseif isempty(s_old)
+                    replace_flag=true;
+                  elseif s_new_now.start>=s_old.start && s_new_now.stop<=s_old.stop
                     %do nothing
+                  elseif isempty(s_new_now) && isempty(s_old)
+                    %also do nothing
                   elseif s_new_now.start<s_old.start || s_new_now.stop>s_old.stop
                     %augment saved data
-                    s=structs.set_value(s,fnl{i},s_now.augment(s_new_now));
+                    s=structs.set_value(s,fnl{i},s_old.augment(s_new_now));
                     replace_flag=true;
                   else
                     replace_flag=true;
@@ -954,7 +971,7 @@ classdef datastorage
       % get init method
       ih=str2func(product.mdget('method'));
       %resolve leafs: either from level-wrapping, from sources or from existing leafs
-      if product.is_wrapped
+      if product.is_wrapped        
         %unwarp products in this list and feed output to input, to unwrap multitple wrapped parts
         product_list=dataproduct.unwrap_product({product});
         %maybe need to prepend some source fields
@@ -999,13 +1016,19 @@ classdef datastorage
           save_idx(i)=false;
         end
       end
+      %wrapped products need to be loaded differently because they are all stored in the same file,
+      %i.e. can't iterate over product_list to load them (but need to iterate to init them)
+      if product.is_wrapped && ~p.Results.recompute
+        %try loading this product
+        [obj,success]=obj.load(product,varargin{:});
+        %if that works, then empty product_list to skip the loading/init loop
+        if success
+          obj.log('@','iter','loaded wrapped product',product)
+          product_list={};
+        end
+      end
       %loop over all products
       for i=1:numel(product_list)
-        obj.log(...
-          '@','iter',...
-          'method',product.mdget('method'),...
-          ['product_list{',num2str(i),'}'],product_list{i}...
-        )
         %check if data is already loaded
         if obj.isdata_empty(product_list{i}) || p.Results.force
           %check if init method is to be called even if data was already saved as mat file
@@ -1014,10 +1037,11 @@ classdef datastorage
           else
             %try to load saved data
             [obj,success]=obj.load(product_list{i},varargin{:});
-            obj.peek
           end
           %check if data was not loaded
-          if ~success
+          if success
+            obj.log('@','iter',['loaded product_list{',num2str(i),'}'],product_list{i})
+          else
             % invoke init method, for all unwrapped leaf products (if any)
 %             try
              obj=ih(obj,product_list{i},varargin{:});
@@ -1033,6 +1057,11 @@ classdef datastorage
 %                 error(ME.message)
 %               end    
 %             end
+            obj.log(...
+              '@','iter',...
+              'applied method',product.mdget('method'),...
+              ['to load product_list{',num2str(i),'}'],product_list{i}...
+            )
             % save data if this product has been completed (plot_product check done inside)
             if save_idx(i)
               obj.save(product_list{i},varargin{:});
@@ -1051,11 +1080,13 @@ classdef datastorage
             end
           end
         else
-          obj.log('@','iter: data already loaded')
+          obj.log('@','iter','already loaded',['product_list{',num2str(i),'}=',product_list{i}])
         end
       end
       %user feedback
-      if ~obj.debug
+      if obj.debug
+        obj.peek
+      else
         str.say('initialized',product.str)
       end
       %check if this product is too old for the requested start/stop dates
@@ -1236,63 +1267,230 @@ classdef datastorage
         obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
     %% plot utils
-    function h=justplot(obj,dn,varargin)
-      obj.log('@','in','dn',dn,'start',obj.start,'stop',obj.stop)
-      %type convertion
-      [product,dn]=obj.product_get(dn,varargin{:});
-%       %sanity on type
-%       assert(isa(dn,'datanames')&&numel(dn)==1,...
-%         ['Can only handle input ''in'' as scalar of class dataname, not a ',...
-%         class(dn),' with ',num2str(numel(dn)),' entries.'])
+    function out=default_plot_columns(obj,product)
       %gather inputs
       v=varargs.wrap('sources',{...
         {...
-          'dn_reference',    dn,    @(i) isa(i,'datanames'); ...
-          'plot_psd',        false, @(i) islogical(i);...
-          'plot_check_units',true,  @(i) islogical(i);...
-          'plot_columns',    -1,    @(i) isnumeric(i);...
+          'plot_columns',[],@(i) isnumeric(i);...
         },...
+        product.plot_args....
+      });
+      %need to columns to plot
+      if isempty(v.plot_columns)
+        out=~obj.data_get_scalar(product).iszero_cols;
+        for i=1:product.nr_sources
+          out=out & ~obj.data_get_scalar(product.sources(i)).iszero_cols;
+        end
+        out=find(out);
+      else
+        %NOTICE: this is literal, you need to know the order of the columns, no translation is done.
+        out=v.plot_columns;
+      end
+    end
+    function out=default_plot_column_names(obj,product)
+      %gather inputs
+      v=varargs.wrap('sources',{...
+        {...
+          'plot_column_names',[],@(i) isnumeric(i);...
+        },...
+        product.plot_args....
+      });
+      %need the labels of the columns
+      if isempty(v.plot_column_names)
+        if product.nr_sources>0
+          out=obj.data_get_scalar(product.sources(1)).labels;
+        else
+          out=obj.data_get_scalar(product).labels;
+        end
+      else
+        %NOTICE: this is usually only good for a quickfix, you first plot the data, then decide to change their name and
+        %        define this in the metadata, in the same order the data is plotted. The replacement is done blindly.
+        out=v.plot_column_names;
+      end
+    end
+    %% plot functions
+    %plots a single data entry (with field paths resolved elsewhere), honours plot_columns (defaults to all non-zero)
+    %does not save or annotate the plot in any way, just plots the data using the object plot method.
+    function out=justplot(obj,dn,varargin)
+      obj.log('@','in','dn',dn,'start',obj.start,'stop',obj.stop)
+      %type convertion
+      [product,dn]=obj.product_get(dn,varargin{:});
+      %gather inputs
+      v=varargs.wrap('sources',{...
         plotting.default,...
+        {...
+          'dn_reference',       dn, @(i) isa(i,'datanames'); ...
+          'plot_psd',        false, @(i) islogical(i);...
+          'plot_title',   dn.title, @(i) ischar(i); ...
+          'plot_columns', obj.default_plot_columns(product), @(i) isnumeric(i);...
+        },...
         product.plot_args....
       },varargin{:});
       %if dn_reference is not dn, parse plot arguments from that product
       if ~strcmp(v.dn_reference.str,dn.str)
-        v=v.join(obj.product_get(v.dn_reference,varargin{:}).plot_args);
+        v=v.join(obj.product_get(v.dn_reference,varargin{:}).plot_args).join(varargin);
       end
-      %given arguments are joined last
-      v=v.join(varargin);
       %retrieve the requested data
       d=obj.data_get_scalar(dn);
       %transmute to frequency series object if requested
-      if v.plot_psd
-        d=simplefreqseries.transmute(d);
-      end
+      if v.plot_psd; d=simplefreqseries.transmute(d); end
+      %get plot arguments: those that start with plot_* and translate them to remote that bit from their name
       plot_args=dataproduct.parse_commands(structs.fieldname_strip(structs.filter(v,'plot_'),'plot_'));
+      %further strip the class of the data to be plotted: allows for things like plot_gravity_method
+      plot_args=structs.fieldname_strip(plot_args,[class(d),'_']);
+      %inform user of the columns to be plotted
+      obj.log('@','iter','plot_columns',plot_args.columns)
       %checking data class
       switch class(d)
-      case {'gravity','simpletimeseries'}
-        h=d.plot(plot_args);
+      case {'simpletimeseries','gravity'}
+        out=d.plot(plot_args);
       case 'simplefreqseries'
-        h=d.plot_psd(plot_args);
+        out=d.plot_psd(plot_args);
       otherwise
         if isempty(d)
           str.say('Skip plotting empty data',dn.name)
-          h=[];
+          out=[];
         else
           error([mfilename,': cannot plot data of class ',class(d),'; implementation needed!'])
         end
       end
-      %check units
-      if ~isempty(h) && all(v.plot_columns>0) && v.plot_check_units
-        h.y_units=d.y_units{v.plot_columns(1)};
-        for i=2:numel(v.plot_columns)
-          if ~isempty(h.y_units) && ~strcmp(h.y_units,d.y_units(v.plot_columns(i)))
-            error([mfilename,':BUG TRAP: y-units are not consistent in all plotted lines.'])
-          end
-        end
-      end
+      obj.log('@','iter','plot_legend',out.legend)
       obj.log('@','out','dn',dn,'start',obj.start,'stop',obj.stop)
     end
+    %plots a single data entry (i.e. field paths separately), honours plot_columns (defaults to all non-zero)
+    function out=plot_single(obj,dn,varargin)
+      obj.log('@','in','dn',dn,'start',obj.start,'stop',obj.stop)
+      %parse mandatory args
+      dn_list=obj.data_list(dn);
+      % recursive call multiple plots
+      if numel(dn_list)>1
+        out=cellfun(@(i) obj.plot(i,varargin{:}),dn_list,'UniformOutput',false);
+        return
+      end
+      %save the single entry in dataname, convert to product (i.e. load metadata)
+      product=obj.product_get(dn,varargin{:});
+      %sanity
+      assert(~product.metadata.plot_product,['Product ''',product.str,...
+        ''' is a plot product, so the ''init'' command is needed, not the ''plot'' command.'])
+      %gather inputs
+      v=varargs.wrap('sources',{...
+        plotting.default,...
+        {...
+          'plot_file_suffix',      '',@(i) ischar(i); ...
+          'plot_file_prefix',      '',@(i) ischar(i); ...
+        },...
+        product.plot_args...
+      },varargin{:});
+      %plot filename arguments
+      filename_args=[product.file_args('plot'),{...
+        'add_field_path',true,...
+        'start',obj.start,...
+        'stop',obj.stop,...
+        'timestamp',true,...
+        'prefix',v.plot_file_prefix,...
+        'suffix',v.plot_file_suffix...
+      }];
+      %plot filename
+      filename=dn.file(filename_args{:});
+      % check if plot is already there
+      if isempty(dir(filename))
+        plotting.figure(v.varargin{:});
+        %retrive data names to be plotted here
+        out=obj.justplot(dn,v.varargin{:});
+        %annotate plot
+        out=structs.copy(plotting.enforce(v.varargin{:}),out);
+        out.filename=filename;
+        %save this plot
+        saveas(gcf,filename)
+        str.say('Created plot',filename)
+      else
+        out=[];
+        str.say('Skipped plot',filename)
+      end
+      obj.log('@','in','dn',dn,'start',obj.start,'stop',obj.stop)
+    end
+    % plot columns separately for all products given in dn_list, honours plot_columns (defaults to all non-zero)
+    function out=plot_separate(obj,dn_list,varargin)
+      obj.log('@','in','dn_list',dn_list,'start',obj.start,'stop',obj.stop)
+      %parse mandatory args
+      dn_list=obj.data_list(dn_list);
+      %get produce where the plot preferences are defined
+      v=varargs.wrap('sources',{...
+        {...
+          'dn_reference',dn_list{1},@(i) isa(i,'datanames') || isa(cells.scalar(obj.data_list(i),'get'),'datanames'); ...
+        },...
+      },varargin{:});
+      %plot arguments come from dn_reference (defaults to fist product in dn_list)
+      product=obj.product_get(v.dn_reference,varargin{:});
+      %sanity
+      assert(~product.metadata.plot_product,['Product ''',product.str,...
+        ''' is a plot product, so the ''init'' command is needed, not the ''plot'' command.'])
+      %gather more inputs (cannot discard cv.dn_reference);
+      %NOTICE: varargs.append ignores common entries, so preference is given to what comes first (unlike varargs.wrap)
+      v=v.append(product.plot_args).append(....
+        varargs({...
+          'plot_order',   1:numel(dn_list), @(i) isnumeric(i) && numel(i)==numel(dn_list);...
+          'plot_columns',      obj.default_plot_columns(     product), @(i) isnumeric(i);...
+          'plot_column_names', obj.default_plot_column_names(product), @(i) iscellstr(i);...
+          'plot_file_prefix',      '', @(i) ischar(i); ...
+          'plot_file_suffix',      '', @(i) ischar(i); ...
+          'plot_title_suffix',     '', @(i) ischar(i); ...
+        })).append(plotting.default);
+      %make room for handles
+      out=cell(1,numel(v.plot_columns));
+      %loop over all data columns to plot
+      for i=1:numel(v.plot_columns)
+        %plot filename arguments
+        filename_args=[product.file_args('plot'),{...
+          'add_field_path',false,...
+          'start',obj.start,...
+          'stop',obj.stop,...
+          'timestamp',true,...
+          'prefix',v.plot_file_prefix,...
+          'suffix',{strrep(v.plot_column_names{v.plot_columns(i)},' ','_'),v.plot_file_suffix}... %datanames.file accepts cellstr
+        }];
+        %plot filename
+        filename=product.dataname.file(filename_args{:});
+        % check if plot is already there
+        if isempty(dir(filename))
+          plotting.figure(v.varargin{:});
+          out{i}.filename=filename;
+          %inites
+          out{i}.lines=cell(1,numel(v.plot_order));
+          %loop over all data
+          for j=1:numel(v.plot_order)
+            %retrive data names to be plotted here
+            out{i}.lines{j}=obj.justplot(dn_list{v.plot_order(j)},v.varargin{:},...
+              'plot_columns',v.plot_columns(i),...
+              'plot_title_suffix',[v.plot_column_names{v.plot_columns(i)},' ',v.plot_title_suffix]...
+            );
+          end
+          %resolve strings
+          title_str=strjoin(datanames.common(dn_list),' ');
+          legend_str=cellfun(@(i) strjoin(i,' '),datanames.unique(dn_list),'UniformOutput',false);
+          %patch empty legend entries (this expects there to be only one empty legend entry) 
+          if any(cells.isempty(legend_str))
+            legend_str(cells.isempty(legend_str))={title_str};
+          end
+          %annotate plot
+          out{i}=structs.copy(...
+            plotting.enforce(v.varargin{:},...
+              'plot_legend',legend_str,...
+              'plot_title',title_str...
+            ),...
+          out{i});
+          %save this plot
+          saveas(gcf,filename)
+          str.say('Created plot',filename)
+        else
+          out{i}=[];
+          str.say('Skipped plot',filename)
+        end          
+      end
+      %done
+      obj.log('@','out','dn_list',dn_list,'start',obj.start,'stop',obj.stop)
+    end
+    %% legacy plotting (maybe useful to resurect some of this)
     function v=plot_legend(~,h,dn_list,v)
       %get particular defaults from 
       plot_default=varargs(plotting.default).pluck({'plot_zeromean','plot_scale_legend_str'}).cell;
@@ -1308,7 +1506,7 @@ classdef datastorage
         legend_str=get(legend,'String');
       else
         %get number of plotted lines
-        data_width=sum(cellfun(@(i) numel(i.handle),h));
+        data_width=sum(cellfun(@(i) numel(i.line_handle),h));
         %add legend only if there are multiple lines
         if data_width>1
           %add the legend given as input, if there
@@ -1337,7 +1535,7 @@ classdef datastorage
             n=0;
             for j=1:numel(h)
               if ~isempty(h{j}) && isfield(h{j}, 'handle')
-                n=n+numel(h{j}.handle);
+                n=n+numel(h{j}.line_handle);
               end
             end
             %make room for legend strings
@@ -1346,7 +1544,7 @@ classdef datastorage
             c=0;
             for j=1:numel(h)
               if ~isempty(h{j})
-                for k=1:numel(h{j}.handle)
+                for k=1:numel(h{j}.line_handle)
                   %add y_mean if lines have zero mean
                   if isfield(h{j}, 'y_mean') && v.plot_zeromean %TODO: this needs to be moved to simpledata.plots
                     y_mean=num2str(h{j}.y_mean{k},'%+.3g');
@@ -1364,7 +1562,7 @@ classdef datastorage
             %loop over all legend entries to add y_scale; TODO: this needs to be moved to simpledata.plots
             for j=1:numel(h)
               if ~isempty(h{j})
-                for k=1:numel(h{j}.handle)
+                for k=1:numel(h{j}.line_handle)
                   %add scale if lines have been normalized
                   if isfield(h{j}, 'y_scale') && v.plot_normalize
                     y_scale=[v.plot_scale_legend_str,num2str(h{j}.y_scale{k},3)];
@@ -1442,7 +1640,8 @@ classdef datastorage
     %produces a structure with fields:
     % - sources: cell of cellstr with product leafs
     % - source_names: cells.flatten(datanames.unique(product.sources))
-    % - col_names: labels of the columns:
+    % - plot_columns: indices of the columns to plot
+    % - plot_column_names: labels of the columns:
     %    - in product, if there's no sources, or
     %    - in the first source, if there are sources
     % - startlist: datetime vectors with periodic starts
@@ -1450,12 +1649,13 @@ classdef datastorage
     function e=plot_elements(obj,product,varargin)
       %gather inputs
       v=varargs.wrap('sources',{...
+        plotting.default,...
         {...
           'plot_source_idx',   [],@(i) isnumeric(i); ...
           'plot_source_names', {},@(i) iscellstr(i); ...
+          'plot_columns',      [],@(i) isnumeric(i);...
           'plot_column_names', {},@(i) iscellstr(i); ...
         },...
-        plotting.default,...
         product.plot_args....
       },varargin{:});
       %need the source list
@@ -1463,105 +1663,37 @@ classdef datastorage
       if ~isempty(v.plot_source_idx); e.sources=e.sources(v.plot_source_idx);end
       %need the source list names
       if isempty(v.plot_source_names)
-        e.source_names=cells.flatten(datanames.unique(product.sources));
+        e.source_names=cells.flatten(datanames.unique(product.source_list));
       else
         e.source_names=v.plot_source_names;
       end
+      %enforce plot_source_idx
       if ~isempty(v.plot_source_idx); e.source_names=e.source_names(v.plot_source_idx);end
+      %need to columns to plot
+      if isempty(v.plot_columns)
+        e.plot_columns=~obj.data_get_scalar(product).iszero_cols;
+        for i=1:product.nr_sources
+          e.plot_columns=e.plot_columns & ~obj.data_get_scalar(product.sources(i)).iszero_cols;
+        end
+        e.plot_columns=find(e.plot_columns);
+      else
+        %NOTICE: this is literal, you need to know the order of the columns, no translation is done.
+        e.plot_columns=v.plot_columns;
+      end
       %need the labels of the columns
       if isempty(v.plot_column_names)
         if product.nr_sources>0
-          col_names_dn=e.sources{1};
+          e.plot_column_names=obj.data_get_scalar(product.sources(1)).labels;
         else
-          col_names_dn=product.dataname;
+          e.plot_column_names=obj.data_get_scalar(product).labels;
         end
-        cnd=obj.data_get_scalar(col_names_dn);
-        e.col_names=cnd.labels;
       else
-        e.col_names=v.plot_column_names;
+        %NOTICE: this is usually only good for a quickfix, you first plot the data, then decide to change their name and
+        %        define this in the metadata, in the same order the data is plotted. The replacement is done blindly.
+        e.plot_column_names=v.plot_column_names;
       end
       %gather list of daily/monthly/yearly/... data files
       [~,e.startlist,e.stoplist]=product.file('data',v.varargin{:},'start',obj.start,'stop',obj.stop);
-    end
-    %% generalized plotting
-    %plots a single data entry
-    function out=plot(obj,dn,varargin)
-      obj.log('@','in','dn',dn,'start',obj.start,'stop',obj.stop)
-      %parse mandatory args
-      dn_list=obj.data_list(dn);
-      % recursive call multiple plots
-      if numel(dn_list)>1
-        h=cellfun(@(i) obj.plot(i,varargin{:}),dn_list,'UniformOutput',false);
-        return
-      end
-      %save the single entry in dataname, convert to product (i.e. load metadata)
-      [product,dn_now]=obj.product_get(dn_list{1},varargin{:});
-      %sanity
-      assert(~product.metadata.plot_product,['Product ''',product.str,...
-        ''' is a plot product, so the ''init'' command is needed, not the ''plot'' command.'])
-      %gather inputs
-      v=varargs.wrap('sources',{...
-        {...
-          'plot_column_together',true,@(i) islogical(i) && isscalar(i);...
-          'plot_columns',          -1,@(i) isnumeric(i);...
-          'plot_file_suffix',      '',@(i) ischar(i); ...
-          'plot_file_prefix',      '',@(i) ischar(i); ...
-          'plot_together',       {''},@(i) iscellstr(i);...
-        },...
-        plotting.default,...
-        product.plot_args...
-      },varargin{:});
-      %if columns are not to be plotted together, need to expand the calls to obj.plot to include each column
-      if ~v.plot_column_together
-        %retrieve column names (a.o.)
-        e=obj.plot_elements(product,v.varargin{:});
-        %make room for handles
-        out=cell(1,numel(v.plot_columns));
-        %loop over all data columns to plot
-        for i=1:numel(v.plot_columns)
-          out{i}=obj.plot(dn_now,...
-            v.varargin{:},...
-            'plot_file_suffix', [strjoin(e.col_names(v.plot_columns(i)),'.'),e.suffix ],...
-            'plot_title_suffix',[strjoin(e.col_names(v.plot_columns(i)),' '),e.title_suffix],...
-            'plot_column_together',true,...
-            'plot_columns',v.plot_columns(i)...
-          );
-        end
-      else
-        %plot filename arguments
-        filename_args=[product.file_args('plot'),{...
-          'start',obj.start,...
-          'stop',obj.stop,...
-          'timestamp',true,...
-          'remove_part',v.plot_together,...
-          'prefix',v.plot_file_prefix,...
-          'suffix',v.plot_file_suffix...
-        }];
-        %plot filename
-        filename=dn_now.file(filename_args{:});
-        % check if plot is already there
-        if isempty(dir(filename))
-          fig_handle=plotting.figure(v.varargin{:});
-          %retrive data names to be plotted here
-          %NOTICE: this will cause plots to appear multiple times if they are not saved
-          dn_list_to_plot=obj.data_list(dn_now.edit_field_part(v.plot_together,'*'));
-          h=cell(size(dn_list_to_plot));
-          %loop over all data to plot
-          for i=1:numel(dn_list_to_plot)
-            h{i}=obj.justplot(dn_list_to_plot{i},v.varargin{:});
-          end
-          %annotate plot
-          out=obj.plot_annotate(h,dn_now,dn_list_to_plot,v.varargin{:});
-          out.fig_handle=gcf;
-          out.filename=filename;
-          %save this plot
-          saveas(gcf,filename)
-          str.say('Created plot',filename)
-        else
-          str.say('Skipped plot',filename)
-        end
-      end
-      obj.log('@','in','dn',dn,'start',obj.start,'stop',obj.stop)
     end
     %plots multiple data entries (more limited than datastorage.plot but flexible for multiple data sources)
     % - does not save plots in any way, that has to be done externally;
@@ -1573,11 +1705,11 @@ classdef datastorage
       %gather inputs
       dn_list=datanames.array(dn_list,dn.field_path);
       v=varargs.wrap('sources',{...
+        plotting.default,...
         {...
           'plot_order', [1:numel(dn_list),0], @(i) isnumeric(i) && numel(i)==numel(dn_list)+1;... (index 0 represents dn, non-zero represent dn_list)
           'plot_normalize',       false,@(i) islogical(i);...TODO: this needs to be moved to plotting.enforce
         },...
-        plotting.default,...
         product.plot_args...
       },varargin{:});      
       %easier names
@@ -1681,11 +1813,11 @@ classdef datastorage
       assert(obj.isdata_leaf(dn),'Can only handle leaf products.')
       %gather inputs
       v=varargs.wrap('sources',{...
+        plotting.default,...
         {...
           'plot_columns',          -1,@(i) isnumeric(i);...
           'plot_together',       {''},@(i) iscellstr(i);...
         },...
-        plotting.default,...
         product.plot_args...
       },varargin{:});
       %retrieve plot elements (repetitive processing of parameters)
@@ -1706,7 +1838,7 @@ classdef datastorage
           'timestamp',true,...
           'remove_part','',...
           'prefix',v.plot_file_prefix...
-          'suffix',strjoin([product.dataname.field_path,e.col_names(v.plot_columns(c)),{v.plot_title_suffix}],'.')...
+          'suffix',strjoin([product.dataname.field_path,e.plot_column_names(v.plot_columns(c)),{v.plot_title_suffix}],'.')...
         }];
         %plot filename
         filename=dn.file(filename_args{:});
@@ -1717,7 +1849,7 @@ classdef datastorage
             plotting.figure(v.varargin{:});
             [~,out{c}]=obj.plot_mult(dn,product.source_list,v.plot_columns(c),...
               v.varargin{:},...
-              'plot_title',strjoin([product.dataname.field_path,e.col_names(v.plot_columns(c)),{v.plot_title_suffix}],' ')...
+              'plot_title',strjoin([product.dataname.field_path,e.plot_column_names(v.plot_columns(c)),{v.plot_title_suffix}],' ')...
             );
             out{c}.filename=filename;
             out{c}.fig_handle=gcf;
@@ -1837,20 +1969,15 @@ classdef datastorage
       assert(product.nr_sources==1,['The component_split method cannot operated on product ''',product.str,...
         ''' because it only accept one source, not ',num2str(product.nr_sources),'.'])
       %gather inputs
-      v=varargs.wrap('sources',{...
-        {...
-          'nr_segments',     1, @(i) isnumeric(i) && isscalar(i) ;...
-          'aperiodic_order', 2, @(i) isnumeric(i) && isscalar(i)  ;...
-          'stop',           [], @(i) isdatetime(i) ;...
-        },...
-        product.metadata,...
-      },varargin{:});
+      v=varargs.wrap('sources',{product.metadata},varargin{:});
       %get source
       in=obj.data_get_scalar(product.sources(1));
       %TEMPORARY: patch descriptor
       in.descriptor=product.sources(1).codename;
       %split into components
-      out=in.component_split(v.nr_segments,v.stop,v.aperiodic_order,v.varargin_for_wrap{:});     
+      out=in.component_split(v.rename_silent('comp_plot_dir','plot_dir').rename_silent('comp_data_dir','data_dir').varargin{:});
+      %append 'signal' to field path, so that downstream procedures can identify this as valid data
+      if ~strcmp(product.dataname.field_path{end},'signal'); product.dataname=product.dataname.append_field_leaf('signal'); end
       %propagate result
       obj=obj.data_set(product,out);
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
