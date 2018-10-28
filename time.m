@@ -1,8 +1,8 @@
 classdef time
   properties(Constant,GetAccess=private)
-    formt_list={'S.FFF','SS.FFF','HH:MM:SS','HH:MM','dd/mm HH:MM','dd/mm/yy','mm/yyyy' ,'yyyy'}
-    units_list={'ms'   ,'s'     ,'min'     ,'hrs'  ,'days'       ,'mon'     ,'yrs'     ,'cent'};
-    magnt_list=[0.01   ,60      ,3600      ,86400  ,2678400      ,31536000  ,3153600000,inf   ];
+    formt_list={'S.FFF' ,'SS.FFF','HH:MM:SS','HH:MM','dd/mm HH:MM','dd/mm/yy','mm/yyyy' ,'yyyy'}
+    units_list={'ms'    ,'s'     ,'min'     ,'hrs'  ,'days'       ,'mon'     ,'yrs'     ,'cent'};
+    magnt_list=[0.01    ,60      ,3600      ,86400  ,2678400      ,31536000  ,3153600000,inf   ];
     funct_list={...
       @(i) seconds(i*1e-3),...
       @(i) seconds(i),...
@@ -117,9 +117,6 @@ classdef time
         end
       end
     end
-    function out=units(in)
-      out=time.units_list{time.scale(in)};
-    end
     function out=translate_units(in)
       switch lower(in)
       case {'milisecond','miliseconds','ms'}
@@ -144,6 +141,9 @@ classdef time
         disp([mfilename,':WARNING: unknown time units ''',in,'''. Using seconds.'])
         out = 's';
       end
+    end
+    function out=units(in)
+      out=time.units_list{time.scale(in)};
     end
     function out=format(in)
       out=time.formt_list{time.scale(in)};
