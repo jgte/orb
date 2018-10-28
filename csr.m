@@ -1216,7 +1216,7 @@ classdef csr
           if ~isempty(tmp)
             %remove long-term biases, if requested
             if v.rm_ltb
-              tmp=csr.ltb_apply(v.varargin_for_wrap{:},'ts',tmp,'sat',v.sats{s},'field','-all');
+              tmp=csr.ltb_apply(v.varargin{:},'ts',tmp,'sat',v.sats{s},'field','-all');
             end
             %save the data in ACC1B format, as handled by simpletimeseries.export
             tmp.export(...
@@ -2452,7 +2452,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       ts=cell(1,product.nr_sources);
       for i=1:product.nr_sources
         % load and smooth the data
-        ts{i}=csr.smooth(obj.data_get_scalar(product.sources(i)),[],v.varargin_for_wrap{:});
+        ts{i}=csr.smooth(obj.data_get_scalar(product.sources(i)),[],v.varargin{:});
       end
       %set clearer labels
       ts{1}.labels={'L1B','L1B','L1B'};
@@ -2516,7 +2516,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
             text_str{ti+1}=['rnorm: ',str.show(rnorm(bti),'%.1f',', ')];
             text_str{ti+2}=['n: ',str.show(numel(y_pop{bti}),'%d',', ')];
             %plot ot
-            plotting.figure(v.varargin_for_wrap{:});
+            plotting.figure(v.varargin{:});
             h{1}=tsf.plot(           'zeromean',true,'normalize',true);
             h{2}=tst_try{bti}.plot(    'zeromean',true,'normalize',true);
             h{3}=tsc_try{bti}.plot(    'zeromean',true,'normalize',true);
@@ -2543,7 +2543,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
             if ~exist(plot_name,'file')
               %plotting histograms
               plotting.dhist(log10(x_pop{bti}(:,1)),log10(x_pop{bti}(:,2)),log10(y_pop{bti}),...
-                v.varargin_for_wrap{:},...
+                v.varargin{:},...
                 'xlabel',['log(',xn{1},')'],...
                 'ylabel',['log(',xn{2},')'],...
                 'zlabel','log(rnorm)');
