@@ -64,15 +64,14 @@ classdef str
         out=in;
         return
       end
+      %default optionals
+      if ~exist('fmt','var') || isempty(fmt); fmt=''; end
+      assert(ischar(fmt),['Input ''fmt'' must of class ''char'', not ''',class(fmt),'''.'])
       %handle non-scalar quantities
       if ~isscalar(in)
         out=cell(size(in));
         for i=1:numel(in)
-          if exist('fmt','var') && ~isempty(fmt)
-            out{i}=str.show(in(i),fmt);
-          else
-            out{i}=str.show(in(i));
-          end
+          out{i}=str.show(in(i),fmt);
         end
         if ~exist('join_char','var')
           join_char=' ';
@@ -83,9 +82,9 @@ classdef str
       %branch on scalar type
       switch class(in)
       case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double'}
-        if exist('fmt','var') && ~isempty(fmt)
+        try
           out=num2str(in,fmt);
-        else
+        catch
           out=num2str(in);
         end
       case 'logical'
@@ -93,14 +92,18 @@ classdef str
         else   out='F';
         end
       case 'cell'
-        out=str.show(in{1}); %non-scalar cells already handled above
+        out=str.show(in{1},fmt); %non-scalar cells already handled above
       case 'datetime'
         if isnat(in)
           out='NaT';
         elseif ~isfinite(in)
           out='Inf';
         else
-          out=datestr(in);
+          if ~isempty(fmt) && fmt(1) ~= '%'
+            out=datestr(in,fmt);
+          else
+            out=datestr(in);
+          end
         end
       case 'duration'
         out=time.str(seconds(in));
@@ -269,7 +272,6 @@ classdef str
       %trivial calls
       if isempty(mode);return;end
       if isempty(s   );return;end
-      
       %branch on mode
       switch lower(mode)
       case 'basename'
@@ -422,7 +424,7 @@ classdef str
     %first argument is field width, all remaining inputs are values to print.
     function out=tablify(w,varargin)
       %justification scheme
-      mode='center';
+      mode='left';
       %propagate all arguments (may need to edit them)
       in=varargin;
       %expand scalar widths
