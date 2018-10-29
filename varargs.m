@@ -317,6 +317,19 @@ classdef varargs < dynamicprops
         out{i}=obj.S(i).name;
       end
     end
+    function out=picker(obj,mode,name)
+      switch mode
+        case 'length';    out=obj.length;
+        case 'list';      out=obj.Parameters;
+        case 'obj';       out=obj;
+        case 'get';       out=obj.get(name);
+        %these also make sense when name (the input var) is an idx (integer)
+        case 'value';     out=obj.get(name).value;
+        case 'name';      out=obj.get(name).name;      
+        case 'validation';out=obj.get(name).validation;
+        otherwise;        out=obj.(mode);
+      end   
+    end
     %% get methods
     %abstracts string or index
     function out=idx(obj,name)
