@@ -95,6 +95,7 @@ classdef file
       end
       %checking we'e reached the part with numeric data
       if ~isnumstr(fgetl(fid))
+        nlines=-1;
         %maybe this file has some columns with non-numeric data, so checking for changes in the number of columns
         for i=max_header_len-1:-1:1
           if nr_columns(i)~=nr_columns(end)
@@ -102,6 +103,8 @@ classdef file
             break
           end
         end
+        %sanity
+        assert(nlines>0,['Cannot find any numeric data in ',filename])
         %if that only happens on the last line, then there's nothing I can do
         if nlines==(max_header_len-1)
           error([mfilename,...
