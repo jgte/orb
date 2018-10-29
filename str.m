@@ -487,11 +487,30 @@ classdef str
       case 'logical'
         %do nothing
       case 'cell'
-        out=cellfun(@str.logical,in);return
+        try
+          out=cellfun(@(i) str.logical(i,mode),in);
+        catch ME
+          switch ME.identifier
+          case 'MATLAB:cellfun:NotAScalarOutput'
+            out=cellfun(@(i) str.logical(i,mode),in,'UniformOutput',false);
+          otherwise
+            rethrow(ME)
+          end
+        end
+        return
       case 'datetime'
         in=(in~=datetime(0,0,0));
       case 'duration'
         in=(in~=seconds(0));
+      case 'char'
+        switch lower(in)
+        case {'true','t','on','yes'}
+          in=true;
+        case {'false','f','off','no'}
+          in=false;
+        otherwise
+          error(['Cannot understand logical string ''',in,'''.'])
+        end
       otherwise
         try
           in=(in~=0);
@@ -505,6 +524,7 @@ classdef str
       case 'tf';        if in; out='T';    else out='F';    end
       case 'onoff';     if in; out='on';   else out='off';  end
       case 'yesno';     if in; out='yes';  else out='no';   end
+      case 'logical';   out=in;
       otherwise
         idx=strfind(mode,'-');
         assert(~isempty(idx),['Unknown mode ''',mode,'''.'])
