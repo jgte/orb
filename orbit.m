@@ -112,13 +112,13 @@ classdef orbit
     end
     function out=data_type_unit(dt,ctype)
       if ~exist('ctype','var') || isempty(ctype)
-        ctype=orbit.parameters(dt,'ctype');
+        ctype=orbit.parameters('ctype');
       end
       out=orbit.data_type_list.(dt).(ctype).units;
     end
     function out=data_type_name(dt,ctype)
       if ~exist('ctype','var') || isempty(ctype)
-        ctype=orbit.parameters(dt,'ctype');
+        ctype=orbit.parameters('ctype');
       end
       out=orbit.data_type_list.(dt).(ctype).names;
     end
@@ -131,38 +131,10 @@ classdef orbit
         v(i,:)={dtl_fn{i}, zeros(n,s), @(i) isnumeric(i) && all(size(i)==[n,s])};
       end
     end
-    function out=parameters(i,method)
-      persistent v parameter_names
-      if isempty(v)
-        v=varargs(orbit.parameter_list);
-        parameter_names=v.Parameters;
-      end
-      if ~exist('i','var') || isempty(i)
-        if ~exist('method','var') || isempty(method)
-          out=parameter_names(:);
-        else
-          switch method
-          case 'obj'
-            out=v;
-          otherwise
-            out=v.(method);
-          end
-        end
-      else
-        if ~exist('method','var') || isempty(method)
-          method='name';
-        end
-        if strcmp(method,'name') && isnumeric(i)
-          out=parameter_names{i};
-        else
-          switch method
-          case varargs.template_fields
-            out=v.get(i).(method);
-          otherwise
-            out=v.(method);
-          end
-        end
-      end
+    function out=parameters(varargin)
+      persistent v
+      if isempty(v); v=varargs(orbit.parameter_list); end
+      out=v.picker(varargin{:});
     end
     %translation methods
     function out=translateframe(in)
@@ -296,7 +268,7 @@ classdef orbit
     %for the data of different formats
     function [filename,dirname]=aiub_filename(satname,start,data_dir)
       if ~exist('data_dir','var') || isempty(data_dir)
-        data_dir=orbit.parameters('data_dir','value');
+        data_dir=orbit.parameters('data_dir');
       end
       switch orbit.translatesat(satname)
         case 'sa-kin'
@@ -314,7 +286,7 @@ classdef orbit
     end
     function [filename,dirname]=ifg_filename(satname,start,data_dir)
       if ~exist('data_dir','var') || isempty(data_dir)
-        data_dir=orbit.parameters('data_dir','value');
+        data_dir=orbit.parameters('data_dir');
       end
       switch orbit.translatesat(satname)
         case 'sa-kin'
@@ -331,7 +303,7 @@ classdef orbit
     end
     function [filename,dirname]=tudelft_filename(satname,start,data_dir)
       if ~exist('data_dir','var') || isempty(data_dir)
-        data_dir=orbit.parameters('data_dir','value');
+        data_dir=orbit.parameters('data_dir');
       end
       switch orbit.translatesat(satname)
         case 'sa-kin'
@@ -349,7 +321,7 @@ classdef orbit
     end
     function [filename,dirname]=sp3xcom_filename(satname,start,data_dir)
       if ~exist('data_dir','var') || isempty(data_dir)
-        data_dir=orbit.parameters('data_dir','value');
+        data_dir=orbit.parameters('data_dir');
       end
       switch orbit.translatesat(satname)
         case 'sa-l2'
@@ -375,7 +347,7 @@ classdef orbit
       p.addRequired( 'format',      @(i) ischar(i));
       p.addRequired( 'start',       @(i) isdatetime(i) && isscalar(i));
       p.addParameter('data_dir',...
-        orbit.parameters('data_dir','value'),...
+        orbit.parameters('data_dir'),...
         orbit.parameters('data_dir','validation'));
       p.parse(format,satname,start,varargin{:});
       %picking interface routine
@@ -559,7 +531,7 @@ classdef orbit
               %save satname (those derived from the headers miss the '-kin' or '-l2' part)
               obj_now.satname=satname;
               %update sp3id if needed
-              if strcmp(obj_now.sp3id,'unknown') || strcmp(obj_now.sp3id,orbit.parameters('sp3id','value'))
+              if strcmp(obj_now.sp3id,'unknown') || strcmp(obj_now.sp3id,orbit.parameters('sp3id'))
                 obj_now.sp3id=orbit.translatesp3id(obj_now.satname);
               end
               % save it in mat format for next time
@@ -760,9 +732,9 @@ classdef orbit
         p.addParameter([dtn,'_names'], orbit.data_type_name(dtn), @(i) iscellstr(i) && numel(i)==dts);
       end
       %declare parameters p
-      [~,p,obj]=varargs.wrap('parser',p,'sinks',{obj},'sources',{orbit.parameters([],'obj')},'mandatory',{t},varargin{:});
+      [~,p,obj]=varargs.wrap('parser',p,'sinks',{obj},'sources',{orbit.parameters('obj')},'mandatory',{t},varargin{:});
       %clean varargin
-      varargin=cells.vararginclean(varargin,p.Parameters);
+      varargin=cells.vararginclean(varargin,p.Parameters('list'));
       % retrieve each data type
       for j=1:numel(orbit.data_types)
         %shorter names
@@ -795,7 +767,7 @@ classdef orbit
       p.addParameter('names',orbit.data_type_name(data_type),@(i) iscellstr(i) && numel(i)==size(data_value,2))
       % parse it
       p.parse(t,data_type,data_value,varargin{:});
-      varargin=cells.vararginclean(varargin,p.Parameters);
+      varargin=cells.vararginclean(varargin,p.Parameters('list'));
       %sanity
       assert(isempty(obj.(data_type)),['data of type ''',data_type,''' has already been created. Use another method to append data.'])
       %call superclass for this data type
@@ -810,7 +782,7 @@ classdef orbit
       if ~exist('more_parameters','var')
         more_parameters={};
       end
-      pn=[orbit.parameters;more_parameters(:)];
+      pn=[orbit.parameters('list');more_parameters(:)];
       for i=1:numel(pn)
         if isprop(obj,pn{i}) && isprop(obj_in,pn{i})
           obj.(pn{i})=obj_in.(pn{i});
@@ -836,7 +808,7 @@ classdef orbit
       end
       warning off MATLAB:structOnObject
       out=varargs(...
-        structs.filter(struct(obj),[orbit.parameters;more_parameters(:)])...
+        structs.filter(struct(obj),[orbit.parameters('list');more_parameters(:)])...
       ).varargin;
       warning on MATLAB:structOnObject
     end
@@ -845,9 +817,9 @@ classdef orbit
         tab=20;
       end
       disp(' --- Parameters --- ')
-      for i=1:numel(orbit.parameters)
+      for i=1:numel(orbit.parameters('list'))
         %shorter names
-        p=orbit.parameters{i};
+        p=orbit.parameters('value',i);
         disp([p,repmat(' ',1,tab-length(p)),' : ',str.show(obj.(p))])
       end
 %       d_list=orbit.data_types;

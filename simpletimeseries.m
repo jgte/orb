@@ -49,38 +49,10 @@ classdef simpletimeseries < simpledata
     tsys
   end
   methods(Static)
-    function out=parameters(i,method)
-      persistent v parameter_names
-      if isempty(v)
-        v=varargs(simpletimeseries.parameter_list);
-        parameter_names=v.Parameters;
-      end
-      if ~exist('i','var') || isempty(i)
-        if ~exist('method','var') || isempty(method)
-          out=parameter_names(:);
-        else
-          switch method
-          case 'obj'
-            out=v;
-          otherwise
-            out=v.(method);
-          end
-        end
-      else
-        if ~exist('method','var') || isempty(method)
-          method='name';
-        end
-        if strcmp(method,'name') && isnumeric(i)
-          out=parameter_names{i};
-        else
-          switch method
-          case varargs.template_fields
-            out=v.get(i).(method);
-          otherwise
-            out=v.(method);
-          end
-        end
-      end
+    function out=parameters(varargin)
+      persistent v
+      if isempty(v); v=varargs(simpletimeseries.parameter_list); end
+      out=v.picker(varargin{:});
     end
     function out=timescale(in)
       out=seconds(in);
@@ -896,7 +868,7 @@ classdef simpletimeseries < simpledata
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
       %create argument object, declare and parse parameters, save them to obj
-      [v,p]=varargs.wrap('parser',p,'sources',{simpletimeseries.parameters([],'obj')},'mandatory',{t,y},varargin{:});
+      [v,p]=varargs.wrap('parser',p,'sources',{simpletimeseries.parameters('obj')},'mandatory',{t,y},varargin{:});
       % get datetime 
       [t,f]=time.ToDateTime(t,p.Results.format);
       %call superclass (create empty object, assignment comes later)
@@ -950,14 +922,14 @@ classdef simpletimeseries < simpledata
         more_parameters={};
       end
       %call superclass
-      obj=copy_metadata@simpledata(obj,obj_in,[simpletimeseries.parameters;more_parameters(:)]);
+      obj=copy_metadata@simpledata(obj,obj_in,[simpletimeseries.parameters('list');more_parameters(:)]);
     end
     function out=metadata(obj,more_parameters)
       if ~exist('more_parameters','var')
         more_parameters={};
       end
       %call superclass
-      out=metadata@simpledata(obj,[simpletimeseries.parameters;more_parameters(:)]);
+      out=metadata@simpledata(obj,[simpletimeseries.parameters('list');more_parameters(:)]);
     end
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
