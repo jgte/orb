@@ -65,15 +65,15 @@ classdef gswarm
             mod=gswarm.load_models_op(gswarm.load_models_op('mode_list'),v,product,mod);
           end
         case 'consistent_GM'
-          mod=mod.setGM(gravity.parameters('GM','value'));
+          mod=mod.setGM(gravity.parameters('GM'));
           if exist('err','var')
-            err=err.setGM(gravity.parameters('GM','value'));
+            err=err.setGM(gravity.parameters('GM'));
           end
           show_msg=true;
         case 'consistent_R'
-          mod=mod.setR( gravity.parameters('R' ,'value'));
+          mod=mod.setR( gravity.parameters('R'));
           if exist('err','var')
-            err=err.setR( gravity.parameters('R' ,'value'));
+            err=err.setR( gravity.parameters('R'));
           end
           show_msg=true;
         case 'max_degree'

@@ -30,39 +30,12 @@ classdef datastorage
     stop
   end
   methods(Static)
-    function out=parameters(i,method)
-      persistent v parameter_names
-      if isempty(v)
-        v=varargs(datastorage.parameter_list);
-        parameter_names=v.Parameters;
-      end
-      if ~exist('i','var') || isempty(i)
-        if ~exist('method','var') || isempty(method)
-          out=parameter_names(:);
-        else
-          switch method
-          case 'obj'
-            out=v;
-          otherwise
-            out=v.(method);
-          end
-        end
-      else
-        if ~exist('method','var') || isempty(method)
-          method='name';
-        end
-        if strcmp(method,'name') && isnumeric(i)
-          out=parameter_names{i};
-        else
-          switch method
-          case varargs.template_fields
-            out=v.get(i).(method);
-          otherwise
-            out=v.(method);
-          end
-        end
-      end
+    function out=parameters(varargin)
+      persistent v
+      if isempty(v); v=varargs(datastorage.parameter_list); end
+      out=v.picker(varargin{:});
     end
+
 %     function out=id(in,data_type,varargin)
 %       switch lower(data_type)
 %       case {'dataname','datanames','dn'}
@@ -86,7 +59,7 @@ classdef datastorage
       % reset data type list
       obj=obj.data_init;
       %create argument object, declare and parse parameters, save them to obj
-      [~,~,obj]=varargs.wrap('sinks',{obj},'sources',{datastorage.parameters([],'obj')},varargin{:});
+      [~,~,obj]=varargs.wrap('sinks',{obj},'sources',{datastorage.parameters('obj')},varargin{:});
       % data is added to this initialized object with the 'init' method (see below)
       obj.log('@','out')
     end
@@ -679,7 +652,7 @@ classdef datastorage
       file_list=product.file(product_type,...
         'start',obj.data_edges(product,'start'),... %this (and stop) only reduces the number of files to be loaded, it does not garantee that the data is trimmed correctly
         'stop',obj.data_edges(product,'stop'),...
-        'start_timestamp_only',datastorage.parameters('start_timestamp_only','value'),... %this needs to be in agreement with what is used in datastorage.save
+        'start_timestamp_only',datastorage.parameters('start_timestamp_only'),... %this needs to be in agreement with what is used in datastorage.save
         'discover',false,... %TODO: it may make sense to set this to true, dunno why it's not
         'ensure_dir',false,...
         varargin{:}...
@@ -688,7 +661,7 @@ classdef datastorage
       file_exists=product.isfile(product_type,...
         'start',obj.data_edges(product,'start'),...
         'stop',obj.data_edges(product,'stop'),...
-        'start_timestamp_only',datastorage.parameters('start_timestamp_only','value'),... %this needs to be in agreement with what is used in datastorage.save
+        'start_timestamp_only',datastorage.parameters('start_timestamp_only'),... %this needs to be in agreement with what is used in datastorage.save
       varargin{:});
       % check if any file is missing
       if any(~file_exists)
@@ -792,7 +765,7 @@ classdef datastorage
       [file_list,startlist,stoplist]=product.file('data',...
         'start',min(startlist),...
         'stop',max(stoplist),...
-        'start_timestamp_only',datastorage.parameters('start_timestamp_only','value'),... %this needs to be in agreement with what is used in datastorage.load
+        'start_timestamp_only',datastorage.parameters('start_timestamp_only'),... %this needs to be in agreement with what is used in datastorage.load
         'discover',false,...
         varargin{:}...
       );

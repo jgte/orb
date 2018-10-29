@@ -27,38 +27,10 @@ classdef simplefreqseries < simpletimeseries
     f
   end
   methods(Static)
-    function out=parameters(i,method)
-      persistent v parameter_names
-      if isempty(v)
-        v=varargs(simplefreqseries.parameter_list);
-        parameter_names=v.Parameters;
-      end
-      if ~exist('i','var') || isempty(i)
-        if ~exist('method','var') || isempty(method)
-          out=parameter_names(:);
-        else
-          switch method
-          case 'obj'
-            out=v;
-          otherwise
-            out=v.(method);
-          end
-        end
-      else
-        if ~exist('method','var') || isempty(method)
-          method='name';
-        end
-        if strcmp(method,'name') && isnumeric(i)
-          out=parameter_names{i};
-        else
-          switch method
-          case varargs.template_fields
-            out=v.get(i).(method);
-          otherwise
-            out=v.(method);
-          end
-        end
-      end
+    function out=parameters(varargin)
+      persistent v
+      if isempty(v); v=varargs(simplefreqseries.parameter_list); end
+      out=v.picker(varargin{:});
     end
     function out=transmute(in)
       if isa(in,'simplefreqseries')
@@ -210,7 +182,7 @@ classdef simplefreqseries < simpletimeseries
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y',     @(i) simpledata.valid_y(i));
       %create argument object, declare and parse parameters, save them to obj
-      v=varargs.wrap('parser',p,'sources',{simplefreqseries.parameters([],'obj')},'mandatory',{t,y},varargin{:});
+      v=varargs.wrap('parser',p,'sources',{simplefreqseries.parameters('obj')},'mandatory',{t,y},varargin{:});
       %call superclass
       obj=obj@simpletimeseries(t,y,varargin{:});
       % save the arguments v into this object
@@ -233,14 +205,14 @@ classdef simplefreqseries < simpletimeseries
         more_parameters={};
       end
       %call superclass
-      obj=copy_metadata@simpletimeseries(obj,obj_in,[simplefreqseries.parameters;more_parameters(:)]);
+      obj=copy_metadata@simpletimeseries(obj,obj_in,[simplefreqseries.parameters('list');more_parameters(:)]);
     end
     function out=metadata(obj,more_parameters)
       if ~exist('more_parameters','var')
         more_parameters={};
       end
       %call superclass
-      out=metadata@simpletimeseries(obj,[simplefreqseries.parameters;more_parameters(:)]);
+      out=metadata@simpletimeseries(obj,[simplefreqseries.parameters('list');more_parameters(:)]);
     end
     %% psd methods
     function out=get.f(obj)

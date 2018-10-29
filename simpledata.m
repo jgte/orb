@@ -43,38 +43,10 @@
     outlier_sigma
   end
   methods(Static)
-    function out=parameters(i,method)
-      persistent v parameter_names
-      if isempty(v)
-        v=varargs(simpledata.parameter_list);
-        parameter_names=v.Parameters;
-      end
-      if ~exist('i','var') || isempty(i)
-        if ~exist('method','var') || isempty(method)
-          out=parameter_names(:);
-        else
-          switch method
-          case 'obj'
-            out=v;
-          otherwise
-            out=v.(method);
-          end
-        end
-      else
-        if ~exist('method','var') || isempty(method)
-          method='name';
-        end
-        if strcmp(method,'name') && isnumeric(i)
-          out=parameter_names{i};
-        else
-          switch method
-          case varargs.template_fields
-            out=v.get(i).(method);
-          otherwise
-            out=v.(method);
-          end
-        end
-      end
+    function out=parameters(varargin)
+      persistent v
+      if isempty(v); v=varargs(simpledata.parameter_list); end
+      out=v.picker(varargin{:});
     end
     function out=valid_x(x)
       out=isnumeric(x) && ~isempty(x) && isvector(x);
@@ -318,10 +290,10 @@
       % Handle Inputs
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'in',                               @(i) isnumeric(i));
+      p.addRequired( 'in',                       @(i) isnumeric(i));
       p.addParameter('outlier_sigma',...
-         simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i));
-      p.addParameter('outlier_value', nan,               @(i) isnumeric(i) &&  isscalar(i));
+         simpledata.parameters('outlier_sigma'), @(i) isnumeric(i) &&  isscalar(i));
+      p.addParameter('outlier_value', nan,       @(i) isnumeric(i) &&  isscalar(i));
       % parse it
       p.parse(in,varargin{:});
       %assume there are no outliers
@@ -732,15 +704,15 @@
       p.addRequired( 'y'      ,                  @(i) simpledata.valid_y(i));
       p.addParameter('mask'   ,true(size(x(:))), @(i) simpledata.valid_mask(i));
       %create argument object, declare and parse parameters, save them to obj
-      [~,~,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{simpledata.parameters([],'obj')},'mandatory',{x,y},varargin{:});
+      [~,~,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{simpledata.parameters('obj')},'mandatory',{x,y},varargin{:});
       %assign (this needs to come before the parameter check, so that sizes are known)
       obj=obj.assign(y,'x',x,varargin{:});
       %rowize labels and y_units
       obj.labels =transpose(obj.labels( :));
       obj.y_units=transpose(obj.y_units(:));
       % check parameters
-      for i=1:numel(simpledata.parameters)
-        obj=check_annotation(obj,simpledata.parameters(i));
+      for i=1:simpledata.parameters('length')
+        obj=check_annotation(obj,simpledata.parameters('name',i));
       end
     end
     %NOTICE: this method blindly assigns data
@@ -816,7 +788,7 @@
       if ~exist('more_parameters','var')
         more_parameters={};
       end
-      pn=[simpledata.parameters;more_parameters(:)];
+      pn=[simpledata.parameters('list');more_parameters(:)];
       for i=1:numel(pn)
         if isprop(obj,pn{i}) && isprop(obj_in,pn{i})
           obj.(pn{i})=obj_in.(pn{i});
@@ -829,7 +801,7 @@
       end
       warning off MATLAB:structOnObject
       out=varargs(...
-        structs.filter(struct(obj),[simpledata.parameters;more_parameters(:)])...
+        structs.filter(struct(obj),[simpledata.parameters('list');more_parameters(:)])...
       ).varargin;
       warning on MATLAB:structOnObject
     end
@@ -843,8 +815,8 @@
         tab=12;
       end
       %parameters
-      for i=1:numel(simpledata.parameters)
-        obj.disp_field(simpledata.parameters(i),tab);
+      for i=1:simpledata.parameters('length')
+        obj.disp_field(simpledata.parameters('name',i),tab);
       end
       %some parameters are not listed
       more_parameters={'length','width'};
@@ -1040,7 +1012,7 @@
       p.addParameter('columns', 1:min([obj1.width,obj2.width]), @(i) isnumeric(i) || iscell(i));
       p.addParameter('outlier',           0, @(i) isfinite(i));
       p.addParameter('outlier_sigma',...
-simpledata.parameters('outlier_sigma','value'), @(i) isnumeric(i) &&  isscalar(i));
+     simpledata.parameters('outlier_sigma'), @(i) isnumeric(i) &&  isscalar(i));
       p.addParameter('struct_fields',...
         {'cov','corrcoef','length','rmsdiff'},...
         @(i) iscellstr(i)...

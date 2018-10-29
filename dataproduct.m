@@ -35,38 +35,10 @@ classdef dataproduct
     codename
   end
   methods(Static)
-    function out=parameters(i,method)
-      persistent v parameter_names
-      if isempty(v)
-        v=varargs(dataproduct.parameter_list);
-        parameter_names=v.Parameters;
-      end
-      if ~exist('i','var') || isempty(i)
-        if ~exist('method','var') || isempty(method)
-          out=parameter_names(:);
-        else
-          switch method
-          case 'obj'
-            out=v;
-          otherwise
-            out=v.(method);
-          end
-        end
-      else
-        if ~exist('method','var') || isempty(method)
-          method='name';
-        end
-        if strcmp(method,'name') && isnumeric(i)
-          out=parameter_names{i};
-        else
-          switch method
-          case varargs.template_fields
-            out=v.get(i).(method);
-          otherwise
-            out=v.(method);
-          end
-        end
-      end
+    function out=parameters(varargin)
+      persistent v
+      if isempty(v); v=varargs(dataproduct.parameter_list); end
+      out=v.picker(varargin{:});
     end
     function out=scriptdir
       out=fileparts(which(mfilename));
@@ -198,7 +170,7 @@ classdef dataproduct
       p.addParameter('field_path',    '',@(i) ischar(i) || iscell(i));
       p.addParameter('metadata_from', '',@(i) isstruct(i));
       %create argument object, declare and parse parameters, save them to obj
-      [~,p,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{dataproduct.parameters([],'obj')},varargin{:});
+      [~,p,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{dataproduct.parameters('obj')},varargin{:});
       % call superclass constructor
       if ~isempty(p.Results.field_path)
         obj.dataname=datanames(in,p.Results.field_path);

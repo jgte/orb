@@ -79,43 +79,10 @@ classdef gravity < simpletimeseries
     funct %handles empty values of functional
   end
   methods(Static)
-    function out=parameters(i,method)
-      %gravity.parameters                  : returns list of parameters
-      %gravity.parameters([],'obj')        : returns varargs with gravity.parameter_list
-      %gravity.parameters([],parameter)    : returns a parameter value
-      %gravity.parameters(parameter)       : returns a parameter value
-      %gravity.parameters(parameter,method): returns a parameter value/name/validation (as defined in method)
-      persistent v parameter_names
-      if isempty(v)
-        v=varargs(gravity.parameter_list);
-        parameter_names=v.Parameters;
-      end
-      if ~exist('i','var') || isempty(i)
-        if ~exist('method','var') || isempty(method)
-          out=parameter_names(:);
-        else
-          switch method
-          case 'obj'
-            out=v;
-          otherwise
-            out=v.(method);
-          end
-        end
-      else
-        if ~exist('method','var') || isempty(method)
-          method='value';
-        end
-        if strcmp(method,'name') && isnumeric(i)
-          out=parameter_names{i};
-        else
-          switch method
-          case varargs.template_fields
-            out=v.get(i).(method);
-          otherwise
-            out=v.(method);
-          end
-        end
-      end
+    function out=parameters(varargin)
+      persistent v
+      if isempty(v); v=varargs(gravity.parameter_list); end
+      out=v.picker(varargin{:});
     end
     function out=issquare(in)
       in_sqrt=sqrt(in);
@@ -399,7 +366,7 @@ classdef gravity < simpletimeseries
       p.addParameter('scale_per_coeff', ones(lmax+1),   @(i) ismatrix(i) && all([lmax+1,lmax+1] == size(i)));
       p.addParameter('t',               datetime('now'),@(i) isdatetime(i) || isvector(i));
       %create argument object, declare and parse parameters, save them to obj
-      [v,p]=varargs.wrap('parser',p,'sources',{gravity.parameters([],'obj')},'mandatory',{lmax},varargin{:});
+      [v,p]=varargs.wrap('parser',p,'sources',{gravity.parameters('obj')},'mandatory',{lmax},varargin{:});
       %create unitary triangular matrix
       u=gravity.dtc('mat','tri',ones(lmax+1));
       %scale along degrees (if needed)
@@ -732,7 +699,7 @@ classdef gravity < simpletimeseries
     end
     %% (half) wavelength to degree convertions
     function deg=wl2deg(wl)
-      deg=2*pi*gravity.parameters('R','value')./wl;
+      deg=2*pi*gravity.parameters('R')./wl;
     end
     function wl=deg2wl(deg)
       wl=gravity.wl2deg(deg);
@@ -986,7 +953,7 @@ classdef gravity < simpletimeseries
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
       %create argument object, declare and parse parameters, save them to obj
-      [v,p]=varargs.wrap('parser',p,'sources',{gravity.parameters([],'obj')},'mandatory',{t,y},varargin{:});
+      [v,p]=varargs.wrap('parser',p,'sources',{gravity.parameters('obj')},'mandatory',{t,y},varargin{:});
       % get some parameters
       lmax=gravity.y_lmax(y(1,:));
       [labels,units]=gravity.labels(lmax,gravity.functional_units(p.Results.functional));
@@ -1009,14 +976,14 @@ classdef gravity < simpletimeseries
         more_parameters={};
       end
       %call superclass
-      obj=copy_metadata@simpletimeseries(obj,obj_in,[gravity.parameters;more_parameters(:)]);
+      obj=copy_metadata@simpletimeseries(obj,obj_in,[gravity.parameters('list');more_parameters(:)]);
     end
     function out=metadata(obj,more_parameters)
       if ~exist('more_parameters','var')
         more_parameters={};
       end
       %call superclass
-      out=metadata@simpletimeseries(obj,[gravity.parameters;more_parameters(:)]);
+      out=metadata@simpletimeseries(obj,[gravity.parameters('list');more_parameters(:)]);
     end
     function out=simpletimeseries(obj)
       % call superclass
@@ -1364,10 +1331,10 @@ classdef gravity < simpletimeseries
           %no scaling
           pos_scale=ones(N);
         case 'eqwh' %[m]
-          love=gravity.parameters('love','value');
+          love=gravity.parameters('love');
           pos_scale=zeros(N);
-          rho_earth=gravity.parameters('rho_earth','value');
-          rho_water=gravity.parameters('rho_water','value');
+          rho_earth=gravity.parameters('rho_earth');
+          rho_water=gravity.parameters('rho_water');
           %converting Stokes coefficients from non-dimensional to equivalent water layer thickness
           for i=1:N
             deg=i-1;
