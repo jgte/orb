@@ -2,20 +2,23 @@ classdef gswarm
   methods(Static)
     function obj=load_models(obj,product,varargin)
       % add input arguments and metadata to collection of parameters 'v'
-      v=varargs.wrap('sources',{{...
-        'import_dir',        '.',@(i) ischar(i) && exist(i, 'dir')~=0;...
-        'model_format','unknonw',@(i) ischar(i);...
-        'date_parser', 'unknonw',@(i) ischar(i);...
-        'consistent_GM',   false,@(i) islogical(i);...
-        'consistent_R',    false,@(i) islogical(i);...
-        'max_degree'           0,@(i) isnumeric(i) && isscalar(i);...
-        'use_GRACE_C20',   false,@(i) islogical(i);...
-        'delete_C00',      false,@(i) islogical(i);...
-        'delete_C20',      false,@(i) islogical(i);...
-        'model_span', {time.zero_date,time.inf_date},@(i) isnumeric(i) && numel(i)==2;...
-        'static_model',   'none',@(i) ischar(i);...
-        'overwrite_common_t',false,@(i) islogical(i);...
-      },product.metadata},varargin{:});
+      v=varargs.wrap('sources',{...
+        {...
+          'import_dir',        '.',@(i) ischar(i) && exist(i, 'dir')~=0;...
+          'model_format','unknonw',@(i) ischar(i);...
+          'date_parser', 'unknonw',@(i) ischar(i);...
+          'consistent_GM',   false,@(i) islogical(i);...
+          'consistent_R',    false,@(i) islogical(i);...
+          'max_degree'           0,@(i) isnumeric(i) && isscalar(i);...
+          'use_GRACE_C20',   false,@(i) islogical(i);...
+          'delete_C00',      false,@(i) islogical(i);...
+          'delete_C20',      false,@(i) islogical(i);...
+          'model_span', {time.zero_date,time.inf_date},@(i) isnumeric(i) && numel(i)==2;...
+          'static_model',   'none',@(i) ischar(i);...
+          'overwrite_common_t',false,@(i) islogical(i);...
+        },...
+        product.args...
+      },varargin{:});
       %load all available data 
       [s,e]=gravity.load_dir(v.import_dir,v.model_format,str2func(v.date_parser),...
         'wilcarded_filename',v.wilcarded_filename,...
@@ -193,15 +196,18 @@ classdef gswarm
         case 'static_model'
           %remove static field (if requested)
           if v.isparameter('static_model') && ~strcmpi(v.static_model,'none')
+            datafilename=[v.static_model,'.mat'];
             %load model (only if not already done)
             if isempty(dir([v.static_model,'.mat']))
               static=datastorage().init(v.static_model);
               %reduce to gravity class
               static=static.data_get_scalar(datanames(v.static_model).set_field_path('signal'));
               %save it
-              save([v.static_model,'.mat'],'static')
+              save(datafilename,'static')
             else
-              load([v.static_model,'.mat'])
+              load(datafilename)
+              assert(isa(static,'gravity'),['The data saved in file ',datafilename,...
+                ' must be of class ''gravity'', not ''',class(static),'''.']) %#ok<NODEF>
             end
             %adjust the start/stop
             switch static.length
@@ -231,7 +237,7 @@ classdef gswarm
     function obj=load_project_models(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
       % add input arguments and metadata to collection of parameters 'v'
-      v=varargs.wrap('sources',{product.metadata},varargin{:});
+      v=varargs.wrap('sources',{product.args},varargin{:});
       %loop over all requested scenarios
       for i=1:numel(v.scenarios)
         p=product;
@@ -319,9 +325,49 @@ classdef gswarm
           'plot_max_degree',      inf ,@(i) isnumeric(i) && isscalar(i);...
           'plot_smoothing_degree', [] ,@(i) isnumeric(i) && isscalar(i);...
           'plot_smoothing_method', '' ,@(i) ischar(i);...
+          'plot_spatial_mask', 'none' ,@(i) iscellstr(i);...
+          'plot_save_data',      'no' ,@(i) islogical(i) || ischar(i);...
+          'stats_relative_to', 'none' ,@(i) ischar(i);...
+          'model_types',   {'signal'} ,@(i) iscellstr(i);...
         },...
+        product.args({'stats_relative_to','model_types'}),...
         product.plot_args...
       },varargin{:});
+      %don't save data by default
+      savedata=false;
+      %check if loading the data is possible
+      try
+        loaddata=str.logical(v.plot_save_data);
+      catch
+        switch lower(v.plot_save_data)
+        case 'force';
+          loaddata=false;
+          savedata=true;
+        otherwise
+          error(['Cannot handle parameter ''plot_save_data'' with value ''',v.plot_save_data,'''.'])
+        end
+      end
+      %first build data filename
+      datafilename=cells.scalar(product.mdset('storage_period','direct').file('plot',...
+        'start',obj.start,'stop',obj.stop,...
+        'ext','mat',...
+        'sub_dirs','single',...
+        'start_timestamp_only',false,...
+        'suffix','plot-data'...
+      ),'get');
+      %check if data is to be loaded
+      if loaddata
+        %check if plot data is saved
+        if exist(datafilename,'file')
+          str.say('Loading plot data from ',datafilename)
+          load(datafilename)
+          assert(exist('out','var')~=0,['Could not find variable ''out'' in data file ',datafilename,'.'])
+          %we're done
+          return
+        else
+          savedata=true;
+        end
+      end
       %collect the models 
       out.source.n=0; %this acts as a counter inside the following for loop but becomes a constant thereafter
       out.source.signal=cell(0);out.source.datanames=cell(0);
@@ -332,7 +378,7 @@ classdef gswarm
           %check if there's any value in the field path to define the type of model
           if ~isempty(dn_sources{j}.field_path)
             %only plot the relevant model types (the metadata 'model_types' defines the relevant model types)
-            if ~cells.isincluded(product.metadata.model_types,dn_sources{j}.field_path{end}); continue;end
+            if ~cells.isincluded(v.model_types,dn_sources{j}.field_path{end}); continue;end
             %get this model type
             model_type=dn_sources{j}.field_path{end};
           else
@@ -370,17 +416,34 @@ classdef gswarm
           );
         end
         out.file_smooth=['.smooth-',v.plot_smoothing_method,'-',gravity.gauss_smoothing_name(v.plot_smoothing_degree(end))];
-        out.title_smooth=[gravity.gauss_smoothing_name(v.plot_smoothing_degree(end)),' ',...
-                                gravity.smoothing_name(v.plot_smoothing_method),' smoothing'];
+        out.title_smooth=str.say(gravity.gauss_smoothing_name(v.plot_smoothing_degree(end)),...
+                                gravity.smoothing_name(v.plot_smoothing_method),'smoothing');
       else
         out.file_smooth='';
         out.title_smooth='';
       end
       %find reference product
-      if product.ismdfield('stats_relative_to')
+      switch v.stats_relative_to
+        case 'none'
+          out.source.names=cellfun(...
+            @(i) strtrim(strrep(str.clean(i,v.plot_title_suppress),'.',' ')),...
+            cellfun(@(i) i.name,out.source.datanames,'UniformOutput',false),...
+            'UniformOutput',false...
+          );
+          out.mod.names=out.source.names;
+          %alias sources to mods and res
+          out.mod.dat=out.source.signal;
+          out.mod.res=out.source.signal;
+          %patch remaining details
+          out.source.ref_idx=[];
+          out.source.mod_idx=1:out.source.n;
+          out.title_wrt='';
+          %get time domain common to all sources
+          out.t=simpletimeseries.t_mergev(out.source.signal);
+      otherwise
         for i=1:out.source.n
-          str.say(out.source.datanames{i}.str,'?=',[product.metadata.stats_relative_to,'/'])
-          if strfind(out.source.datanames{i}.str,[product.metadata.stats_relative_to,'/'])
+          str.say(out.source.datanames{i}.str,'?=',[v.stats_relative_to,'/'])
+          if strfind(out.source.datanames{i}.str,[v.stats_relative_to,'/'])
             out.mod.ref=out.source.signal{i};
             out.source.ref_idx=i;
             out.mod.ref_name=out.source.datanames{out.source.ref_idx};
@@ -388,7 +451,7 @@ classdef gswarm
           end
         end
         assert(isfield(out.source,'ref_idx'),['None of the sources of product ',product.str,...
-          ' match ''stats_relative_to'' equal to ''',product.metadata.stats_relative_to,'''.'])
+          ' match ''stats_relative_to'' equal to ''',v.stats_relative_to,'''.'])
         %get the indexes of the sources to plot (i.e. not the reference)
         out.source.mod_idx=[1:out.source.ref_idx-1,out.source.ref_idx+1:out.source.n];
         %get product name difference between products to derive statistics from
@@ -400,25 +463,27 @@ classdef gswarm
         %compute residual
         out.mod.res=cellfun(@(i) out.mod.ref.interp(i.t)-i,out.mod.dat,'UniformOutput',false);
         %title
-        out.title_wrt=['wrt ',out.source.names{out.source.ref_idx},' '];
+        out.title_wrt=str.say('wrt',out.source.names{out.source.ref_idx});
         %get time domain common to all residuals
         out.t=simpletimeseries.t_mergev(out.mod.res);
-      else
-        out.source.names=cellfun(...
-          @(i) strtrim(strrep(str.clean(i,v.plot_title_suppress),'.',' ')),...
-          cellfun(@(i) i.name,out.source.datanames,'UniformOutput',false),...
-          'UniformOutput',false...
-        );
-        out.mod.names=out.source.names;
-        %alias sources to mods and res
-        out.mod.dat=out.source.signal;
-        out.mod.res=out.source.signal;
-        %patch remaining details
-        out.source.ref_idx=[];
-        out.source.mod_idx=1:out.source.n;
-        out.title_wrt='';
-        %get time domain common to all sources
-        out.t=simpletimeseries.t_mergev(out.source.signal);
+      end
+      switch v.plot_spatial_mask
+        case 'none'
+          %do nothing
+          out.title_masking='';
+        otherwise
+          switch v.plot_spatial_mask
+          case {'ocean','land'}
+            out.title_masking=str.say(v.plot_spatial_mask,'areas');
+          otherwise
+            out.title_masking=v.plot_spatial_mask;
+          end
+        %enforce masking
+        for i=1:numel(out.mod.dat)
+          str.say('applying',v.plot_spatial_mask,'mask to product',out.mod.names{i})
+          out.mod.dat{i}=out.mod.dat{i}.spatial_mask(v.plot_spatial_mask);
+          out.mod.res{i}=out.mod.res{i}.spatial_mask(v.plot_spatial_mask);
+        end
       end
       %filename particles
       out.file_root=product.file('plot','start',obj.start,'stop',obj.stop,'start_timestamp_only',false);
@@ -431,6 +496,11 @@ classdef gswarm
       end
       %title
       out.title_startstop=['(',datestr(out.source.signal{1}.t(1),'yyyy-mm'),' to ',datestr(out.source.signal{1}.t(end),'yyyy-mm'),')'];
+      %save data if requested
+      if savedata; 
+        str.say('Saving plot data to ',datafilename)
+        save(datafilename,'out');  
+      end
       %start/stop
       [~,out.startlist,out.stoplist]=product.file('data',v.varargin{:},'start',obj.start,'stop',obj.stop);
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
@@ -443,7 +513,7 @@ classdef gswarm
         {...
           'plot_pause_on_save',false,@islogical;...
         },...
-        rmfield(product.metadata,'sources')...
+        product.args...
       },varargin{:});
       %collect the models 
       out=gswarm.plot_ops(obj,product,v.varargin{:});
@@ -558,7 +628,7 @@ classdef gswarm
             'plot_ylabel',gravity.functional_label(v.plot_functional),...
             'plot_xdate',true,...
             'plot_xlimits',[out.t(1),out.t(end)+days(1)],...
-            'plot_title',['Residual ',out.title_wrt,out.title_smooth]...
+            'plot_title',str.say('Residual',out.title_wrt,out.title_masking,out.title_smooth)...
           );
           colormap jet
           if v.plot_pause_on_save; keyboard; end
@@ -599,7 +669,7 @@ classdef gswarm
               'plot_legend',legend_str,...
               'plot_ylabel',gravity.functional_label(v.plot_functional),...
               'plot_colormap','jet',...
-              'plot_title',[datestr(out.t(i),'yyyy-mm'),' degree-RMS ',out.title_smooth]...
+              'plot_title',str.say(datestr(out.t(i),'yyyy-mm'),'degree-RMS',out.title_masking,out.title_smooth)...
             );
             if v.plot_monthly_error
               %get previous lines
@@ -615,7 +685,7 @@ classdef gswarm
                 set(lines_all(j),'Color',get(lines_before(j),'Color'),'LineWidth',v.plot_line_width)
               end
               axis auto
-              title([datestr(out.t(i),'yyyy-mm'),' degree-RMS ',out.title_smooth])
+              title(str.say(datestr(out.t(i),'yyyy-mm'),'degree-RMS ',out.title_masking,out.title_smooth))
             end
             if v.plot_pause_on_save; keyboard; end
             saveas(gcf,filename)
@@ -651,7 +721,7 @@ classdef gswarm
       %collect the models 
       out=gswarm.plot_ops(obj,product,v.varargin{:});
       %assemble title suffix
-      title_suffix=[out.title_wrt,' ',out.title_startstop];
+      title_suffix=str.say(out.title_wrt,out.title_masking,out.title_startstop);
       if ~isempty(out.title_smooth);title_suffix=[title_suffix,newline,out.title_smooth];end
       %loop over all statistics
       for s=1:numel(v.plot_temp_stat_list)
@@ -681,7 +751,7 @@ classdef gswarm
             %enforce it
             product.enforce_plot(v.varargin{:},...
               'plot_caxis',v.(['plot_',v.plot_temp_stat_list{s},'_caxis']),...
-              'plot_title',[out.mod.names{i},' ',v.plot_temp_stat_title{s},' ',title_suffix]...
+              'plot_title',str.say(out.mod.names{i},v.plot_temp_stat_title{s},title_suffix)...
             );
             %need to adapt caxis label for correlation coefficients
             switch v.plot_temp_stat_list{s}
@@ -737,7 +807,7 @@ classdef gswarm
             'plot_ylabel',y_label_str,...
             'plot_xlabel','SH degree',...
             'plot_xlimits',[v.plot_min_degree-1,v.plot_max_degree+1],...
-            'plot_title',['degree-mean ',v.plot_temp_stat_title{s},' ',title_suffix]...
+            'plot_title',str.say('degree-mean',v.plot_temp_stat_title{s},title_suffix)...
           );
           if v.plot_pause_on_save; keyboard; end
           saveas(gcf,filename)
@@ -768,7 +838,7 @@ classdef gswarm
           'sin_period_unit',                        'months' , @ischar;...
           'plot_pause_on_save',                         false, @islogical;...
         },...
-        rmfield(product.metadata,'sources')...
+        product.args...
       },varargin{:});
     
 % %tmp code
@@ -791,7 +861,7 @@ classdef gswarm
           't0',seconds(obj.start-out.source.signal{i}.epoch)...
         );
         %assemble title suffix
-        title_suffix=out.title_startstop;
+        title_suffix=str.say(out.title_masking,out.title_startstop);
         if ~isempty(out.title_smooth);title_suffix=[title_suffix,newline,out.title_smooth];end %#ok<AGROW>
         for j=0:v.polyorder
           par_name=['p',num2str(j)];
@@ -819,7 +889,7 @@ classdef gswarm
             );
             %enforce it
             product.enforce_plot(v.varargin{:},...
-              'plot_title',[v.polynames{j+1},' term for ',out.source.names{i},' ',title_suffix]...
+              'plot_title',str.say(v.polynames{j+1},'term for',out.source.names{i},title_suffix)...
             );
             if isfinite(v.plot_poly_range(j+1))
               caxis([-v.plot_poly_range(j+1),v.plot_poly_range(j+1)])
@@ -849,7 +919,7 @@ classdef gswarm
             );
             %enforce it
             product.enforce_plot(v.varargin{:},...
-              'plot_title',[v.sin_names{j},' amplitude for ',out.source.names{i},' ',title_suffix]...
+              'plot_title',str.say(v.sin_names{j},'amplitude for',out.source.names{i},title_suffix)...
             );
             if isfinite(v.plot_amplitude_range(j))
               caxis([0,v.plot_amplitude_range(j)])
@@ -876,7 +946,7 @@ classdef gswarm
             );
             %enforce it
             product.enforce_plot(v.varargin{:},...
-              'plot_title',[v.sin_names{j},' phase for ',out.mod.names{i},' ',title_suffix]...
+              'plot_title',str.say(v.sin_names{j},'phase for',out.mod.names{i},title_suffix)...
             );
             caxis([-v.sin_period(j),v.sin_period(j)]/2)
             colormap jet
@@ -960,12 +1030,19 @@ classdef gswarm
 %       datafilename=file.unresolve('~/data/gswarm/analyses/2018-08-16/d.mat');
 %       p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...
 
-      datafilename=file.unresolve('~/data/gswarm/analyses/2018-10-04/d.mat');
+%       datafilename=file.unresolve('~/data/gswarm/analyses/2018-10-04/d.mat');
+%       p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...   
+%         'gswarm.swarm.all.TN-03_2.catchments',...
+%         'gswarm.swarm.all.TN-03_2.unsmoothed',...
+%         'gswarm.swarm.all.TN-03_2.smoothed'...
+%       },'UniformOutput',false);
+
+      datafilename=file.unresolve('~/data/gswarm/analyses/2018-10-31/d.mat');
       p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...   
-        'gswarm.swarm.all.TN-03_2.catchments',...
-        'gswarm.swarm.all.TN-03_2.unsmoothed',...
-        'gswarm.swarm.all.TN-03_2.smoothed'...
+        'gswarm.swarm.all.TN-03_2.land',...
       },'UniformOutput',false);
+%         'gswarm.swarm.all.TN-03_2.smoothed'...
+%         'gswarm.swarm.all.TN-03_2.catchments',...
 
     %NOTICE: There's problem with the handling of model errors!!!
 
@@ -974,6 +1051,7 @@ classdef gswarm
       
       %load data if already available
       if exist(datafilename,'file')~=0 && ~recompute
+        str.say('Loading analysis data from',datafilename)
         load(datafilename)
       else
         d=datastorage('debug',true);
