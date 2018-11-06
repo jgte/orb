@@ -366,26 +366,25 @@ classdef gravity < simpletimeseries
       p.addParameter('scale_per_coeff', ones(lmax+1),   @(i) ismatrix(i) && all([lmax+1,lmax+1] == size(i)));
       p.addParameter('t',               datetime('now'),@(i) isdatetime(i) || isvector(i));
       %create argument object, declare and parse parameters, save them to obj
-      [v,p]=varargs.wrap('parser',p,'sources',{gravity.parameters('obj')},'mandatory',{lmax},varargin{:});
+      v=varargs.wrap('parser',p,'sources',{gravity.parameters('obj')},'mandatory',{lmax},varargin{:});
       %create unitary triangular matrix
       u=gravity.dtc('mat','tri',ones(lmax+1));
       %scale along degrees (if needed)
-      if any(p.Results.scale_per_degree(:)~=1)
-        u=p.Results.scale_per_degree(:)*ones(1,size(u,2)).*u;
+      if any(v.scale_per_degree(:)~=1)
+        u=v.scale_per_degree(:)*ones(1,size(u,2)).*u;
       end
       %scale per coefficient (if needed)
-      if any(p.Results.scale_per_coeff(:)~=1)
-        u=gravity.dtc('mat','tri',p.Results.scale_per_coeff).*u;
+      if any(v.scale_per_coeff(:)~=1)
+        u=gravity.dtc('mat','tri',v.scale_per_coeff).*u;
       end
       %replicate by the nr of elements of t
-      u=ones(numel(p.Results.t),1)*gravity.dtc('tri','y',u);
+      u=ones(numel(v.t),1)*gravity.dtc('tri','y',u);
       %initialize
-      varargin_now=cells.vararginclean(varargin,{'t'});
-      obj=gravity(p.Results.t,u,varargin_now{:});
+      obj=gravity(v.t,u,v.delete('t').varargin{:});
       % save the arguments v into this object
-      obj=v.save(obj);
+      obj=v.save(obj,{'t','lmax'});
       %call upstream scale method for global scale
-      obj=obj.scale(p.Results.scale);
+      obj=obj.scale(v.scale);
     end
     % creates a unit model with per-degree amplitude equal to 1
     function obj=unit_amplitude(lmax,varargin)
@@ -963,7 +962,7 @@ classdef gravity < simpletimeseries
         'units',units...
       );
       % save the arguments v into this object
-      obj=v.save(obj);
+      obj=v.save(obj,{'t','y'});
     end
     function obj=assign(obj,y,varargin)
       %pass it upstream
@@ -1600,9 +1599,9 @@ classdef gravity < simpletimeseries
     function out=grid(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter( 'Nlat', obj.lmax   , @(i) isnumeric(i) && isscalar(i));
-      p.addParameter( 'Nlon', obj.lmax*2 , @(i) isnumeric(i) && isscalar(i));
-      p.addParameter( 'Nfactor',       1 , @(i) isnumeric(i) && isscalar(i));
+      p.addParameter( 'Nlat', obj.lmax+1    , @(i) isnumeric(i) && isscalar(i));
+      p.addParameter( 'Nlon',(obj.lmax+1)*2 , @(i) isnumeric(i) && isscalar(i));
+      p.addParameter( 'Nfactor',          1 , @(i) isnumeric(i) && isscalar(i));
       % parse it
       p.parse(varargin{:});
       %easier names for the resolution
@@ -1620,8 +1619,19 @@ classdef gravity < simpletimeseries
       end
       %create grid structure in the form of a list
       sl=simplegrid.dti(obj.t,map,transpose(rad2deg(lon(:))),lat(:),'list');
+      %create container for units
+      units=cell(1,size(sl.map,2));units(:)={obj.functional_unit};
       %initialize grid object
-      out=simplegrid(sl.t,sl.map,'lon',sl.lon,'lat',sl.lat);
+      out=simplegrid(sl.t,sl.map,...
+        'lon',sl.lon,...
+        'lat',sl.lat,...
+        'descriptor',obj.descriptor,...
+        'units',units...
+      );
+    end
+    %% spatial operations
+    function obj=spatial_mask(obj,mode,varargin)
+      obj=obj.grid('cutoff',-1,'Nfactor',3,varargin{:}).spatial_mask(mode,varargin{:}).sh(obj.lmax,'functional',obj.functional);
     end
     %% overloading
     function [obj,stats]=component_split(obj,varargin)
