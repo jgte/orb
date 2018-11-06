@@ -620,7 +620,8 @@ classdef simplegrid < simpletimeseries
       %initialize with unitary grid
       obj=simplegrid(...
         p.Results.t,...
-        ones(p.Results.n_lat,p.Results.n_lon,numel(p.Results.t))*p.Results.scale+p.Results.bias...
+        ones(p.Results.n_lat,p.Results.n_lon,numel(p.Results.t))*p.Results.scale+p.Results.bias,...
+        varargin{:}...
       );
     end
     % Creates a random model with mean 0 and std 1
@@ -654,12 +655,14 @@ classdef simplegrid < simpletimeseries
         repmat(lon_map+lat_map*p.Results.scale+p.Results.bias,1,1,numel(p.Results.t))...
       );
     end
-    function obj=landmask(n_lon,n_lat,varargin)
-      p=inputParser;
-      p.addRequired( 'n_lon',  @(i) isscalar(i) && isnumeric(i));
-      p.addRequired( 'n_lat',  @(i) isscalar(i) && isnumeric(i));
-      p.addParameter('t',datetime('now'),@(i) isdatetime(i));
-      p.parse(n_lon,n_lat,varargin{:});
+    %NOTICE: inpupts lon and lat can be scalar (domain size) or vectors (domain entries)
+    function obj=landmask(lon,lat,varargin)
+      p=inputParser;p.KeepUnmatched=true;
+      p.addRequired( 'lon',  @(i) isnumeric(i));
+      p.addRequired( 'lat',  @(i) isnumeric(i));
+      p.addParameter('t',     datetime('now'),@(i) isdatetime(i));
+      p.addParameter('cutoff',-1, @(i) isscalar(i) && isnumeric(i)); %values higher than this are land, lower are ocean; negative values leave the interpolation unchanged
+      p.parse(lon,lat,varargin{:});
       %load the data
       fmat=fullfile(simplegrid.parameters('landmask_dir'),'landmask.mat');
       fdat=fullfile(simplegrid.parameters('landmask_dir'),'landmask.dat');
@@ -672,7 +675,21 @@ classdef simplegrid < simpletimeseries
         error(['Cannot find landmask data file, expecting ',fmat,' or ',fdat,'.'])
       end
       %resample to requested resolution
-     	obj=landmask;%.spatial_resample(n_lon,n_lat);
+      if isscalar(lon) && isscalar(lat)
+        obj=landmask.spatial_resample(lon,lat);
+      elseif isvector(lon) && isvector(lat)
+        obj=landmask.spatial_interp(lon,lat);
+      else
+        error('Inputs ''lat'' and ''lon'' must both be scalar or vector')
+      end
+      %enforce cutoff
+      if p.Results.cutoff>0
+        land_idx=obj.y>=p.Results.cutoff;
+        y_now=obj.y;
+        y_now(~land_idx)=0;
+        y_now( land_idx)=1;
+        obj=obj.assign(y_now);
+      end
     end
     function out=load(filename,t)
       fid=fopen(filename);
@@ -850,7 +867,7 @@ classdef simplegrid < simpletimeseries
       obj.loni=sl.lon;
       obj.lati=sl.lat;
       % save the arguments v into this object
-      obj=v.save(obj);
+      obj=v.save(obj,{'t','map','lat','lon'});
     end
     function obj=assign(obj,map,varargin)
       p=inputParser;
@@ -1234,6 +1251,25 @@ classdef simplegrid < simpletimeseries
       %propagate the data
       obj.matrix=m;
     end
+    function obj=spatial_mask(obj,mode,varargin)
+      %save the descriptor
+      descriptor=obj.descriptor;
+      switch lower(mode)
+      case {'','none'}
+        %do nothing
+      case 'land'
+        spmask=simplegrid.landmask(obj.lon,obj.lat,varargin{:});
+        obj=obj.*spmask;
+        obj.descriptor=['land areas of ',descriptor];
+      case 'ocean'
+        spmask=simplegrid.landmask(obj.lon,obj.lat,varargin{:});
+        spmask=spmask.assign(1-spmask.y);
+        obj=obj.*spmask;
+        obj.descriptor=['ocean areas of ',descriptor];
+      otherwise
+        error(['Cannot understand mode ''',mode,'''.'])
+      end
+    end
     %% spatial ops
     function obj=spatial_sum(obj)
       %get the data
@@ -1314,17 +1350,28 @@ classdef simplegrid < simpletimeseries
       end
     end
     %% convert to spherical harmonics
-    function out=sh(obj)
+    %it's a good idea to identify the functional represented in this grid explicitly in varargin ('functional',<something>)
+    function out=sh(obj,lmax,varargin) 
       % make room for CS-structures
       cs(obj.length)=struct('C',[],'S',[]);
       % make spherical harmonic analysis of each grid
+      c=0;
       for i=1:obj.length;
-        [cs(i).C,cs(i).S]=mod_sh_ana(deg2rad(obj.lon),deg2rad(obj.lat),obj.map);
+        if ~obj.mask(i)
+          str.say('WARNING: discarding gap of',obj.descriptor,'at',obj.t(i))
+          continue
+        end
+        c=c+1;
+        [cs(c).C,cs(c).S,msg]=mod_sh_ana(deg2rad(obj.lon),deg2rad(obj.lat),obj.map(:,:,i),lmax);
+        if ~isempty(msg); str.say(msg,'at',obj.t(i)); end
       end
-      % initialize output gravity object
-      out=gravity.unit(obj.t);
-      %assign coefficients,...
-      out.cs=cs;
+      % initialize output gravity object (no need to set the units, need 'functional' in vargain for that to work)
+      out=gravity.unit(lmax,...
+        't',obj.t_masked,...
+        'descriptor',obj.descriptor,...
+      varargin{:});
+      %assign coefficients (truncate to the masked domain)
+      out.cs=cs(1:c);
     end
     %% multiple operands
     function compatible(obj1,obj2,varargin)
@@ -1382,17 +1429,22 @@ classdef simplegrid < simpletimeseries
     %% plot functions
     function out=imagesc(obj,varargin)
       p=inputParser;
-      p.addParameter('t', obj.t_masked(1), @(i) simpletimeseries.valid_t(i));
-      p.addParameter('show_coast',   true, @(i) islogical(i));
-      p.addParameter('show_colorbar',true, @(i) islogical(i));
-      p.addParameter('cb_loc','SouthOutside',@(i) ischar(i));
-      p.addParameter('cb_title',       '', @(i) ischar(i));
-      p.addParameter('bias',            0, @(i) isscalar(i) && isnumeric(i));
-      p.addParameter('boxes',          {}, @(i) iscell(i));
-      p.addParameter('boxes_fmt', {'r--'}, @(i) iscellstr(i));
+      p.addParameter('t',    obj.t_masked(1), @(i) simpletimeseries.valid_t(i));
+      p.addParameter('center_resample', true, @(i) islogical(i));
+      p.addParameter('show_coast',      true, @(i) islogical(i));
+      p.addParameter('show_colorbar',   true, @(i) islogical(i));
+      p.addParameter('cb_loc','SouthOutside', @(i) ischar(i));
+      p.addParameter('cb_title',          '', @(i) ischar(i));
+      p.addParameter('bias',               0, @(i) isscalar(i) && isnumeric(i));
+      p.addParameter('boxes',             {}, @(i) iscell(i));
+      p.addParameter('boxes_fmt',    {'r--'}, @(i) iscellstr(i));
       p.parse(varargin{:});
-      %interpolate at the requested time and resample to center of grid
-      obj_interp=obj.interp(p.Results.t).center_resample;
+      %interpolate at the requested time and 
+      obj_interp=obj.interp(p.Results.t);
+      %resample to center of grid if requested 
+      if p.Results.center_resample
+        obj_interp=obj_interp.center_resample;
+      end
       %need to have lon domain in the -180 to 180 domain, so that coast is show properly
       [lon_now,lon_idx]=sort(obj_interp.lon180);
       %build image
@@ -2347,7 +2399,7 @@ function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapL
 end
 
 %% Spherical Harminc analysis
-function [c_out,s_out]=mod_sh_ana(long,lat,grid,N)
+function [c_out,s_out,msg]=mod_sh_ana(long,lat,grid,N)
 % [C,S]=MOD_SH_ANA(LONG,LAT,GRID) is the low-level spherical harmonic
 % analysis routine. It should be a self-contained script.
 %
@@ -2494,13 +2546,16 @@ function [c_out,s_out]=mod_sh_ana(long,lat,grid,N)
       s_out(i+1:end,i+1) = s{i+1};
   end
 
+  %init message
+  msg='';
+  
   %NaNs and infs are set to zero
   if any(~isfinite(c_out(:)))
-      disp([mfilename,':WARNING: found ',num2str(sum(~isfinite(c_out(:)))),' NaN of inf cosine coefficients.'])
+      msg=['WARNING: found ',num2str(sum(~isfinite(c_out(:)))),' NaN or inf cosine coefficients'];
       c_out(~isfinite(c_out))=0;
   end
   if any(~isfinite(s_out(:)))
-      disp([mfilename,':WARNING: found ',num2str(sum(~isfinite(c_out(:)))),' NaN of inf sine coefficients.'])
+      msg=['WARNING: found ',num2str(sum(~isfinite(s_out(:)))),' NaN or inf sine coefficients'];
       s_out(~isfinite(s_out))=0;
   end
 end
