@@ -223,14 +223,12 @@ classdef dataproduct
       switch lower(mode)
       case 'data'
         out={...
-          'use_storage_period',true,...
           'dir',obj.data_dir,...
           'sub_dirs','single',...
           'ext','mat'...
         };
       case 'plot'
         out={...
-          'use_storage_period',false,...
           'dir',obj.plot_dir,...
           'sub_dirs','none',...
           'ext','png'...
@@ -510,96 +508,42 @@ classdef dataproduct
     end
     function out=source_list(obj)
       out=arrayfun(@(i) obj.sources(i),1:obj.nr_sources,'UniformOutput',false);
-%       out=cell(1,obj.nr_sources);
-%       for i=1:obj.nr_sources
-%         out{i}=obj.sources(i);
-%       end
     end
     function out=source_list_str(obj)
       out=cellfun(@(i) i.str,obj.source_list,'UniformOutput',false);
     end
     %% plot customization
     function out=plot_args(obj)
-      %init outputs
-      out={};
       %get plot parameters already defined in the metadata
       mdf=fieldnames(obj.metadata);
+      %count how many plot_* field there are
+      idx=cells.strfind(mdf,'plot_');
+      %init outputs
+      out=cell(1,2*numel(idx));
       %loop over all of them
-      for i=1:numel(mdf)
-        %skip if this is not a plot parameter
-        if isempty(strfind(mdf{i},'plot_'))
-          continue
-        end
+      for i=1:numel(idx)
         %add this plot parameter to output
-        out{end+1}=mdf{i}; %#ok<AGROW>
-        out{end+1}=obj.metadata.(mdf{i}); %#ok<AGROW>
+        out{2*i-1}=mdf{idx(i)};
+        out{2*i  }=obj.metadata.(mdf{idx(i)});
       end
     end
     function out=enforce_plot(obj,varargin)
       %get plot parameters already defined in the metadata and call mother routine
       out=plotting.enforce(obj.plot_args{:},varargin{:});
-      % enforce fontsize and paper size
-%       set(    p.Results.axis_handle,          'FontSize',p.Results.plot_fontsize_axis)
-%       set(get(p.Results.axis_handle,'Title' ),'FontSize',p.Results.plot_fontsize_title);
-%       set(get(p.Results.axis_handle,'XLabel'),'FontSize',p.Results.plot_fontsize_label);
-%       set(get(p.Results.axis_handle,'YLabel'),'FontSize',p.Results.plot_fontsize_label);
-%       set(    p.Results.fig_handle, 'Position',          p.Results.plot_size,...
-%                                     'PaperUnits',        p.Results.plot_units,...
-%                                     'PaperPosition',     p.Results.plot_size);
-%       % enforce line properties
-%       line_handles=plotting.line_handles(p.Results.axis_handle);
-%       for i=1:numel(line_handles)
-%         set(line_handles(i),'LineWidth',p.Results.plot_line_width)
-%       end
-%       % start with current axis
-%       v=axis(p.Results.axis_handle);
-%       % enforce x-limits
-%       xl=cell(1,2);
-%       for i=1:2
-%         if iscell(p.Results.plot_xlimits(i))
-%           xl{i}=p.Results.plot_xlimits{i};
-%         else
-%           xl{i}=p.Results.plot_xlimits(i);
-%         end
-%       end
-%       %check if dates are requested
-%       if p.Results.plot_xdate && ~p.Results.plot_psd
-%         for i=1:2
-%           if isfinite(xl{i})
-%             v(i)=datenum(xl{i});
-%           end
-%         end
-%         if ~strcmp(datestr(v(1),'yyyymmdd'),datestr(v(2),'yyyymmdd')) && ...
-%             (~strcmp(datestr(v(2),'HHMMSS'),'000000') || v(2)-v(1)>1)
-%           xlabel([datestr(v(1),'yyyy-mm-dd'),' to ',datestr(v(2),'yyyy-mm-dd')])
-%         else
-%           xlabel(datestr(v(1)))
-%         end
-%         datetick('x',p.Results.plot_xdateformat)
-%       else
-%         for i=1:2
-%           if isfinite(xl{i})
-%             v(i)=datenum(xl{i});
-%           end
-%         end
-%       end
-%       % enforce reasonable y-limits
-%       for i=1:2
-%         if isfinite(p.Results.plot_ylimits(i))
-%           v(i+2)=   p.Results.plot_ylimits(i);
-%         end
-%       end
-%       axis(p.Results.axis_handle,v);
-%       %adjust the location of the legend (even if the default 'best', it may happen that it is no longer in a good position)
-%       set(legend,'location',p.Results.plot_legend_location)
-%       %enforce colormap
-%       if ~isempty(p.Results.plot_colormap)
-%         colormap(p.Results.plot_colormap)
-%       end
+    end
+    %% argument parsing
+    function out=args(obj,field_list)
+      %NOTICE: need to remove some fields so it doesn't conflict with varargs
+      rm_field_list=intersect(fieldnames(obj.metadata),varargs.reserved_fields);
+      out=structs.varargin(rmfield(obj.metadata,rm_field_list));
+      %return only the requested fields, if any
+      if exist('field_list','var')
+        out=cells.varargin('get',out,field_list);
+      end
     end
     %% level-wrapping handlers
     function out=islevel_wrapped(obj,level)
-      out=obj.ismdfield(dataproduct.level_vals_str(level))&&obj.ismdfield(dataproduct.level_name_str(level));
+      out=obj.ismdfield(dataproduct.level_vals_str(level)) && obj.ismdfield(dataproduct.level_name_str(level));
     end
     function out=is_wrapped(obj)
       out=obj.islevel_wrapped(1);
