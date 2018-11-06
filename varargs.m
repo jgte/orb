@@ -12,10 +12,10 @@ classdef varargs < dynamicprops
       @(i) isa(i, 'function_handle');...
     };
     nprops=numel(fieldnames(varargs.template));
-    reserved_fields={'parser','mandatory','sources','sinks'};
   end
   properties(Constant,GetAccess=public)
     template_fields=fieldnames(varargs.template)
+    reserved_fields={'parser','mandatory','sources','sinks'};
   end
   properties(GetAccess=public,SetAccess=private)
     S
@@ -130,20 +130,19 @@ classdef varargs < dynamicprops
       %NOTICE: only the parameters defined in 'sources' or 'parser' make their way into v; all other parameters in varargin are
       %ignored.
       %
-      %If the same parameter is in 'sources' and varargin, the value defined in the latter is the one kept. Note that the default
-      %parameters in 'parser' (i.e. those that are not in varargin) are not passed to v (otherwise they may over-write the
-      %parameters previously defined in a 'source').
+      %NOTICE: If the same parameter is in 'sources' and varargin, the value defined in the latter is the one kept.
       %
-      %Both p and v outputs have the same information, which can be retrieved as:
+      %NOTICE: the default parameters in 'parser' (specifically those that are not in varargin) are now passed to v (those
+		  % that are defined in varargin are ignored).
+      %
+      %Both p and v outputs have the same information (except what concerns the 3rd notice above), which can be retrieved as:
       % - p.Results.(parameter_name) (as usual)
       % - v.Results.(parameter_name), v.value(parameter_name) or simply v.(parameter_name)
       %
       %The variables 'sinks' is a cell array with the objects passed in 'sinks' (in the same order), with their fields/methods
       %set with the (possible) values of any parameter passed in 'parser', 'sources' or varargin, as implemented in the 
       %varargs.save methods.
-      %
-      %NOTICE: Any parameter passed in the 'parser' is *not* saved to any of the 'sinks', except for 'p'.
-
+      
       %this is the parser for this method (there's an additional parser going in and out if this method)
       pn=inputParser;
       pn.KeepUnmatched=true;
@@ -166,19 +165,20 @@ classdef varargs < dynamicprops
       for i=1:numel(sources);v.join(sources{i});end
       %retrieve (possible) external parser
       p=pn.Results.parser; p.KeepUnmatched=true; p.PartialMatching=false; 
-      %the parameters already defined in the external parser are not to be saved to the 'sinks'
+      %the parameters already defined in the external parser are not to be saved to the 'sinks' (this only concerns the 'sinks')
       external_parameters=p.Parameters;
-      %declare parameters
+      %declare parameters in parser
       [p,v]=v.declare(p);
       %parse it
       p.parse(pn.Results.mandatory{:},varargin{:});
-      %join parsed parameters (except those using default values) into argument object v 
-      %and remove externally-defined parameters.
-      v.join(rmfield(p.Results,p.UsingDefaults)).delete(external_parameters);
+      %find p.UsingDefaults that are already part of v
+      todelete=setdiff(p.UsingDefaults,setdiff(p.UsingDefaults,v.Parameters));
+      %join parsed parameters (except those using default values already in v) into argument object v 
+      v=v.join(rmfield(p.Results,todelete));
       %go over all sinks (if there)
       for i=1:numel(sinks)
-        %update parsed parameters and save them
-        sinks{i}=v.save(sinks{i});
+        %save all non-external parse parameters to this sink
+        sinks{i}=v.save(sinks{i},external_parameters);
       end
       %convert to scalar if only one sink (isscalar({})=false)
       if isscalar(sinks)
@@ -283,12 +283,35 @@ classdef varargs < dynamicprops
     function out=isempty(obj)
       out=isempty(obj.S);
     end
+    function l=tab(obj,fieldname)
+      if ~exist('fieldname','var') || isempty(fieldname)
+        fieldname='name';
+      end
+      switch fieldname
+      case 'max'
+        l=0;
+        for i=1:varargs.nprops
+          l=max([l,obj.tab(varargs.template_fields{i})]);
+        end
+      case varargs.template_fields
+        %get length of longest parameter name/value/validation
+        l=0;
+        for i=1:obj.length
+          l=max([length(obj.get(i).(fieldname)),l]);
+        end
+      otherwise
+        error(['Cannot handle input ''fieldname'' with value ''',fieldname,'''.'])
+      end
+    end
+    function [idx,c]=sort_idx(obj)
+      c=obj.cell;
+      [~,idx]=sort(c(:,1));
+    end
     function out=str(obj,tab)
       if ~exist('tab','var') || isempty(tab)
-        tab=20;
+        tab=obj.tab('max');
       end
-      c=obj.cell;
-      [~,sort_idx]=sort(c(:,1));
+      [sort_idx,c]=obj.sort_idx;
       out=cell(obj.length+1,1);
       out{1}=str.tablify(tab,varargs.prop);
       for i=1:obj.length
@@ -296,17 +319,16 @@ classdef varargs < dynamicprops
       end
       out=strjoin(out,char(10));
     end
-    function out=show(obj)
+    function out=show(obj,tab)
+      if ~exist('tab','var') || isempty(tab)
+        tab=obj.tab('name');
+      end
       %outputs
       out=cell(obj.length,1);
-      %get length of longest parameter name
-      l=0;
+      sort_idx=obj.sort_idx;
       for i=1:obj.length
-        l=max([length(obj.get(i).name),l]);
-      end
-      for i=1:obj.length
-        p=obj.get(i);
-        out{i}=str.show({str.tabbed(p.name,l,true),p.value},'',' : ');
+        p=obj.get(sort_idx(i));
+        out{i}=str.show({str.tabbed(p.name,tab,true),p.value},'',' : ');
       end
       out=strjoin(out,newline);
     end
@@ -418,7 +440,7 @@ classdef varargs < dynamicprops
     %% edit methods
     function obj=delete(obj,varargin)
       if numel(varargin)==1
-        parameters=varargin{1};
+        parameters=varargin(1);
       else
         parameters=varargin;
       end
@@ -515,9 +537,13 @@ classdef varargs < dynamicprops
       end
     end
     %% propagate to other object
-    function o=save(obj,o)
+    function o=save(obj,o,skip_list)
+      if ~exist('skip_list','var')
+        skip_list={};
+      end
       for i=1:obj.length
         name=obj.S(i).name;
+        if cells.isincluded(skip_list,name); continue; end
         if any(strcmp(properties(o),name)) || isfield(o,name) % isprop(o,n) doesn't work
           v=obj.S(i).value;
           try
