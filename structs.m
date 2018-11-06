@@ -361,5 +361,15 @@ classdef structs
         end
       end
     end
+    %% varargin interface
+    function out=varargin(in)
+      assert(isstruct(in),'Can only handle structures')
+      assert(isscalar(in),'BUG TRAP: Can only handle scalar inputs; implementation needed')
+      v = struct2cell(in); f = fieldnames(in);
+      assert(numel(v)==numel(f),'BUG TRAP: expecting the number of values to be same as the number of field names')
+      out=cell(1,2*numel(v));
+      out(1:2:end-1)=f;
+      out(2:2:end)=v;
+    end
   end
 end
