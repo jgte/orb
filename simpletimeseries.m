@@ -879,7 +879,7 @@ classdef simpletimeseries < simpledata
         varargin{:}...
       );
       % save the arguments v into this object
-      obj=v.save(obj);
+      obj=v.save(obj,{'t','y'});
       %save input format (can be different from p.Results.format)
       obj.format=f;
     end
