@@ -533,7 +533,7 @@ classdef str
       end
     end
     %% user feedback
-    function say(varargin)
+    function out=say(varargin)
       %default value for internal parameters
       stack_delta=0;
       %loop control
@@ -552,9 +552,13 @@ classdef str
       end
       s=dbstack(1+stack_delta);
       if isempty(s)
-        disp(str.show(varargin(start_idx:end)))
+        out=str.show(cells.rm_empty(varargin(start_idx:end)));
       else
-        disp([s(1).name,':',num2str(s(1).line),': ',str.show(varargin(start_idx:end))])
+        out=[s(1).name,':',num2str(s(1).line),': ',str.show(cells.rm_empty(varargin(start_idx:end)))];
+      end
+      if nargout==0
+        disp(out);
+        clear out
       end
     end
     function log(filename,msg,varargin)
