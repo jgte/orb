@@ -734,7 +734,7 @@ classdef datastorage
     end
     function save(obj,product,varargin)
       %ignore plot products, file saving is done inside the init method
-      if product.mdget('plot_product')
+      if product.mdget('plot_product','default',false)
         return
       end
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
@@ -938,7 +938,7 @@ classdef datastorage
 %       obj=obj.product_set(id,varargin{:});
       %retrieve product info
       product=obj.product_get(id,varargin{:});
-      obj.log('@','in','product',product,'start',product.start,'stop',product.stop)
+      obj.log('@','in','product',product,'product start',product.start,'product stop',product.stop)
       % make sure all data sources are loaded
       obj=obj.init_sources(product,varargin{:});
       % get init method
@@ -1047,7 +1047,7 @@ classdef datastorage
               %TODO: maybe product.inclusive can help with this
               obj.log('@','save: skipped saving because this product truncates data internally.')
             otherwise
-              if ~product.mdget('plot_product')
+              if ~product.mdget('plot_product','default',false)
                 obj=obj.startstop_retrieve_update(product_list{i});
               end
             end
