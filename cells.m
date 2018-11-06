@@ -111,6 +111,13 @@ classdef cells
         out=find(cells.isstrfind(cellstrin,strin));
       end
     end
+    function out=strcount(cellstrin,strin) 
+      if isempty(cellstrin)
+        out=0;
+      else
+        out=sum(cells.isstrfind(cellstrin,strin));
+      end
+    end
     function io=rm_strfind(io,strin)
       idx=cells.strfind(io,strin);
       if isempty(idx); return; end
@@ -266,6 +273,11 @@ classdef cells
     %removes from the varargin-like cell array 'in' the parameters with names defined in the cell array 'parameters'.
     %e.g.: varargin{{'a',1,'b','2','c',{3}},{'a','c'}) => {'b','2'}
     function out=vararginclean(in,parameters)
+      %trivial call
+      if ~exist('parameters','var')
+        out=in;
+        return
+      end
       if ischar(parameters)
         parameters={parameters};
       end
@@ -286,6 +298,11 @@ classdef cells
     %retrieves from the varargin-like cell array 'in' the parameters with names defined in the cell array 'parameters'.
     %e.g.: varargin{{'a',1,'b','2','c',{3}},{'a','c'}) => {'a',1,'c',{3}}
     function out=vararginget(in,parameters)
+      %trivial call
+      if ~exist('parameters','var')
+        out=in;
+        return
+      end
       if ischar(parameters)
         parameters={parameters};
       end
@@ -304,8 +321,13 @@ classdef cells
       end
       out=cells.rm_empty(out);
     end
-    %wrapper for vararginclean and vararginget
+    %wrapper for vararginclean and vararginget (if parameters are empty, get returns nothing and clean returns the same)
     function out=varargin(mode,in,parameters)
+      %trivival call
+      if ~exist('parameters','var')
+        out=in;
+        return
+      end
       switch mode
       case 'get';   out=cells.vararginget(  in,parameters);
       case 'clean'; out=cells.vararginclean(in,parameters);
