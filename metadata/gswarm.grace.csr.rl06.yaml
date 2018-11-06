@@ -1,6 +1,8 @@
 import_dir: <getenv('HOME')>/data/grace/L2/CSR/RL06
 model_types: [signal,error]
-wilcarded_filename: GSM-2_*.mat
+#you need to load/save files manually so that the mat file is available, e.g.
+# gravity.load('~/data/grace/L2/CSR/RL06/GSM-2_2013335-2013365_GRAC_UTCSR_BA01_0600','gsm')
+wilcarded_filename: GSM-2_*BA01*.mat
 model_format: auto
 date_parser: gravity.parse_epoch_grace
 submetadata1: model.processing.submetadata
