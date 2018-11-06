@@ -186,7 +186,7 @@ classdef simplefreqseries < simpletimeseries
       %call superclass
       obj=obj@simpletimeseries(t,y,varargin{:});
       % save the arguments v into this object
-      obj=v.save(obj);
+      obj=v.save(obj,{'t','y'});
       %initialize internal records
       obj.psdi=[];
       %save delta frequency

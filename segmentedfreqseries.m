@@ -167,7 +167,7 @@ classdef segmentedfreqseries < simplefreqseries
       %call superclass
       obj=obj@simplefreqseries(t,y,varargin{:});
       % save the arguments v into this object
-      obj=v.save(obj);
+      obj=v.save(obj,{'t','y'});
       % remove mask from varargin
       args=cells.vararginclean(varargin,{'mask'});
       % cut into segments
