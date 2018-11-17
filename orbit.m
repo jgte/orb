@@ -734,7 +734,7 @@ classdef orbit
       %declare parameters p
       [~,p,obj]=varargs.wrap('parser',p,'sinks',{obj},'sources',{orbit.parameters('obj')},'mandatory',{t},varargin{:});
       %clean varargin
-      varargin=cells.vararginclean(varargin,p.Parameters('list'));
+      varargin=cells.vararginclean(varargin,p.Parameters);
       % retrieve each data type
       for j=1:numel(orbit.data_types)
         %shorter names
@@ -767,7 +767,7 @@ classdef orbit
       p.addParameter('names',orbit.data_type_name(data_type),@(i) iscellstr(i) && numel(i)==size(data_value,2))
       % parse it
       p.parse(t,data_type,data_value,varargin{:});
-      varargin=cells.vararginclean(varargin,p.Parameters('list'));
+      varargin=cells.vararginclean(varargin,p.Parameters);
       %sanity
       assert(isempty(obj.(data_type)),['data of type ''',data_type,''' has already been created. Use another method to append data.'])
       %call superclass for this data type
