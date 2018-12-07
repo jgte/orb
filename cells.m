@@ -246,10 +246,11 @@ classdef cells
         out=tmp;
       end
     end
-    %depending on the value of 'direction' (defaults to 'set'):
-    % - if get: checks if there is only one cell entry, if so return it; otherwise nothing changes
-    % - if set: checks if it's a cell array, if so return it; otherwise make it a cell and return io
     function io=scalar(io,direction)
+      %io=scalar(io,direction)
+      %depending on the value of 'direction' (defaults to 'set'):
+      % - if get: checks if there is only one cell entry, if so return it; otherwise nothing changes
+      % - if set: checks if it's a cell array, if so return it; otherwise make it a cell and return io
       if ~exist('direction','var') || isempty(direction)
         direction='get';
       end
