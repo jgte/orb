@@ -310,17 +310,26 @@ classdef datastorage
     function obj=data_set(obj,dn,values)
       %reduce dataname to common object
       dn_list=obj.data_list(dn);
-      %handle scalar values, unwrap them to all field paths
-      if numel(values)==1 && ~iscell(values)
-        tmp=values;
-        values=cell(size(dn_list));
-        values{:}=tmp;
-      end
-      %make sure fiels paths and values have the same length
-      assert(numel(dn_list)==numel(values),'variables ''dn_list'' and ''values'' must have the same length.')
-      %propagate
+      values=cells.scalar(values,'set');
+      
+      %TODO: I question the usefulness of this, need to be sure it does not break things
+%       %handle scalar values, unwrap them to all field paths
+%       if numel(values)==1 && ~iscell(values)
+%         tmp=values;
+%         values=cell(size(dn_list));
+%         values{:}=tmp;
+%       end
+      
+      %check  if fiels paths and values have the same length
+      assert(numel(dn_list)==numel(values),'Cannot handle inputs ''in'' and ''values''.')
+      %propagate 
       for i=1:numel(dn_list)
-        obj=obj.value_set(dn_list{i},values{i});
+        %try to match field names in structures with field paths
+        if isstruct(values{i}) && isfield(values{i},dn_list{1}.field_path)
+          obj=obj.value_set(dn_list{i},structs.get_value(values{i},dn_list{1}.field_path));
+        else
+          obj=obj.value_set(dn_list{i},values{i});
+        end
       end
     end
     %% vector data operations, done over multiple datanames and all corresponding 'field_path's
@@ -740,7 +749,7 @@ classdef datastorage
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('recompute',false,@(i) islogical(i) && isscalar(i)); %forces saving the data even if the data is already saved 
+      p.addParameter('force',false,@(i) islogical(i) && isscalar(i)); %forces saving the data even if the data is already saved 
       % parse it
       p.parse(varargin{:});
       % get the data to be saved
@@ -799,8 +808,8 @@ classdef datastorage
         end
         %check if this file already exists
         if exist(file_list{f},'file')
-          %save the data if recompute is true
-          if p.Results.recompute
+          %save the data if force is true
+          if p.Results.force
             replace_flag=true;
           else
             %save new variable
@@ -873,8 +882,8 @@ classdef datastorage
             end
           end
           if replace_flag
-            if p.Results.recompute
-              obj.log(['replacing file ',num2str(f)],'recompute flag is true')
+            if p.Results.force
+              obj.log(['replacing file ',num2str(f)],'force flag is true')
             else
               obj.log(['replacing file ',num2str(f)],'new data found')
             end
@@ -926,9 +935,9 @@ classdef datastorage
     function obj=init(obj,id,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('force',    false,@(i) islogical(i) && isscalar(i)); %re-loads the data if already loaded
-      p.addParameter('recompute',false,@(i) islogical(i) && isscalar(i)); %calls the init method even if the data is already saved
-      p.addParameter('subcat',   '',   @(i) ischar(i));
+      p.addParameter('reload', false, @(i) islogical(i) && isscalar(i)); %re-loads the data if already loaded
+      p.addParameter('force',  false, @(i) islogical(i) && isscalar(i)); %calls the init method even if the data is already saved
+      p.addParameter('subcat',    '', @(i) ischar(i));
       % parse it
       p.parse(varargin{:});
       %update start/stop if given in inputs
@@ -991,7 +1000,7 @@ classdef datastorage
       end
       %wrapped products need to be loaded differently because they are all stored in the same file,
       %i.e. can't iterate over product_list to load them (but need to iterate to init them)
-      if product.is_wrapped && ~p.Results.recompute
+      if product.is_wrapped && ~p.Results.force
         %try loading this product
         [obj,success]=obj.load(product,varargin{:});
         %if that works, then empty product_list to skip the loading/init loop
@@ -1003,9 +1012,9 @@ classdef datastorage
       %loop over all products
       for i=1:numel(product_list)
         %check if data is already loaded
-        if obj.isdata_empty(product_list{i}) || p.Results.force
+        if obj.isdata_empty(product_list{i}) || p.Results.reload
           %check if init method is to be called even if data was already saved as mat file
-          if p.Results.recompute
+          if p.Results.force
             success=false;
           else
             %try to load saved data
@@ -1200,15 +1209,15 @@ classdef datastorage
     function obj=init_sources(obj,product,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired('product',@(i) isa(i,'dataproduct'));
-      p.addParameter('force',    false,@(i) islogical(i) && isscalar(i));
-      p.addParameter('recompute',false,@(i) islogical(i) && isscalar(i));
+      p.addRequired('product',        @(i) isa(i,'dataproduct'));
+      p.addParameter('reload', false, @(i) islogical(i) && isscalar(i));
+      p.addParameter('force',  false, @(i) islogical(i) && isscalar(i));
       % parse it
       p.parse(product,varargin{:});
       %loop over all source data
       for i=1:product.nr_sources
         %load this source if it is empty (use obj.init explicitly to re-load or reset data)
-        if obj.isdata_empty(product.sources(i)) || p.Results.force || p.Results.recompute
+        if obj.isdata_empty(product.sources(i)) || p.Results.reload || p.Results.force
           obj=obj.init(product.sources(i),varargin{:});
         end
       end
@@ -1240,6 +1249,15 @@ classdef datastorage
         obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
     %% plot utils
+    function out=plotdatafilename(obj,product)
+      out=cells.scalar(product.mdset('storage_period','direct').file('plot',...
+        'start',obj.start,'stop',obj.stop,...
+        'ext','mat',...
+        'sub_dirs','single',...
+        'start_timestamp_only',false,...
+        'suffix','plot-data'...
+      ),'get');
+    end
     function out=default_plot_columns(obj,product)
       %gather inputs
       v=varargs.wrap('sources',{...
