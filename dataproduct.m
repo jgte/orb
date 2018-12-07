@@ -8,13 +8,14 @@ classdef dataproduct
   %TODO: plot_dir needs to be duplicated in the metadata (so that plotting routines can use it)
   
     parameter_list={...
-      'metadata_dir',   fullfile(dataproduct.scriptdir,'metadata'), @(i) ischar(i);...
-      'plot_dir',       fullfile(dataproduct.scriptdir,    'plot'), @(i) ischar(i);...
-      'data_dir',       fullfile(dataproduct.scriptdir,    'data'), @(i) ischar(i);...
-      'metadata',       dataproduct.default_metadata,               @(i) isstruct(i);...
-      'debug_plot',     false,                                      @(i) islogical(i);...
-      'start',          time.zero_date,                             @(i) isdatetime(i);...
-      'stop',           time.inf_date,                              @(i) isdatetime(i);...
+      'metadata_dir',   fullfile(dataproduct.scriptdir,'metadata'), @ischar;...
+      'plot_dir',       fullfile(dataproduct.scriptdir,    'plot'), @ischar;...
+      'data_dir',       fullfile(dataproduct.scriptdir,    'data'), @ischar;...
+      'metadata',       dataproduct.default_metadata,               @isstruct;...
+      'debug_plot',     false,                                      @islogical;...
+      'start',          time.zero_date,                             @isdatetime;...
+      'stop',           time.inf_date,                              @isdatetime;...
+      'submetadataname','submetadata',                              @isdatetime;...
     };
     %this is the maximum depth of the structure inside on dataname, i.e. obj.data.(dataname.name)
     %this parameter is arbitrary but keep it as low as possible to prevent time-consuming searches.
@@ -23,11 +24,15 @@ classdef dataproduct
   %read-write
   properties
     dataname
+    metadata_dir
+    plot_dir
+    data_dir
     metadata
     debug_plot
-    metadata_dir
-    data_dir
-    plot_dir
+    %%these are methods
+    %start
+    %stop
+    submetadataname
   end
   %calculated only when asked for
   properties(Dependent)
@@ -265,7 +270,7 @@ classdef dataproduct
       %resolve time stamp
       elseif p.Results.use_storage_period
         if ~isfinite(p.Results.stop)
-          out={};
+          out={''};
           startlist=time.zero_date;
           stoplist =time.zero_date;
           return
@@ -294,7 +299,7 @@ classdef dataproduct
           stoplist=p.Results.stop;
           return
         case {'none'}
-          out={};
+          out={''};
           startlist=time.zero_date;
           stoplist =time.zero_date;
           return
@@ -382,19 +387,36 @@ classdef dataproduct
       end
       %load and merge with default/existing metadata (this needs to come before handling sub-metadata files, so that these entries actually exist in the metadata)
       obj=obj.mdmerge(metadata);
-      %load sub-metadata files
-      c=0;
+      %init loop variables (for the submetadatafilelist, assume some size, doesn't really matter)
+      c=0;submetadatafilelist=cell(0);
+      %load sub-metadata 
       while true
-        c=c+1;
-        fieldname=['submetadata',num2str(c)];
-        if obj.ismdfield(fieldname)
-          submetadatafile=fullfile(obj.metadata_dir,[obj.mdget(fieldname),'.yaml']);
-          %sanity
-          assert(~isempty(dir(submetadatafile)),['Cannot find sub-metadatafile ',submetadatafile,'.'])
-          obj=obj.mdmerge(ReadYaml(submetadatafile));
+        if obj.ismdfield(obj.submetadataname)
+          %build the submetadata filename
+          submetadatafiles=cellfun(@(i) fullfile(obj.metadata_dir,[i,'.yaml']),cells.scalar(obj.mdget(obj.submetadataname),'set'),'UniformOutput',false);
+          %delete the submetadata field
+          obj.metadata=rmfield(obj.metadata,obj.submetadataname);
+          %loop over all 
+          for i=1:numel(submetadatafiles)
+            %check if this submetadatafile has not already been saved
+            if ~ismember(submetadatafiles{i},submetadatafilelist)
+              %sanity
+              assert(~isempty(dir(submetadatafiles{i})),['Cannot find sub-metadatafile ',submetadatafiles{i},'.'])
+              %increment counter
+              c=c+1;
+              %add this metadata file to the list
+              submetadatafilelist{c}=submetadatafiles{i};
+              %load and merge this submetadatafile         
+              obj=obj.mdmerge(ReadYaml(submetadatafiles{i}));
+            end
+          end
         else
           break
         end
+      end
+      %save submetadatafilelist (if there were any submetadatafile)
+      if ~isempty(submetadatafilelist)
+        obj.metadata.(obj.submetadataname)=submetadatafilelist;
       end
       %re-load metadata so that any metadata in the main metadata file over-writes that in the sub-metadata files
       obj=obj.mdmerge(metadata);
