@@ -122,7 +122,7 @@ classdef plotting
       case{'reversed','spiral'}
         branch=2;
       case{'jet','hsv','hot','cool','spring','summer','autumn','winter','gray','bone','copper','pink','lines'}
-        colormap_name=lower(mode);
+        colormap_name=strrep(lower(mode),'-reversed','');
         branch=3;
       otherwise
         error(['Unknown mode ''',mode,'''.'])
@@ -201,7 +201,7 @@ classdef plotting
           colororder([1:n_extrem,end-n_extrem+1:end],:)=[];
         case{3}
           % colormaps name
-          switch mode
+          switch strrep(mode,'-reversed','')
           %some colormaps include the white color, need to remove it
           case{'gray','bone','pink','hot'}
             colororder=eval([colormap_name,'(',num2str(length(lines)+1),')']);
@@ -465,7 +465,13 @@ classdef plotting
     
       %outputs
       out.axis_handle=v.axis_handle;
-            
+
+      % enforce fontsize and paper size
+      set(    out.axis_handle,          'FontSize',v.plot_fontsize_axis)
+      set(get(out.axis_handle,'Title' ),'FontSize',v.plot_fontsize_title);
+      set(get(out.axis_handle,'XLabel'),'FontSize',v.plot_fontsize_label);
+      set(get(out.axis_handle,'YLabel'),'FontSize',v.plot_fontsize_label);
+      
       % enforce line properties
       line_handles=plotting.line_handles(out.axis_handle);
       for i=1:numel(line_handles)
@@ -504,6 +510,8 @@ classdef plotting
         %enforce requested x date tick format
         if ~isempty(v.plot_xdateformat)
           datetick(out.axis_handle,'x',v.plot_xdateformat)
+        else
+          datetick(out.axis_handle,'x')
         end
       else
         % enforce (possible) requested x-limits
@@ -557,24 +565,30 @@ classdef plotting
       ylim(out.axis_handle,ay);
       
       %enforce labels
-      if ~isempty(v.plot_xlabel)
+      if ~str.none(v.plot_xlabel)
         out.xlabel_handle=xlabel(out.axis_handle,v.plot_xlabel);
-      elseif ~isfield(out,'xlabel_handle')
-        out.xlabel_handle=[];
+      else
+        % if ~isfield(out,'xlabel_handle')
+          out.xlabel_handle=[];
+        % end
+        xlabel('')
       end
-      if ~isempty(v.plot_ylabel)
+      if ~str.none(v.plot_ylabel)
         out.ylabel_handle=ylabel(out.axis_handle,v.plot_ylabel);
-      elseif ~isfield(out,'ylabel_handle')
-        out.ylabel_handle=[];
+      else
+        % if ~isfield(out,'ylabel_handle')
+          out.ylabel_handle=[];
+        % end
+        ylabel('')
       end
       
       %enforce title
-      switch lower(v.plot_title)
-      case {'','clear'}
+      if str.none(v.plot_title)
         out.title_handle=[];
-      otherwise
+        title('')
+      else
         %suppress some parts, if requested
-        title_str=setdiff(strsplit(v.plot_title,{' ','.'}),v.plot_title_suppress,'stable');
+        title_str=setdiff(strsplit(v.plot_title,{' '}),v.plot_title_suppress,'stable');
         %add prefix and suffix
         title_str=strjoin([{v.plot_title_prefix};title_str(:);{v.plot_title_suffix}],' ');
         %propagate
@@ -587,22 +601,16 @@ classdef plotting
         out.title_handle=title(out.axis_handle,str.clean(v.plot_title,'title'));
       end
 
-      % enforce fontsize and paper size
-      set(    out.axis_handle,          'FontSize',v.plot_fontsize_axis)
-      set(get(out.axis_handle,'Title' ),'FontSize',v.plot_fontsize_title);
-      set(get(out.axis_handle,'XLabel'),'FontSize',v.plot_fontsize_label);
-      set(get(out.axis_handle,'YLabel'),'FontSize',v.plot_fontsize_label);
-
       %enforce grid
       if v.plot_grid
         grid(out.axis_handle,'on')
       end
       
       %enforce colormap
-      if ~isempty(v.plot_colormap)
-        out.colormap_handle=colormap(out.axis_handle,v.plot_colormap);
-      else
+      if str.none(v.plot_colormap)
         out.colormap_handle=[];
+      else
+        out.colormap_handle=colormap(out.axis_handle,v.plot_colormap);
       end
       
       %enforce caxis limits
@@ -623,12 +631,7 @@ classdef plotting
         'axis_handle',  gca,  @(i) ~isempty(i) && ishandle(i);...
       }},varargin{:});
       % check if any legend is given
-      if ~isempty(v.plot_legend) && ...
-          ischar(v.plot_legend{1}) && ( ...
-            strcmpi(v.plot_legend{1},'clean') || ...
-            strcmpi(v.plot_legend{1},'clear') || ...
-            strcmpi(v.plot_legend{1},'none')...
-          )
+      if str.none(v.plot_legend)
         legend(v.axis_handle,'off')
         legend_handle=[];
         return
