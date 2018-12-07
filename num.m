@@ -194,10 +194,25 @@ classdef num
       end
     end
     function out=odd(in)
+      if ~isscalar(in)
+        out=arrayfun(@num.odd,in);
+        return
+      end
       if mod(in,2)==0
-        out=in-1;
+        out=in-sign(in);
       else
         out=in;
+      end
+    end
+    function out=even(in)
+      if ~isscalar(in)
+        out=arrayfun(@num.even,in);
+        return
+      end
+      if mod(in,2)==0
+        out=in;
+      else
+        out=in-sign(in);
       end
     end
     function x_opt=param_search1(fun,x,varargin)
