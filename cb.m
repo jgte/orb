@@ -373,8 +373,6 @@ classdef cb
       if nargout == 0
           %setting colormap
           colormap(new)
-          %cleaning up
-          clear new
       end
     end
     function resampled=opt(old,axis_h)
@@ -429,7 +427,7 @@ classdef cb
       for i=1:length(h)
          switch get(h(i),'Type')
              case {'image','surface'}
-                 disp(['Found data of ',get(h(i),'Type'),'.'])
+%                  disp(['Found data of ',get(h(i),'Type'),'.'])
                  data=get(h(i),'CData');
                  break
          end
