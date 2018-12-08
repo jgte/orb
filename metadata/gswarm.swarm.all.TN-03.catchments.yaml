@@ -1,0 +1,18 @@
+method: gswarm.plot_parametric_decomposition
+model_types: [signal]
+submetadata: gswarm.swarm.all.TN-03_3.submetadata
+
+#plotting
+plot_legend_location: eastoutside
+
+# plot_parametric_decomposition
+plot_poly_range: [0.2,0.1]
+plot_amplitude_range: [0.1,0.01]
+polyorder: 1
+polynames: [constant,linear]
+sin_period: [1, 0.5]
+sin_period_unit: years
+sin_names: [yearly,semi-yearly]
+
+plot_smoothing_method: gauss
+plot_smoothing_degree: [300e3,750e3,750e3,750e3,750e3] #,750e3,750e3]

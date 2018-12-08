@@ -3,5 +3,4 @@ model_types: [signal,error]
 wilcarded_filename: GSM-2_*.gsm
 model_format: gsm
 date_parser: gravity.parse_epoch_grace
-submetadata1: model.processing.submetadata
-submetadata2: model.plotting.submetadata
+submetadata: [model.processing.submetadata,model.plotting.submetadata]

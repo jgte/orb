@@ -3,12 +3,11 @@
 plot_product: true
 method: gswarm.plot_low_degrees
 
-#degrees: [  2,  3,  4]
-#orders:  [inf,inf,inf]
-degrees: [  2]
-orders:  [0]
-sources: [scales.RL05.sh.comp,singleacc.GEO,scales.GEO]
-stats_relative_to: scales.RL05.sh.comp
+degrees: [  2,  3,  4]
+orders:  [inf,inf,inf]
+# sources: [slr.csr, #this makes the degree 4 plots empty (but is needed in the other degrees to show SLR)
+sources: [scales.RL05.sh.comp/t_crop_31Dec2015,singleacc.GEO]
+stats_relative_to: scales.RL05.sh.comp/t_crop_31Dec2015
 
 explicit_fields: true
 storage_period: global
@@ -19,4 +18,11 @@ plot_autoscale: true
 plot_autoscale_factor: 6
 plot_xdateformat: yy/mm
 plot_legend_suppress: [signal,scales,singleacc,GEO,Ries,Cheng,sh,comp]
+plot_legend_replace: ['t_crop','cropping']
 plot_legend_box: false
+plot_legend_location: east
+plot_max_lines: 28
+plot_line_color: jet
+
+plot_pause_on_save: false
+plot_visible: false

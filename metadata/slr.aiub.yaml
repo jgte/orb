@@ -8,4 +8,4 @@ static_model: scales.static
 max_degree: 10
 plot_xdate: true
 plot_xdateformat: yy
-submetadata1: scales.processing.submetadata
+submetadata: scales.processing.submetadata

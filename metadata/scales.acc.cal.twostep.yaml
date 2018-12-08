@@ -1,7 +1,7 @@
 method: csr.calibrate_estim
 sources: [grace.acc.l1b.csr,scales.calmod.twostep]
 explicit_fields: true
-submetadata1: grace.calpar.csr.ltb.submetadata
+submetadata: grace.calpar.csr.ltb.submetadata
 storage_period: daily
 plot_columns: [1,2,3]
 plot_autoscale: false

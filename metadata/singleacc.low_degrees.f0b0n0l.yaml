@@ -19,3 +19,4 @@ plot_xdateformat: mm
 plot_legend_suppress: [signal,scales,singleacc,GEO,Ries,Cheng,f0b0n0l]
 plot_legend_box: false
 plot_legend_location: eastoutside
+plot_legend_replace: ['t_crop','cropping']
