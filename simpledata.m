@@ -48,6 +48,12 @@
       if isempty(v); v=varargs(simpledata.parameter_list); end
       out=v.picker(varargin{:});
     end
+    function out=scriptdir
+      out=fileparts(which(mfilename));
+      if isempty(out)
+        out='.';
+      end
+    end
     function out=valid_x(x)
       out=isnumeric(x) && ~isempty(x) && isvector(x);
     end
@@ -1651,17 +1657,53 @@
       obj=obj.assign(y_data,'mask',all(y_data~=0,2));
     end
     function obj=median(obj,n)
-      %create x-domain of medianed data, cutting it into segments of
+      obj=obj.segstat(n,'median');
+%       %create x-domain of medianed data, cutting it into segments of
+%       %length n, putting each segment in one column of matrix t (x 
+%       %increases first row-wise, then column-wise)
+%       %NOTICE: this function decimates the data!
+%   
+%       %init matrix that stores the segmented x_temp
+%       x_temp=nan(n,ceil(obj.length/n));
+%       x_temp(1:obj.length)=obj.x;
+%       x_mean=transpose(mean(x_temp,'omitnan'));
+%       %make room for medianed data
+%       y_median=nan(ceil(obj.length/n),obj.width);
+%       %compute media of the data
+%       s.msg=[mfilename,': computing mean and decimating every ',num2str(n),' data points.'];s.n=obj.width;
+%       for i=1:obj.width
+%         %cut the data into segments of length n, putting each segment in
+%         %one column of matrix y_seg (x increases first row-wise, then 
+%         %column-wise)
+%         y_seg=nan(n,ceil(obj.length/n));
+%         y_seg(1:obj.length)=obj.y(:,i);
+%         y_median(:,i)=transpose(median(y_seg,'omitnan'));
+%         %user feedback
+%         s=time.progress(s,i);
+%       end
+%       %sanity
+%       if numel(x_mean) ~=size(y_median,1)
+%         error([mfilename,': x-domain length inconsistent with data length, debug needed!'])
+%       end
+%       %propagate the x-domain and data
+%       obj=assign(obj,y_median,'x',x_mean);
+%       %update descriptor
+%       obj.descriptor=['median of ',obj.descriptor];
+    end
+    function obj=segstat(obj,n,op)
+      %create x-domain of segmented data, cutting it into segments of
       %length n, putting each segment in one column of matrix t (x 
-      %increases first row-wise, then column-wise)
+      %increases first row-wise, then apply the statistic in 'mode' column-wise)
       %NOTICE: this function decimates the data!
-  
+      valid_fun={'std','rms','mean','median','min','max','var'};
+      assert(isa(op,'function_handle') && any(strcmp(func2str(op),valid_fun)),...
+        ['Need input ''op'' to be a handle to one of ',strjoin(valid_fun,','),'.'])
       %init matrix that stores the segmented x_temp
       x_temp=nan(n,ceil(obj.length/n));
       x_temp(1:obj.length)=obj.x;
       x_mean=transpose(mean(x_temp,'omitnan'));
       %make room for medianed data
-      y_median=nan(ceil(obj.length/n),obj.width);
+      y_out=nan(ceil(obj.length/n),obj.width);
       %compute media of the data
       s.msg=[mfilename,': computing mean and decimating every ',num2str(n),' data points.'];s.n=obj.width;
       for i=1:obj.width
@@ -1670,18 +1712,23 @@
         %column-wise)
         y_seg=nan(n,ceil(obj.length/n));
         y_seg(1:obj.length)=obj.y(:,i);
-        y_median(:,i)=transpose(median(y_seg,'omitnan'));
+        switch func2str(op)
+        case {'min','max'}
+          y_out(:,i)=transpose(op(y_seg,[],'omitnan'));
+        otherwise
+          y_out(:,i)=transpose(op(y_seg,'omitnan'));
+        end
         %user feedback
         s=time.progress(s,i);
       end
       %sanity
-      if numel(x_mean) ~=size(y_median,1)
+      if numel(x_mean) ~=size(y_out,1)
         error([mfilename,': x-domain length inconsistent with data length, debug needed!'])
       end
       %propagate the x-domain and data
-      obj=assign(obj,y_median,'x',x_mean);
+      obj=assign(obj,y_out,'x',x_mean);
       %update descriptor
-      obj.descriptor=['median of ',obj.descriptor];
+      obj.descriptor=[func2str(op),' of ',obj.descriptor];
     end
     %% multiple object manipulation
     function out=isxequal(obj1,obj2)
