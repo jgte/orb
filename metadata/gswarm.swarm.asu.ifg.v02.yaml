@@ -1,7 +1,6 @@
-import_dir: <getenv('HOME')>/data/gswarm/old/asu/gravity
+import_dir: <getenv('HOME')>/data/gswarm/asu/gravity
 model_types: [signal,error]
 wilcarded_filename: GSWARM_GF_SABC_ASU_*_02_IFG.gfc
 model_format: gfc
 date_parser: gravity.parse_epoch_gswarm
-submetadata1: model.processing.submetadata
-submetadata2: model.plotting.submetadata
+submetadata: [model.processing.submetadata,model.plotting.submetadata]

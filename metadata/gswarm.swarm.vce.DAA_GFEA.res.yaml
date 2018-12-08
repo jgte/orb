@@ -1,3 +1,2 @@
 sources: [gswarm.swarm.vce.DAA_GFEA,gswarm.grace.gfz.rl05]
-submetadata1: model.residual.submetadata
-submetadata2: model.plotting.submetadata
+submetadata: [model.residual.submetadata,model.plotting.submetadata]

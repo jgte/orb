@@ -6,7 +6,7 @@ model_format: csr
 date_parser: gravity.parse_epoch_csr
 method:  gswarm.load_project_models
 static_model: scales.static
-submetadata1: scales.processing.submetadata
+submetadata: scales.processing.submetadata
 plot_xdate: true
 plot_xdateformat: yy
 stop: 2015-12-31

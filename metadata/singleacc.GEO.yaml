@@ -1,11 +1,16 @@
 import_dir: <getenv('HOME')>/data/singleacc/GEO
 model_types: [signal]
-scenarios: [f0b0n0l06,f1z0n0l0,f1b0n0l0,f0b1n0l0,d0b1n0l0]
+scenarios: [lowest,consistent,
+d0b0n0l0,d0b1n0l0,d0z0n0l0,f1b0n0l0,f1b1n0l0,f1z0n0l0,
+f0b0n0l0,f0b0n0l1,f0b0n0l2,f0b0n0l3,f0b0n0l4,f0b0n0l5,f0b0n0l6,f0b0n0l7,f0b0n0l8,
+f0b1n0l0,f0b1n0l1,f0b1n0l2,f0b1n0l3,f0b1n0l4,f0b1n0l5,f0b1n0l6,f0b1n0l7,f0b1n0l8,
+f1z1n0l0,f1z1n0l1,f1z1n0l2,f1z1n0l3,f1z1n0l4,f1z1n0l5,f1z1n0l6,f1z1n0l7,f1z1n0l8
+]
 wilcarded_filename: '*.GEO.*'
 model_format: csr
 date_parser: gravity.parse_epoch_csr
 method:  gswarm.load_project_models
 static_model: scales.static
-submetadata1: singleacc.processing.submetadata
+submetadata: singleacc.processing.submetadata
 plot_xdate: true
 plot_xdateformat: yy
