@@ -452,7 +452,7 @@ classdef simpletimeseries < simpledata
       for i={...
         'ACC1B','AHK1B','GNV1B','KBR1B','MAS1B','SCA1B','THR1B','CLK1B',...
         'GPS1B','IHK1B','MAG1B','TIM1B','TNK1B','USO1B','VSL1B',...
-        'grc[AB]_gps_orb_.*\.acc'...
+        'grc[AB]_gps_orb_.*\.acc','.*resid.latlon.res2-res1.*'...
       }
         if ~isempty(regexp(filename,i{1},'once'))
           format=i{1};
@@ -808,6 +808,49 @@ classdef simpletimeseries < simpledata
           'timesystem','gps',...
           'descriptor',['SLR Stokes coeff. from ',filename]...
         );        
+      case 'seconds'
+        %define data cols
+        data_cols=2:4;
+        %load the data
+        raw=file.textscan(filename,'%f %f %f %f');
+        %get the labels (from the header)
+        labels={'RL06_grav','RL05_grav','res_grav'};
+        %build units
+        units=cell(size(data_cols));
+        units(:)={'m/s'};
+        t=datetime([2000 01 01 0 0 0])+seconds(raw(:,1));
+        %building object
+        obj=simpletimeseries(t,raw(:,data_cols),...
+          'format','datetime',...
+          'y_units',units,...
+          'labels', labels,...
+          'timesystem','gps',...
+          'descriptor',['KBR postfits ',filename]...
+        );
+      case 'mjd'
+        %define data cols
+        data_cols=2;
+        %load the data
+        raw=file.textscan(filename,'%f %f');
+        %get the labels (from the header)
+        labels={'altitude'};
+        %build units
+        units=cell(size(data_cols));
+        units(:)={'m'};
+        %sort data
+        [t,idx]=sort(raw(:,1));
+        %remove duplicate data
+        dup=diff(t)==0;
+        %conver to datetime
+        t=time.ToDateTime(t(~dup),'modifiedjuliandate');
+        %building object
+        obj=simpletimeseries(t,raw(idx(~dup),data_cols),...
+          'format','datetime',...
+          'y_units',units,...
+          'labels', labels,...
+          'timesystem','gps',...
+          'descriptor','GRACE altitude'...
+        );
       otherwise
         error([mfilename,': cannot handle files of type ''',format,'''.'])
       end
@@ -824,6 +867,15 @@ classdef simpletimeseries < simpledata
           end
         end
       end
+    end
+    function obj=GRACEaltitude(varargin)
+      p=inputParser;
+      p.addParameter('datafile',fullfile(simplegrid.parameters('aux_dir'),'GRACE.altitude.dat'));
+      p.parse(varargin{:});
+      obj=simpletimeseries.import(p.Results.datafile,...
+        'format','mjd',...
+        'cut24hrs',false...
+      );
     end
     %% utilities
     function out=list(start,stop,period)
@@ -930,6 +982,10 @@ classdef simpletimeseries < simpledata
       end
       %call superclass
       out=metadata@simpledata(obj,[simpletimeseries.parameters('list');more_parameters(:)]);
+      %external names
+      out=varargs(out);
+      out.units=out.y_units;
+      out=out.varargin;
     end
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
@@ -1334,11 +1390,18 @@ classdef simpletimeseries < simpledata
     end
     %the detrend method can be called directly
     %the outlier method can be called directly
-    function obj=median(obj,span,keet_time_domain)
-      if ~exist('keet_time_domain','var') || isempty(keet_time_domain)
-        keet_time_domain=false;
+    function obj=median(obj,span,op,keep_time_domain)
+      if ~exist('keet_time_domain','var')
+        obj=obj.segstat(span,op);
+      else
+        obj=obj.segstat(span,op,keep_time_domain);
       end
-      if keet_time_domain
+    end
+    function obj=segstat(obj,span,op,keep_time_domain)
+      if ~exist('keet_time_domain','var') || isempty(keep_time_domain)
+        keep_time_domain=false;
+      end
+      if keep_time_domain
         %save current time domain 
         t_now=obj.t;
       end
@@ -1352,8 +1415,8 @@ classdef simpletimeseries < simpledata
         return
       end
       %call superclass
-      obj=median@simpledata(obj,span);
-      if keet_time_domain
+      obj=segstat@simpledata(obj,span,op);
+      if keep_time_domain
         %resample (if needed, which is checked inside resample)
         obj=obj.interp(t_now,...
           'interp_over_gaps_narrower_than',0,...
@@ -2142,51 +2205,53 @@ classdef simpletimeseries < simpledata
     end
     function export(obj,filename,filetype,varargin)
       p=inputParser;
-      p.KeepUnmatched=true;
       p.addRequired( 'filename',             @(i) ischar(i));
       p.addRequired( 'filetype',             @(i) ischar(i));
-      p.addParameter('header',  '',          @(i) ischar(i));
-      p.addParameter('columns', 1:obj.width, @(i) isnumeric(i));
-      p.addParameter('sat_name','',          @(i) ischar(i));
-      p.addParameter('force',   false,       @(i) islogical(i));
-      % parse it
-      p.parse(filename,filetype,varargin{:});
-      if ~exist(filename,'file') || p.Results.force
+      v=varargs.wrap('parser',p,'sources',{{...
+        'header',  'default',   @(i) ischar(i);...
+        'columns', 1:obj.width, @(i) isnumeric(i);...
+        'sat_name','',          @(i) ischar(i);...
+        'force',   false,       @(i) islogical(i);...
+      }},'mandatory',{filename,filetype},varargin{:});
+      if ~exist(filename,'file') || v.force
         disp([datestr(now),': start exporting ',filename])
         %make sure this directory exists
         assert(file.ensuredir(filename),['Error creating directory of file ',filename,'.'])
         %open the file (sanity done inside)
         fid=file.open(filename,'w');
+        %translate legacy usage
+        if isempty(v.header); v.header='default';end
         %branch on type of file
         switch filetype
         case 'ascii'
-          dh=[...
+          %enforce requested header type/value
+          switch lower(v.header)
+          case 'default'
+            dh=[...
 '# Column 1:    Date (yyyy-mm-dd)',10,...
 '# Column 2:    Time (hh:mm:ss.sss)',10,...
 '# Column 3:    Time system (',obj.timesystem,')',10,...
 '# Column 4:    Modified Julian Day (including fraction of day)',10];
-          %write the header
-          if isempty(p.Results.header)
-            %use default header, none was specified
-            header=dh;
             %build rest of the default header
-            for i=1:numel(p.Results.columns)
-              header=[header,...
+            for i=1:numel(v.columns)
+              dh=[dh,...
                 '# Column ',num2str(i+4),':    ',...
-                  obj.labels{p.Results.columns(i)},' (',...
-                  obj.y_units{p.Results.columns(i)},')',10];  %#ok<AGROW>
+                  obj.labels{v.columns(i)},' (',...
+                  obj.y_units{v.columns(i)},')',10];  %#ok<AGROW>
             end
-          else
-            header=p.Results.header;
+            fprintf(fid,'%s',dh);
+          case 'none'
+            %do nothing
+          otherwise
+            fprintf(fid,'%s',v.header);
           end
-          fprintf(fid,'%s',header);
           %build time vectors
           time_str=datestr(obj.t_masked,'yyyy-mm-dd HH:MM:SS.FFF');
           mjd=obj.mjd(obj.mask);
           %build format string
-          fmt=['%s UTC %14.8f',repmat(' %16.8e',1,numel(p.Results.columns)),'\n'];
+          fmt=['%s UTC %14.8f',repmat(' %16.8e',1,numel(v.columns)),'\n'];
           %build output data
-          y=obj.y_masked([],p.Results.columns);
+          y=obj.y_masked([],v.columns);
           %sanity
           if size(time_str,1)~=size(y,1)
             error([mfilename,': discrepancy in the sizes of time_str and y. Debug needed.'])
@@ -2199,7 +2264,10 @@ classdef simpletimeseries < simpledata
           end
         case 'ACC1B' %expecting sat_name to be 'GRACE A' or 'GRACE B'
           gps_zero_epoch=datetime('2000-01-01 12:00:00');
-          dh=[...
+          %enforce requested header type/value
+          switch lower(v.header)
+          case 'default'
+            dh=[...
 'PRODUCER AGENCY               : UTexas',10,...
 'PRODUCER INSTITUTION          : CSR',10,...
 'FILE TYPE ipACC1BF            : 8',10,...
@@ -2208,7 +2276,7 @@ classdef simpletimeseries < simpledata
 'SOFTWARE VERSION              : N/A',10,...
 'SOFTWARE LINK TIME            : N/A',10,...
 'REFERENCE DOCUMENTATION       : N/A',10,...
-'SATELLITE NAME                : ',p.Results.sat_name,10,...
+'SATELLITE NAME                : ',v.sat_name,10,...
 'SENSOR NAME                   : ACC',10,...
 'TIME EPOCH (GPS TIME)         : ',datestr(gps_zero_epoch,'yyyy-mm-dd HH:MM:SS.FFF'),10,...
 'TIME FIRST OBS(SEC PAST EPOCH): ',num2str(time.datetime2gpssec(obj.start,gps_zero_epoch)),...
@@ -2216,7 +2284,7 @@ classdef simpletimeseries < simpledata
 'TIME LAST OBS(SEC PAST EPOCH) : ',num2str(time.datetime2gpssec(obj.stop,gps_zero_epoch)),...
   ' (',datestr(obj.stop,'yyyy-mm-dd HH:MM:SS.FFF'),')',10,...
 'NUMBER OF DATA RECORDS        : ',num2str(obj.length),10,...
-'PRODUCT CREATE START TIME(UTC): ',datestr(datetime('now')),' by jgte',10,...
+'PRODUCT CREATE START TIME(UTC): ',datestr(datetime('now')),' by ',getenv('USER'),10,...
 'PRODUCT CREATE END TIME(UTC)  : N/A',10,...
 'FILESIZE (BYTES)              : N/A',10,...
 'FILENAME                      : ',filename,10,...
@@ -2226,38 +2294,39 @@ classdef simpletimeseries < simpledata
 'INPUT FILE NAME               : N/A',10,...
 'INPUT FILE TIME TAG (UTC)     : N/A',10,...
 'END OF HEADER',10];
-          %write the header
-          if isempty(p.Results.header)
-            %use default header, none was specified
-            header=dh;
-          else
-            header=p.Results.header;
+            fprintf(fid,'%s',dh);
+          case 'none'
+            %do nothing
+          otherwise
+            fprintf(fid,'%s',v.header);
           end
-          fprintf(fid,'%s',header);
           %build time vectors
           time_str=time.datetime2gpssec(obj.t_masked,gps_zero_epoch);
           %build format string (there's a lot of zeros because most of the original data is now lost)
-          fmt=['%d ',strrep(p.Results.sat_name,'GRACE ',''),...
-            repmat(' %21.15e',1,numel(p.Results.columns)),...
-            repmat(' 0.0000000000000000000',1,9-numel(p.Results.columns)),'  00000000\n'];
+          fmt=['%d ',strrep(v.sat_name,'GRACE ',''),...
+            repmat(' %21.15e',1,numel(v.columns)),...
+            repmat(' 0.0000000000000000000',1,9-numel(v.columns)),'  00000000\n'];
           %build output data
-          y=obj.y_masked([],p.Results.columns);
+          y=obj.y_masked([],v.columns);
           %put everything together
           o=[num2cell(transpose(time_str));num2cell(transpose(y))];
           %fprintf it
           fprintf(fid,fmt,o{:});
         case 'msodp' %expecting sat_name to be '1201 GRACEA' or '1202 GRACEB'
           %translate satellite name: ACCREAD.f is very picky with this stuff
-          switch lower(str.rep(p.Results.sat_name,'-','',' ','','_','','.',''))
+          switch lower(str.rep(v.sat_name,'-','',' ','','_','','.',''))
           %                             I7X                 A20  
           case 'gracea'; sat_name='1201    GRACEA';
           case 'graceb'; sat_name='1202    GRACEB';
-          otherwise; error(['unrecognized sat_name value ''',p.Results.sat_name,'''.'])
+          otherwise; error(['unrecognized sat_name value ''',v.sat_name,'''.'])
           end
           %need only valid data
           obj=obj.masked;
           unitfacor=0.1e4; 
-          dh=cell(13,1);i=0;
+          %enforce requested header type/value
+          switch lower(v.header)
+          case 'default'
+            dh=cell(13,1);i=0;
 %FORMAT (A10,X,A12,X,A12,X,I4,X,I2,X,I2,X,I2,X,I2,X,A9,X,A16)
 %                    A10X         A12X         A12X  I4XI2XI2XI2XI2X       A9X             A16
 i=i+1;dh{i}= '%grace.acc version 1.1  revision 2.1 2016 02 18 09:36 CSR/UT    Rick Pastor     ';
@@ -2285,14 +2354,12 @@ i=i+1;dh{i}= '+scmass___ 500.000';
 i=i+1;dh{i}=['+software_ http://github.com/jgte/orb, data exported on ',...
   datestr(datetime('now'),'yyyy-mm-dd HH:MM:SS'),' by Joao Encarnacao'];
 i=i+1;dh{i}= '+eoh______';
-          %write the header
-          if isempty(p.Results.header)
-            %use default header, none was specified
-            header=strjoin(dh,char(10));
-          else
-            header=p.Results.header;
+            fprintf(fid,'%s',strjoin(dh,char(10)));
+          case 'none'
+            %do nothing
+          otherwise
+            fprintf(fid,'%s',v.header);
           end
-          fprintf(fid,'%s\n',header);
           %build time vectors
           sod=time.sod(obj.t);
           sod_floor=floor(sod);
@@ -2301,13 +2368,15 @@ i=i+1;dh{i}= '+eoh______';
           %build format string (translated from header)
           fmt='%4d %3d %5d %7d %18.15f %18.15f %18.15f        0\n';
           %build output data
-          y=obj.y(:,p.Results.columns)*unitfacor;
+          y=obj.y(:,v.columns)*unitfacor;
           %put everything together
           o=[num2cell(transpose(time_str));num2cell(transpose(y))];
           %fprintf it
           fprintf(fid,fmt,o{:});
           %eof
           fprintf(fid,'%s','%eof');
+        case 'seconds'
+          
         otherwise
           error(['Cannot handle exporting time series to files of type ''',filetype,'''.'])  
         end
