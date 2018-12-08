@@ -56,6 +56,7 @@ classdef gravity < simpletimeseries
                   200    -0.007], @(i) isnumeric(i) && size(i,2)==2;...     % Love numbers
         'origin',      'unknown', @(i) ischar(i);...                        % (arbitrary string)
         'functional',   'nondim', @(i) ischar(i) && any(strcmp(i,gravity.functionals)); %see above
+        'aux_dir', fullfile(gravity.scriptdir,'aux'), @(i) ischar(i);...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -217,20 +218,16 @@ classdef gravity < simpletimeseries
       mod=[d-1,o-1,C,S];
     end
     function out=mod2cs(mod)
-      %shortcuts
-      n=gravity.mod_lmax(mod)+1;
-      %create lower triangle index matrix
-      idxm=zeros(n);
-      idxm(:)=1:n*n;
       %make room
       out=struct(...
         'C',zeros(max(mod(:,1))+1),...
         'S',zeros(max(mod(:,1))+1)...
       );
       %propagate
-      out.C(idxm==tril(idxm, 0)) = mod(:,3);
-      out.S(idxm==tril(idxm, 0)) = mod(:,4);
-      %assing outputs
+      for i=1:size(mod,1)
+        out.C(mod(i,1)+1,mod(i,2)+1) = mod(i,3);
+        out.S(mod(i,1)+1,mod(i,2)+1) = mod(i,4);
+      end          
     end
     %% agregator routines
     %data type converter
@@ -356,7 +353,7 @@ classdef gravity < simpletimeseries
       end
       out=find(out);
     end
-    %% constructors
+    %% constructors 
     function obj=unit(lmax,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -401,7 +398,7 @@ classdef gravity < simpletimeseries
     function obj=nan(lmax,varargin)
       obj=gravity.unit(lmax,'scale',nan,varargin{:});
     end
-    function [m,e]=load(file_name,fmt,time)
+    function [m,e]=load(file_name,fmt,time,force)
       %default type
       if ~exist('fmt','var') || isempty(fmt) || strcmp(fmt,'auto')
         [~,fn,fmt]=fileparts(file_name);
@@ -416,6 +413,10 @@ classdef gravity < simpletimeseries
       if ~exist('time','var') || isempty(time)
         time=datetime('now');
       end
+      %default force
+      if ~exist('force','var') || isempty(force)
+        force=false;
+      end
       %handle mat files
       [~,~,ext]=fileparts(file_name);
       if strcmp(ext,'.mat')
@@ -425,7 +426,7 @@ classdef gravity < simpletimeseries
         mat_filename=[file_name,'.mat'];
       end
       %check if mat file is already available
-      if isempty(dir(mat_filename))
+      if isempty(dir(mat_filename)) || force
         switch lower(fmt)
         case 'gsm'
           [m,e]=load_gsm(file_name,time);
@@ -450,7 +451,7 @@ classdef gravity < simpletimeseries
         load(mat_filename)
         %enforce input 'time'
         if m.t~=time;m.t=time;end %#ok<NODEF>
-        if e.t~=time;e.t=time;end %#ok<NODEF>
+        if ~isempty(e) && e.t~=time;e.t=time;end %#ok<NODEF>
       end
     end
     function out=parse_epoch_grace(filename)
@@ -780,6 +781,12 @@ classdef gravity < simpletimeseries
       p.parse(varargin{:})
       [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wilcarded_filename','*.GEO',varargin{:});
     end
+    function [m,e]=ggm05g(datafile)
+      if ~exist('datafile','var') || isempty(datafile)
+        datafile=fullfile(fileparts(which(mfilename)),'aux','ggm05g.gfc.txt');
+      end
+      [m,e]=gravity.load(datafile,'gfc');
+    end
     %% utilities
     function [degrees,orders]=resolve_degrees_orders(varargin)
       v=varargs.wrap('sources',{{...
@@ -907,10 +914,10 @@ classdef gravity < simpletimeseries
         figure
         gravity.unit_randn(100*l,'t',t).grid.imagesc
       case 'ggm05g'
-        m=gravity.load('ggm05g.gfc.txt');
+        m=gravity.ggm05g;
         m.print
         m.grid.print
-      case 'stats'
+     case 'stats'
         m=gravity.load('ggm05g.gfc.txt');
         for i={'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
           figure
@@ -2034,6 +2041,7 @@ function [m,e]=load_gsm(filename,time)
      end
      %handle yaml headers
      if str.contains(s,'End of YAML header')
+       addpath(genpath(fullfile(gravity.scriptdir,'yamlmatlab')));
        %rewind
        frewind(fid)
        %build header strings
@@ -2442,8 +2450,8 @@ function [m,e]=load_mod(filename,time)
   [mi,headerstr]=file.textscan(filename);
   %init constants
   header=struct(...
-    'GM',gravity.default_list.GM,...
-    'R',gravity.default_list.R,...
+    'GM',gravity.parameters('GM'),...
+    'R',gravity.parameters('R'),...
     'name','unknown'...
   );
   %going through all header lines
@@ -2624,7 +2632,7 @@ function [t,s,e]=GetGraceC20(varargin)
   p=inputParser;
   p.KeepUnmatched=true;
   p.addParameter('mode','read', @(i) ischar(i))
-  p.addParameter('file',fullfile(fileparts(which(mfilename)),'TN-07_C20_SLR.txt'),@(i) ischar(i))
+  p.addParameter('file',fullfile(fileparts(which(mfilename)),'aux','TN-07_C20_SLR.txt'),@(i) ischar(i))
   p.addParameter('url','ftp://podaac.jpl.nasa.gov/allData/grace/docs/TN-07_C20_SLR.txt',@(i) ischar(i))
   p.addParameter('grace_models_dir',[getenv('HOME'),'/media/data2/data/grace/L2/GFZ/RL05'],@(i) ischar(i))
   p.parse(varargin{:})
