@@ -11,11 +11,13 @@ classdef simplefreqseries < simpletimeseries
     %NOTE: edit this if you add a new parameter (if relevant)
     compatible_parameter_list={};
   end
+  properties
+    bandpass_method
+    psd_method
+  end
   %NOTE: edit this if you add a new parameter (if read only)
   properties(SetAccess=private)
     nyquist
-    bandpass_method
-    psd_method
   end
   %private (visible only to this object)
   properties(GetAccess=private)
@@ -457,8 +459,9 @@ classdef simplefreqseries < simpletimeseries
       %trim excess
       fx=fx(1:size(data_in,1),:);
       if p.Results.debug_plot
+        idx=3;
         m=numel(ff);
-        X=fft(data_in(:,1),n);
+        X=fft(data_in(:,idx),n);
         PX=X(1:m).*conj(X(1:m));
         PfX=fX(1:m,1).*conj(fX(1:m,1));
         figure
@@ -471,8 +474,8 @@ classdef simplefreqseries < simpletimeseries
 
         subplot(2,1,2)
         title('time domain')
-        plot(fx(:,1)), hold on
-        plot(obj.y(:,1))
+        plot(fx(:,idx)), hold on
+        plot(obj.y(:,idx))
         legend('filtered','original')
         keyboard
       end
