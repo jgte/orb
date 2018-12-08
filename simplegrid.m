@@ -5,7 +5,7 @@ classdef simplegrid < simpletimeseries
     parameter_list={...
       'sp_tol',   1e-8,  @(i) isnumeric(i) && isscalar(i);...
       'sp_units', 'deg',@(i) ischar(i);...  %TODO: need to convert non-deg units at input/output (internally deg are expected)
-      'landmask_dir',   simplegrid.scriptdir, @(i) ischar(i);...
+      'aux_dir',   fullfile(simplegrid.scriptdir,'aux'), @(i) ischar(i);...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -47,19 +47,12 @@ classdef simplegrid < simpletimeseries
     lonSpacing
     latLimit
     lonLimit
-    interpolant
   end
   methods(Static)
     function out=parameters(varargin)
       persistent v
       if isempty(v); v=varargs(simplegrid.parameter_list); end
       out=v.picker(varargin{:});
-    end
-    function out=scriptdir
-      out=fileparts(which(mfilename));
-      if isempty(out)
-        out='.';
-      end
     end
     %% spacing
     function out=getSpacing(lon,lat)
@@ -79,12 +72,18 @@ classdef simplegrid < simpletimeseries
       lon=wrapTo360(lon);
       out = [ min(lon(:)) max(lon(:)) min(lat(:)) max(lat(:)) ];
     end
+    function out=delta(l,u,n)
+      out=(u-l)/(n-1);
+    end
     function out=lon_default(n)
-      %NOTICE: this used to be simply linspace(0,360,n) but that may introduce NaN at 360  
-      out=linspace(0,360,n+1);out=out(1:end-1);
+      %NOTICE: the use of delta may look redundant but linspace is not very accurate and introduces small variations
+      out=0:simplegrid.delta(0,360,n):360;
+%       %NOTICE: this used to be simply linspace(0,360,n) but that may introduce NaN at 360  
+%       out=out(1:end-1);
     end
     function out=lat_default(n)
-      out=transpose(linspace(-90,90,n));
+      %NOTICE: this looks redundant but linspace is not very accurate and introduces small variations
+      out=transpose(-90:simplegrid.delta(-90,90,n):90);
     end
     %a(idx_a)=b(idx_b)=out and is the common entries between a and b
     function [idx_a,idx_b,out]=common(a,b)
@@ -664,8 +663,8 @@ classdef simplegrid < simpletimeseries
       p.addParameter('cutoff',-1, @(i) isscalar(i) && isnumeric(i)); %values higher than this are land, lower are ocean; negative values leave the interpolation unchanged
       p.parse(lon,lat,varargin{:});
       %load the data
-      fmat=fullfile(simplegrid.parameters('landmask_dir'),'landmask.mat');
-      fdat=fullfile(simplegrid.parameters('landmask_dir'),'landmask.dat');
+      fmat=fullfile(simplegrid.parameters('aux_dir'),'landmask.mat');
+      fdat=fullfile(simplegrid.parameters('aux_dir'),'landmask.dat');
       if exist(fmat,'file')
         load(fmat)
       elseif exist(fdat,'file')
@@ -691,6 +690,33 @@ classdef simplegrid < simpletimeseries
         obj=obj.assign(y_now);
       end
     end
+    function obj=oceanmask(lon,lat,varargin)
+      p=inputParser;p.KeepUnmatched=true;
+      p.addRequired( 'lon',  @(i) isnumeric(i));
+      p.addRequired( 'lat',  @(i) isnumeric(i));
+      p.addParameter('t',     datetime('now'),@(i) isdatetime(i));
+      p.addParameter('cutoff',1.4, @(i) isscalar(i) && isnumeric(i));
+      p.parse(lon,lat,varargin{:});
+      %load the data
+      fdat=fullfile(simplegrid.parameters('aux_dir'),'wahr.global_ocn_kernel.txt');
+      oceanmask=gravity.load(fdat,'mod').grid;
+      %resample to requested resolution
+      if isscalar(lon) && isscalar(lat)
+        obj=oceanmask.spatial_resample(lon,lat);
+      elseif isvector(lon) && isvector(lat)
+        obj=oceanmask.spatial_interp(lon,lat);
+      else
+        error('Inputs ''lat'' and ''lon'' must both be scalar or vector')
+      end
+      %enforce cutoff
+      if p.Results.cutoff>0
+        ocean_idx=obj.y>=p.Results.cutoff;
+        y_now=obj.y;
+        y_now(~ocean_idx)=0;
+        y_now( ocean_idx)=1;
+        obj=obj.assign(y_now);
+      end
+    end
     function out=load(filename,t)
       fid=fopen(filename);
       d=textscan(fid,'%f %f %s');
@@ -704,12 +730,13 @@ classdef simplegrid < simpletimeseries
     %% map add-ons
     function h=coast(varargin)
       p=inputParser;
+      p.addParameter('datafile',fullfile(simplegrid.parameters('aux_dir'),'coast.mat'));
       p.addParameter('line_color','k',@(i) ischaracter(i));
       p.addParameter('line_width',1.5,  @(i)  isscalar(i) && isnumeric(i));
       p.addParameter('lon',[-180,180],  @(i) ~isscalar(i) && isnumeric(i));
       p.addParameter('lat',[ -90, 90],  @(i) ~isscalar(i) && isnumeric(i));
       p.parse(varargin{:});
-      coast = load('coast');
+      coast = load(p.Results.datafile);
       keep_idx=find(...
         ( coast.long<=max(p.Results.lon) & coast.long>=min(p.Results.lon) & ...    
           coast.lat <=max(p.Results.lat) & coast.lat >=min(p.Results.lat) ) | ...
@@ -729,6 +756,20 @@ classdef simplegrid < simpletimeseries
       case 'lon'; out=simplegrid.catchment_list{idx,3};
       otherwise; error(['Cannot handle field ''',field,'''.'])
       end    
+    end
+    %% smooting/conv aux functions
+    function map=map_mirroredges(map,n)
+      assert(isscalar(n),'Input ''n'' must be scalar')
+      %NOTICE: n is the size of the smoothing/conv kernel, so edges with width (n-1)/2 are appended
+      w=(num.odd(n)-1)/2;
+      %upper edge
+      map=[flipud(map(2:w+1,:));map];
+      %lower edge
+      map=[map;flipud(map(end-w:end-1,:))];
+      %left edge
+      map=[map(:,end-w+1:end),map];
+      %right edge
+      map=[map,map(:,w+1:2*w)];
     end
     %% tests
     %general test for the current object
@@ -844,6 +885,9 @@ classdef simplegrid < simpletimeseries
         a=simplegrid.coast;
       case 'plot'
         a=simplegrid.slanted(l(1)*10,l(2)*10).plot;
+      case 'conv'
+        a=simplegrid.slanted(l(1)*10,l(2)*10)
+        keyboard
       end
     end
   end
@@ -1193,16 +1237,23 @@ classdef simplegrid < simpletimeseries
       out=simplegrid.getSpacing(obj.lon,obj.lat);
     end
     %% interpolant handling
-    function out=get.interpolant(obj)
+    function [I,obj]=interpolant(obj)
       [lat_meshed,lon_meshed,t_meshed]=ndgrid(obj.lat,obj.lon,datenum(obj.t));
       %add long 360 so interpolation works on highest longitude before 360
       lat_meshed=[lat_meshed,lat_meshed(:,1)];
       lon_meshed=[lon_meshed,360*ones(size(lon_meshed,1),1)];
+      %fix missing 360
+      if obj.lon(end)<360
+        m=obj.map;
+        obj=obj.assign([m,m(:,1)],'lon',[obj.lon,360]);
+      elseif obj.lon(end)>360
+        error('Found ilegal longitude!')
+      end
       if obj.length==1
-        out=griddedInterpolant(lat_meshed,lon_meshed,[obj.map,obj.map(:,1)],'linear','none');
+        I=griddedInterpolant(lat_meshed,lon_meshed,obj.map,'linear','none');
       else
         error('look in the code: need to debug the wrapping of obj.map below (so it looks like the above)')
-        out=griddedInterpolant(lat_meshed,lon_meshed,t_meshed,obj.map,'linear','none');
+        I=griddedInterpolant(lat_meshed,lon_meshed,t_meshed,obj.map,'linear','none');
       end
     end
     %% spatial interpolation
@@ -1216,15 +1267,22 @@ classdef simplegrid < simpletimeseries
       %build new meshed domain
       [lat_meshed,lon_meshed,t_meshed]=ndgrid(lat_new,lon_new,datenum(obj.t));
       %get the interpolant
-      I=obj.interpolant;
+      [I,obj]=obj.interpolant;
       %interpolate
       if obj.length==1
         map_new=I(lat_meshed,lon_meshed);
       else
         map_new=I(lat_meshed,lon_meshed,t_meshed);
       end
+      %patch nans
+      if any(isnan(map_new(:)))
+        %fixing known cases of stupid nans
+        if all(isnan(map_new(end,:)))
+          map_new(end,:)=interp1(obj.lon,obj.map(end,:),lon_new);
+        end
+      end
       %save results
-      obj=obj.assign(map_new,'t',obj.t,'lat',lat_new,'lon',lon_new);
+      obj=obj.assign(map_new(:,1:end-1),'t',obj.t,'lat',lat_new,'lon',lon_new(1:end-1));
     end
     function obj=spatial_resample(obj,lon_n,lat_n)
       obj=obj.spatial_interp(simplegrid.lon_default(lon_n),simplegrid.lat_default(lat_n));
@@ -1266,6 +1324,10 @@ classdef simplegrid < simpletimeseries
         spmask=spmask.assign(1-spmask.y);
         obj=obj.*spmask;
         obj.descriptor=['ocean areas of ',descriptor];
+      case 'ocean-buffer'
+        spmask=simplegrid.oceanmask(obj.lon,obj.lat,varargin{:});
+        obj=obj.*spmask;
+        obj.descriptor=['(buffered) ocean areas of ',descriptor];
       otherwise
         error(['Cannot understand mode ''',mode,'''.'])
       end
