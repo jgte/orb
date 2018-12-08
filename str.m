@@ -532,6 +532,29 @@ classdef str
         if in; out=mode{1}; else out=mode{2}; end
       end
     end
+    %returns true of 'in' means 'none'
+    function out=none(in)
+      %vector mode
+      if iscell(in)
+        out=cellfun(@(i) str.none(i),in);
+        %handle str.none({})
+        if isempty(out); out=true; end
+        return
+      end
+      %empty also means none (also handles numeric/cell empties)
+      if isempty(in); out=true; return; end
+      %can only handle strings
+      if ~ischar(in); out=false; return; end
+      %first try logical strings (false means none; true means not none)
+      try
+        out=~str.logical(in,'logical');
+      catch
+        %test common 'none' strings
+        out=strcmpi(in,'clean') || ...
+            strcmpi(in,'clear') || ...
+            strcmpi(in,'none');
+      end
+    end
     %% user feedback
     function out=say(varargin)
       %default value for internal parameters
