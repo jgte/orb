@@ -374,6 +374,7 @@ classdef gswarm
           %check if there's any value in the field path to define the type of model
           if ~isempty(dn_sources{j}.field_path)
             %only plot the relevant model types (the metadata 'model_types' defines the relevant model types)
+            %NOTICE: this function has not been tested for model_types other than 'signal'
             if ~cells.isincluded(v.model_types,dn_sources{j}.field_path{end}); continue;end
             %get this model type
             model_type=dn_sources{j}.field_path{end};
@@ -458,12 +459,12 @@ classdef gswarm
         out.source.names{out.source.ref_idx}=upper(strtrim(strrep(str.clean(out.mod.ref_name.name,v.plot_title_suppress),'.',' ')));
         %reduce the models to plot
         out.mod.dat=out.source.signal(out.source.mod_idx);
+        %get time domain common to all sources
+        out.t=simpletimeseries.t_mergev(out.source.signal);
         %compute residual
-        out.mod.res=cellfun(@(i) out.mod.ref.interp(i.t)-i,out.mod.dat,'UniformOutput',false);
+        out.mod.res=cellfun(@(i) out.mod.ref.interp(out.t)-i.interp(out.t),out.mod.dat,'UniformOutput',false);
         %title
         out.title_wrt=str.show({'wrt',out.source.names{out.source.ref_idx}});
-        %get time domain common to all residuals
-        out.t=simpletimeseries.t_mergev(out.mod.res);
       end
       switch v.plot_spatial_mask
         case 'none'
@@ -1097,7 +1098,6 @@ classdef gswarm
           end
         end
       end
-
   
       for j=1:size(simplegrid.catchment_list,1)
         %build filename
@@ -1174,37 +1174,43 @@ classdef gswarm
 %         'gswarm.swarm.all.TN-03_2.smoothed'...
 %       },'UniformOutput',false);
 
-      datafilename=file.unresolve('~/data/gswarm/analyses/2018-11-19/d.mat');
+%       datafilename=file.unresolve('~/data/gswarm/analyses/2018-11-19/d.mat');
+%       p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...   
+%         'gswarm.swarm.all.TN-03_2.land',...
+%         'gswarm.swarm.all.TN-03_2.ocean',...
+%         'gswarm.swarm.all.TN-03_2.smoothed',...
+%       },'UniformOutput',false);
+%       plot_stop=datetime('2017-07-31');
+     
+%         'gswarm.swarm.all.TN-03_2.land',...
+%         'gswarm.swarm.all.TN-03_2.ocean',...
+%         'gswarm.swarm.all.TN-03_2.catchments',...
+
+      datafilename=file.unresolve('~/data/gswarm/analyses/2018-12-13/d.mat');
       p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...   
-        'gswarm.swarm.all.TN-03_2.land',...
-        'gswarm.swarm.all.TN-03_2.ocean',...
-        'gswarm.swarm.all.TN-03_2.smoothed',...
+        'gswarm.swarm.all.TN-03.smoothed',...
       },'UniformOutput',false);
-      plot_stop=datetime('2017-07-31');
-    
+      start=datetime('2013-11-01');
+      stop =datetime('2017-07-31');
+      
       %save version numbers into latex table
       file.strsave(str.rep(datafilename,'d.mat','versions.tex'),gswarm.sourcelatextable(p{1}));
-
-      p={dataproduct('gswarm.swarm.all.TN-03_2.catchments')};
-%       plot_stop=datetime('2018-10-31');
       
       %TODO: There's problem with the handling of model errors!!!
-      %TODO: can't have GRACE data and Swarm data all the way until Setp 2018
+      %TODO: can't have GRACE data and Swarm data all the way until Sep 2018
       
       %load data if already available
       if exist(datafilename,'file')~=0 && ~recompute
         str.say('Loading analysis data from',datafilename)
-        load(datafilename)
+        load(datafilename,'d')
       else
-        d=datastorage('debug',true);
+        d=datastorage('debug',true,'start',start,'stop',stop,'inclusive',true);
         for i=1:p{1}.nr_sources
           d=d.init(p{1}.sources(i),'recompute',recompute);
         end
         file.ensuredir(datafilename,true);
         save(datafilename,'d')
       end
-      %NOTICE: the data start/stop is whatever is available in the data repository, use this parameter to crop things up
-      d.stop=plot_stop;
       %plot it
       for i=1:numel(p)
         d.init(p{i});
