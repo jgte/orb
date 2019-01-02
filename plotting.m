@@ -493,7 +493,17 @@ classdef plotting
         % enforce (possible) requested x-limits
         for i=1:2
           if isfinite(v.plot_xlimits(i))
-            ax(i)=datenum(v.plot_xlimits(i));
+            %NOTICE: this is needed because earlier versions of matlab
+            %could not handle datetime in the x labels
+            switch class(ax)
+            case 'datetime'
+              ax(i)=v.plot_xlimits(i);
+            case 'double'
+              ax(i)=datenum(v.plot_xlimits(i));
+            otherwise
+              error(['Cannot handle variable "ax" with class ',class(ax),...
+                '; implementation needed'])
+            end
           end
         end
         % set auto x-label, unless one is explicity given
