@@ -54,6 +54,9 @@
         out='.';
       end
     end
+    function out=packagedir
+      out=fullfile(simpledata.scriptdir,'packages');
+    end
     function out=valid_x(x)
       out=isnumeric(x) && ~isempty(x) && isvector(x);
     end

@@ -51,6 +51,9 @@ classdef dataproduct
         out='.';
       end
     end
+    function out=packagedir
+      out=fullfile(simpledata.scriptdir,'packages');
+    end
     function out=parse_commands(in)
       %sanity
       switch class(in)
@@ -377,11 +380,11 @@ classdef dataproduct
     function obj=mdload(obj,metadata)
       if ~exist('metadata','var') || isempty(metadata)
         %need to read YAML
-        addpath(genpath(fullfile(dataproduct.scriptdir,'yamlmatlab')));
+        addpath(fullfile(dataproduct.packagedir,'yamlmatlab'));
         %make sure the metadata files is there
         obj.mdfile_check
         %load metadata
-        metadata=ReadYaml(obj.mdfile);
+        metadata=yaml.ReadYaml(obj.mdfile);
         %convert numeric cell arrays to normal arrays
         metadata=structs.fun(@cells.c2m,metadata);
       end
@@ -407,7 +410,7 @@ classdef dataproduct
               %add this metadata file to the list
               submetadatafilelist{c}=submetadatafiles{i};
               %load and merge this submetadatafile         
-              obj=obj.mdmerge(ReadYaml(submetadatafiles{i}));
+              obj=obj.mdmerge(yaml.ReadYaml(submetadatafiles{i}));
             end
           end
         else

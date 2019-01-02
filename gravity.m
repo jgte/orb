@@ -2041,7 +2041,7 @@ function [m,e]=load_gsm(filename,time)
      end
      %handle yaml headers
      if str.contains(s,'End of YAML header')
-       addpath(genpath(fullfile(gravity.scriptdir,'yamlmatlab')));
+       addpath(fullfile(gravity.packagedir,'yamlmatlab'));
        %rewind
        frewind(fid)
        %build header strings
@@ -2055,7 +2055,7 @@ function [m,e]=load_gsm(filename,time)
        %write to file
        file.strsave(header_filename,strjoin(yaml_header,'\n'));
        %read yaml from file (that's how it works...)
-       d=ReadYaml(header_filename);
+       d=yaml.ReadYaml(header_filename);
        %delete file
        delete(header_filename)
        %translate header info
