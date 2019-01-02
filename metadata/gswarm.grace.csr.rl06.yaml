@@ -6,3 +6,4 @@ wilcarded_filename: GSM-2_*BA01*.mat
 model_format: auto
 date_parser: gravity.parse_epoch_grace
 submetadata: [model.processing.submetadata,model.plotting.submetadata]
+storage_period: yearly #keep this yearly, so that missing months don't trigger reloading everything from scratch

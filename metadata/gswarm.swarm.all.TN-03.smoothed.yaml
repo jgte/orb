@@ -22,5 +22,5 @@ degrees: [2]  #[2,3]
 orders: [inf] #[inf,inf]
 
 #plot_ops
-plot_smoothing_degree: [300e3,750e3,750e3,750e3,750e3] #,750e3,750e3]
+plot_smoothing_degree: [300e3,750e3,750e3,750e3,750e3,750e3,750e3,750e3,750e3]
 plot_smoothing_method: gauss

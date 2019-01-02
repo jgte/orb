@@ -26,14 +26,14 @@ plot_legend_replace: [
   'combined v07','VCE comb 20',
   'combined v08','VCE comb 40',
   'combined v09','NEQ comb 20',
-  'combined v09','NEQ comb 40',
+  'combined v10','NEQ comb 40',
 ]
 plot_stddiff_caxis: [0,0.0035]
 plot_rmsdiff_caxis: [0,0.0045]
 plot_corrcoeff_caxis: [0,1]
 plot_legend_box: false
-plot_pause_on_save: false
 plot_spatial_mask: none
+plot_pause_on_save: false
 plot_visible: false
 plot_save_data: yes
 
