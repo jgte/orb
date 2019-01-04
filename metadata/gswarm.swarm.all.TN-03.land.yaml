@@ -1,2 +1,19 @@
-submetadata: gswarm.swarm.all.TN-03_3.smoothed
+method: gswarm.plot_stats
+model_types: [signal]
+
+submetadata: gswarm.swarm.all.TN-03_3.submetadata
 plot_spatial_mask: land
+
+# plot_temporal_stats
+plot_temp_stat_list: [corrcoeff,rmsdiff] #[corrcoeff,rmsdiff,stddiff]
+plot_temp_stat_func: [nondim,geoid]      #[nondim,geoid,geoid]
+#plot_temp_stat_title: <something>
+
+#plot_spatial_stats
+plot_derived_quantity: cumdrms
+plot_type: line
+plot_spatial_stat_list: [diff]
+
+#plot_ops
+plot_smoothing_degree: [300e3,750e3,750e3,750e3,750e3,750e3,750e3,750e3,750e3]
+plot_smoothing_method: gauss
