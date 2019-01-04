@@ -1,7 +1,6 @@
 classdef datanames
   %static
   properties(Constant)
-    separator='.';
     separator_clean='_'; %needed to construct legal field names out of obj.name
   end
   %read only
@@ -133,7 +132,7 @@ classdef datanames
       end
     end
     function out=split(obj)             %e.g. {'grace'    'calpar'    'csr'    'estim'    'AC0X'    'A'}
-      out=cells.flatten({strsplit(obj.name,datanames.separator),obj.field_path});
+      out=cells.flatten({strsplit(obj.name,file.build_element_char),obj.field_path});
     end
     function out=global_field_path(obj) %e.g. {'grace_calpar_csr'    'estim'    'AC0X'    'A'}
       out=[{obj.name_clean},obj.field_path];
@@ -141,9 +140,9 @@ classdef datanames
     %% names
     function out=filename(obj)       %e.g. grace.calpar.csr
 %NOTICE: filename used to be like this but i don't think it makes much sense: the data should all be contained inside the
-%        the file with name equalt to the product name, which is the same as the metadata name. The advantage is that a
+%        the file with name equal to the product name, which is the same as the metadata name. The advantage is that a
 %        product can be referred from a sub field and still the correct file is picked.
-%       out=strjoin([{obj.name},obj.field_path],datanames.separator);
+%       out=strjoin([{obj.name},obj.field_path],file.build_element_char);
       out=obj.name;
     end
     function out=codename(obj)       %e.g. grace_calpar_csr.estim.AC0X.A
@@ -194,7 +193,7 @@ classdef datanames
       case 'single'
         filename={fullfile(obj.filename,obj.filename)};
       case 'deep'
-        filename=strsplit(obj.filename,datanames.separator);
+        filename=file.build(obj.filename{:});
         filename={fullfile(filename{:},obj.filename)};
       otherwise
         error(['Cannot understand input ''sub_dirs'' with value ''',p.Results.sub_dirs,'''.'])
@@ -213,7 +212,7 @@ classdef datanames
         filename{end+1}=p.Results.ext;
       end
       %assemble components and add path
-      out=fullfile(p.Results.dir,strjoin(cells.rm_empty(cells.flatten(filename)),datanames.separator));
+      out=fullfile(p.Results.dir,file.build(filename{:}));
       %include detailed timestamp if requested
       if p.Results.timestamp
         out=strrep(...
