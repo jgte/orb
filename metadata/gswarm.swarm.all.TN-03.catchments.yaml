@@ -15,4 +15,4 @@ sin_period_unit: years
 sin_names: [yearly,semi-yearly]
 
 plot_smoothing_method: gauss
-plot_smoothing_degree: [300e3,750e3,750e3,750e3,750e3] #,750e3,750e3]
+plot_smoothing_degree: [300e3,750e3,750e3,750e3,750e3,750e3,750e3,750e3,750e3]
