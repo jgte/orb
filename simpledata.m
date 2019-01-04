@@ -2638,15 +2638,15 @@
       %set x axis
       if obj.length>1
         %get common axis limits (don't crop stuff)
-        v=plotting.common_axis_limits(gca);
+        v=plotting.common_lim(gca,'x');
         if isprop(obj,'t')
           try
-            xlim(datetime(v(1:2),'convertfrom','datenum'));
+            xlim(datetime(v,'convertfrom','datenum'));
           catch 
-            xlim(v(1:2));
+            xlim(v);
           end
         else
-          xlim(v(1:2));
+          xlim(v);
         end
       end
       %annotate
