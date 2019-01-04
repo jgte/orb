@@ -7,6 +7,8 @@ classdef file
       '/home1/00767/byaa676';...
       '/Users/teixeira';...
     };
+    build_particle_char='_';
+    build_element_char='.';
   end
   methods(Static)
     function valid=isfid(fid)
@@ -635,6 +637,58 @@ classdef file
       end
       out=pwd;
       cd(cdnow);
+    end 
+    function out=build(varargin)
+      if nargin>1
+        ext=cells.scalar(varargin{end},'get');
+        %if the last argument is char, then assume it is an extension
+        %(force using '.' as separator)
+        if ischar(ext)
+          out=strjoin(file.build_particle(varargin{1:end-1}),file.build_element_char);
+          out=[out,'.',cells.scalar(varargin{end},'get')];
+        else
+          out=strjoin(file.build_particle(varargin{:}),file.build_element_char);
+        end
+      else
+        out=cells.scalar(varargin{1},'get');
+      end
+      %make sure filename is not too long
+      if length(out)>255
+        %get length of elements
+        element_len=cellfun(@(i) numel(i),file.build_particle(varargin{:}));
+        %find the element that is too long
+        idx=find(element_len==max(element_len));
+        %get 10% of the longest element length
+        trim_len=floor(element_len(idx)*0.1);
+        %trim down longest element
+        varargin{idx}=[...
+          varargin{idx}(1:trim_len),...
+          '...',...
+          varargin{idx}(end-trim_len+1:end)...
+        ];
+        %try again
+        out=file.build(varargin{:});
+        %we're done
+        return
+      end
+    end
+    function out=build_particle(varargin)
+      out=cellfun(...
+        @(i) str.show(...
+          cells.rm_empty(cells.flatten(cells.scalar(i,'set'))),'',file.build_particle_char...
+        ),...
+        varargin,'UniformOutput',false...
+      );
+    end
+    function io=remove_ext(io)
+      [io,changed]=cells.scalar(io,'set');
+      for i=1:numel(io)
+        [p,f]=fileparts(io{i});
+        io{i}=fullfile(p,f);
+      end
+      if changed
+        io=cells.scalar(io,'get');
+      end
     end
   end
 end
@@ -699,3 +753,4 @@ function out = reduce_cell_array(in)
   % clean up empty entries
   out(cellfun('isempty',out))=[];
 end
+
