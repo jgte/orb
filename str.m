@@ -67,14 +67,13 @@ classdef str
       %default optionals
       if ~exist('fmt','var') || isempty(fmt); fmt=''; end
       assert(ischar(fmt),['Input ''fmt'' must of class ''char'', not ''',class(fmt),'''.'])
+      if ~exist('join_char','var'); join_char=' '; end
+      assert(ischar(join_char),['Input ''join_char'' must of class ''char'', not ''',class(join_char),'''.'])
       %handle non-scalar quantities
       if ~isscalar(in)
         out=cell(size(in));
         for i=1:numel(in)
-          out{i}=str.show(in(i),fmt);
-        end
-        if ~exist('join_char','var')
-          join_char=' ';
+          out{i}=str.show(in(i),fmt,join_char);
         end
         out=strjoin(out,join_char);
         return
@@ -92,7 +91,7 @@ classdef str
         else   out='F';
         end
       case 'cell'
-        out=str.show(in{1},fmt); %non-scalar cells already handled above
+        out=str.show(in{1},fmt,join_char); %non-scalar cells already handled above
       case 'datetime'
         if isnat(in)
           out='NaT';
@@ -466,17 +465,17 @@ classdef str
       %sanity
       assert(isnumeric(out),'Convertion from string to vector failed.')
     end
-    function out=titlecase(in,separator)
-      if ~exist('separator','var') || isempty(separator)
-        separator=' ';
+    function out=titlecase(in,sep)
+      if ~exist('sep','var') || isempty(sep)
+        sep=' ';
       end
-      out=strsplit(in,separator);
+      out=strsplit(in,sep);
       for i=1:numel(out)
         if ~isempty(out{i})
           out{i}=[upper(out{i}(1)),lower(out{i}(2:end))];
         end
       end
-      out=strjoin(out,separator);
+      out=strjoin(out,sep);
     end
     function out=logical(in,mode)
       if ~exist('mode','var') || isempty(mode)
