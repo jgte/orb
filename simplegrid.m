@@ -71,14 +71,19 @@ classdef simplegrid < simpletimeseries
     function out=getLimits(lon,lat)
       lon=wrapTo360(lon);
       out = [ min(lon(:)) max(lon(:)) min(lat(:)) max(lat(:)) ];
+      %some sanity
+      assert(~(any(lon <   0) || any(lon > 360)),'Ilegal longitude domain. Debug needed!')
+      assert(~(any(lat < -90) || any(lat >  90)),'Ilegal latitude domain. Debug needed!')
     end
     function out=delta(l,u,n)
       out=(u-l)/(n-1);
     end
     function out=lon_default(n)
+      %NOTICE: this used to be simply linspace(0,360,n) but that may introduce NaN at 360  
       %NOTICE: the use of delta may look redundant but linspace is not very accurate and introduces small variations
       out=0:simplegrid.delta(0,360,n):360;
-%       %NOTICE: this used to be simply linspace(0,360,n) but that may introduce NaN at 360  
+      %NOTICE: there is particular requirement for having (or not) longitude at degree 360 (degree 0 should be there, if relevant);
+      %        wrap the code under obj.{add|del}360lon for those cases when either is needed
 %       out=out(1:end-1);
     end
     function out=lat_default(n)
@@ -660,13 +665,14 @@ classdef simplegrid < simpletimeseries
       p.addRequired( 'lon',  @(i) isnumeric(i));
       p.addRequired( 'lat',  @(i) isnumeric(i));
       p.addParameter('t',     datetime('now'),@(i) isdatetime(i));
-      p.addParameter('cutoff',-1, @(i) isscalar(i) && isnumeric(i)); %values higher than this are land, lower are ocean; negative values leave the interpolation unchanged
+      %values higher than this cuttoff are land, lower are ocean; negative values leave the interpolation unchanged
+      p.addParameter('cutoff',-1, @(i) isscalar(i) && isnumeric(i)); 
       p.parse(lon,lat,varargin{:});
       %load the data
       fmat=fullfile(simplegrid.parameters('aux_dir'),'landmask.mat');
       fdat=fullfile(simplegrid.parameters('aux_dir'),'landmask.dat');
       if exist(fmat,'file')
-        load(fmat)
+        load(fmat,'landmask')
       elseif exist(fdat,'file')
         landmask=simplegrid.load(fdat,t);
         save(fmat,'landmask')
@@ -1229,6 +1235,52 @@ classdef simplegrid < simpletimeseries
       case 'rad'; out=obj.lon;
       end
     end
+    function [obj,changed]=add360lon(obj)
+      %assume nothing changes
+      changed=false;
+      %easier names
+      l360=obj.lon360;
+      %check if lon 360 is already there
+      if (l360(end)-360)^2<simplegrid.parameters('sp_tol')^2
+        return
+      end
+      %check if current spatial domain includes longitude 0
+      if (l360(1))^2>simplegrid.parameters('sp_tol')^2
+        return
+      end
+      %check if current spatial domain should have longitude 360
+      if (l360(end)+obj.lonSpacing-360)^2>simplegrid.parameters('sp_tol')^2
+        return
+      end
+      %if not, then things changed
+      changed=true;
+      %get map
+      m=obj.map;
+      %append longitude 360
+      m(:,end+1,:)=m(:,1,:);
+      %TODO: make this work for multiple time entries
+      obj=obj.assign(m,'lon',[obj.lon360,360]);
+    end
+    function [obj,changed]=del360lon(obj)
+      %assume nothing changes
+      changed=false;
+      %easier names
+      l360=obj.lon360;
+      %check if lon 360 is not there
+      if (l360(end)-360)^2>simplegrid.parameters('sp_tol')^2
+        return
+      end
+      %check if current spatial domain includes longitude 0
+      if (l360(1))^2>simplegrid.parameters('sp_tol')^2
+        return
+      end
+      %if not, then things changed
+      changed=true;
+      %crop longitude 360
+      m=obj.map;
+      %TODO: make this work for multiple time entries
+      obj=obj.assign(m(:,1:end-1),'lon',obj.lon360(1:end-1));
+    end
     %% spatial domain
     function out=sp_limits(obj)
       out=simplegrid.getLimits(obj.lon,obj.lat);
@@ -1236,19 +1288,13 @@ classdef simplegrid < simpletimeseries
     function out=sp_spacing(obj)
       out=simplegrid.getSpacing(obj.lon,obj.lat);
     end
+    function out=isglobal(obj)
+      out=all( (obj.sp_limits-[0 360 -90 90]).^2 < simplegrid.parameters('sp_tol')^2 );
+    end
     %% interpolant handling
     function [I,obj]=interpolant(obj)
       [lat_meshed,lon_meshed,t_meshed]=ndgrid(obj.lat,obj.lon,datenum(obj.t));
-      %add long 360 so interpolation works on highest longitude before 360
-      lat_meshed=[lat_meshed,lat_meshed(:,1)];
-      lon_meshed=[lon_meshed,360*ones(size(lon_meshed,1),1)];
-      %fix missing 360
-      if obj.lon(end)<360
-        m=obj.map;
-        obj=obj.assign([m,m(:,1)],'lon',[obj.lon,360]);
-      elseif obj.lon(end)>360
-        error('Found ilegal longitude!')
-      end
+      %TODO: handle multiple time entries
       if obj.length==1
         I=griddedInterpolant(lat_meshed,lon_meshed,obj.map,'linear','none');
       else
@@ -1266,6 +1312,8 @@ classdef simplegrid < simpletimeseries
       end
       %build new meshed domain
       [lat_meshed,lon_meshed,t_meshed]=ndgrid(lat_new,lon_new,datenum(obj.t));
+      %fix missing 360 (if needed)
+      [obj,changed]=obj.add360lon;
       %get the interpolant
       [I,obj]=obj.interpolant;
       %interpolate
@@ -1282,14 +1330,22 @@ classdef simplegrid < simpletimeseries
         end
       end
       %save results
-      obj=obj.assign(map_new(:,1:end-1),'t',obj.t,'lat',lat_new,'lon',lon_new(1:end-1));
+      obj=obj.assign(map_new,'t',obj.t,'lat',lat_new,'lon',lon_new);
+      %unfix missing 360 (if needed)
+      if changed
+        obj=obj.del360lon;
+      end
     end
     function obj=spatial_resample(obj,lon_n,lat_n)
       obj=obj.spatial_interp(simplegrid.lon_default(lon_n),simplegrid.lat_default(lat_n));
     end
     function obj=center_resample(obj)
+      %fix missing 360 (if needed)
+      obj=obj.add360lon;
+      %get mean spatial domain
       lon_new=mean([obj.lon(1:end-1);obj.lon(2:end)]);
       lat_new=mean([obj.lat(1:end-1),obj.lat(2:end)],2);
+      %reduced to mean domain
       obj=obj.spatial_interp(lon_new,lat_new);
     end
     %% spatial cropping
@@ -1299,7 +1355,7 @@ classdef simplegrid < simpletimeseries
       %get the spatial mask
       mask=struct(...
         'lat',obj.lat>=lat_limits(1) & obj.lat<=lat_limits(2), ...
-        'lon',obj.lon360>=wrapTo360(lon_limits(1)) & wrapTo360(obj.lon)<=wrapTo360(lon_limits(2)) ...
+        'lon',obj.lon360>=wrapTo360(lon_limits(1)) & obj.lon360<=wrapTo360(lon_limits(2)) ...
       );
 %         'lon',wrapTo180(obj.lon)>=wrapTo180(lon_limits(1)) & wrapTo180(obj.lon)<=wrapTo180(lon_limits(2)) ...
       %apply the mask
@@ -1413,18 +1469,22 @@ classdef simplegrid < simpletimeseries
     end
     %% convert to spherical harmonics
     %it's a good idea to identify the functional represented in this grid explicitly in varargin ('functional',<something>)
-    function out=sh(obj,lmax,varargin) 
+    function out=sh(obj,lmax,varargin)
+      % make sure longitude domain goes up to 360 degree
+      obj=obj.add360lon;
+      % need global domain
+      assert(obj.isglobal,'Need global domain to perform SH analysis')
       % make room for CS-structures
       cs(obj.length)=struct('C',[],'S',[]);
       % make spherical harmonic analysis of each grid
       c=0;
-      for i=1:obj.length;
+      for i=1:obj.length
         if ~obj.mask(i)
           str.say('WARNING: discarding gap of',obj.descriptor,'at',obj.t(i))
           continue
         end
         c=c+1;
-        [cs(c).C,cs(c).S,msg]=mod_sh_ana(deg2rad(obj.lon),deg2rad(obj.lat),obj.map(:,:,i),lmax);
+        [cs(c).C,cs(c).S,msg]=mod_sh_ana(obj.lon_rad,obj.lat_rad,obj.map(:,:,i),lmax);
         if ~isempty(msg); str.say(msg,'at',obj.t(i)); end
       end
       % initialize output gravity object (no need to set the units, need 'functional' in vargain for that to work)
@@ -1640,7 +1700,7 @@ classdef simplegrid < simpletimeseries
   end
 end
 
-%% These routines are the foundation for the grid object and were developed by or in cooperation with Pedro Inácio.
+%% These routines are the foundation for the grid object and were developed by or in cooperation with Pedro InÃ¡cio.
 %  They remain here to acknowledge that fact.
 function out_grid = grid_constructor(varargin)
 % GRID=GRID_CONSTRUCTOR is the function that defines a grid 'object'. More
@@ -2459,6 +2519,43 @@ function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapL
       clear h
   end
 end
+function out = ang_fix_domain(in,lower,upper,string)
+  % ANG_FIX_DOMAIN(IN,LOWER,UPPER) is the same as <check_domain>, except that
+  % the bounds are taken to be connected, much like angular quantities that
+  % should change smoothly betweem 0 and 360 degrees.
+  %
+  %   ANG_FIX_DOMAIN(IN,LOWER,UPPER,STRING) to pass the name of the angle
+  %   being checked, in which case a warning message is displayed.
+
+  % Created by J.Encarnacao <J.deTeixeiradaEncarnacao@tudelft.nl>
+
+  if ~exist('string','var')
+      string='';
+  end
+  if ~isscalar(lower) || ~isscalar(upper)
+      error([mfilename,': inputs <lower> and <upper> must be scalar.'])
+  end
+
+  while any(in(:)>upper) || any(in(:)<lower)
+      idx = (in(:) > upper);
+      if any(idx)
+          in(idx) = in(idx) - (upper-lower);
+          if ~isempty(string) && isscalar(in)
+              disp([mfilename,': ',string,'=',num2str(in),' (was ',num2str(in),...
+                  ') needed fixing because upper circular bound is ',num2str(upper),'.'])
+          end
+      end
+      idx = (in(:) < lower);
+      if any(idx)
+          in(idx) = in(idx) + (upper-lower);
+          if ~isempty(string) && isscalar(in)
+              disp([mfilename,': ',string,'=',num2str(in),' (was ',num2str(in),...
+                  ') needed fixing because lower circular bound is ',num2str(lower),'.'])
+          end
+      end
+  end
+  out = in;
+end
 
 %% Spherical Harminc analysis
 function [c_out,s_out,msg]=mod_sh_ana(long,lat,grid,N)
@@ -2538,10 +2635,10 @@ function [c_out,s_out,msg]=mod_sh_ana(long,lat,grid,N)
   end
   % check pole singularities
   if lat(1) == pi/2 && any(diff(grid(1,:)) ~= 0)
-      error([mfilename,': input <lat> does has different values for the same point with lat=pi/2.'])
+      error([mfilename,': input <lat> has different values for the same point with lat=pi/2.'])
   end
   if lat(end) == -pi/2 && any(diff(grid(end,:)) ~= 0)
-      error([mfilename,': input <lat> does has different values for the same point with lat=-pi/2.'])
+      error([mfilename,': input <lat> has different values for the same point with lat=-pi/2.'])
   end
   % check grid size
   if any(size(grid) ~= [length(lat),length(long)])
@@ -2632,6 +2729,7 @@ function out = legendre_degree(N,lat)
      out{n+1}(1,:)=out{n+1}(1,:)/sqrt(2);
   end
 end
-function out=delta_kronecher(i,j)
+function out = delta_kronecher(i,j)
   out = double(i==j);
 end
+
