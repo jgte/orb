@@ -246,17 +246,20 @@ classdef cells
         out=tmp;
       end
     end
-    function io=scalar(io,direction)
-      %io=scalar(io,direction)
+    function [io,changed]=scalar(io,direction)
+      %[io,changed]=scalar(io,direction)
       %depending on the value of 'direction' (defaults to 'set'):
-      % - if get: checks if there is only one cell entry, if so return it; otherwise nothing changes
-      % - if set: checks if it's a cell array, if so return it; otherwise make it a cell and return io
+      % - if get: checks if there is only one cell entry, if so return it (changed is true);
+      % otherwise nothing changes (changed is false)
+      % - if set: checks if it's a cell array, if so return it (changed is
+      % false); otherwise make it a cell and return io (changed is true)
       if ~exist('direction','var') || isempty(direction)
         direction='get';
       end
+      changed=false;
       switch lower(direction)
-      case 'set'; if ~iscell(io);                 io={io};  end
-      case 'get'; if  iscell(io) && isscalar(io); io=io{1}; end
+      case 'set'; if ~iscell(io);                 io={io};  changed=true; end
+      case 'get'; if  iscell(io) && isscalar(io); io=io{1}; changed=true; end
       otherwise; error(['Cannot handle input ''direction'' with value ''',direction,'''.'])
       end
     end
