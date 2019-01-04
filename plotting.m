@@ -56,28 +56,41 @@ classdef plotting
         end
       end
     end
-    function v=common_axis_limits(axis_handle)
+    function v=common_lim(axis_handle,mode)
+      %convert to easier names
+      switch lower(mode)
+        case 'x'; mode='XData';
+        case 'y'; mode='YData';
+        case {'xdata','ydata'} %do nothing
+        otherwise; error(['Cannot handle mode ''',mode,'''.'])
+      end
       %set output
-      v=[-inf inf -inf inf];
+      v=[inf -inf];
       %get line handles
       lh=plotting.line_handles(axis_handle);
+      %assume no date x data
+      dates=false;
       %loop over all lines
       for i=1:numel(lh)
         %get x-data
-        xdata=get(lh(i),'XData');
-        if isdatetime(xdata)
-          xdata=datenum(xdata);
+        d=get(lh(i),mode);
+        %clean up infs
+        d(:)=d(isfinite(d(:)));
+        if isdatetime(d)
+          d=datenum(d);
+          dates=true;
         end
+        %clean up NaNs (datenum above converts NaTs to NaNs)
+        d(:)=d(~isnan(d(:)));
         %get x-data extremeties
-        mm=minmax(xdata);
+        mm=minmax(d);
         %accumulate inclusive x-axis limits
         v(1)=min([v(1),mm(1)]);
         v(2)=max([v(2),mm(2)]);
-        %get y-data extremeties
-        mm=minmax(get(lh(i),'YData'));
-        %accumulate inclusive x-axis limits
-        v(3)=min([v(3),mm(1)]);
-        v(4)=max([v(4),mm(2)]);
+      end
+      %return datetime type
+      if dates
+        v=datetime(v,'ConvertFrom','datenum');
       end
     end
     function line_color(mode,axis_handle)
@@ -385,24 +398,38 @@ classdef plotting
       if ~exist('axis_handle','var') || isempty(axis_handle)
           axis_handle = gca;
       end
-      v1=axis(axis_handle);
-      axis(axis_handle,'tight');
-      v2=axis;
-      axis(axis_handle,[v2(1:2),v1(3:4)]);
-      if nargout>0
-        out=axis;
-      end
+      out=plotting.common_lim(axis_handle,'x');
+      xlim(axis_handle,out);
     end
     function out=yaxis_tight(axis_handle)
       if ~exist('axis_handle','var') || isempty(axis_handle)
           axis_handle = gca;
       end
-      v1=axis(axis_handle);
-      axis(axis_handle,'tight');
-      v2=axis;
-      axis(axis_handle,[v1(1:2),v2(3:4)]);
-      if nargout>0
-        out=axis;
+      out=plotting.common_lim(axis_handle,'y');
+      ylim(axis_handle,out);
+    end
+    function out=xlim(axis_handle)
+      if ~exist('axis_handle','var') || isempty(axis_handle)
+          axis_handle = gca;
+      end
+      out=xlim(axis_handle);
+      if any(~isfinite(out))
+        out=plotting.common_lim(axis_handle,'x');
+        delta=(out(2)-out(1))*0.05;
+        out(1)=out(1)-delta;
+        out(2)=out(2)+delta;
+      end
+    end
+    function out=ylim(axis_handle)
+      if ~exist('axis_handle','var') || isempty(axis_handle)
+          axis_handle = gca;
+      end
+      out=ylim(axis_handle);
+      if any(~isfinite(out))
+        out=plotting.common_lim(axis_handle,'y');
+        delta=(out(2)-out(1))*0.05;
+        out(1)=out(1)-delta;
+        out(2)=out(2)+delta;
       end
     end
     function out=text(x,y,msg,varargin)
@@ -485,7 +512,7 @@ classdef plotting
       end
       
       % start with x axis
-      ax=xlim(out.axis_handle);
+      ax=plotting.xlim(out.axis_handle);
       %check if dates are requested
       if (v.plot_xdate && ~v.plot_psd) || ...
           strcmp(v.plot_xlabel,'time') ||  ...
@@ -535,7 +562,7 @@ classdef plotting
       xlim(out.axis_handle,ax);
       
       % enforce requested y-limits
-      ay=ylim(out.axis_handle);
+      ay=plotting.ylim(out.axis_handle);
       for i=1:2
         if isfinite(v.plot_ylimits(i))
           ay(i)=   v.plot_ylimits(i);
