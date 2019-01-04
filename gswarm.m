@@ -342,7 +342,7 @@ classdef gswarm
         loaddata=str.logical(v.plot_save_data);
       catch
         switch lower(v.plot_save_data)
-        case 'force';
+        case 'force'
           loaddata=false;
           savedata=true;
         otherwise
@@ -356,8 +356,7 @@ classdef gswarm
         %check if plot data is saved
         if ~isempty(datafilename) && exist(datafilename,'file')
           str.say('Loading plot data from ',datafilename)
-          load(datafilename)
-          assert(exist('out','var')~=0,['Could not find variable ''out'' in data file ',datafilename,'.'])
+          load(datafilename,'out')
           %we're done
           return
         else
@@ -414,7 +413,7 @@ classdef gswarm
             v.plot_smoothing_method...
           );
         end
-        out.file_smooth=['.smooth-',v.plot_smoothing_method,'-',gravity.gauss_smoothing_name(v.plot_smoothing_degree(end))];
+        out.file_smooth={'smooth',v.plot_smoothing_method,gravity.gauss_smoothing_name(v.plot_smoothing_degree(end))};
         out.title_smooth=str.show({gravity.gauss_smoothing_name(v.plot_smoothing_degree(end)),...
                                 gravity.smoothing_name(v.plot_smoothing_method),'smoothing'});
       else
@@ -466,6 +465,9 @@ classdef gswarm
         %title
         out.title_wrt=str.show({'wrt',out.source.names{out.source.ref_idx}});
       end
+      %easier names
+      out.source.names_str=strjoin(str.rep(out.source.names,' ','_'),'-');
+      %enforce spatial mask
       switch v.plot_spatial_mask
         case 'none'
           %do nothing
@@ -485,7 +487,7 @@ classdef gswarm
         end
       end
       %filename particles
-      out.file_root=product.file('plot','start',obj.start,'stop',obj.stop,'start_timestamp_only',false);
+      out.file_root=product.file('plot','start',obj.start,'stop',obj.stop,'start_timestamp_only',false,'no_extension',true);
       out.file_deg=['deg',num2str(v.plot_min_degree),'-',num2str(v.plot_max_degree)];
       %legend
       out.source.legend_str=cellfun(@(i) strjoin(i,' '),datanames.unique(out.source.datanames),'UniformOutput',false);
@@ -496,7 +498,7 @@ classdef gswarm
       %title
       out.title_startstop=['(',datestr(out.source.signal{1}.t(1),'yyyy-mm'),' to ',datestr(out.source.signal{1}.t(end),'yyyy-mm'),')'];
       %save data if requested
-      if savedata; 
+      if savedata
         str.say('Saving plot data to ',datafilename)
         save(datafilename,'out');  
       end
@@ -523,7 +525,7 @@ classdef gswarm
       for i=1:numel(degrees)
         d=degrees(i);
         o=orders(i);
-        filename=strrep(out.file_root{1},'.png',['.C',num2str(d),',',num2str(o),'.png']);
+        filename=file.build(out.file_root,['.C',num2str(d),',',num2str(o)],'png');
         %plot only if not done yet
         if exist(filename,'file')==0
           %build legend string
@@ -614,7 +616,9 @@ classdef gswarm
       %check if this plot is requested
       if cells.isincluded(v.plot_spatial_stat_list,'diff')
         %build filename
-        filename=strrep(out.file_root{1},'.png',['.cumdrms',out.file_smooth,'.',strjoin(str.rep(out.source.names,' ','_'),'-'),'.png']);
+        filename=file.build(out.file_root,...
+          'cumdrms',out.file_smooth,out.source.names_str,'png'...
+        );
         if isempty(dir(filename))
           %build data array
           y=zeros(numel(out.t),numel(out.mod.res));
@@ -674,7 +678,7 @@ classdef gswarm
           %build filename
           filename=cells.scalar(product.file('plot',...
             'start',out.t(i),'stop',out.t(i),...
-            'suffix',['drms',out.file_smooth,'.',strjoin(str.rep(out.source.names,' ','_'),'-')]...
+            'suffix',file.build('drms',out.file_smooth,out.source.names_str)...
           ),'get');
           if isempty(dir(filename))
             plotting.figure(v.varargin{:});
@@ -746,10 +750,10 @@ classdef gswarm
         if strcmp(v.plot_temp_stat_list{s},'none'); continue; end
         %loop over all sources
         %NOTICE: out.mod.* have one less element than out.source.*, so keep that in mind and don't mix them!
-        for i=1:numel(out.mod.dat);
+        for i=1:numel(out.mod.dat)
           %build filename
-          filename=strrep(out.file_root{1},'.png',...
-            ['.',v.plot_temp_stat_list{s},'-triang',out.file_smooth,'.',str.rep(out.mod.names{i},' ','_'),'.png']...
+          filename=file.build(out.file_root,...
+            {v.plot_temp_stat_list{s},'triang'},out.file_smooth,strsplit(out.mod.names{i},' '),'png'...
           );
           %plot only if not done yet
           if exist(filename,'file')==0
@@ -781,15 +785,9 @@ classdef gswarm
           end
         end
         %plot degree-mean stat
-        filename=strrep(out.file_root{1},'.png',...
-          ['.',v.plot_temp_stat_list{s},'-dmean',out.file_smooth,'.',strjoin(str.rep(out.source.names,' ','_'),'-'),'.png']...
+        filename=file.build(out.file_root,...
+          {v.plot_temp_stat_list{s},'dmean'},out.file_smooth,out.source.names_str,'png'...
         );
-        if length(filename)>255
-          filename=strrep(out.file_root{1},'.png',...
-            ['.',v.plot_temp_stat_list{s},'-dmean',out.file_smooth,'.',...
-            strjoin(str.rep(out.source.names(1:2),' ','_'),'-'),'-to-',str.rep(out.source.names{end},' ','_'),'.png']...
-          );
-        end
         %plot only if not done yet
         if exist(filename,'file')==0
           %init plot counter and data container
@@ -858,21 +856,15 @@ classdef gswarm
           str.say('Plotted',filename)
         end
         %plot cumulative degree-mean stat
-        filename=strrep(out.file_root{1},'.png',...
-          ['.',v.plot_temp_stat_list{s},'-cumdmean',out.file_smooth,'.',strjoin(str.rep(out.source.names,' ','_'),'-'),'.png']...
+        filename=file.build(out.file_root,...
+          {v.plot_temp_stat_list{s},'cumdmean'},out.file_smooth,out.source.names_str,'png'...
         );
-        if length(filename)>255
-          filename=strrep(out.file_root{1},'.png',...
-            ['.',v.plot_temp_stat_list{s},'-cumdmean',out.file_smooth,'.',...
-            strjoin(str.rep(out.source.names(1:2),' ','_'),'-'),'-to-',str.rep(out.source.names{end},' ','_'),'.png']...
-          );
-        end
         %plot only if not done yet
         if exist(filename,'file')==0
           %init plot counter and data container
           d=zeros(numel(out.mod.dat),out.mod.ref.lmax+1);
           %loop over all sources
-          for i=1:numel(out.mod.dat);
+          for i=1:numel(out.mod.dat)
             %compute it
             d(i,:)=out.mod.ref.scale(v.plot_temp_stat_func{s},'functional').interp(out.mod.dat{i}.t).stats2(...
                    out.mod.dat{i}.scale(v.plot_temp_stat_func{s},'functional'),...
@@ -972,6 +964,9 @@ classdef gswarm
           end
         end
         %first build data filename
+        
+        %TODO: check if all datafilenames here are generated consistently
+        
         datafilename=cells.scalar(product.mdset('storage_period','direct').file('plot',...
           'start',obj.start,'stop',obj.stop,...
           'ext','mat',...
@@ -984,8 +979,7 @@ classdef gswarm
           %check if plot data is saved
           if ~isempty(datafilename) && exist(datafilename,'file')
             str.say('Loading plot data from ',datafilename)
-            load(datafilename)
-            assert(exist('pd','var')~=0,['Could not find variable ''pd'' in data file ',datafilename,'.'])
+            load(datafilename,'pd')
             out.pd{i}=pd;
           else
             %compute parametric decompositions
@@ -1007,7 +1001,9 @@ classdef gswarm
         for j=0:v.polyorder
           par_name=['p',num2str(j)];
           %build filename
-          filename=strrep(out.file_root{1},'.png',['.',v.plot_functional,'.',par_name,out.file_smooth,'.',strrep(out.source.names{i},' ','-'),'.png']);
+          filename=file.build(out.file_root,...
+            v.plot_functional,par_name,out.file_smooth,strsplit(out.source.names{i},' '),'png'...
+          );
           %plot only if not done yet
           if exist(filename,'file')==0
             a=out.pd{i}.(par_name).scale(...
@@ -1044,7 +1040,9 @@ classdef gswarm
         end
         for j=1:numel(v.sin_period)
           %build filename for amplitude
-          filename=strrep(out.file_root{1},'.png',['.',v.plot_functional,'.a',num2str(j),out.file_smooth,'.',strrep(out.source.names{i},' ','-'),'.png']);
+          filename=file.build(out.file_root,...
+            v.plot_functional,{'a',j},out.file_smooth,strsplit(out.source.names{i},' '),'png'...
+          );
           %plot only if not done yet
           if exist(filename,'file')==0
             %get the sine and cosine terms in the form of grids
@@ -1071,7 +1069,9 @@ classdef gswarm
             str.say('Plotted',filename)
           end
           %build filename for phase
-          filename=strrep(out.file_root{1},'.png',['.',v.plot_functional,'.f',num2str(j),out.file_smooth,'.',strrep(out.source.names{i},' ','-'),'.png']);
+          filename=file.build(out.file_root,...
+            v.plot_functional,{'f',j},out.file_smooth,strsplit(out.source.names{i},' '),'png'...
+          );
           %plot only if not done yet
           if exist(filename,'file')==0
             %get the sine and cosine terms in the form of grids
@@ -1101,9 +1101,9 @@ classdef gswarm
   
       for j=1:size(simplegrid.catchment_list,1)
         %build filename
-        filename=strrep(out.file_root{1},'.png',['.',v.plot_functional,'.',...
-          strrep(simplegrid.catchment_list{j,1},' ','-'),out.file_smooth,...
-          '.png']);
+        filename=file.build(out.file_root,...
+          v.plot_functional,strsplit(simplegrid.catchment_list{j,1},' '),out.file_smooth,'png'...
+        );
         %plot only if not done yet
         if exist(filename,'file')==0
           plotting.figure(v.varargin{:});
@@ -1129,10 +1129,10 @@ classdef gswarm
       end
       
       for i=1:out.source.n
-        %build filename
-        filename=strrep(out.file_root{1},'.png',['.',v.plot_functional,'.',...
-          'std',out.file_smooth,'.',...
-          strrep(out.source.names{i},' ','-'),'.png']);
+        %build filename        
+        filename=file.build(out.file_root,...
+          v.plot_functional,'std',out.file_smooth,strsplit(out.source.names{i},' '),'png'...
+        );
         %plot only if not done yet
         if exist(filename,'file')==0
           plotting.figure(v.varargin{:});
@@ -1176,7 +1176,6 @@ classdef gswarm
 
 %       datafilename=file.unresolve('~/data/gswarm/analyses/2018-11-19/d.mat');
 %       p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...   
-%         'gswarm.swarm.all.TN-03_2.land',...
 %         'gswarm.swarm.all.TN-03_2.ocean',...
 %         'gswarm.swarm.all.TN-03_2.smoothed',...
 %       },'UniformOutput',false);
@@ -1184,10 +1183,12 @@ classdef gswarm
      
 %         'gswarm.swarm.all.TN-03_2.land',...
 %         'gswarm.swarm.all.TN-03_2.ocean',...
-%         'gswarm.swarm.all.TN-03_2.catchments',...
+%         
 
       datafilename=file.unresolve('~/data/gswarm/analyses/2018-12-13/d.mat');
       p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...   
+        'gswarm.swarm.all.TN-03.land',...
+        'gswarm.swarm.all.TN-03.catchments',...
         'gswarm.swarm.all.TN-03.smoothed',...
       },'UniformOutput',false);
       start=datetime('2013-11-01');
