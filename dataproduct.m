@@ -188,9 +188,9 @@ classdef dataproduct
       % make sure metadata file exists
       if ~obj.ismdfile
         %if there's no metadatafile, let's assume there's field_path in 'in' and start digging
-        in_split=strsplit(obj.name,datanames.separator);
+        in_split=strsplit(obj.name,file.build_element_char);
         for i=numel(in_split):-1:2
-          dn_now=datanames(strjoin(in_split(1:i-1),datanames.separator),in_split(i:end));
+          dn_now=datanames(strjoin(in_split(1:i-1),file.build_element_char),in_split(i:end));
           if exist(dataproduct.mdfile_static(dn_now,obj.metadata_dir),'file')~=0
             %found it!
             obj.dataname=dn_now;
@@ -254,6 +254,7 @@ classdef dataproduct
       p.addParameter('start_timestamp_only', true, @(i) islogical(i))
       p.addParameter('use_storage_period',   true, @(i) islogical(i))
       p.addParameter('discover',            false, @(i) islogical(i))
+      p.addParameter('no_extension',        false, @(i) islogical(i))
       % parse it
       p.parse(varargin{:});
       % retrive arguments for this file type
@@ -329,6 +330,8 @@ classdef dataproduct
       else
         out={filename};
       end
+      %enforce no extension option
+      if p.Results.no_extension; out=file.remove_ext(out); end
     end
     function out=isfile(obj,varargin)
       file_list=obj.file(varargin{:});
