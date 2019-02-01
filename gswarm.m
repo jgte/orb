@@ -525,7 +525,7 @@ classdef gswarm
       for i=1:numel(degrees)
         d=degrees(i);
         o=orders(i);
-        filename=file.build(out.file_root,['.C',num2str(d),',',num2str(o)],'png');
+        filename=file.build(out.file_root,['C',num2str(d),',',num2str(o)],'png');
         %plot only if not done yet
         if exist(filename,'file')==0
           %build legend string
@@ -626,6 +626,18 @@ classdef gswarm
             tmp=out.mod.res{di}.interp(out.t).scale(v.plot_functional,'functional').(v.plot_derived_quantity);
             y(:,di)=tmp.y;
           end
+          %accumulate it
+          yc=sum(y,1,'omitnan')./sum(~isnan(y));
+          %sort it
+          [~,idx]=sort(yc,'ascend');
+          y=y(:,idx);
+          legend_str=out.mod.names(idx);
+          %truncate it
+          max_sol=20;
+          if max_sol < numel(idx)
+            y=y(1:max_sol,:);
+            legend_str=legend_str(1:max_sol);
+          end
           %plot it
           plotting.figure(v.varargin{:});
           switch v.plot_type
@@ -636,8 +648,8 @@ classdef gswarm
           end
           %deal with legend stats
           if v.plot_show_legend_stats
-            for i=1:numel(out.mod.res)
-              out.mod.names{i}=[out.mod.names{i},...
+            for i=1:numel(legend_str)
+              legend_str{i}=[legend_str{i},...
                    ' ',num2str(mean(y(~isnan(y(:,i)),i)),2),...
                ' +/- ',num2str( std(y(~isnan(y(:,i)),i)),2),...
             ' \Sigma=',num2str( sum(y(~isnan(y(:,i)),i)),2)];
@@ -645,13 +657,12 @@ classdef gswarm
           end
           %enforce it
           product.enforce_plot(v.varargin{:},...
-            'plot_legend',out.mod.names,...
+            'plot_legend',legend_str,...
             'plot_ylabel',gravity.functional_label(v.plot_functional),...
             'plot_xdate',true,...
             'plot_xlimits',[out.t(1),out.t(end)+days(1)],...
             'plot_title',str.show({'Residual',out.title_wrt,out.title_masking,out.title_smooth})...
           );
-          colormap jet
           if v.plot_pause_on_save; keyboard; end
           saveas(gcf,filename)
           str.say('Plotted',filename)
@@ -793,7 +804,7 @@ classdef gswarm
           %init plot counter and data container
           d=zeros(numel(out.mod.dat),out.mod.ref.lmax+1);
           %loop over all sources
-          for i=1:numel(out.mod.dat);
+          for i=1:numel(out.mod.dat)
             %compute it
             d(i,:)=out.mod.ref.scale(v.plot_temp_stat_func{s},'functional').interp(out.mod.dat{i}.t).stats2(...
                    out.mod.dat{i}.scale(v.plot_temp_stat_func{s},'functional'),...
@@ -832,7 +843,6 @@ classdef gswarm
           switch v.plot_type
           case 'bar'
             bar(v.plot_min_degree:out.mod.ref.lmax,d','EdgeColor','none');
-            colormap jet
           case 'line'
             plot(v.plot_min_degree:out.mod.ref.lmax,d','Marker','o');
           end
@@ -1187,6 +1197,7 @@ classdef gswarm
 
       datafilename=file.unresolve('~/data/gswarm/analyses/2018-12-13/d.mat');
       p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...   
+        'gswarm.swarm.all.TN-03.ocean',...
         'gswarm.swarm.all.TN-03.land',...
         'gswarm.swarm.all.TN-03.catchments',...
         'gswarm.swarm.all.TN-03.smoothed',...
