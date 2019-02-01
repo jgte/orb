@@ -553,7 +553,7 @@ classdef gravity < simpletimeseries
       p.parse(dirname,format,date_parser,varargin{:})
       %retrieve all gsm files in the specified dir
       filelist=cells.scalar(file.unwrap(fullfile(dirname,p.Results.wilcarded_filename)),'set');
-      assert(~isempty(filelist),'Need valid dir')
+      assert(~isempty(filelist{1}),['Need valid dir, not ''',fileparts(filelist{1}),'''.'])
       %this counter is needed to report the duplicate models correctly
       c=0;init_flag=true;
       %loop over all models
