@@ -33,19 +33,60 @@ classdef num
         end
       end
     end
+    function plot_pardecomp(a)
+      s=200+[0,0,21,9]*50;
+      figure('Position',s,'PaperPosition',s)
+      legend_str=cell(1,numel(a.polynomial)+numel(a.sinusoidal)+numel(a.cosinusoidal)+2);
+      plot(a.in.t,a.in.y,'b','LineWidth',2), hold on
+      c=0;
+      c=c+1;legend_str{c}='residual';
+      plot(a.in.t,a.y_res,'k','LineWidth',2)
+      c=c+1;legend_str{c}='original';
+      for i=1:numel(a.polynomial)
+        plot(a.in.t,a.y_polynomial(:,i),'r','LineWidth',2)
+        c=c+1;legend_str{c}=['t^',num2str(i-1),':',num2str(a.polynomial(i))];
+      end
+      for i=1:numel(a.sinusoidal)
+        plot(a.in.t,a.y_sinusoidal(:,i),'g','LineWidth',2)
+        c=c+1;legend_str{c}=['sin_',num2str(i),':',num2str(a.sinusoidal(i))];
+      end
+      for i=1:numel(a.cosinusoidal)
+        plot(a.in.t,a.y_cosinusoidal(:,i),'m','LineWidth',2)
+        c=c+1;legend_str{c}=['cos_',num2str(i),':',num2str(a.cosinusoidal(i))];
+      end
+      legend(legend_str,'location','eastoutside')
+      title(['norm(x+res-y)=',num2str(norm(sum([a.y_polynomial,a.y_sinusoidal,a.y_cosinusoidal,a.y_res,-a.in.y],2))),...
+        newline,'T=',num2str(a.in.T(:)')])
+      fs=16;
+      set(    gca,          'FontSize',fs);
+      set(get(gca,'Title' ),'FontSize',round(fs*1.3));
+      set(get(gca,'XLabel'),'FontSize',round(fs*1.1));
+      set(get(gca,'YLabel'),'FontSize',round(fs*1.2));
+      grid on
+    end
     function out=pardecomp(t,y,varargin)
+      %NOTICE: the timescale of t must be defined externally, it is implicit here
+      if nargin==0
+        num.pardecomp([0;1],[-1;-1],'mode','test');
+        return
+      end
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 't', @(i) isnumeric(i) && isvector(i) && size(i,2)==1          && ~any(isnan(i)) );
-      p.addRequired( 'y', @(i) isnumeric(i) && isvector(i) && all(size(i)==size(t)) && ~any(isnan(i)) );
-      p.addParameter('polynomial',[0 1],                                     @(i) isnumeric(i) || isempty(i));
-      p.addParameter('sinusoidal',seconds([2*min(diff(t)),(t(end)-t(1))/2]), @(i) isduration(i)|| isempty(i));
-      p.addParameter('t0',        t(1),                                      @(i) isnumeric(i) && isscalar(i));
-      p.addParameter('mode',      'struct',                                  @(i) ischar(i));
+      p.addRequired( 't', @(i)  isnumeric(i) && isvector(i) && size(i,2)==1          && ~any(isnan(i)) );
+      p.addRequired( 'y', @(i) (isnumeric(i) && isvector(i) && all(size(i)==size(t)) && ~any(isnan(i))) || isempty(i) );
+      p.addParameter('polynomial',[0 1],                            @(i) isnumeric(i) || isempty(i));
+      p.addParameter('sinusoidal',[2*min(diff(t)),(t(end)-t(1))/2], @(i) isnumeric(i) || isempty(i));
+      p.addParameter('t0',        t(1),                             @(i) isnumeric(i) && isscalar(i));
+      p.addParameter('mode',      'struct',                         @(i) ischar(i));
       %these parameters are only valid for the "model" mode.
-      p.addParameter('x',         [],                                        @(i) isnumeric(i) || isempty(i));
+      p.addParameter('x',         [],                               @(i) isnumeric(i) || isempty(i));
       % parse it
       p.parse(t,y,varargin{:});
+      %some sanity
+      if isempty(y)
+        assert(strcmp(p.Results.mode,'model'),'if input ''y'' is empty, then mode must be ''model''')
+        y=ones(size(t));
+      end
       %simpler names
       np=numel(p.Results.polynomial);
       ns=numel(p.Results.sinusoidal);
@@ -72,55 +113,47 @@ classdef num
       % branch on mode
       switch p.Results.mode
         case 'test'
-          s=1;
-          n=1000;
-          randn_scale=0.05;
-          poly_scale=[0.3 0.8 1.6];
-          T=s*n./[3 5];
-          sin_scale=[0.8 0.5];
-          cos_scale=[0.4 0.6]; 
+          %test parameters
+          step=1;
+          n=10000;
+          poly_coeffs=[1 3 5]./[1 n n^2];
+          sin_periods=n/step./[2 5];
+          sin_periods_assumed=sin_periods+randn(size(sin_periods))*n/1e2;
+           sin_coeffs=[0.5 3];
+           cos_coeffs=[2 0.8];
+          randn_scale=0.5;
+          %inform
+          disp(['sin_periods : ',num2str(sin_periods(:)')])
+          disp(['poly_coeffs : ',num2str(poly_coeffs(:)')])
+          disp(['sin_coeffs  : ',num2str(sin_coeffs(:)')])
+          disp(['cos_coeffs  : ',num2str(cos_coeffs(:)')])
+          disp(['randn_scale : ',num2str(randn_scale(:)')])
           %derived parameters
-          legend_str=cell(1,numel(poly_scale)+numel(sin_scale));
-          t=transpose(1:s:(n*s));
-          y=randn_scale*randn(n,1);c=0;
-          for i=1:numel(poly_scale)
-            c=c+1;legend_str{c}=['t^',num2str(i-1)];
-            y=y+poly_scale(i)*(t/n/s).^(i-1);
-          end
-          for i=1:numel(sin_scale)
-            c=c+1;legend_str{c}=['sin_',num2str(i)];
-            y=y+sin_scale(i)*sin(2*pi/T(i)*t);
-          end
-          for i=1:numel(cos_scale)
-            c=c+1;legend_str{c}=['cos_',num2str(i)];
-            y=y+cos_scale(i)*cos(2*pi/T(i)*t);
-          end
+          t=transpose(1:step:(n*step));
+          y=num.pardecomp(t,[],'mode','model',...
+            'polynomial',ones(size(poly_coeffs)),...
+            'sinusoidal',sin_periods,...
+            'x',[poly_coeffs,sin_coeffs,cos_coeffs]...
+          );
+          %sum all components
+          y=sum(y,2);
+          %add noise
+          y=y+randn_scale*randn(size(y));
           %decompose
-          a=num.pardecomp(t,y,'polynomial',ones(size(poly_scale)),'sinusoidal',T,'mode','struct');
+          a=num.pardecomp(t,y,'mode','struct',...
+            'polynomial',ones(size(poly_coeffs)),...
+            'sinusoidal',sin_periods_assumed...
+          );
           %show results
-          figure
-          plot(t,y,'b','LineWidth',2), hold on
-          plot(t,a.y_polynomial,'r','LineWidth',2)
-          plot(t,a.y_sinusoidal,'g','LineWidth',2)
-          plot(t,a.y_cosinusoidal,'m','LineWidth',2)
-          plot(t,a.y_res,'k','LineWidth',2)
-          legend('original',legend_str{:},'res')
-          title(['norm(x+res-y)=',num2str(norm(sum([a.y_polynomial,a.y_sinusoidal,a.y_cosinusoidal,a.y_res,-y],2))),...
-            newline,'A=',num2str(a.amplitude(:)'),newline,'phi=',num2str(180/pi*a.phase(:)')])
-          fs=16;
-          set(    gca,          'FontSize',fs);
-          set(get(gca,'Title' ),'FontSize',round(fs*1.3));
-          set(get(gca,'XLabel'),'FontSize',round(fs*1.1));
-          set(get(gca,'YLabel'),'FontSize',round(fs*1.2));
+          num.plot_pardecomp(a);
         case 'design'
-          %convert to seconds and remove total time length
-          %(only simpledata connects to this function, so time must be its implicit time scale, which is defined in simpletimeseries)
-          T=simpletimeseries.timescale(p.Results.sinusoidal);
+          %ge the period
+          T=p.Results.sinusoidal;
           % init design matrix
           A=zeros(ny,np+2*ns);
           % build design matrix: polynomial coefficients
           for i=1:np
-            A(:,i)=t.^p.Results.polynomial(i);
+            A(:,i)=t.^(i-1);
           end
           % build design matrix: sinusoidal coefficients
           for i=np+(1:ns)
@@ -156,6 +189,11 @@ classdef num
           y_res=y-sum(y_mod,2);
           %assign outputs
           out=struct(...
+            'in',struct(...
+              't',t,...
+              'y',y,...
+              'T',p.Results.sinusoidal...
+            ),...
             'polynomial',x(1:np),...
             'sinusoidal',x(np+1:np+ns),...
             'cosinusoidal',x(np+ns+1:end),...
