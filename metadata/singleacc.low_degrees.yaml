@@ -5,12 +5,11 @@ method: gswarm.plot_low_degrees
 
 degrees: [  2,  3,  4]
 orders:  [inf,inf,inf]
-# sources: [slr.csr, #this makes the degree 4 plots empty (but is needed in the other degrees to show SLR)
-sources: [scales.RL05.sh.comp/t_crop_31Dec2015,singleacc.GEO]
-stats_relative_to: scales.RL05.sh.comp/t_crop_31Dec2015
+sources: [scales.RL05.sh.comp/t_crop_31Dec2015/t_crop_31Dec2015,singleacc.GEO]
+stats_relative_to: scales.RL05.sh.comp/t_crop_31Dec2015/t_crop_31Dec2015
 
 explicit_fields: true
-storage_period: global
+storage_period: direct
 model_types: [signal]
 plot_outlier: 1
 plot_automean: true

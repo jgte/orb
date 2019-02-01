@@ -31,12 +31,12 @@ plot_legend_replace: [
 plot_stddiff_caxis: [0,0.0035]
 plot_rmsdiff_caxis: [0,0.0045]
 plot_corrcoeff_caxis: [0,1]
+plot_colormap: jet
 plot_legend_box: false
 plot_spatial_mask: none
 plot_pause_on_save: false
 plot_visible: false
 plot_save_data: yes
-
 
 #plot_ops
 plot_min_degree: 2
