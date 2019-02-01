@@ -325,8 +325,15 @@ classdef datastorage
       %propagate 
       for i=1:numel(dn_list)
         %try to match field names in structures with field paths
-        if isstruct(values{i}) && isfield(values{i},dn_list{1}.field_path)
-          obj=obj.value_set(dn_list{i},structs.get_value(values{i},dn_list{1}.field_path));
+        if isstruct(values{i})
+          tmp=structs.get_value(values{i},dn_list{1}.field_path);
+          if ~isempty(tmp)
+            obj=obj.value_set(dn_list{i},tmp);
+          else
+            assert(isempty(dn_list{1}.field_path),[...
+              'Cannot find field path ''',dn_list{1}.field_path_str,''' in product ''',dn_list{1}.filename,'''.'])
+            obj=obj.value_set(dn_list{i},values{i});
+          end
         else
           obj=obj.value_set(dn_list{i},values{i});
         end
