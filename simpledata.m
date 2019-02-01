@@ -479,28 +479,68 @@
           'x_unit',    'x_unit',...
           'descriptor','descriptor'...
         };
-      case 'x';             out=transpose(1:l);
+      case 'x';             out=transpose(0:l-1);
       case 'T';             out=l./[3 5];
-      case 'y_randn_scale'; out=0.1;
-      case 'y_poly_scale';  out=[0.3 0.8 1.6];
+      case 'y_randn_scale'; out=0.2;
+      case 'y_poly_scale';  out=[1 1 1]./[1 l l^2];
       case 'y_sin_scale';   out=[0.8 0.5];
+      case 'y_cos_scale';   out=[0.2 1.2];
       case 'y_randn'
         out=simpledata.test_parameters('y_randn_scale')*randn(l,w);
       case 'y_poly'
-        c=simpledata.test_parameters('y_poly_scale');
-        x1=simpledata.test_parameters('x',l);
-        out=zeros(l,w);
-        for i=1:numel(c)
-          out=out+c(i)*(x1/l).^(i-1)*ones(1,w);
-        end
+        out=sum(num.pardecomp(...
+          simpledata.test_parameters('x',l),...
+          [],...
+          'mode','model',...
+          'polynomial',ones(size(simpledata.test_parameters('y_poly_scale'))),...
+          'sinusoidal',[],...
+          'x',simpledata.test_parameters('y_poly_scale',l)...
+        ),2)*ones(1,w);
+        % % The code below is the same as the code above
+        % c=simpledata.test_parameters('y_poly_scale',l);
+        % x1=simpledata.test_parameters('x',l);
+        % out=zeros(l,w);
+        % for i=1:numel(c)
+        %   out=out+c(i)*(x1).^(i-1)*ones(1,w);
+        % end
       case 'y_sin_T'
-        c=simpledata.test_parameters('y_sin_scale');
-        T=simpledata.test_parameters('T',l);
-        x1=simpledata.test_parameters('x',l);
-        out=zeros(l,w);
-        for i=1:numel(T)
-          out=out+c(i)*sin(2*pi/T(i)*x1*ones(1,w) + ones(l,1)*[pi/3 pi/4 pi/5]);
-        end
+        out=sum(num.pardecomp(...
+          simpledata.test_parameters('x',l),...
+          [],...
+          'mode','model',...
+          'polynomial',[],...
+          'sinusoidal',simpledata.test_parameters('T',l),...
+          'x',simpledata.test_parameters('y_sin_scale')...
+        ),2)*ones(1,w);
+        % % The code below is the same as the code above
+        % c=simpledata.test_parameters('y_sin_scale');
+        % T=simpledata.test_parameters('T',l);
+        % x1=simpledata.test_parameters('x',l);
+        % out=zeros(l,w);
+        % for i=1:numel(T)
+        %   out=out+c(i)*sin( ...
+        %     2*pi/T(i)*x1*ones(1,w)...
+        %   );
+        % end
+      case 'y_cos_T'
+        out=sum(num.pardecomp(...
+          simpledata.test_parameters('x',l),...
+          [],...
+          'mode','model',...
+          'polynomial',[],...
+          'sinusoidal',simpledata.test_parameters('T',l),...
+          'x',[zeros(size(simpledata.test_parameters('y_sin_scale'))),simpledata.test_parameters('y_cos_scale')]...
+        ),2)*ones(1,w);
+        % % The code below is the same as the code above
+        % c=simpledata.test_parameters('y_cos_scale');
+        % T=simpledata.test_parameters('T',l);
+        % x1=simpledata.test_parameters('x',l);
+        % out=zeros(l,w);
+        % for i=1:numel(T)
+        %   out=out+c(i)*cos( ...
+        %     2*pi/T(i)*x1*ones(1,w)...
+        %   );
+        % end
       case 'y_sin'
         c=simpledata.test_parameters('y_sin_scale');
         T=simpledata.test_parameters('T',l);
@@ -518,7 +558,8 @@
         out=...
           simpledata.test_parameters('y_randn',l,w)+...
           simpledata.test_parameters('y_poly', l,w)+...
-          simpledata.test_parameters('y_sin_T',l,w);
+          simpledata.test_parameters('y_sin_T',l,w)+...
+          simpledata.test_parameters('y_cos_T',l,w);
       case {'randn','trend','sin','all','all_T'}
         args=simpledata.test_parameters('args',l,w);
         out=simpledata(...
@@ -554,7 +595,25 @@
 
       i=0;
 
-      i=i+1;h{i}=figure('visible','off');
+      i=i+1;
+      t=simpledata.test_parameters('x',l);
+      y=simpledata.test_parameters('y_all_T',l,w);
+      a=num.pardecomp(t,y(:,1),...
+        'polynomial',ones(size(simpledata.test_parameters('y_poly_scale'))),...
+        'sinusoidal',simpledata.test_parameters('T',l)...
+      );
+      disp(['sin_periods : ',num2str(simpledata.test_parameters('T',l))])
+      disp(['poly_coeffs : ',num2str(simpledata.test_parameters('y_poly_scale'))])
+      disp(['sin_coeffs  : ',num2str(simpledata.test_parameters('y_sin_scale'))])
+      disp(['cos_coeffs  : ',num2str(simpledata.test_parameters('y_cos_scale'))])
+      disp(['randn_scale : ',num2str(simpledata.test_parameters('y_randn_scale'))])
+      num.plot_pardecomp(a)
+      
+
+      
+      keyboard
+      
+      i=i+1;
       a=simpledata([1:4,5 7 9 11],[11 12 13 14 15 17 19 31]',...
         'mask',logical([1 1 0 0 1 1 0 0])...
       );
@@ -579,9 +638,7 @@
       a.augment(b,'quiet',true,'common',true,'new',true,'old',true,'skip_gaps',false).peek
       disp('---')
       a.augment(b,'quiet',true,'common',true,'new',true,'old',true,'skip_gaps',true).peek
-      
-      keyboard
-      
+           
       i=i+1;h{i}=figure('visible','on');
       a=cell(1,w*2);
       legend_str=cell(1,numel(a)+1);
@@ -2253,7 +2310,7 @@
       p.KeepUnmatched=true;
       p.addParameter('polynomial',[1 1], @(i) isnumeric(i) || isempty(i));
       p.addParameter('sinusoidal',   [], @(i) isnumeric(i) || isduration(i) || isempty(i));
-      p.addParameter('t_mod_f',      [], @(i) isnumeric(i) || isempty(i));
+      p.addParameter('t_mod_f',       1, @(i) isnumeric(i) || isempty(i));
       p.addParameter('t0',     obj.x(1), @(i) isnumeric(i) && isscalar(i));
       % parse it
       p.parse(varargin{:});
