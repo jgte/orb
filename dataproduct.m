@@ -290,7 +290,7 @@ classdef dataproduct
           [startlist,stoplist]=time.year_list(p.Results.start,p.Results.stop);
           timestamp_fmt='yyyy';
         case {'infinite','global'}
-          out={strrep(filename,'.<TIMESTAMP>','')};
+          filename=strrep(filename,'.<TIMESTAMP>','');
 %           if iscell(obj.metadata.plot_xlimits(1));xl=obj.metadata.plot_xlimits{1};
 %           else                                    xl=obj.metadata.plot_xlimits(1);
 %           end
@@ -301,12 +301,10 @@ classdef dataproduct
 %           end
 %           if isfinite(xl);stoplist=xl;else stoplist=[];end
           stoplist=p.Results.stop;
-          return
         case {'none'}
-          out={''};
+          filename='';
           startlist=time.zero_date;
           stoplist =time.zero_date;
-          return
         case {'direct'}
           startlist=p.Results.start;
            stoplist=p.Results.stop;
