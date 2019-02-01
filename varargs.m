@@ -440,7 +440,7 @@ classdef varargs < dynamicprops
     %% edit methods
     function obj=delete(obj,varargin)
       if numel(varargin)==1
-        parameters=varargin(1);
+        parameters=cells.scalar(cells.flatten(varargin{1}),'set');
       else
         parameters=varargin;
       end
