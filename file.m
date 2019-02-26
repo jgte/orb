@@ -585,12 +585,15 @@ classdef file
         io=[io,filesep];
       end
     end
-    function io=exist(io)
-      io=~isempty(file.unwrap(io,...
-        'disp',             false,...
-        'directories_only', false,...
-        'files_only',       false...
-      ));
+    function out=exist(in)
+      %vector mode
+      if iscellstr(in)
+        out=cellfun(@file.exist,in);
+      elseif ischar(in)
+        out=exist(in,'file')~=0;
+      else
+        error(['Cannot handle inputs of class ',class(in),'.'])
+      end
     end
     function out=datenum(in)
       fileinfo=dir(in);
