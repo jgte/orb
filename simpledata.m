@@ -972,8 +972,8 @@
       switch p.Results.mode
       case {'min','max','mean','std','rms','meanabs','stdabs','rmsabs'}
         %bad things happend when deriving statistics of zero or one data points
-        if size(obj.y_masked,1)<max([2,p.Results.minlen]);
-          out=nan(1,obj.width);
+        if size(obj.y_masked,1)<max([2,p.Results.minlen])
+          out=zeros(1,obj.width);
           return
         end
       end
@@ -1000,7 +1000,7 @@
       case 'norm';    out=norm(     obj.y_masked([],columns));
       case {'str','str-2l','str-3l','str-nl'} 
         out=cell(size(p.Results.struct_fields));
-        for i=1:numel(p.Results.struct_fields);
+        for i=1:numel(p.Results.struct_fields)
           out{i}=[...
             str.tabbed(p.Results.struct_fields{i},p.Results.tab),' : ',...
             num2str(...
@@ -1032,7 +1032,7 @@
           out=strjoin(out,'\n');
         end
       case 'struct'
-        for f=p.Results.struct_fields;
+        for f=p.Results.struct_fields
           out.(f{1})=stats@simpledata(obj,varargin{:},'mode',f{1});
         end
       case 'obj'
@@ -1098,7 +1098,7 @@
       switch p.Results.mode
       case {'cov','corrcoef'}
         %bad things happend when deriving statistics of zero or one data points
-        if size(obj1.y_masked,1)<=max([2,p.Results.minlen]);
+        if size(obj1.y_masked,1)<=max([2,p.Results.minlen])
           out=nan(1,obj1.width);
           return
         end
@@ -1111,19 +1111,19 @@
       end
       %branch on mode
       switch p.Results.mode
-      case 'cov';
+      case 'cov'
         out=num.cov(obj1.y_masked([],columns),obj1.y_masked([],columns));
       case {'corrcoef','corrcoeff'}
         out=num.corrcoef(obj1.y_masked([],columns),obj2.y_masked([],columns));
       case {'rmsdiff','stddiff'}
         o=obj1.cols(columns)-obj2.cols(columns);
         out=o.stats('mode',strrep(p.Results.mode,'diff',''));
-      case 'length';
+      case 'length'
         out=(obj1.nr_valid+obj2.nr_valid)*ones(1,numel(columns));
-      case 'gaps';
+      case 'gaps'
         out=(obj1.nr_gaps+obj2.nr_gaps)*ones(1,numel(columns));
       case 'struct'
-        for f=p.Results.struct_fields;
+        for f=p.Results.struct_fields
           out.(f{1})=obj1.stats2(obj2,varargin{:},'mode',f{1});
         end
       case 'obj'
