@@ -193,6 +193,8 @@ classdef dataproduct
           dn_now=datanames(strjoin(in_split(1:i-1),file.build_element_char),in_split(i:end));
           if exist(dataproduct.mdfile_static(dn_now,obj.metadata_dir),'file')~=0
             %found it!
+            str.say('NOTICE: could not find metadata of product ',obj.dataname.str,...
+              ' but found metadata of product ',dn_now.str,' (using the latter).')
             obj.dataname=dn_now;
           end
         end
