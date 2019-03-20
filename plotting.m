@@ -32,21 +32,25 @@ classdef plotting
         'plot_title_replace',   {},       @(i) iscellstr(i);...
         'plot_grid',            true,     @(i) islogical(i);...
         'plot_line_width',      2,        @(i) isnumeric(i);...
-        'plot_line_style',  'none',       @(i) ischar(i) || iscellstr(i);...
-        'plot_line_color',  'many',       @(i) ischar(i);...
-        'plot_colormap',        '',       @(i) ischar(i) || ishandle(i);...
-        'plot_psd',          false,       @(i) islogical(i);...
-        'plot_autoscale',    false,       @(i) islogical(i);... %y-scale is derived from the data (in plotting.enforce)
-        'plot_autoscale_factor', 4,       @(i) isnumeric(i) && isscalar(i); ...
-        'plot_automean',     false,       @(i) islogical(i);... %middle-point of y axis is derived from the data (in plotting.enforce)
-        'plot_zeromean',     false,       @(i) islogical(i);... %mean of data is removed before plotting (in simpledata.plot)
-        'plot_outlier',          0,       @(i) isnumeric(i) && isscalar(i); ...
-        'plot_caxis',   [-inf,inf],       @(i) isnumeric(i) && numel(i)==2;...
+        'plot_line_style', 'none',        @(i) ischar(i) || iscellstr(i);...
+        'plot_line_color',  'jet',        @(i) ischar(i);...
+        'plot_line_color_order',0,        @(i) isnumeric(i);...
+        'plot_colormap',       '',        @(i) ischar(i) || ishandle(i);...
+        'plot_psd',         false,        @(i) islogical(i);...
+        'plot_autoscale',   false,        @(i) islogical(i);... %y-scale is derived from the data (in plotting.enforce)
+        'plot_autoscale_factor',4,        @(i) isnumeric(i) && isscalar(i); ...
+        'plot_automean',    false,        @(i) islogical(i);... %middle-point of y axis is derived from the data (in plotting.enforce)
+        'plot_zeromean',    false,        @(i) islogical(i);... %mean of data is removed before plotting (in simpledata.plot)
+        'plot_outlier',         0,        @(i) isnumeric(i) && isscalar(i); ...
+        'plot_caxis',  [-inf,inf],        @(i) isnumeric(i) && numel(i)==2;...
     };
   end
   methods(Static)
     %% primitives
     function out=line_handles(axis_handle)
+      if ~exist('axis_handle','var') || isempty(axis_handle)
+          axis_handle = gca;
+      end
       tmp=get(axis_handle,'Children');
       c=0;out=[];
       for i=1:numel(tmp)
@@ -93,7 +97,118 @@ classdef plotting
         v=datetime(v,'ConvertFrom','datenum');
       end
     end
-    function line_color(mode,axis_handle)
+    function out=line_color_map(mode,n)
+      % handle inputs
+      if ~exist('mode','var') || isempty(mode)
+          mode='spiral';
+      end
+      % translate mode
+      switch strrep(lower(mode),'-reversed','')
+      case {'flat','boring'}
+        branch=0;
+      case{'multi','many'}
+        branch=1;
+      case{'reversed','spiral'}
+        branch=2;
+      case{'jet','hsv','hot','cool','spring','summer','autumn','winter','gray','bone','copper','pink','lines'}
+        colormap_name=strrep(lower(mode),'-reversed','');
+        branch=3;
+      otherwise
+        error(['Unknown mode ''',mode,'''.'])
+      end
+      %get colororder according to branch
+      switch (branch)
+      case 0
+        colororder=[
+          0     0     1 %blue
+          1     0     0 %red
+          0     1     0 %green
+          0     1     1 %cyan
+          1     0     1 %magenta
+          1     1     0 %yellow
+          0     0     0 %black
+        ];
+      case 1
+        % http://blogs.mathworks.com/pick/2008/08/15/colors-for-your-multi-line-plots/#comment-12842
+        colororder = [
+            0.00  0.00  1.00
+            0.00  0.50  0.00
+            1.00  0.00  0.00
+            0.00  0.75  0.75
+            0.75  0.00  0.75
+            0.75  0.75  0.00
+            0.25  0.25  0.25
+            0.75  0.25  0.25
+            0.95  0.95  0.00
+            0.25  0.25  0.75
+            0.75  0.75  0.75
+            0.00  1.00  0.00
+            0.76  0.57  0.17
+            0.54  0.63  0.22
+            0.34  0.57  0.92
+            1.00  0.10  0.60
+            0.88  0.75  0.73
+            0.10  0.49  0.47
+            0.66  0.34  0.65
+            0.99  0.41  0.23
+        ];
+      case 2
+        %number of points in the extremeties to remove
+        n_extrem=ceil(n*0.3);
+        % http://bsp.pdx.edu/Publications/2006/SPM_McNames.pdf
+        nc=n+2*n_extrem;
+        np=2.5;
+        % algorithm
+        wn = sqrt(3/8)*[0;triang(nc-2);0];  % Triangularwindow function
+        a12 = asin(1/sqrt(3));              % First rotation angle
+        a23 = pi/4;                         % Second rotation angle
+        t = linspace(sqrt(3),0,nc).';       % Independent variable
+        r0 = t;                             % Initial red values
+        g0 = wn.*cos(((t-sqrt(3)/2)*np*2*pi/sqrt(3))); % Initial green values
+        b0 = wn.*sin(((t-sqrt(3)/2)*np*2*pi/sqrt(3))); % Initial blue values
+        [ag,rd] = cart2pol(r0,g0);          % Convert RG to polar
+        [r1,g1] = pol2cart(ag+a12,rd);      % Rotate& convert back
+        b1 = b0;
+        [ag,rd] = cart2pol(r1,b1);          % Convert RB to polar
+        [r2,b2] = pol2cart(ag+a23,rd);      % Rotate & convert back
+        g2 = g1;
+        r = max(min(r2,1),0);               % Ensure finite precision
+        g = max(min(g2,1),0);               % effects don't exceed
+        b = max(min(b2,1),0);               % unit cube boundaries
+        colororder = [r g b];               % Final colormap matrix
+        %cropping extremeties (avoids too dark or too light colors)
+        colororder([1:n_extrem,end-n_extrem+1:end],:)=[];
+      case 3
+        % colormaps name
+        switch strrep(mode,'-reversed','')
+        %some colormaps include the white color, need to remove it
+        case{'gray','bone','pink','hot'}
+          colororder=eval([colormap_name,'(',num2str(n+1),')']);
+          colororder=colororder(1:end-1,:);
+        otherwise
+          colororder=eval([colormap_name,'(',num2str(n),')']);
+        end
+      end
+      %make sure we got the right number of colors
+      while size(colororder,1) < n
+        colororder=[colororder;colororder]; %#ok<AGROW>
+      end
+      if size(colororder,1) > n
+        colororder=colororder(1:n,:);
+      end
+      %transform colororder to cell array
+      out=cell(size(colororder,1),1);
+      for i=1:size(colororder,1)
+          out{i}=colororder(i,:);
+      end
+      %enforce reverse order of colours
+      if ~isempty(strfind(mode,'-reversed'))
+        out=flipud(out);
+      end
+      %matlab orders lines in the reverse way
+      out=flipud(out);
+    end
+    function line_color(mode,order,axis_handle)
       % PLOT_LINE_COLOR assigns different colors to all the plotted lines.
       %
       %   By default PLOT_LINE_COLOR works on the current graphics and uses a
@@ -123,133 +238,47 @@ classdef plotting
       if ~exist('mode','var') || isempty(mode)
           mode='spiral';
       end
+      if ~exist('order','var') || isempty(order)
+          order = -1;
+      end
       if ~exist('axis_handle','var') || isempty(axis_handle)
           axis_handle = gca;
       end
-      % translate mode
-      switch strrep(lower(mode),'-reversed','')
-      case {'flat','boring'}
-        branch=0;
-      case{'multi','many'}
-        branch=1;
-      case{'reversed','spiral'}
-        branch=2;
-      case{'jet','hsv','hot','cool','spring','summer','autumn','winter','gray','bone','copper','pink','lines'}
-        colormap_name=strrep(lower(mode),'-reversed','');
-        branch=3;
-      otherwise
-        error(['Unknown mode ''',mode,'''.'])
+      %getting lines in this axis
+      lines=findobj(axis_handle,'Type','line');
+      %enforcing
+      if isscalar(order)
+        order=1:numel(lines);
       end
-      %loop over all axis
-      for h = axis_handle(:)'
-        %getting lines in this axis
-        lines=findobj(h,'Type','line');
-        %trivial call
-        if isempty(lines)
-          continue
-        end
-        %get colororder according to branch
-        switch (branch)
-        case 0
-          colororder=[
-            0     0     1 %blue
-            1     0     0 %red
-            0     1     0 %green
-            0     1     1 %cyan
-            1     0     1 %magenta
-            1     1     0 %yellow
-            0     0     0 %black
-          ];
-        case 1
-          % http://blogs.mathworks.com/pick/2008/08/15/colors-for-your-multi-line-plots/#comment-12842
-          colororder = [
-              0.00  0.00  1.00
-              0.00  0.50  0.00
-              1.00  0.00  0.00
-              0.00  0.75  0.75
-              0.75  0.00  0.75
-              0.75  0.75  0.00
-              0.25  0.25  0.25
-              0.75  0.25  0.25
-              0.95  0.95  0.00
-              0.25  0.25  0.75
-              0.75  0.75  0.75
-              0.00  1.00  0.00
-              0.76  0.57  0.17
-              0.54  0.63  0.22
-              0.34  0.57  0.92
-              1.00  0.10  0.60
-              0.88  0.75  0.73
-              0.10  0.49  0.47
-              0.66  0.34  0.65
-              0.99  0.41  0.23
-          ];
-        case 2
-          % color spiral map size
-          n=length(lines);
-          %number of points in the extremeties to remove
-          n_extrem=ceil(n*0.3);
-          % http://bsp.pdx.edu/Publications/2006/SPM_McNames.pdf
-          nc=n+2*n_extrem;
-          np=2.5;
-          % algorithm
-          wn = sqrt(3/8)*[0;triang(nc-2);0];  % Triangularwindow function
-          a12 = asin(1/sqrt(3));              % First rotation angle
-          a23 = pi/4;                         % Second rotation angle
-          t = linspace(sqrt(3),0,nc).';       % Independent variable
-          r0 = t;                             % Initial red values
-          g0 = wn.*cos(((t-sqrt(3)/2)*np*2*pi/sqrt(3))); % Initial green values
-          b0 = wn.*sin(((t-sqrt(3)/2)*np*2*pi/sqrt(3))); % Initial blue values
-          [ag,rd] = cart2pol(r0,g0);          % Convert RG to polar
-          [r1,g1] = pol2cart(ag+a12,rd);      % Rotate& convert back
-          b1 = b0;
-          [ag,rd] = cart2pol(r1,b1);          % Convert RB to polar
-          [r2,b2] = pol2cart(ag+a23,rd);      % Rotate & convert back
-          g2 = g1;
-          r = max(min(r2,1),0);               % Ensure finite precision
-          g = max(min(g2,1),0);               % effects don't exceed
-          b = max(min(b2,1),0);               % unit cube boundaries
-          colororder = [r g b];               % Final colormap matrix
-          %cropping extremeties (avoids too dark or too light colors)
-          colororder([1:n_extrem,end-n_extrem+1:end],:)=[];
-        case{3}
-          % colormaps name
-          switch strrep(mode,'-reversed','')
-          %some colormaps include the white color, need to remove it
-          case{'gray','bone','pink','hot'}
-            colororder=eval([colormap_name,'(',num2str(length(lines)+1),')']);
-            colororder=colororder(1:end-1,:);
-          otherwise
-            colororder=eval([colormap_name,'(',num2str(length(lines)),')']);
-          end
-        end
-        %transform lines of colororder to cell array
-        clr=cell(size(colororder,1),1);
-        for i=1:size(colororder,1)
-            clr{i}=colororder(i,:);
-        end
-      end
-      %make sure variable clr is defined; if not, that usually means
-      %there are no lines in this plot
-      if ~exist('clr','var'); return; end
-      %enforce reverse order of colours
-      if ~isempty(strfind(mode,'-reversed'))
-        clr=flipud(clr);
-      end
-      %matlab orders lines in the reverse way
-      fix_idx=numel(lines):-1:1;
+      %flip order upside down because matlab orders lines in the reverse way
+      order=flipud(order(:));
+      %get requested color scheme
+      cm=plotting.line_color_map(mode,numel(lines));
       %loop over all lines or clr entries
-      for i=1:min([numel(lines),numel(clr)])
-        set(lines(fix_idx(i)),'Color',clr{i})
+      for i=1:min([numel(lines),numel(cm)])
+        set(lines(i),'Color',cm{order(i)})
       end
     end
-    function line_color_set_last(axis_handle)
+    function out=line_color_set_last(axis_handle)
       if ~exist('axis_handle','var') || isempty(axis_handle)
         axis_handle = gca;
       end
       lines=findobj(axis_handle,'Type','line');
       set(lines(2),'Color',get(lines(1),'Color'))
+      if nargout>0; out=lines(1); end
     end
+
+%     function line_color_reorder(order,axis_handle)
+%       if ~exist('axis_handle','var') || isempty(axis_handle)
+%         axis_handle = gca;
+%       end
+%       lines=findobj(axis_handle,'Type','line');
+%       n=min([numel(order),numel(lines)]);
+%       colors=flipud(arrayfun(@(i) get(i,'Color'),lines,'UniformOutput',false));
+%       for i=1:n
+%         set(lines(i),'Color',colors{order(i)})
+%       end
+%     end
     function line_width(w,axis_handle)
       % handle inputs
       if ~exist('w','var') || isempty(w)
@@ -499,16 +528,20 @@ classdef plotting
       set(get(out.axis_handle,'XLabel'),'FontSize',v.plot_fontsize_label);
       set(get(out.axis_handle,'YLabel'),'FontSize',v.plot_fontsize_label);
       
+            %enforce legend
+      out.legend_handle=plotting.legend(varargin{:});
+
+      
       % enforce line properties
       line_handles=plotting.line_handles(out.axis_handle);
       for i=1:numel(line_handles)
         set(line_handles(i),'LineWidth',v.plot_line_width)
       end
-      if ~strcmpi(v.plot_line_style,'none')
+      if ~str.none(v.plot_line_style)
         plotting.line_style(v.plot_line_style,out.axis_handle)
       end
-      if ~isempty(v.plot_line_color)
-        plotting.line_color(v.plot_line_color,out.axis_handle)
+      if ~str.none(v.plot_line_color)
+        plotting.line_color(v.plot_line_color,v.plot_line_color_order,out.axis_handle)
       end
       
       % start with x axis
@@ -659,8 +692,20 @@ classdef plotting
         caxis(ca);
       end
       
-      %enforce legend
-      out.legend_handle=plotting.legend(varargin{:});
+    end
+    function out=legend_replace_clean(varargin)
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{plotting.default,{...
+        'axis_handle',  gca,  @(i) ~isempty(i) && ishandle(i);...
+      }},varargin{:});
+      %replace explicit strings (keep this before the legend-cleaning bit so the strings make sense outside)
+      if ~isempty(v.plot_legend_replace)
+        out=cellfun(@(i) str.rep(i,v.plot_legend_replace{:}),v.plot_legend,'UniformOutput',false);
+      else
+        out=v.plot_legend;
+      end
+      %clean legend of _ and remove whatever is given in plot_legend_suppress
+      out=cellfun(@(i) str.clean(i,[v.plot_legend_suppress(:);{'title'}]),out,'UniformOutput',false);
     end
     function legend_handle=legend(varargin)
       % add input arguments and metadata to collection of parameters 'v'
