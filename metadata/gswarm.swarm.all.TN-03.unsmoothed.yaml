@@ -7,7 +7,6 @@ plot_legend_location: best
 
 # plot_temporal_stats
 plot_temp_stat_list: [corrcoeff,rmsdiff] #[corrcoeff,rmsdiff,stddiff]
-plot_temp_stat_func: [nondim,geoid]      #[nondim,geoid,geoid]
 #plot_temp_stat_title: <something>
 
 #plot_spatial_stats

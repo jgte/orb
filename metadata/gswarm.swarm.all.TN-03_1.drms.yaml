@@ -27,7 +27,7 @@ plot_corrcoeff_caxis: [0,1]
 plot_legend_box: false
 
 # plot_temporal_stats
-plot_temp_stat_func: []      #[nondim,geoid,geoid]
+plot_temp_stat_list: []      #[nondim,geoid,geoid]
 
 #plot_spatial_stats
 plot_functional: geoid

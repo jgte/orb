@@ -13,6 +13,9 @@ polynames: [constant,linear]
 sin_period: [1, 0.5]
 sin_period_unit: years
 sin_names: [yearly,semi-yearly]
+parametric_decomposition: true
+plot_parametric_components: [p0,p1]
+
 
 plot_smoothing_method: gauss
 plot_smoothing_degree: [300e3,750e3,750e3,750e3,750e3,750e3,750e3,750e3,750e3]
