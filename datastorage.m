@@ -1225,6 +1225,7 @@ classdef datastorage
       for i=1:product.nr_sources
         %load this source if it is empty (use obj.init explicitly to re-load or reset data)
         if obj.isdata_empty(product.sources(i)) || p.Results.reload || p.Results.force
+          obj.log('@','iter','product',product,'loading source',product.sources(i))
           obj=obj.init(product.sources(i),varargin{:});
         end
       end
