@@ -449,9 +449,18 @@ classdef gravity < simpletimeseries
         %        e.g. if gravity.load_dir is used) will time be same as the one saved
         %        in the mat file.
         load(mat_filename)
+        %handle particular cases
+        if ~exist('m','var')
+          if exist('sol','var')
+            m=sol.mod.(sol.names{1}).dat;
+            e=[];
+          else
+            error(['Cannot handle mat file ',mat_filename,'; consider deleting so it is re-generated'])
+          end
+        end
         %enforce input 'time'
-        if m.t~=time;m.t=time;end %#ok<NODEF>
-        if ~isempty(e) && e.t~=time;e.t=time;end %#ok<NODEF>
+        if m.t~=time;m.t=time;end 
+        if ~isempty(e) && e.t~=time;e.t=time;end 
       end
     end
     function out=parse_epoch_grace(filename)
@@ -558,8 +567,9 @@ classdef gravity < simpletimeseries
       c=0;init_flag=true;
       %loop over all models
       for i=1:numel(filelist)
-        %skip png files (some plots inheret the name of the models)
-        if strcmp(filelist{i}(end-3:end),'.png'); c=c+1; continue; end
+        %skip png and yamls files (some files inheret the name of the models)
+        [~,~,ext]=fileparts(filelist{i});
+        if cells.isincluded({'.png','.yaml'},ext); c=c+1; continue; end
         %get time of the model in this file
         if strcmpi(func2str(p.Results.date_parser),'static')
           %if a static field is requested, there should be only one file
