@@ -5,7 +5,7 @@ method: gswarm.plot_low_degrees
 
 degrees: [  2,  3,  4]
 orders:  [inf,inf,inf]
-sources: [scales.RL05.sh.comp/t_crop_31Dec2015/t_crop_31Dec2015,singleacc.GEO]
+sources: [scales.RL05.sh.comp/t_crop_31Dec2015/t_crop_31Dec2015,singleacc.GEO.f01zb0100h09az93]
 stats_relative_to: scales.RL05.sh.comp/t_crop_31Dec2015/t_crop_31Dec2015
 
 explicit_fields: true
@@ -22,6 +22,9 @@ plot_legend_box: false
 plot_legend_location: east
 plot_max_lines: 28
 plot_line_color: jet
+
+#NOTICE: the first time these plots are run, the limits are those of the whole GRACE mission. run it again and they are ok
+# plot_xlimits: [ "2016-10-01" "2017-08-01" ]
 
 plot_pause_on_save: false
 plot_visible: false

@@ -17,26 +17,27 @@ storage_period: direct
 #plotting
 plot_outlier: 0
 plot_xdateformat: yy/mm
-plot_functional: eqwh
 plot_legend_suppress: [smoothed,res,v01,v02,v03,v04,v05,v06,v07,v08,v09,v10]
 plot_title_suppress: [gswarm,swarm,smoothed,res,signal]
 plot_legend_replace: [
   'asu ifg','asu',
   'osu aiub','osu',
-  'combined v07','VCE comb 20',
-  'combined v08','VCE comb 40',
-  'combined v09','NEQ comb 20',
-  'combined v10','NEQ comb 40',
+  'combined v07','NEQ comb 20',
+  'combined v08','NEQ comb 40',
+  'combined v09','VCE comb 20',
+  'combined v10','VCE comb 40',
 ]
-plot_stddiff_caxis: [0,0.0035]
-plot_rmsdiff_caxis: [0,0.0045]
+plot_functional: eqwh
+plot_stddiff_caxis: [0,0.015]
+plot_rmsdiff_caxis: [0,0.02]
 plot_corrcoeff_caxis: [0,1]
 plot_colormap: jet
 plot_legend_box: false
 plot_spatial_mask: none
+plot_save_data: yes
+
 plot_pause_on_save: false
 plot_visible: false
-plot_save_data: yes
 
 #plot_ops
 plot_min_degree: 2
