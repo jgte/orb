@@ -528,7 +528,7 @@ classdef plotting
       set(get(out.axis_handle,'XLabel'),'FontSize',v.plot_fontsize_label);
       set(get(out.axis_handle,'YLabel'),'FontSize',v.plot_fontsize_label);
       
-            %enforce legend
+      %enforce legend
       out.legend_handle=plotting.legend(varargin{:});
 
       
