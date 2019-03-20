@@ -523,11 +523,9 @@ classdef file
     end
     function [out,s]=find(varargin)
       com=['find ',strjoin(str.clean(varargin,'regex'),' ')];
-      str.say('stack_delta',1,com)
       [s,r]=system(com);
       if s~=0
-        str.say('stack_delta',1,r)
-        out={};
+         out={};
       else
         out=cells.rm_empty(strsplit(r,newline));
       end
