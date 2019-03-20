@@ -15,18 +15,18 @@ plot_functional: geoid
 # plot_automean: true
 # plot_autoscale: true
 # plot_autoscale_factor: 6
-plot_legend_replace: ['t_crop','cropping']
-plot_legend_suppress: ['signal','sh','comp','scales','singleacc']
+plot_legend_suppress: ['signal','sh','comp','scales','singleacc','f0zb000h09az3','GEO','grace','t_crop_31Dec2015']
 plot_legend_box: false
 plot_legend_location: east
-plot_title_suppress: ['GEO','singleacc','scales','signal','sh','comp','COMP']
+plot_title_suppress: ['GEO','singleacc','scales','signal','sh','comp','COMP','f0zb000h09az3']
 plot_title_replace: ['RL05','predicted RL05']
 plot_stddiff_caxis: [0,0.001]
 plot_rmsdiff_caxis: [0,0.001]
 plot_corrcoeff_caxis: [0,1]
 plot_size: [200,200,775,650]
-plot_pause_on_save: true
-plot_visible: true
+show_legend_stats: false
+plot_pause_on_save: false
+plot_visible: false
 plot_type: line
 
 
