@@ -301,10 +301,12 @@ classdef dataproduct
 %           end
 %           if isfinite(xl);stoplist=xl;else stoplist=[];end
           stoplist=p.Results.stop;
+          timestamp_fmt='none';
         case {'none'}
           filename='';
           startlist=time.zero_date;
           stoplist =time.zero_date;
+          timestamp_fmt='none';
         case {'direct'}
           startlist=p.Results.start;
            stoplist=p.Results.stop;
@@ -314,15 +316,20 @@ classdef dataproduct
         end
         %build list of files
         out=cell(size(startlist));
-        for i=1:numel(startlist)
-          if p.Results.start_timestamp_only
-            out{i}=strrep(filename,'<TIMESTAMP>',...
-              datestr(startlist(i),timestamp_fmt)...
-            );
-          else
-            out{i}=strrep(filename,'<TIMESTAMP>',[...
-              datestr(startlist(i),timestamp_fmt),'T',datestr(stoplist(i),timestamp_fmt)...
-            ]);
+        if str.none(timestamp_fmt)
+          assert(numel(startlist)==1,'BUG TRAP: timestamp_fmt is ''none'' but there are multiple entries in ''startlist''.')
+          out{1}=filename;
+        else
+          for i=1:numel(startlist)
+            if p.Results.start_timestamp_only
+              out{i}=strrep(filename,'<TIMESTAMP>',...
+                datestr(startlist(i),timestamp_fmt)...
+              );
+            else
+              out{i}=strrep(filename,'<TIMESTAMP>',[...
+                datestr(startlist(i),timestamp_fmt),'T',datestr(stoplist(i),timestamp_fmt)...
+              ]);
+            end
           end
         end
       else
