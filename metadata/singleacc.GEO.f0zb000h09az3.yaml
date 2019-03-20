@@ -1,0 +1,21 @@
+import_dir: <getenv('HOME')>/data/singleacc/GEO
+model_types: [signal]
+scenarios: [
+f0b000h33,
+f0b000h53,
+f0b000h73,
+f0b000h93,
+f0b000hg3,
+f0z000h53,
+f0z000h73,
+f0z000h93,
+]
+wilcarded_filename: '*.GEO.*'
+model_format: csr
+date_parser: gravity.parse_epoch_csr
+method:  gswarm.load_project_models
+static_model: scales.static
+submetadata: singleacc.processing.submetadata
+start: 2016-11-01
+plot_xdate: true
+plot_xdateformat: yy
