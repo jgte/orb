@@ -222,15 +222,20 @@ classdef str
     %transforms a matrix into the data part of a latex table
     function out=latex_table(in,fmt)
       assert(numel(size(in))<=2,'Need numeric matrix/vector/scales input')
+      if ~exist('fmt','var'); fmt='%g'; end
+      if ~iscell(fmt) || numel(fmt)~=size(in,2)
+        tmp=cell(1,size(in,2));
+        tmp(:)={fmt};
+        fmt=tmp;
+      end
       out=cell(size(in));
       if isnumeric(in)
-        if ~exist('fmt','var'); fmt='%g'; end
         for i=1:size(in,1)
           for j=1:size(in,2)
             if j==size(in,2)
-              out{i,j}=[num2str(in(i,j),fmt),' \\',newline];
+              out{i,j}=[num2str(in(i,j),fmt{j}),' \\',newline];
             else
-              out{i,j}=[num2str(in(i,j),fmt),' & '];
+              out{i,j}=[num2str(in(i,j),fmt{j}),' & '];
             end
           end
         end
@@ -243,9 +248,9 @@ classdef str
           else
             for j=1:size(in,2)
               if j==size(in,2)
-                out{i,j}=[in{i,j},' \\',newline];
+                out{i,j}=[str.show(in{i,j},fmt{j}),' \\',newline];
               else
-                out{i,j}=[in{i,j},' & '];
+                out{i,j}=[str.show(in{i,j},fmt{j}),' & '];
               end
             end
           end
