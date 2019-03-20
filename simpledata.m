@@ -140,7 +140,7 @@
       switch mode
       case {'=','==','equal'}
         if numel(x1)==numel(x2) 
-          out=(x1(:)-x2(:)).^2<tol.^2;
+         out=(x1(:)-x2(:)).^2<tol.^2;
         elseif isscalar(x1)
           out=(x1-x2(:)).^2<tol.^2;
         elseif isscalar(x2)
@@ -1086,15 +1086,14 @@
       % parse it
       p.parse(varargin{:});
       %need compatible objects
-      compatible(obj1,obj2)
+      compatible(obj1,obj2,varargin{:})
+      %need to make the mask match to make sure x_masked is common
+      [obj1,obj2]=obj1.mask_match(obj2,'x-domain discrepancy, interpolate objects before calling this method');
       %remove outliers
       for i=1:p.Results.outlier
         obj1=obj1.outlier(p.Results.outlier_sigma);
         obj2=obj2.outlier(p.Results.outlier_sigma);
       end
-      %need the x-domain and masks to be identical
-      [obj1,obj2]=merge(obj1,obj2);
-      [obj1,obj2]=mask_match(obj1,obj2);
       %trivial call
       switch p.Results.mode
       case {'cov','corrcoef'}
@@ -1150,7 +1149,7 @@
           end
         end
       otherwise
-        error([mfilename,': unknown mode.'])
+        error([mfilename,': unknown mode ''',p.Results.mode,'''.'])
       end
       %bug traps
       if isnumeric(out)
@@ -1422,7 +1421,11 @@
     function out=nr_valid(obj)
       out=sum(obj.mask);
     end
-    function [obj1,obj2]=mask_match(obj1,obj2)
+    function [obj1,obj2]=mask_match(obj1,obj2,errmsg)
+      if ~exist('errmsg','var') || isempty(errmsg)
+        errmsg='x-domain discrepancy, cannot match masks';
+      end
+      assert(obj1.length==obj2.length && all(simpledata.isx('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol]))),errmsg)
       obj1.mask=obj1.mask & obj2.mask;
       obj2.mask=obj2.mask & obj1.mask;
       obj1=obj1.mask_update;
@@ -1442,6 +1445,9 @@
         assert(all(obj.mask) && ~any(isnan(obj.y(:))),...
           [mfilename,': making operation failed: found non-unitary mask entries and/or NaNs in the data.'])
       end
+    end
+    function out=ismaskcommon(obj1,obj2)
+      out=obj1.length==obj2.length && obj1.nr_gaps==obj2.nr_gaps && all(obj1.x_masked==obj2.x_masked);
     end
     %% invalid methods
     function obj=demasked(obj,invalid)
@@ -1835,6 +1841,8 @@
       %add as gaps in obj2 those x that are in obj1 but not in obj2
       % - y_new sets the value of the data at the new entries of x, both obj1
       %   and obj2 (default to NaN)
+      %NOTE: no interpolation is done between the objects, only
+      %      the x-domain is made in agreement between them
       if ~exist('y_new','var') || isempty(y_new)
         y_new=NaN;
       end
@@ -1853,8 +1861,6 @@
       %with the each other. The resulting x-domains possibly have
       %numerous gaps, which are interpolated over (interpolation
       %scheme and other options can be set in varargin).
-      %NOTE: no interpolation is done between the objects, only
-      %      the x-domain is made in agreement between then
       compatible(obj1,obj2,varargin{:})
       %trivial call
       if isxequal(obj1,obj2)
@@ -2358,7 +2364,7 @@
         error([mfilename,': cannot handle objects of class ''',class(obj),'''.'])
       end
       % assign outputs
-      for i=1:numel(p.Results.polynomial)
+      for i=1:p.Results.polynomial
         %save polynomial coefficients
         o=init(x_now(1),transpose(num.struct_deal(d,'polynomial',i,[])));
         o=o.copy_metadata(obj);
