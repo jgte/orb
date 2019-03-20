@@ -313,7 +313,7 @@ classdef str
           '?','\?',...
           '*','\*');
       case {'noregex','noregexp'}
-        s=str.clean(s,{'[',']','?','+','*'});
+        s=str.clean(s,{'[',']','?','+','*','-'});
       case '<grace>'
         sats={'A','B'};
         names={'gr<SAT>.','gr<SAT>.','G<SAT>_','G<SAT>_'};
