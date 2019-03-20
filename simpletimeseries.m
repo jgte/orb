@@ -1255,6 +1255,16 @@ classdef simpletimeseries < simpledata
       end
       out=time.FromDateTime(obj.t(mask),'modifiedjuliandate');
     end
+    %% mask methods
+    function [obj1,obj2]=mask_match(obj1,obj2,errmsg)
+      if ~exist('errmsg','var') || isempty(errmsg)
+        errmsg='time domain discrepancy, cannot match masks';
+      end
+      %match epochs
+      obj1.epoch=obj2.epoch;
+      %call mother routine
+      [obj1,obj2]=mask_match@simpledata(obj1,obj2,errmsg);
+    end
     %% step methods
     function out=step_num(obj)
       out=simpletimeseries.timescale(obj.step);
