@@ -275,46 +275,47 @@ classdef dataproduct
         if isempty(out);out={};end
       %resolve time stamp
       elseif p.Results.use_storage_period
-        if ~isfinite(p.Results.stop)
-          out={''};
-          startlist=time.zero_date;
-          stoplist =time.zero_date;
-          return
-        end
+        %first handle storage periods with infinite span
         switch lower(obj.mdget('storage_period'))
-        case {'day','daily'}
-          [startlist,stoplist]=time.day_list(p.Results.start,p.Results.stop);
-          timestamp_fmt='yyyymmdd';
-        case {'month','monthly'}
-          [startlist,stoplist]=time.month_list(p.Results.start,p.Results.stop);
-          timestamp_fmt='yyyymm';
-        case {'year','yearly'}
-          [startlist,stoplist]=time.year_list(p.Results.start,p.Results.stop);
-          timestamp_fmt='yyyy';
         case {'infinite','global'}
           filename=strrep(filename,'.<TIMESTAMP>','');
-%           if iscell(obj.metadata.plot_xlimits(1));xl=obj.metadata.plot_xlimits{1};
-%           else                                    xl=obj.metadata.plot_xlimits(1);
-%           end
-%           if isfinite(xl);startlist=xl;else startlist=[];end
-          startlist=p.Results.start;
-%           if iscell(obj.metadata.plot_xlimits(2));xl=obj.metadata.plot_xlimits{2};
-%           else                                    xl=obj.metadata.plot_xlimits(2);
-%           end
-%           if isfinite(xl);stoplist=xl;else stoplist=[];end
-          stoplist=p.Results.stop;
+          startlist=time.zero_date;
+          stoplist =time.inf_date;
           timestamp_fmt='none';
         case {'none'}
           filename='';
           startlist=time.zero_date;
           stoplist =time.zero_date;
           timestamp_fmt='none';
-        case {'direct'}
-          startlist=p.Results.start;
-           stoplist=p.Results.stop;
-           timestamp_fmt='yyyymmdd';
         otherwise
-          error([mfilename,': cannot handle metadata key ''storage_period'' with value ''',obj.mdget('storage_period'),'''.'])
+          %check if stop date is compatible
+          if ~isfinite(p.Results.stop)
+            %TODO: check if this ever happens, probably need to throw an error here
+            keyboard
+            %old code:
+            out={''};
+            startlist=time.zero_date;
+            stoplist =time.zero_date;
+            return
+          else
+            switch lower(obj.mdget('storage_period'))
+            case {'day','daily'}
+              [startlist,stoplist]=time.day_list(p.Results.start,p.Results.stop);
+              timestamp_fmt='yyyymmdd';
+            case {'month','monthly'}
+              [startlist,stoplist]=time.month_list(p.Results.start,p.Results.stop);
+              timestamp_fmt='yyyymm';
+            case {'year','yearly'}
+              [startlist,stoplist]=time.year_list(p.Results.start,p.Results.stop);
+              timestamp_fmt='yyyy';
+            case {'direct'}
+              startlist=p.Results.start;
+               stoplist=p.Results.stop;
+               timestamp_fmt='yyyymmdd';
+            otherwise
+              error([mfilename,': cannot handle metadata key ''storage_period'' with value ''',obj.mdget('storage_period'),'''.'])
+            end
+          end
         end
         %build list of files
         out=cell(size(startlist));
