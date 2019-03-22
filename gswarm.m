@@ -198,19 +198,7 @@ classdef gswarm
         case 'static_model'
           %remove static field (if requested)
           if v.isparameter('static_model') && ~strcmpi(v.static_model,'none')
-            datafilename=[v.static_model,'.mat'];
-            %load model (only if not already done)
-            if isempty(dir([v.static_model,'.mat']))
-              static=datastorage().init(v.static_model);
-              %reduce to gravity class
-              static=static.data_get_scalar(datanames(v.static_model).set_field_path('signal'));
-              %save it
-              save(datafilename,'static')
-            else
-              load(datafilename)
-              assert(isa(static,'gravity'),['The data saved in file ',datafilename,...
-                ' must be of class ''gravity'', not ''',class(static),'''.']) %#ok<NODEF>
-            end
+            static=datastorage().init(v.static_model);
             %adjust the start/stop
             switch static.length
             case 1
