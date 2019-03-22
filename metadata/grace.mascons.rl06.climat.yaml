@@ -1,0 +1,18 @@
+import_dir: <getenv('HOME')>/data/csr/mascons/RL06-climat
+model_types: [signal]
+wilcarded_filename: '*_mascongeo_RL06eq200km.GEO.wMJD'
+model_format: csr
+date_parser: gravity.parse_epoch_csr
+storage_period: yearly
+method:  gswarm.load_models
+static_model: none
+
+use_GRACE_C20: false
+delete_C20: false
+delete_C00: true
+start: 2015-11-01
+stop: 2017-06-30
+
+plot_xdate: true
+plot_xdateformat: yy
+

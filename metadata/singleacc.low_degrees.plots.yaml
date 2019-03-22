@@ -2,8 +2,8 @@
 plot_product: true
 method: gswarm.plot_stats
 #NOTICE: need to define t_crop_31Dec2015/t_crop_31Dec2015 because there's a bug in generating these data
-sources: [scales.RL05.sh.comp/t_crop_31Dec2015/t_crop_31Dec2015,grace.sh.rl06dd.csr,grace.sh.rl06.jpl,singleacc.GEO.f0zb000h09az3]
-stats_relative_to: scales.RL05.sh.comp/t_crop_31Dec2015/t_crop_31Dec2015
+sources: [grace.mascons.rl06.climat,grace.sh.rl06dd.csr,grace.sh.rl06.jpl,singleacc.GEO.f0zb000h09az3,scales.RL05.sh.comp/t_crop_31Dec2015/t_crop_31Dec2015]
+stats_relative_to: grace.mascons.rl06.climat
 explicit_fields: true
 storage_period: direct #this is used to name the plot files (e.g. 'global' removes the time stamp)
 model_types: [signal]
@@ -15,7 +15,7 @@ plot_functional: geoid
 # plot_automean: true
 # plot_autoscale: true
 # plot_autoscale_factor: 6
-plot_legend_suppress: ['signal','sh','comp','scales','singleacc','f0zb000h09az3','GEO','grace','t_crop_31Dec2015']
+plot_legend_suppress: ['signal','sh','comp','scales','singleacc','f0zb000h09az3','GEO','grace','t_crop_31Dec2015','mascons']
 plot_legend_box: false
 plot_legend_location: east
 plot_title_suppress: ['GEO','singleacc','scales','signal','sh','comp','COMP','f0zb000h09az3']
