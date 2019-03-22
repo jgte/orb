@@ -55,6 +55,7 @@ classdef simpletimeseries < simpledata
       out=v.picker(varargin{:});
     end
     function out=timescale(in)
+      assert(isduration(in) || isnumeric(in),['Cannot handle inputs of class ',class(in),'.'])
       out=seconds(in);
     end
     function out=valid_t(in)
@@ -75,7 +76,13 @@ classdef simpletimeseries < simpledata
       if ~exist('epoch','var') || isempty(epoch)
         epoch=in(1);
       end
-      out=simpletimeseries.timescale(in-epoch);
+      if isfinite(epoch)
+        out=simpletimeseries.timescale(in-epoch);
+      elseif any(isfinite(in))
+        out=simpletimeseries.timescale(in-min(in));
+      else
+        out=Inf(size(in));
+      end
     end
     function out=num2time(in,epoch)
       if ~exist('epoch','var') || isempty(epoch)
@@ -84,7 +91,12 @@ classdef simpletimeseries < simpledata
       out=epoch+simpletimeseries.timescale(in);
     end
     function out=ist(mode,t1,t2,tol)
-      out=simpledata.isx(mode,seconds(t1-t2),0,tol);
+			%this handles infinites
+      if t1~=t2
+        out=simpledata.isx(mode,seconds(t1-t2),0,tol);
+      else
+        out=true;
+      end
 %       switch mode
 %       case {'=','==','equal'}
 %         if numel(t1)==numel(t2) 
@@ -1814,8 +1826,12 @@ classdef simpletimeseries < simpledata
       if obj1.epoch==obj2.epoch
         return
       end
-      %match epochs
-      obj1.epoch=obj2.epoch;
+      %match epochs (this is only necessary when epochs are infinite)
+      if obj2.epoch>obj1.epoch
+        obj2.epoch=obj1.epoch;
+      else
+        obj1.epoch=obj2.epoch;
+      end
     end
     function [obj1,obj2]=matchtime(obj1,obj2)
       %match step and epoch (checks for trivial call done inside)
