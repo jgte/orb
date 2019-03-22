@@ -58,7 +58,7 @@
       out=fullfile(simpledata.scriptdir,'packages');
     end
     function out=valid_x(x)
-      out=isnumeric(x) && ~isempty(x) && isvector(x);
+      out=(isnumeric(x) && ~isempty(x) && isvector(x)) || simpletimeseries.valid_t(x);
     end
     function [x,y,mask]=monotonic(x,y,mask,mode,debug)
       if ~exist('mode','var') || isempty(mode)
