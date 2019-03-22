@@ -1,8 +1,10 @@
 classdef gravity < simpletimeseries
   %static
   properties(Constant)
-    %this is used to define when the date is not set (datenum(zero_date)=0), used for static fields
-    zero_date=time.zero_date;
+    %this is used to define the epoch of static fields (in the gravity.load method)
+   static_select_date=time.zero_date;
+    static_start_date=time.zero_date;
+     static_stop_date=time.inf_date;
 %   Supported functionals are the following,
 %       'nondim'    - non-dimensional Stoked coefficients.
 %       'eqwh'      - equivalent water height [m]
@@ -398,7 +400,7 @@ classdef gravity < simpletimeseries
     function obj=nan(lmax,varargin)
       obj=gravity.unit(lmax,'scale',nan,varargin{:});
     end
-    function [m,e]=load(file_name,fmt,time,force)
+    function [m,e]=load(file_name,fmt,time,force,force_time)
       %default type
       if ~exist('fmt','var') || isempty(fmt) || strcmp(fmt,'auto')
         [~,fn,fmt]=fileparts(file_name);
@@ -416,6 +418,10 @@ classdef gravity < simpletimeseries
       %default force
       if ~exist('force','var') || isempty(force)
         force=false;
+      end
+      %default force_time
+      if ~exist('force_time','var') || isempty(force_time)
+        force_time=false;
       end
       %handle mat files
       [~,~,ext]=fileparts(file_name);
@@ -458,9 +464,30 @@ classdef gravity < simpletimeseries
             error(['Cannot handle mat file ',mat_filename,'; consider deleting so it is re-generated'])
           end
         end
-        %enforce input 'time'
+      end
+      %enforce input 'time', if requested
+      %NOTICE: this is used to be done automatically when loading the mat file
+      %        (and there's no practical use for it at the moment)
+      if force_time
         if m.t~=time;m.t=time;end 
         if ~isempty(e) && e.t~=time;e.t=time;end 
+      end
+      %update start/stop for static fields, i.e. those with time=gravity.static_start_date
+      if time==gravity.static_select_date
+        %enforece static start date
+        m.t=gravity.static_start_date;
+        %duplicate model and set it to static stop date
+        m_stop=m;
+        m_stop.t=gravity.static_stop_date;
+        %append them together
+        m=m.append(m_stop);
+        %do the same to the error model if there is one
+        if ~isempty(e)
+          e.t=gravity.static_start_date;
+          e_stop=e;
+          e_stop.t=gravity.static_stop_date;
+          e=e.append(e_stop);
+        end
       end
     end
     function out=parse_epoch_grace(filename)
@@ -556,7 +583,8 @@ classdef gravity < simpletimeseries
       p.addRequired( 'date_parser', @(i) isa(i,'function_handle'));
       p.addParameter('wilcarded_filename',['*.',format], @(i) ischar(i))
       p.addParameter('descriptor',        'unknown',     @(i) ischar(i))
-      p.addParameter('start', [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i)));
+      %NOTICE: start/stop is only used to avoid loading models outside a certain time range
+      p.addParameter('start', [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i))); 
       p.addParameter('stop',  [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i)));
       p.addParameter('overwrite_common_t',  false, @(i) islogical(i));
       p.parse(dirname,format,date_parser,varargin{:})
@@ -578,7 +606,7 @@ classdef gravity < simpletimeseries
               num2str(numel(filelist)),'.'])
           end
           %patch missing start epoch (static fields have no epoch)
-          t=gravity.zero_date;
+          t=gravity.static_select_date;
         else
           t=p.Results.date_parser(filelist{i});
           %skip if this t is outside the required range (or invalid)
@@ -2176,19 +2204,17 @@ function [m,e]=load_csr(filename,time)
       continue
     end
     %save degree and order
-%     d=str2num(s( 7: 9))+1;
     d=str.num(s(7:9))+1;
     if d>Lmax;Lmax=d;end
-%     o=str2num(s(10:12))+1;
     o=str.num(s(10:12))+1;
-%     mi.C(d,o)=str2num(s(13:33));
     mi.C(d,o)=str.num(s(13:33));
-%     mi.S(d,o)=str2num(s(34:54));
     mi.S(d,o)=str.num(s(34:54));
-%     ei.C(d,o)=str2num(s(55:65));
     ei.C(d,o)=str.num(s(55:65));
-%     ei.S(d,o)=str2num(s(66:76));
-    ei.S(d,o)=str.num(s(66:76));
+    try 
+      ei.S(d,o)=str.num(s(66:76));
+    catch
+      ei.S(d,o)=str.num(s(66:74));
+    end
     % read next line
     s=fgets(fid);
   end
