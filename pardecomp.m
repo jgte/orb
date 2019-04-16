@@ -146,7 +146,7 @@ classdef pardecomp
         %make sure time domains is not borked
         assert(all(simpledata.isx('==',obj.x_masked,x_now)),['time domain discrepancy in ',o.descriptor])
         %save timeseries represented by each coefficient
-        o=init(obj.t_masked,num.struct_deal(d,['y',coeffnames{j}(1)],[],i),'epoch',obj.epoch);
+        o=init(obj.t_masked,num.struct_deal(d,['y',coeffnames{j}(1)],[],i));
         o=o.copy_metadata(obj); 
         o.descriptor=['p',num2str(i-1),' of ',str.clean(obj.descriptor,'file')];
         %append to pd_args
