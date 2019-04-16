@@ -255,7 +255,7 @@ classdef file
     %resolves filenames that exist in multiple machines, each one with a home directory listed in file.homes
     function io=resolve(io)
       for i=1:numel(file.homes)
-        io=str.rep(io,file.homes{i},'~');
+        io=str.rep(io,file.homes{i},getenv('HOME'));
       end
     end
     function io=unresolve(io)
