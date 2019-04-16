@@ -6,7 +6,7 @@ classdef simpletimeseries < simpledata
       'units',     {''},                @(i) iscellstr(i);... %this parameters is not a property of this object:
                                                               %it gets translated into y_units at init
       'format',    'modifiedjuliandate',@(i) ischar(i);...
-      't_tol',     1e-6,                @(i) isnumeric(i) && isscalar(i);...
+      't_tol',     2e-6,                @(i) isnumeric(i) && isscalar(i);...
       'timesystem','utc',               @(i) ischar(i);...
       'debug',     false,               @(i) islogical(i) && isscalar(i);...
     };
@@ -93,7 +93,7 @@ classdef simpletimeseries < simpledata
     function out=ist(mode,t1,t2,tol)
 			%this handles infinites
       if t1~=t2
-        out=simpledata.isx(mode,seconds(t1-t2),0,tol);
+        out=simpledata.isx(mode,seconds(t1(:)-t2(:)),0,tol);
       else
         out=true;
       end
@@ -266,6 +266,8 @@ classdef simpletimeseries < simpledata
       if ~exist('w','var') || isempty(w)
         w=3;
       end
+      
+      
       %test current object
       args=simpledata.test_parameters('args',l,w);
       now=juliandate(datetime('now'),'modifiedjuliandate');
@@ -303,7 +305,7 @@ classdef simpletimeseries < simpledata
       
       
       return
-      
+       
       i=0;
       bn=simpletimeseries.randn(t,w,args{:});
       bs=simpletimeseries.sin(t,days(l./(1:w)),args{:});
@@ -375,25 +377,36 @@ classdef simpletimeseries < simpledata
       
       a=simpledata.test_parameters('all_T',l,w);
       i=i+1;h{i}=figure('visible','off'); a.plot('title', 'parametric decomposition','columns',1)
-      b=a.parametric_decomposition(...
-        'polynomial',ones(size(simpledata.test_parameters('y_poly_scale'))),...
-        'sinusoidal',simpledata.test_parameters('T',l)...
+      %decompose
+      out=pardecomp.split(a,...
+        'np',numel(simpledata.test_parameters('y_poly_scale')),...
+        't0',a.x(round(a.length/2)),...
+        'T',simpledata.test_parameters('T',l)...
       );
-      fn=fields(b);tot=[];legend_str={};
+      fn=fields(out);tot=[];legend_str={};
       for i=1:numel(fn);
         if ~isempty(strfind(fn{i},'ts_'))
-          legend_str{end+1}=fn{i};
-          b.(fn{i}).plot('columns',1)
+          legend_str{end+1}=fn{i}; 
+          out.(fn{i}).plot('columns',1)
           if isempty(tot)
-            tot=b.(fn{i});
+            tot=out.(fn{i});
           else
-            tot=tot+b.(fn{i});
+            tot=tot+out.(fn{i});
           end
         end
       end
       tot.plot('columns',1)
       legend_str=strrep(legend_str,'_','\_');
       legend('original',legend_str{:},'sum')
+      
+      a=simpledata.test_parameters('all_T',l,w);
+      i=i+1;h{i}=figure('visible','off'); a.plot('title', 'parametric reconstruction','columns',1,'line',{'x-'})
+      %reconstruct
+      b=pardecomp.join(out,transpose(0:1.2:round(1.2*l)-1));
+      b.plot('columns',1,'line',{'o-'})
+      legend('original','reconstructed')
+      
+      
       
       for i=numel(h):-1:1
         set(h{i},'visible','on')
@@ -912,8 +925,11 @@ classdef simpletimeseries < simpledata
       out=obj_list{1}.t;
     end
     %constructors
-    function out=unitc(t,width,varargin)
+    function out=one(t,width,varargin)
       out=simpletimeseries(t(:),ones(numel(t),width),varargin{:});
+    end
+    function out=zero(t,width,varargin)
+      out=simpletimeseries(t(:),zeros(numel(t),width),varargin{:});
     end
     function out=randn(t,width,varargin)
       out=simpletimeseries(t(:),randn(numel(t),width),varargin{:});
@@ -1229,11 +1245,20 @@ classdef simpletimeseries < simpledata
     function out=get.t_formatted(obj)
       out=time.FromDateTime(obj.t,obj.format);
     end
-    function out=t_masked(obj,mask)
+    function out=t_masked(obj,mask,mode)
       if ~exist('mask','var') || isempty(mask)
         mask=obj.mask;
       end
+      if ~exist('mode','var') || isempty(mode)
+        mode='all';
+      end
       out=obj.t(mask);
+      switch mode
+      case 'start'; out=out(1);
+      case 'stop';  out=out(end);
+      case 'all';   %do nothing
+      otherwise; error(['unknown mode ''',mode,'''.'])
+      end   
     end
     function out=idx(obj,t_now,varargin)
       %need to handle doubles, to make it compatible with simpledata
@@ -1299,9 +1324,7 @@ classdef simpletimeseries < simpledata
       %shift x
       obj=obj.assign_x(simpletimeseries.time2num(t_old,epoch));
       %sanity
-      if any(~simpletimeseries.ist('==',t_old,obj.t,obj.t_tol))
-        error([mfilename,': changing epoch cause the time domain to also change.'])
-      end
+      assert(obj.istequal(t_old),[mfilename,': changing epoch cause the time domain to also change.'])
     end
     function out=get.epoch(obj)
       out=obj.epochi;
@@ -1317,7 +1340,9 @@ classdef simpletimeseries < simpledata
       out=obj.t(obj.length);
     end
     function obj=set.start(obj,start)
-      if isempty(start) || simpletimeseries.ist('==',start,obj.start,obj.t_tol)
+      if isempty(start) || ...                                        %ignore empty inputs
+          simpletimeseries.ist('==',start,obj.start,obj.t_tol) || ... %shortcut
+      all(simpletimeseries.ist('==',obj.t,time.zero_date,obj.t_tol))  %do not operate on static-esque objects
         %trivial call
         return
       %check if required start is before the start of the current time series
@@ -1339,7 +1364,9 @@ classdef simpletimeseries < simpledata
       end
     end
     function obj=set.stop(obj,stop)
-      if isempty(stop) || simpletimeseries.ist('==',stop,obj.stop,obj.t_tol)
+      if isempty(stop) || ...                                        %ignore empty inputs
+          simpletimeseries.ist('==',stop,obj.stop,obj.t_tol) || ...  %shortcut
+      all(simpletimeseries.ist('==',obj.t,time.zero_date,obj.t_tol)) %do not operate on static-esque objects
         %trivial call
         return
       %check if required stop is after the end of the current time series
@@ -1383,14 +1410,16 @@ classdef simpletimeseries < simpledata
       end
       if exist('t_now','var') && ~isempty(t_now)
         %check for consistency in the time domain
-        if any(~simpletimeseries.ist('==',obj.t,t_now,obj.t_tol))
-          error([mfilename,': the time domain is not consistent with input ''t_now''.'])
-        end
+        assert(obj.istequal(t_now),[mfilename,': the time domain is not consistent with input ''t_now''.'])
       end
     end
     %% edit methods (overloaded with simpledata)
     %the remove method can be called directly
     function obj=trim(obj,start,stop)
+      %do not operated on static-esque objects
+      if obj.length==1 && simpletimeseries.ist('==',obj.t,time.zero_date,obj.tol)
+        return
+      end
       obj=trim@simpledata(obj,obj.t2x(start),obj.t2x(stop));
     end
     function obj=slice(obj,start,stop)
@@ -1673,7 +1702,8 @@ classdef simpletimeseries < simpledata
       end
     end
     %% multiple object manipulation
-    function out=isteq(obj1,obj2)
+    function out=istequal(obj1,obj2)
+      %NOTICE: this also handles the single-object operation
       if isdatetime(obj2)
         out=obj1.length==length(obj2) && ~any(~simpletimeseries.ist('==',obj1.t,obj2,obj1.t_tol));
       else
@@ -1719,13 +1749,11 @@ classdef simpletimeseries < simpledata
       %call upstream method
       [obj1,obj2,idx1,idx2]=merge@simpledata(obj1,obj2,y_new);
       %sanity
-      if ~isteq(obj1,obj2)
-        error([mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])
-      end
+      assert(istequal(obj1,obj2),[mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])
     end
     function [obj1,obj2]=interp2(obj1,obj2,varargin)
       %trivial call
-      if isteq(obj1,obj2)
+      if istequal(obj1,obj2)
         return
       end
       %extends the t-domain of both objects to be in agreement
@@ -1748,9 +1776,7 @@ classdef simpletimeseries < simpledata
       %call upstream method
       [obj1,obj2]=interp2@simpledata(obj1,obj2,varargin{:});
       %sanity
-      if ~isteq(obj1,obj2)
-        error([mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])
-      end
+      assert(istequal(obj1,obj2),[mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])
     end
     function [obj,idx1,idx2]=append(obj1,obj2,varargin)
       if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
@@ -1772,7 +1798,7 @@ classdef simpletimeseries < simpledata
       %with the each other
       compatible(obj1,obj2,varargin{:})
       %trivial call
-      if isteq(obj1,obj2)
+      if istequal(obj1,obj2)
         return
       end
       %build extended time domain, with lcm timestep, rounded to the nearest second
@@ -2205,6 +2231,70 @@ classdef simpletimeseries < simpledata
         saveas(gcf,plotfile)
         close(gcf)
       end
+    end
+    %% parametric decomposition
+    function [obj,pd_set]=parametric_decomposition(obj,varargin)
+      %add some defaults
+      v=varargs.wrap('sources',{....
+        {...
+          'epoch',     obj.epoch, @(i)isdatetime(i) || isscalar(i);...
+          'timescale', 'seconds', @ischar;...
+          't0',         obj.x(1), @(i)numeric(i) && isscalar(i);...
+          'time',          obj.t ,@(i)isdatetime(i);...
+        },...
+      },varargin{:});
+      %get the pd-set
+      pd_set=pardecomp.split(obj,   v.varargin{:});
+      %reconstruct the time series
+      obj   =pardecomp.join( pd_set,v.varargin{:});
+    end
+    function [obj,pd_set]=parametric_decomposition_search(obj,varargin)
+      %need some stuf
+      v=varargs.wrap('sources',{....
+        {...
+          'T'                 [], @isnumeric ;...
+          'timescale', 'seconds', @ischar  ;...
+          'max_iter',        inf, @(i)numeric(i) && isscalar(i);...
+          'neg_delta',      1e-3, @(i)numeric(i) && isscalar(i);...
+          'pos_delta',      5e-1, @(i)numeric(i) && isscalar(i);...
+        },...
+      },varargin{:});
+      %init loop
+      c=0;norm_now=inf;tab_len=20;
+      disp(str.tablify(tab_len,'iter','norm prev','norm now','delta','new period'));
+      %search
+      while c<v.max_iter
+        c=c+1;
+        %save previous norm
+        norm_prev=norm_now;
+        %get pd-set
+        [~,pd_set]=obj.parametric_decomposition(v.varargin{:},'quiet',true,'T',v.T);
+        %get PSD of residuals
+        rf=simplefreqseries.transmute(pd_set.res).psd;
+        %get period where PSD is maximum
+        T_now=pardecomp.to_timescaled(1/rf.x(rf.y(:,1)==max(rf.y(:,1))),v.timescale);
+        %update norm and delta
+        norm_now=norm(pd_set.norm.y);
+        delta=(norm_now-norm_prev)/norm_now;
+        %inform user
+        disp(str.tablify(tab_len,c,norm_prev,norm_now,(norm_now-norm_prev)/norm_now,time.num2duration(T_now,v.timescale)))
+        %do not add already existing periods
+        if any(v.T==T_now)
+          disp('The new period is already in T, stop searching.')
+          break
+        end
+        if delta<0 && -delta<v.neg_delta
+          disp('The norm of the residuals decreased too little, stop searching.')
+          break
+        end
+        if delta>0 && delta>v.pos_delta
+          disp('The norm of the residuals increased too much, stop searching.')
+          break
+        end
+        %increment T
+        v.T(end+1)=T_now;
+      end
+      obj=pardecomp.join(pd_set,'time',obj.t);
     end
     %% plot methots
     function out=plot(obj,varargin)
