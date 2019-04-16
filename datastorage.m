@@ -138,8 +138,10 @@ classdef datastorage
           msg(:)={'-'};
         else
           for m=1:numel(p.Results.info_methods)
-            %any(isprop(...)) catches when obj_list{i} is a string 
-            if ismethod(obj_list{i},p.Results.info_methods{m}) || any(isprop(obj_list{i},p.Results.info_methods{m}))
+            if ismethod(obj_list{i},p.Results.info_methods{m})
+              msg{m}=eval([p.Results.info_methods{m},'(obj_list{i})']);
+					 %any(isprop(...)) catches when obj_list{i} is a string
+            elseif any(isprop(obj_list{i},p.Results.info_methods{m}))
               msg{m}=obj_list{i}.(p.Results.info_methods{m});
             else
               msg{m}='N/A';
@@ -205,7 +207,7 @@ classdef datastorage
         end
       end
     end
-    %% value operations (basically wraps some methods in the structs object)
+    %% value operations (basically wraps some methods in the structs object; this is serialized!)
     function out=value_get(obj,dn)
       %reduce dataname to common object
       dn=datanames(dn);
@@ -226,7 +228,7 @@ classdef datastorage
         value...
       );
     end
-    %% data operations
+    %% data operations (this is serialized!)
     function out=isdata_leaf(obj,dn,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -238,6 +240,10 @@ classdef datastorage
       out=~isfield(obj.data,dn.name_clean) || structs.isleaf(obj.data.(dn.name_clean),dn.field_path,p.Results.only_non_empty);
     end
     function dn_list=data_list(obj,dn,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('direct_access',false,@(i) islogical(i) && isscalar(i));
+      p.parse(varargin{:});
       if numel(dn)==0
         %trivial call
         dn_list={};
@@ -266,8 +272,8 @@ classdef datastorage
         dn=datanames(dn);
       end
       %scalar mode
-      %check if this dataname is a leaf product
-      if obj.isdata_leaf(dn,varargin{:})
+      %check if this dataname is a leaf product or if direct access is requested
+      if obj.isdata_leaf(dn,varargin{:}) || p.Results.direct_access
         field_path_list={dn.field_path};
       else
         %get all field names under dn.field_path
@@ -287,9 +293,9 @@ classdef datastorage
       %propagate field path list to list of dataname objects
       dn_list=cellfun(@(i) dn.set_field_path(i),field_path_list,'UniformOutput',false);
     end
-    function out=data_get(obj,dn)
+    function out=data_get(obj,dn,varargin)
       %reduce dataname to common object
-      dn_list=obj.data_list(dn);
+      dn_list=obj.data_list(dn,varargin{:});
       %retrieve
       out=cell(size(dn_list));
       for i=1:numel(dn_list)
@@ -365,6 +371,16 @@ classdef datastorage
       dn_list=obj.data_list(dn);
       %retrieve list of objects, i.e. the values given by obj.data_get
       obj_list=obj.data_get(dn_list);
+      %shortcut to explicit literal methods (such as those defined in top level of structs)
+      shortcut_methods=cellfun(@(i) i.isfield_path_leaf(method),dn_list);
+      if any(shortcut_methods)
+        obj.log('@','shortcut methods','dn',dn,'method',method,'shortcut methods',dn_list(shortcut_methods),'shortcut values',obj_list(shortcut_methods))
+        out=obj_list(shortcut_methods);
+        dn_list=dn_list(shortcut_methods);
+        return
+      end
+      % NOTICE: below, this code serializes the fields in 'dn' and checks each entry if it
+      %         responds to 'method', so fields with the same name as 'method' are ignored
       %make room for outputs
       out=cell(size(obj_list));
       %loop over all objects
@@ -372,7 +388,7 @@ classdef datastorage
         if isempty(obj_list{i})
           out{i}=[];
         else
-          %check if this object responds to this
+          %check if this object responds to this method
           if structs.respondto(obj_list{i},method)
             if numel(varargin)==0
               out{i}=obj_list{i}.(method);
@@ -457,9 +473,18 @@ classdef datastorage
     %% start/stop operations
     function io=start_criteria(obj,io)
       assert(~isempty(io),'Cannot handle empty ''io''.')
-      assert(iscell(io) && all(cellfun(@isdatetime,io)),'Can only handle cell arrays of datetime')
+      %NOTICE: this makes it possible to have time-independent field paths, which need to
+      %be handled explicitly by whatever method deals with them
+      if iscell(io)
+        io=cells.rm_empty(io);
+        assert(all(cellfun(@isdatetime,io)),'Can only handle cell arrays of datetime')
+      elseif isdatetime(io)
+        io=cells.m2c(io(~isempty(io)));
+      else
+        error(['Can only handle cells or vectors of datetime, not ',class(io)'.'])
+      end
       %need to filter out invalids (zero and inf dates)
-      invalid_idx=~time.isvalid(io);
+      invalid_idx=~time.isfinite(io);
       if any(invalid_idx); io(invalid_idx)={time.zero_date}; end
       %hanle inclusive datasets (span over all boundaries)
       if obj.inclusive
@@ -474,9 +499,18 @@ classdef datastorage
     end
     function io=stop_criteria(obj,io)
       assert(~isempty(io),'Cannot handle empty ''values''.')
-      assert(iscell(io) && all(cellfun(@isdatetime,io)),'Can only handle cell arrays of datetime')
+      %NOTICE: this makes it possible to have time-independent field paths, which need to
+      %be handled explicitly by whatever method deals with them
+      if iscell(io)
+        io=cells.rm_empty(io);
+        assert(all(cellfun(@isdatetime,io)),'Can only handle cell arrays of datetime')
+      elseif isdatetime(io)
+        io=cells.m2c(io(isfinite(io)));
+      else
+        error(['Can only handle cells or vectors of datetime, not ',class(io)'.'])
+      end
       %need to filter out invalids (zero and inf dates)
-      invalid_idx=~time.isvalid(io);
+      invalid_idx=~time.isfinite(io);
       if any(invalid_idx); io(invalid_idx)={time.inf_date}; end
       %hanle inclusive datasets (span over all boundaries)
       if obj.inclusive
@@ -575,8 +609,32 @@ classdef datastorage
       %recover old value of inclusive flag
       obj.inclusive=inclusive_old;
     end
+    function [startlist,stoplist]=startstop_list(~,s_in)
+      if isstruct(s_in)
+        %first check if structure has explicit start/stop fields, 
+        if isfield(s_in,'start') && isfield(s_in,'stop')
+          %use explicit start/stop fields
+          startlist=s_in.start;
+           stoplist=s_in.stop;
+           return
+        end
+        % serialize the data
+        s_cells=structs.get_value_all(s_in);
+      else
+        s_cells={s_in};
+      end
+      % catch unvalid s_in
+      time_vars=cells.respondto(s_cells,'start')&cells.respondto(s_cells,'stop');
+      if all(~time_vars)
+        startlist=[];stoptlist=[];
+      else
+        % get list of start/stop dates from the data
+        startlist=cells.c2m(cellfun(@(i) i.start,s_cells(time_vars),'UniformOutput',false));
+        stoplist =cells.c2m(cellfun(@(i) i.stop, s_cells(time_vars),'UniformOutput',false));
+      end
+    end
     %% time operations
-    function out=isteq(obj,dn)
+    function out=istequal(obj,dn)
       %retrieve global field path list
       global_field_path_list=obj.data_list(dn);
       %default value
@@ -586,7 +644,7 @@ classdef datastorage
       %loop over all remaining objects
       for i=2:numel(global_field_path_list)
         %check of the time domains agree
-        if ~obj1.isteq(obj.data_get_scalar(global_field_path_list{i}))
+        if ~obj1.istequal(obj.data_get_scalar(global_field_path_list{i}))
           out=false;
           return
         end
@@ -594,7 +652,7 @@ classdef datastorage
     end
     function obj=interp(obj,dn)
       %trivial call
-      if obj.isteq(dn)
+      if obj.istequal(dn)
         return
       end
       %retrieve global field path list
@@ -612,12 +670,44 @@ classdef datastorage
         end
       end
       %sanity
-      assert(obj.isteq(dn),'Could not merge all time domains. Debug needed.')
+      assert(obj.istequal(dn),'Could not merge all time domains. Debug needed.')
     end
-    %% length operations
+    %% overloaded operations
     function out=length(obj,dn)
       if ~exist('dn','var') || isempty(dn); dn='all'; end
       out=cell2mat(obj.vector_method_tr(dn,'length'));
+    end
+    function out=overload_struct(~,s_in,method)
+      % serialize the data
+      if isstruct(s_in)
+        s_cells=structs.get_value_all(s_in);
+      elseif iscell(s_in)
+        s_in=s_in(:);
+      else
+        s_cells={s_in};
+      end
+      %descriminate between properties and methods because matlab sucks
+      prop_vars=cells.isprop(s_cells,method);
+      meth_vars=cells.ismethod(s_cells,method);
+      % catch unvalid s_in
+      if all(~(prop_vars|meth_vars))
+        out=[];
+        return
+      end
+      %assign output
+      out=cell(size(s_cells));
+      %handle properties
+      if any(prop_vars)
+        % get list of property values from the data
+        out(prop_vars)=cellfun(@(i) i.(method),s_cells(prop_vars),'UniformOutput',false);
+      end
+      %handle methods
+      if any(meth_vars)
+        % get list of method values from the data
+        out(meth_vars)=cellfun(@(i) eval([method,'(i)']),s_cells(meth_vars),'UniformOutput',false);
+      end
+      %better remove empties
+      out=cells.rm_empty(out);
     end
     %% debug utils
     function print(obj,dn,varargin)
@@ -658,6 +748,11 @@ classdef datastorage
       end
     end
     function [obj,success]=load(obj,product,varargin)
+      %ignore plot products, file loading is done inside the init method
+      if product.mdget('plot_product','default',false)
+        success=false;
+        return
+      end
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
       if product.mdget('plot_product','default',false)
         product_type='plot';
@@ -691,8 +786,8 @@ classdef datastorage
         return
       end
       obj.log('nr of files to load',numel(file_list),'from dir',fileparts(file_list{1}))
-      %if this is a plot product, then skip loading data
-      if ~product.mdget('plot_product','default',false)
+%       %if this is a plot product, then skip loading data
+%       if ~product.mdget('plot_product','default',false)
         %loop over all files
         for f=1:numel(file_list)
           %load data in this file
@@ -710,10 +805,12 @@ classdef datastorage
               s_out=s_out.append(s);
             end
           end
+          %get start/stop lists
+          [startlist,stoplist]=obj.startstop_list(s_out);
           % debug output
-          start_now=obj.start_criteria(cells.scalar(cells.rm_empty(structs.get_value_all(structs.objmethod('start',  s_out))),'set'));
-          stop_now =obj.stop_criteria( cells.scalar(cells.rm_empty(structs.get_value_all(structs.objmethod('stop',   s_out))),'set'));
-          nr_gaps  =max(cells.c2m(cells.rm_empty(structs.get_value_all(structs.objmethod('nr_gaps',s_out)))));
+          start_now=obj.start_criteria(startlist);
+          stop_now =obj.stop_criteria( stoplist );
+          nr_gaps  =max(cells.c2m(obj.overload_struct(s_out,'nr_gaps')));
           [~,file_now,e]=fileparts(file_list{f});
           obj.log(['loaded file ',num2str(f),' '],[' ',file_now,e],'cum start',start_now,'cum stop',stop_now,'gaps',nr_gaps)
         end
@@ -743,7 +840,7 @@ classdef datastorage
         if gravitylabelfix; obj.save(product); end
         % update start/stop
         obj=obj.startstop_retrieve_update(product);
-      end
+%       end
       % debug output
       success=true;
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
@@ -763,20 +860,13 @@ classdef datastorage
       % NOTICE: it is *always* everything under this product.name, never resolved at the level of the field_path
       % this is to be in agreement with how the filenames are built in datanames
       s_out=obj.value_get(product.name);
-      if isstruct(s_out)
-        % serialize the data
-        s_cells=structs.get_value_all(s_out);
-      else
-        s_cells={s_out};
-      end
-      % catch unvalid s_out
-      if any(~cells.allrespondto(s_cells,{'start','stop'}))
+      % get list of start/stop dates from the data
+      [startlist,stoplist]=obj.startstop_list(s_out);
+      % catch invalid products
+      if isempty(startlist)
         obj.log('@','out','no data to save for',product)
         return
       end
-      % get list of start/stop dates from the data
-      startlist=cells.c2m(cellfun(@(i) i.start,s_cells,'UniformOutput',false));
-      stoplist =cells.c2m(cellfun(@(i) i.stop, s_cells,'UniformOutput',false));
       % get the file list
       [file_list,startlist,stoplist]=product.file('data',...
         'start',min(startlist),...
@@ -1032,20 +1122,26 @@ classdef datastorage
             obj.log('@','iter',['loaded product_list{',num2str(i),'}'],product_list{i})
           else
             % invoke init method, for all unwrapped leaf products (if any)
-%             try
-             obj=ih(obj,product_list{i},varargin{:});
-%             catch ME
-%               if strcmp( ME.identifier,'MATLAB:UndefinedFunction') && ...
-%                  str.contains(ME.message,func2str(ih)) && ...
-%                  strcmp(cells.first(split(func2str(ih),'.')),'datastorage')
-%                 com=['obj.',cells.last(split(func2str(ih),'.')),'(product_list{i},varargin{:})'];
-%                 disp(com)
-%                 obj=eval(com);
-%                 disp('done!')
-%               else
-%                 error(ME.message)
-%               end    
-%             end
+            % first, test some slow and often-used methods an call them directly
+            switch func2str(ih)
+              case 'gswarm.load_models'
+                obj=gswarm.load_models(obj,product_list{i},varargin{:});
+              otherwise
+%               try
+                obj=ih(obj,product_list{i},varargin{:});
+%               catch ME
+%                 if strcmp( ME.identifier,'MATLAB:UndefinedFunction') && ...
+%                    str.contains(ME.message,func2str(ih)) && ...
+%                    strcmp(cells.first(strsplit(func2str(ih),'.')),'datastorage')
+%                   com=['obj.',cells.last(strsplit(func2str(ih),'.')),'(product_list{i},varargin{:})'];
+%                   disp(com)
+%                   obj=eval(com);
+%                   disp('done!')
+%                 else
+%                   error(ME.message)
+%                 end    
+%               end
+            end
             obj.log(...
               '@','iter',...
               'applied method',product.mdget('method'),...
@@ -1069,7 +1165,7 @@ classdef datastorage
             end
           end
         else
-          obj.log('@','iter','already loaded',['product_list{',num2str(i),'}=',product_list{i}])
+          obj.log('@','iter','already loaded',['product_list{',num2str(i),'}=',product_list{i}.str])
         end
       end
       %user feedback
@@ -1167,7 +1263,7 @@ classdef datastorage
           source_inventory,'UniformOutput',false);
         %make sure all sources have the same leafs (otherwise can't really do anything)
         for i=2:numel(field_path_str)
-          if ~cells.isequal(field_path_str{1},field_path_str{i})
+          if ~cells.isequalstr(field_path_str{1},field_path_str{i})
             disp(['WARNING: ',...
               'The data names under ',product_list.sources(1).str,...
               ' (i.e. ',strjoin(field_path_str{1},', '),') ',...
@@ -1233,7 +1329,7 @@ classdef datastorage
     function obj=init_nrtdm(obj,product,varargin)
       obj.log('@','in','product',product,'varargin',varargin,'start',obj.start,'stop',obj.stop)
       % sanity
-      assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
+      assert(time.isfinite(obj.start) && time.isfinite(obj.stop),'Need valid obj.start and obj.stop.')
       %retrieve relevant parameters
       sats         =product.mdget('sats');
       indir        =product.mdget('nrtdm_data_dir');
@@ -1258,12 +1354,16 @@ classdef datastorage
     end
     %% plot utils
     function out=plotdatafilename(obj,product)
+      suffix='plot-data';
+      for i={'plot_smoothing_method'}
+        suffix=strjoin({product.mdget(i{1},'default','unsmoothed'),suffix},'.');
+      end
       out=cells.scalar(product.mdset('storage_period','direct').file('plot',...
         'start',obj.start,'stop',obj.stop,...
         'ext','mat',...
         'sub_dirs','single',...
         'start_timestamp_only',false,...
-        'suffix','plot-data'...
+        'suffix',suffix...
       ),'get');
     end
     function out=default_plot_columns(obj,product)
@@ -1902,13 +2002,25 @@ classdef datastorage
         if i==1
           %get first source
           out=obj.data_get_scalar(product.sources(idx));
-          msg=[product.str,' = ',product.sources(idx).str];
+          msg=[product.str,' = ',product.sources(idx).str,' (init)'];
         else
           %get the current source
           in=obj.data_get_scalar(product.sources(idx));
           msg=[msg,' ',v.operation,' ',product.sources(idx).str]; %#ok<AGROW>
           %enforce common time domain, assume it is defined by the first argument
           in=in.interp(out.t);
+          %enforce common data domain, need to handle object differently
+          if out.width~=in.width
+            assert(strcmp(class(in),class(out)),'Cannot perform arithmetic operations on different classes if their width differs')
+            switch class(in)
+            case 'gravity'
+              lmax=min([in.lmax,out.lmax]);
+               in.lmax=lmax;
+              out.lmax=lmax;
+            otherwise
+              error('Implementation needed')
+            end
+          end
           %operate
           out=out.(v.operation{i})(in);
         end
@@ -1978,6 +2090,52 @@ classdef datastorage
       out=in.component_split(v.rename_silent('comp_plot_dir','plot_dir').rename_silent('comp_data_dir','data_dir').varargin{:});
       %append 'signal' to field path, so that downstream procedures can identify this as valid data
       if ~strcmp(product.dataname.field_path{end},'signal'); product.dataname=product.dataname.append_field_leaf('signal'); end
+      %propagate result
+      obj=obj.data_set(product,out);
+      obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
+    end
+    function obj=pardecomp_split(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
+      assert(product.nr_sources==1,['The component_split method cannot operated on product ''',product.str,...
+        ''' because it only accept one source, not ',num2str(product.nr_sources),'.'])
+      %gather inputs
+      v=varargs.wrap('sources',{product.metadata},varargin{:});
+      %get source
+      in=obj.data_get_scalar(product.sources(1));
+      %TEMPORARY: patch descriptor
+      in.descriptor=product.sources(1).codename;
+      %do the parametric decomposition on the y-vector
+      out=pardecomp.split(in,...
+        'np',v.polyorder+1,...
+        'T',time.duration2num(time.num2duration(v.sin_period,v.sin_period_unit),v.timescale),...
+        'epoch',in.epoch,...
+        'timescale',v.timescale,...
+        't0',time.duration2num(obj.start-in.epoch,v.timescale),...
+        v.varargin{:}...
+      );
+      %TODO: not all time domain is being saved in the ts_* fields
+      keyboard
+      %propagate result
+      obj=obj.data_set(product,out);
+      obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
+    end
+    function obj=pardecomp_join(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
+      assert(product.nr_sources==1,['The component_split method cannot operated on product ''',product.str,...
+        ''' because it only accept one source, not ',num2str(product.nr_sources),'.'])
+      %gather inputs
+      v=varargs.wrap('sources',{{...
+        'start',         obj.start,@isdatetime;...
+        'stop' ,         obj.stop, @isdatetime;...
+        'time_step',      1,       @(i) isnumeric(i) && isscalar(i);...
+        'time_step_unit','months', @ischar;
+      },product.metadata},varargin{:});
+      %get source
+      in=cells.scalar(obj.data_get(product.sources(1),'direct_access',true),'get');
+      %TEMPORARY: patch descriptor
+      in.descriptor=product.sources(1).codename;
+      %do the parametric decomposition on the y-vector
+      out=pardecomp.join(in,'time',v.start:time.num2duration(v.time_step,v.time_step_unit):v.stop);
       %propagate result
       obj=obj.data_set(product,out);
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
@@ -2106,7 +2264,7 @@ classdef datastorage
 %               for j=2:product.nr_sources
 %                 %cell array value comparisson:
 %                 %http://stackoverflow.com/questions/3231580/matlab-comparison-of-cell-arrays-of-string
-%                 assert(cells.isequal(obj.data_list(sourcep{j}.name),partvalues),...
+%                 assert(cells.isequalstr(obj.data_list(sourcep{j}.name),partvalues),...
 %                   ['The ',partname,' names differ in products ',sourcep{1}.name,' and ',...
 %                   sourcep{j}.name,'.'])
 %               end
