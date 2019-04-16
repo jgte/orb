@@ -6,18 +6,21 @@ classdef plotting
         'plot_legend',         {},        @(i) iscellstr(i);...
         'plot_legend_suppress',{},        @(i) iscellstr(i);...
         'plot_legend_replace', {},        @(i) iscellstr(i);...
-        'plot_legend_location','best',    @(i) ischar(i);...
+        'plot_legend_location','best',    @(i) ischar(i);...    %'none' turns off the legend (can't be practically done with plot_legend)
      'plot_legend_fontname','FixedWidth', @(i) ischar(i);...
         'plot_legend_align',   '',        @(i) ischar(i);...    %empty means no alignment
      'plot_legend_align_scale_bias',false,@(i) islogical(i);... %this is done after plot_legend_align, destroying it
      'plot_scale_legend_str',' x ',       @(i) ischar(i);...
+      'plot_legend_align_str', {},       @(i) iscellstr(i);...
+'plot_legend_align_right_just',true,      @(i) islogical(i) || isnumeric(i);...
+'plot_legend_include_smoothing',false,    @(i) islogical(i) || isnumeric(i);...
         'plot_legend_box',   true,        @(i) islogical(i);...
         'plot_ylabel',         '',        @(i) ischar(i);...
         'plot_xlabel',         '',        @(i) ischar(i);...
         'plot_xdate',          false,     @(i) islogical(i);...
         'plot_xdateformat',    '',        @(i) ischar(i);...
-        'plot_xlimits',        [-inf,inf],@(i) ( isnumeric(i) || isdatetime(i) ) && numel(i)==2;...
-        'plot_ylimits',        [-inf,inf],@(i) isnumeric(i) && numel(i)==2;...
+        'plot_xlimits',        [-inf,inf],@(i) ( isnumeric(i) || isdatetime(i) || iscell(i) ) && numel(i)==2;...
+        'plot_ylimits',        [-inf,inf],@(i) ( isnumeric(i) || iscell(i) ) && numel(i)==2;...
         'plot_size',    200+[0,0,21,9]*50,@(i) isnumeric(i) && numel(i)==4;...
         'plot_units',          'points',  @(i) ischar(i);...
         'plot_visible',         true,     @(i) islogical(i);...
@@ -33,9 +36,9 @@ classdef plotting
         'plot_grid',            true,     @(i) islogical(i);...
         'plot_line_width',      2,        @(i) isnumeric(i);...
         'plot_line_style', 'none',        @(i) ischar(i) || iscellstr(i);...
-        'plot_line_color',  'jet',        @(i) ischar(i);...
+        'plot_line_color', 'none',        @(i) ischar(i);...
         'plot_line_color_order',0,        @(i) isnumeric(i);...
-        'plot_colormap',       '',        @(i) ischar(i) || ishandle(i);...
+        'plot_colormap',       '',        @(i) (isnumeric(i) && size(i,2)==3) || ischar(i) || ishandle(i);...
         'plot_psd',         false,        @(i) islogical(i);...
         'plot_autoscale',   false,        @(i) islogical(i);... %y-scale is derived from the data (in plotting.enforce)
         'plot_autoscale_factor',4,        @(i) isnumeric(i) && isscalar(i); ...
@@ -99,7 +102,7 @@ classdef plotting
     end
     function out=line_color_map(mode,n)
       % handle inputs
-      if ~exist('mode','var') || isempty(mode)
+      if ~exist('mode','var') || isempty(mode) || str.none(mode)
           mode='spiral';
       end
       % translate mode
@@ -540,12 +543,14 @@ classdef plotting
       if ~str.none(v.plot_line_style)
         plotting.line_style(v.plot_line_style,out.axis_handle)
       end
-      if ~str.none(v.plot_line_color)
+      if ~str.none(v.plot_line_color) || numel(plotting.line_handles(out.axis_handle))>size(get(out.axis_handle,'colororder'),1)
         plotting.line_color(v.plot_line_color,v.plot_line_color_order,out.axis_handle)
       end
       
       % start with x axis
       ax=plotting.xlim(out.axis_handle);
+      % ensure numeric values
+      v.plot_xlimits=cells.c2m(v.plot_xlimits);
       %check if dates are requested
       if (v.plot_xdate && ~v.plot_psd) || ...
           strcmp(v.plot_xlabel,'time') ||  ...
@@ -567,7 +572,7 @@ classdef plotting
           end
         end
         % set auto x-label, unless one is explicity given
-        if isempty(v.plot_xlabel) || strcmp(v.plot_xlabel,'time')
+        if strcmp(v.plot_xlabel,'time')
           if ~strcmp(datestr(ax(1),'yyyymmdd'),datestr(ax(2),'yyyymmdd')) && ...
             (~strcmp(datestr(ax(2),'HHMMSS'),'000000') || ax(2)-ax(1)>1)
             out.xlabel_handle=xlabel(out.axis_handle,...
@@ -586,7 +591,7 @@ classdef plotting
       else
         % enforce (possible) requested x-limits
         for i=1:2
-          if isfinite(v.plot_xlimits(i))
+          if isfinite(v.plot_xlimits(i)) && isnumeric(v.plot_xlimits(i))
             ax(i)=v.plot_xlimits(i);
           end
         end
@@ -596,6 +601,8 @@ classdef plotting
       
       % enforce requested y-limits
       ay=plotting.ylim(out.axis_handle);
+      % ensure numeric values
+      v.plot_xlimits=cells.c2m(v.plot_xlimits);
       for i=1:2
         if isfinite(v.plot_ylimits(i))
           ay(i)=   v.plot_ylimits(i);
@@ -635,7 +642,9 @@ classdef plotting
       ylim(out.axis_handle,ay);
       
       %enforce labels
-      if ~str.none(v.plot_xlabel)
+      if isempty(v.plot_xlabel)
+        %do nothing
+      elseif ~str.none(v.plot_xlabel)
         out.xlabel_handle=xlabel(out.axis_handle,v.plot_xlabel);
       else
         % if ~isfield(out,'xlabel_handle')
@@ -643,7 +652,9 @@ classdef plotting
         % end
         xlabel('')
       end
-      if ~str.none(v.plot_ylabel)
+      if isempty(v.plot_ylabel)
+        %do nothing
+      elseif ~str.none(v.plot_ylabel)
         out.ylabel_handle=ylabel(out.axis_handle,v.plot_ylabel);
       else
         % if ~isfield(out,'ylabel_handle')
@@ -678,20 +689,45 @@ classdef plotting
       
       %enforce colormap
       if str.none(v.plot_colormap)
-        out.colormap_handle=[];
+        out.colormap=[];
       else
-        out.colormap_handle=colormap(out.axis_handle,v.plot_colormap);
-      end
-      
-      %enforce caxis limits
-      if any(isfinite(v.plot_caxis))
-        ca=caxis;
-        for i=1:numel(ca)
-          if isfinite(v.plot_caxis(i)); ca(i)=v.plot_caxis(i);end
+        %enforce caxis limits
+        if any(isfinite(v.plot_caxis))
+          ca=caxis;
+          for i=1:numel(ca)
+            if isfinite(v.plot_caxis(i)); ca(i)=v.plot_caxis(i);end
+          end
+          caxis(ca);
         end
-        caxis(ca);
+        %get list of options for the colormap
+        clist={'opt','zero'};
+        %determine if any option is being used
+        cuse=cellfun(@(i) str.contains(v.plot_colormap,i),clist);
+        %clean the colormap of options
+        if any(cuse); v.plot_colormap=str.clean(v.plot_colormap,clist(cuse)); end
+        %get the requested colormap
+        out.colormap=eval([v.plot_colormap,'(1000)']);
+        %apply options
+        for c=1:numel(clist)
+          if ~cuse(c); continue; end
+          switch clist{c}
+          case 'opt';  
+            out.colormap=cb.opt(out.colormap,out.axis_handle);
+          case 'zero'; 
+            clim=caxis;
+            if clim(1)<0 && clim(2)>0; czero=0;
+            elseif all(clim<=0);        czero=max(clim);
+            elseif all(clim>=0);        czero=min(clim);
+            else
+              error('BUG TRAP: debug needed, this should not happen')
+            end
+            out.colormap=cb.zero_white(czero,out.colormap);
+          end
+        end
+        %apply the modified colormap
+        out.colormap_handle=colormap(out.axis_handle,out.colormap);
       end
-      
+            
     end
     function out=legend_replace_clean(varargin)
       % add input arguments and metadata to collection of parameters 'v'
@@ -713,7 +749,7 @@ classdef plotting
         'axis_handle',  gca,  @(i) ~isempty(i) && ishandle(i);...
       }},varargin{:});
       % check if any legend is given
-      if str.none(v.plot_legend)
+      if str.none(v.plot_legend_location)
         legend(v.axis_handle,'off')
         legend_handle=[];
         return
@@ -733,6 +769,54 @@ classdef plotting
           end
           v.plot_legend=str.columns(v.plot_legend,'right',v.plot_legend_align);
         end
+        %maybe there's the need to make the legend nicely aligned
+        if numel(v.plot_legend_align_str)>0
+          I_align=numel(v.plot_legend);
+          J_align=numel(v.plot_legend_align_str);
+          %handle default right-justify
+          if numel(v.plot_legend_align_right_just)~=J_align+1
+            v.plot_legend_align_right_just=true(1,J_align) && v.plot_legend_align_right_just;
+          end
+          %align the legend entries
+          legend_out=cell(I_align,J_align+1);
+           align_idx=cell(I_align,J_align);
+          %get the align indexes
+          for j=1:J_align
+            %determine locations of this align string
+            align_idx(:,j)=strfind(v.plot_legend,v.plot_legend_align_str{j});
+            %patch empty entries and correct non-empty
+            for i=1:I_align
+              if isempty(align_idx{i,j})
+                align_idx{i,j}=length(v.plot_legend{i});
+              else
+                align_idx{i,j}=align_idx{i,j}-1;
+              end
+            end
+          end
+          %slice the legend
+          for i=1:I_align
+            for j=1:J_align+1
+              switch j
+              case 1;         i_start=1;                 i_stop=align_idx{i,j};
+              case J_align+1; i_start=align_idx{i,j-1}+1;i_stop=length(v.plot_legend{i});
+              otherwise;      i_start=align_idx{i,j-1}+1;i_stop=align_idx{i,j};
+              end
+              legend_out{i,j}=strtrim(v.plot_legend{i}(i_start:i_stop));
+            end
+          end
+          %get maximum length of each legend section and pad with blanks (right-align)
+          for j=1:J_align+1
+            section_max_len=max(cellfun(@(x) length(x),legend_out(:,j)));
+            for i=1:I_align
+              legend_out{i,j}=str.tabbed(legend_out{i,j},section_max_len,v.plot_legend_align_right_just(j));
+            end
+          end
+          %assign column-aligned legend
+          for i=1:I_align
+            v.plot_legend{i}=strjoin(legend_out(i,:),' ');
+          end
+        end
+        %TODO: see if the code above can be used for the purpose below
         %maybe there's the need to make the scale and bias nicely aligned
         if v.plot_legend_align_scale_bias
           %align scale and mean, if there
