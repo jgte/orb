@@ -654,7 +654,7 @@ classdef file
         out=cells.scalar(varargin{1},'get');
       end
       %make sure filename is not too long
-      if length(out)>255
+      if length(out)>512
         %get the elements
         elements=file.build_particle(varargin{:});
         %get length of elements
