@@ -137,6 +137,9 @@
       out=islogical(mask) && ~isempty(mask) && isvector(mask);
     end
     function out=isx(mode,x1,x2,tol)
+      if ~exist('tol','var') || isempty(tol)
+        tol=simpledata.parameters('x_tol');
+      end
       switch mode
       case {'=','==','equal'}
         if numel(x1)==numel(x2) 
@@ -422,8 +425,11 @@
       end
     end
     %% constructors
-    function out=unitc(x,width,varargin)
+    function out=one(x,width,varargin)
       out=simpledata(x(:),ones(numel(x),width),varargin{:});
+    end
+    function out=zero(x,width,varargin)
+      out=simpledata(x(:),zeros(numel(x),width),varargin{:});
     end
     function out=randn(x,width,varargin)
       out=simpledata(x(:),randn(numel(x),width),varargin{:});
@@ -488,14 +494,13 @@
       case 'y_randn'
         out=simpledata.test_parameters('y_randn_scale')*randn(l,w);
       case 'y_poly'
-        out=sum(num.pardecomp(...
+        out=pardecomp(...
           simpledata.test_parameters('x',l),...
           [],...
-          'mode','model',...
-          'polynomial',ones(size(simpledata.test_parameters('y_poly_scale'))),...
-          'sinusoidal',[],...
+          'np',numel(simpledata.test_parameters('y_poly_scale')),...
+          'T',[],...
           'x',simpledata.test_parameters('y_poly_scale',l)...
-        ),2)*ones(1,w);
+        ).y_sum*ones(1,w);
         % % The code below is the same as the code above
         % c=simpledata.test_parameters('y_poly_scale',l);
         % x1=simpledata.test_parameters('x',l);
@@ -504,14 +509,13 @@
         %   out=out+c(i)*(x1).^(i-1)*ones(1,w);
         % end
       case 'y_sin_T'
-        out=sum(num.pardecomp(...
+        out=pardecomp(...
           simpledata.test_parameters('x',l),...
           [],...
-          'mode','model',...
-          'polynomial',[],...
-          'sinusoidal',simpledata.test_parameters('T',l),...
-          'x',simpledata.test_parameters('y_sin_scale')...
-        ),2)*ones(1,w);
+          'np',0,...
+          'T',simpledata.test_parameters('T',l),...
+          'x',[simpledata.test_parameters('y_sin_scale'),zeros(size(simpledata.test_parameters('y_cos_scale')))]...
+        ).y_sum*ones(1,w);
         % % The code below is the same as the code above
         % c=simpledata.test_parameters('y_sin_scale');
         % T=simpledata.test_parameters('T',l);
@@ -523,14 +527,13 @@
         %   );
         % end
       case 'y_cos_T'
-        out=sum(num.pardecomp(...
+        out=pardecomp(...
           simpledata.test_parameters('x',l),...
           [],...
-          'mode','model',...
-          'polynomial',[],...
-          'sinusoidal',simpledata.test_parameters('T',l),...
+          'np',0,...
+          'T',simpledata.test_parameters('T',l),...
           'x',[zeros(size(simpledata.test_parameters('y_sin_scale'))),simpledata.test_parameters('y_cos_scale')]...
-        ),2)*ones(1,w);
+        ).y_sum*ones(1,w);
         % % The code below is the same as the code above
         % c=simpledata.test_parameters('y_cos_scale');
         % T=simpledata.test_parameters('T',l);
@@ -595,23 +598,23 @@
 
       i=0;
 
-      i=i+1;
-      t=simpledata.test_parameters('x',l);
-      y=simpledata.test_parameters('y_all_T',l,w);
-      a=num.pardecomp(t,y(:,1),...
-        'polynomial',ones(size(simpledata.test_parameters('y_poly_scale'))),...
-        'sinusoidal',simpledata.test_parameters('T',l)...
-      );
-      disp(['sin_periods : ',num2str(simpledata.test_parameters('T',l))])
-      disp(['poly_coeffs : ',num2str(simpledata.test_parameters('y_poly_scale'))])
-      disp(['sin_coeffs  : ',num2str(simpledata.test_parameters('y_sin_scale'))])
-      disp(['cos_coeffs  : ',num2str(simpledata.test_parameters('y_cos_scale'))])
-      disp(['randn_scale : ',num2str(simpledata.test_parameters('y_randn_scale'))])
-      num.plot_pardecomp(a)
-      
-
-      
-      keyboard
+%       i=i+1;
+%       t=simpledata.test_parameters('x',l);
+%       y=simpledata.test_parameters('y_all_T',l,w);
+%       a=num.pardecomp(t,y(:,1),...
+%         'polynomial',ones(size(simpledata.test_parameters('y_poly_scale'))),...
+%         'sinusoidal',simpledata.test_parameters('T',l)...
+%       );
+%       disp(['sin_periods : ',num2str(simpledata.test_parameters('T',l))])
+%       disp(['poly_coeffs : ',num2str(simpledata.test_parameters('y_poly_scale'))])
+%       disp(['sin_coeffs  : ',num2str(simpledata.test_parameters('y_sin_scale'))])
+%       disp(['cos_coeffs  : ',num2str(simpledata.test_parameters('y_cos_scale'))])
+%       disp(['randn_scale : ',num2str(simpledata.test_parameters('y_randn_scale'))])
+%       num.plot_pardecomp(a)
+%       
+% 
+%       
+%       keyboard
       
       i=i+1;
       a=simpledata([1:4,5 7 9 11],[11 12 13 14 15 17 19 31]',...
@@ -1080,7 +1083,7 @@
       p.addParameter('outlier_sigma',...
      simpledata.parameters('outlier_sigma'), @(i) isnumeric(i) &&  isscalar(i));
       p.addParameter('struct_fields',...
-        {'cov','corrcoef','length','rmsdiff'},...
+        {'cov','corrcoef','length','rms'},...
         @(i) iscellstr(i)...
       )
       % parse it
@@ -1115,7 +1118,7 @@
         out=num.cov(obj1.y_masked([],columns),obj1.y_masked([],columns));
       case {'corrcoef','corrcoeff'}
         out=num.corrcoef(obj1.y_masked([],columns),obj2.y_masked([],columns));
-      case {'rmsdiff','stddiff'}
+      case {'rms','std'}
         o=obj1.cols(columns)-obj2.cols(columns);
         out=o.stats('mode',strrep(p.Results.mode,'diff',''));
       case 'length'
@@ -1164,6 +1167,12 @@
     function out=size(obj)
       out=[obj.length,obj.width];
     end
+%     function out=numel(obj)
+%       out=obj.length*obj.width;
+%     end
+%     function out=class(obj)
+%       out=class(obj);
+%     end
     %% x methods
     function out=x_masked(obj,mask)
       if ~exist('mask','var') || isempty(mask)
@@ -1183,13 +1192,17 @@
           out(i)=obj.idx(x_now(i),varargin{:});
         end
       else
-        %compute distance to input
-        distance=(obj.x-x_now).^2;
-        %handle default find arguments
-        if isempty(varargin)
-          out=find(distance==min(distance),1,'first');
+        if isfinite(x_now)
+          %compute distance to input
+          distance=(obj.x-x_now).^2;
+          %handle default find arguments
+          if isempty(varargin)
+            out=find(distance==min(distance),1,'first');
+          else
+            out=find(distance==min(distance),varargin{:});
+          end
         else
-          out=find(distance==min(distance),varargin{:});
+          out=find(~isfinite(obj.x));
         end
       end
     end
@@ -1798,7 +1811,14 @@
     end
     %% multiple object manipulation
     function out=isxequal(obj1,obj2)
-      out=obj1.length==obj2.length && ~any(~simpledata.isx('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol])));
+      %NOTICE: this also handles the single-object operation
+      if ismethod(obj1,'istequal') && ( isdatetime(obj2) || ismethod(obj2,'istequal'))
+        out=obj1.istequal(obj2);
+      elseif isnumeric(obj2)
+        out=obj1.length==numel(obj2) && ~any(~simpledata.isx('==',obj1.x,obj2(:),obj1.x_tol));
+      else
+        out=obj1.length==obj2.length && ~any(~simpledata.isx('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol])));
+      end
     end
     function compatible(obj1,obj2,varargin)
       %This method checks if the objects are referring to the same
@@ -1851,7 +1871,7 @@
         %add as gaps in obj2 those x that are in obj1 but not in obj2
         [obj2_out,idx1]=obj2.x_merge(obj1.x,y_new);
         %sanity on outputs
-        if obj1_out.length~=obj2_out.length && obj1_out.isxequal(obj2_out)
+        if obj1_out.length~=obj2_out.length && obj1_out.isxsame(obj2_out)
           error([mfilename,': BUG TRAP: merge operation failed.'])
         end
       end
@@ -1863,7 +1883,7 @@
       %scheme and other options can be set in varargin).
       compatible(obj1,obj2,varargin{:})
       %trivial call
-      if isxequal(obj1,obj2)
+      if isxsame(obj1,obj2)
         return
       end
       %build extended x-domain
@@ -2041,7 +2061,7 @@
     end
     function obj1=glue(obj1,obj2,varargin)
       %objects need to have the same time domain
-      assert(obj1.isxequal(obj2),'Input objects do not share the same x-domain.')
+      assert(obj1.isxsame(obj2),'Input objects do not share the same x-domain.')
       %make sure objects are compatible
       compatible(obj1,obj2,varargin{:})
       %augment the data, labels and units
@@ -2310,109 +2330,22 @@
     function obj=acoth( obj); obj=obj.op(@acoth );    end
     function obj=asech( obj); obj=obj.op(@asech );    end
     function obj=acsch( obj); obj=obj.op(@acsch );    end
-    %% decomposition
-    function out=parametric_decomposition(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addParameter('polynomial',[1 1], @(i) isnumeric(i) || isempty(i));
-      p.addParameter('sinusoidal',   [], @(i) isnumeric(i) || isduration(i) || isempty(i));
-      p.addParameter('t_mod_f',       1, @(i) isnumeric(i) || isempty(i));
-      p.addParameter('t0',     obj.x(1), @(i) isnumeric(i) && isscalar(i));
-      % parse it
-      p.parse(varargin{:});
-      % call mother routine
-      s.msg=['Parametric decomposition of ',obj.descriptor]; s.n=obj.width;
-      x_now=obj.x_masked;
-      y_now=obj.y_masked;
-      for i=1:obj.width
-        d(i)=num.pardecomp(x_now,y_now(:,i),'mode','struct',varargin{:});%#ok<AGROW>
-        s=time.progress(s,i);
-      end
-      %check if higher x-domain resolution for the model is needed
-      if p.Results.t_mod_f > 1
-        %build high-res x domain
-        x_mod=transpose(x_now(1):mean(diff(x_now))/p.Results.t_mod_f:x_now(end));
-        if x_mod(end)~=x_now(end); x_mod(end+1)=x_now(end);  end
-        %retrieve modelled data
-        clear s; s.msg=['Increase temporal resolution of parametric decomposition of ',obj.descriptor]; s.n=obj.width;
-        for i=1:obj.width
-          y_mod=num.pardecomp(x_mod,ones(size(x_mod)),varargin{:},'mode','model',...
-            'x',[d(i).polynomial(:);d(i).sinusoidal(:)]...
-          );
-          %re-assign higher-res modelled data
-          d(i).y_polynomial=y_mod(:,                             1:numel(p.Results.polynomial) );
-          d(i).y_sinusoidal=y_mod(:,numel(p.Results.polynomial)+(1:numel(p.Results.sinusoidal)));
-          s=time.progress(s,i);
-        end
-      else
-        x_mod=x_now;
-      end
-      % use the correct object constructor
-      init=str2func(class(obj));
-      % use correct abcissae
-      switch class(obj)
-      case 'simpledata'
-        x_now=obj.x_masked;
-      case {'simpletimeseries','gravity','simplegrid'}
-        x_now=obj.t_masked;
-        if p.Results.t_mod_f > 1
-          x_mod=transpose(x_now(1):mean(diff(x_now))/p.Results.t_mod_f:x_now(end));
-        else
-          x_mod=x_now;
-        end
-      otherwise
-        error([mfilename,': cannot handle objects of class ''',class(obj),'''.'])
-      end
-      % assign outputs
-      for i=1:p.Results.polynomial
-        %save polynomial coefficients
-        o=init(x_now(1),transpose(num.struct_deal(d,'polynomial',i,[])));
-        o=o.copy_metadata(obj);
-        o.descriptor=['p',num2str(i-1),' of ',str.clean(obj.descriptor,'file')];
-        out.(['p',num2str(i-1)])=o;
-        %save polynomial timeseries
-        o=init(x_mod,num.struct_deal(d,'y_polynomial',[],i));
-        o=o.copy_metadata(obj); %don't merge with obj here, breaks with t_mod_f 
-        o.descriptor=['p',num2str(i-1),' of ',str.clean(obj.descriptor,'file')];
-        out.(['ts_p',num2str(i-1)])=o;
-      end
-      for i=1:numel(p.Results.sinusoidal)
-        %save sinusoidal coefficients
-        o=init(x_now(1),transpose(num.struct_deal(d,'sinusoidal',i,[])));
-        o=o.copy_metadata(obj);
-        o.descriptor=['s',num2str(i),' of ',str.clean(obj.descriptor,'file')];
-        out.(['s',num2str(i)])=o;
-        %save co-sinusoidal coefficients
-        o=init(x_now(1),transpose(num.struct_deal(d,'cosinusoidal',i,[])));
-        o=o.copy_metadata(obj);
-        o.descriptor=['c',num2str(i),' of ',str.clean(obj.descriptor,'file')];
-        out.(['c',num2str(i)])=o;
-        %save sinusoidal timeseries
-        o=init(x_mod,num.struct_deal(d,'y_sinusoidal',[],i));
-        o=o.copy_metadata(obj); %don't merge with obj here, breaks with t_mod_f
-        o.descriptor=['ts_s',num2str(i),' of ',str.clean(obj.descriptor,'file')];
-        out.(['ts_s',num2str(i)])=o;
-        %save cosinusoidal timeseries
-        o=init(x_mod,num.struct_deal(d,'y_cosinusoidal',[],i));
-        o=o.copy_metadata(obj); %don't merge with obj here, breaks with t_mod_f
-        o.descriptor=['ts_c',num2str(i),' of ',str.clean(obj.descriptor,'file')];
-        out.(['ts_c',num2str(i)])=o;
-      end
-      %save residuals
-      o=init(x_now,num.struct_deal(d,'y_res',[],1));
-      o=o.copy_metadata(obj).merge(obj);
-      o.descriptor=['residual of ',str.clean(obj.descriptor,'file')];
-      out.res=o;
-      %save norms
-      o=init(x_now(1),num.struct_deal(d,'norm',[],1));
-      o=o.copy_metadata(obj);
-      o.descriptor=['norm of the residuals of ',str.clean(obj.descriptor,'file')];
-      out.norm=o;
-      %save norm ratio
-      o=init(x_now(1),num.struct_deal(d,'rnorm',[],1));
-      o=o.copy_metadata(obj);
-      o.descriptor=['signal and residual norms ratio for ',str.clean(obj.descriptor,'file')];
-      out.rnorm=o;
+    %% decomposition/reconstruction
+    function obj=parametric_decomposition(obj,varargin)
+      %add some defaults
+      v=varargs.wrap('sources',{....
+        {...
+          'epoch',    datetime('now'), @(i)isdatetime(i) || isscalar(i);...
+          'timescale',      'seconds', @ischar;...
+          't0',              obj.x(1), @(i)numeric(i) && isscalar(i);...
+        },...
+      },varargin{:});
+      v=varargs.wrap('sources',{v,...
+        {...
+          'time', v.epoch+pardecomp.from_timescaled(obj.x,obj.timescale)...
+        }...
+      },varargin{:});
+      obj=pardecomp.join(pardecomp.split(obj,v.varargin{:}),v.varargin{:});
     end
     %% differentiation
     function obj=diff(obj,varargin)
@@ -2594,33 +2527,31 @@
     end
     %% plot methods
     function out=plot(obj,varargin)
-      % Parse inputs TODO: use varargs
-      p=inputParser;
-      p.KeepUnmatched=true;
-      % optional arguments
-      p.addParameter('columns',    1:obj.width,@(i)isnumeric(i) || iscell(i));
-      p.addParameter('line'   ,    {},         @(i)iscell(i));
-      p.addParameter('zeromean',   false,      @(i)islogical(i) && isscalar(i));
-      p.addParameter('normalize',  false,      @(i)islogical(i) && isscalar(i));
-      p.addParameter('outlier',    0,          @(i)isfinite(i)  && isscalar(i));
-      p.addParameter('title',      '',         @(i)ischar(i));
-      p.addParameter('smooth_span',0,          @(i)isfinite(i)  && isscalar(i) && i>=0);
-      p.addParameter('scale',      1,          @(i)all(isfinite(i)));
-      % parse it
-      p.parse(varargin{:});
+      v=varargs.wrap('sources',{....
+        {...
+          'columns',    1:obj.width,@(i)isnumeric(i) || iscell(i);...
+          'line'   ,    {},         @(i)iscell(i);...
+          'zeromean',   false,      @(i)islogical(i) && isscalar(i);...
+          'normalize',  false,      @(i)islogical(i) && isscalar(i);...
+          'outlier',    0,          @(i)isfinite(i)  && isscalar(i);...
+          'title',      '',         @(i)ischar(i);...
+          'smooth_span',0,          @(i)isfinite(i)  && isscalar(i) && i>=0;...
+          'scale',      1,          @(i)all(isfinite(i));...
+        },...
+      },varargin{:});
       % type conversions
-      assert(~isempty(p.Results.columns),'If input argument ''columns'' is given, it cannot be empty')
-      if iscell(p.Results.columns)
-        columns=cell2mat(p.Results.columns);
+      assert(~isempty(v.columns),'If input argument ''columns'' is given, it cannot be empty')
+      if iscell(v.columns)
+        columns=cell2mat(v.columns);
       else
-        columns=p.Results.columns;
+        columns=v.columns;
       end
       % dimension conversions
-      if numel(p.Results.scale)==1
-        scale=ones(size(p.Results.columns))*p.Results.scale;
+      if numel(v.scale)==1
+        scale=ones(size(v.columns))*v.scale;
       else
-        str.sizetrap(p.Results.scale,p.Results.columns)
-        scale=p.Results.scale;
+        str.sizetrap(v.scale,v.columns)
+        scale=v.scale;
       end
       % plot
       for i=1:numel(columns)
@@ -2634,19 +2565,19 @@
         % define a working mask
         out.mask{i}=true(size(obj.mask));
         % remove outliers if requested
-        if p.Results.outlier>0
-          for c=1:p.Results.outlier
+        if v.outlier>0
+          for c=1:v.outlier
              [y_plot,outlier_idx]=simpledata.rm_outliers(y_plot);
              %update the mask with the detected outliers
              out.mask{i}(outlier_idx)=false;
           end
         end
         % smooth if requested
-        if p.Results.smooth_span>0
-          if isprop(obj,'t') && isduration(p.Results.smooth_span)
-            span=ceil(p.Results.smooth_span/obj.step);
+        if v.smooth_span>0
+          if isprop(obj,'t') && isduration(v.smooth_span)
+            span=ceil(v.smooth_span/obj.step);
           else
-            span=p.Results.smooth_span;
+            span=v.smooth_span;
           end
           y_plot(out.mask{i})=smooth(obj.x(out.mask{i}),y_plot(out.mask{i}),span,'moving');
           %update the mask with the to-be-deleted edges
@@ -2656,19 +2587,19 @@
           out.mask{i}(i2:end)=false;
         end
         %derive bias and amplitude
-        if p.Results.zeromean || p.Results.normalize
+        if v.zeromean || v.normalize
           % get valid data
           y_valid=y_plot(out.mask{i});
           y_valid=y_valid(~isnan(y_valid));
         end
         % remove mean if requested
-        if p.Results.zeromean
+        if v.zeromean
           out.y_mean{i}=mean(y_valid);
         else
           out.y_mean{i}=0;
         end
         % normalize if requested
-        if p.Results.normalize
+        if v.normalize
           out.y_scale{i}=diff(minmax(transpose(y_valid(:))));
         else
           out.y_scale{i}=1;
@@ -2688,45 +2619,45 @@
         % compute (de-meaned and/or normalized) ordinate
         y_plot=(y_plot-out.y_mean{i})/out.y_scale{i}*scale(i);
         % plot it
-        if isempty(p.Results.line)
+        if isempty(v.line)
           out.line_handle{i}=plot(x_plot,y_plot);hold on
         else
-          if iscell(p.Results.line{i})
-            out.line_handle{i}=plot(x_plot,y_plot,p.Results.line{i}{:});hold on
+          if iscell(v.line{i})
+            out.line_handle{i}=plot(x_plot,y_plot,v.line{i}{:});hold on
           else
-            out.line_handle{i}=plot(x_plot,y_plot,p.Results.line{i});hold on
+            out.line_handle{i}=plot(x_plot,y_plot,v.line{i});hold on
           end
         end
       end
       %set x axis
       if obj.length>1
         %get common axis limits (don't crop stuff)
-        v=plotting.common_lim(gca,'x');
+        xl=plotting.common_lim(gca,'x');
         if isprop(obj,'t')
           try
-            xlim(datetime(v,'convertfrom','datenum'));
+            xlim(datetime(xl,'convertfrom','datenum'));
           catch 
-            xlim(v);
+            xlim(xl);
           end
         else
-          xlim(v);
+          xlim(xl);
         end
       end
       %annotate
-      if isempty(p.Results.title)
+      if isempty(v.title)
         out.title=obj.descriptor;
       else
-        out.title=p.Results.title;
+        out.title=v.title;
       end
       out.xlabel=['[',obj.x_units,']'];
       if numel(out.line_handle)==1
         out.ylabel=[obj.labels{columns},' [',obj.y_units{columns},']'];
         out.legend=obj.labels{columns};
-        if p.Results.zeromean
+        if v.zeromean
           out.ylabel=[out.ylabel,' ',num2str(out.y_mean{1},'%+.3g')];
           out.legend=[out.legend,' ',num2str(out.y_mean{1},'%+.3g')];
         end
-        if p.Results.normalize
+        if v.normalize
           out.ylabel=[out.ylabel,' x ',num2str(out.y_scale{1},'%+.3g')];
           out.legend=[out.legend,' x ',num2str(out.y_scale{1},'%+.3g')];
         end
@@ -2745,12 +2676,12 @@
           out.ylabel='';
           out.legend=arrayfun(@(i) strcat(obj.labels(i),' [',obj.y_units(i),']'),columns);
         end
-        if p.Results.zeromean
+        if v.zeromean
           for i=1:numel(columns)
             out.legend{i}=[out.legend{i},' ',num2str(out.y_mean{i})];
           end
         end
-        if p.Results.normalize
+        if v.normalize
           for i=1:numel(columns)
             out.legend{i}=[out.legend{i},' x ',num2str(out.y_scale{i})];
           end
@@ -2762,7 +2693,7 @@
       if ~isempty(out.ylabel); ylabel(str.clean(out.ylabel,'title')); end
       if ~isempty(out.legend); legend(str.clean(out.legend,'title')); end
       %special annotations
-      if p.Results.normalize; ylabel('[ ]'); end
+      if v.normalize; ylabel('[ ]'); end
       %maybe useful outside
       out.axis_handle=gca;
       out.fig_handle=gcf;
