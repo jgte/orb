@@ -1,0 +1,12 @@
+method: gswarm.plot_parametric_decomposition
+sources: [grace.mascons.rl06.climat]
+storage_period: yearly
+polyorder: 1
+sin_period: [365.2426,182.6213,161.04,1400.0,2800.0]
+sin_period_unit: days
+sin_names: [yearly,semi-yearly,S2,K1,K2]
+
+plot_xdate: true
+plot_xdateformat: yy
+
+#NOTICE: this is intended to test the parametric decomposition routines (when there's time)

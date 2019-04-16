@@ -1,4 +1,4 @@
-method: gswarm.plot_catchments
+method: gswarm.plot_parametric_decomposition
 model_types: [signal]
 submetadata: gswarm.swarm.all.TN-03_3.submetadata
 
@@ -24,9 +24,8 @@ timescale: years
 
 
 #plotting
+plot_functional: geoid
 plot_colormap: jetzero
-plot_poly_range: [1,0.3]
+plot_poly_range: [0.02,0.003]
 plot_amplitude_range: [0.01,0.002]
-plot_std_range: 0.5
-pardecomp_catchments: true
-plot_pardecomp_catchments: [p0,p1]
+plot_std_range: 0.01

@@ -2,24 +2,28 @@ method: gswarm.plot_stats
 model_types: [signal,error]
 submetadata: gswarm.swarm.all.TN-03_3.submetadata
 
-#plotting
-plot_legend_location: best
+#plot_ops
+plot_min_degree: 2
+plot_max_degree: 40
+
+
 
 # plot_temporal_stats
-plot_temp_stat_list: [corrcoeff,rmsdiff] #[corrcoeff,rmsdiff,stddiff]
+plot_temp_stat_list: [corrcoeff,rms] #[corrcoeff,rms,std]
 #plot_temp_stat_title: <something>
 
 #plot_spatial_stats
 plot_derived_quantity: cumdrms
 plot_type: line
-# NOTICE: need to check what's wrong with the model errors, they should be zero and cosine coefficients show up out of the blue
 plot_spatial_stat_list: [diff] #[monthly]
 plot_monthly_error: true
 
-#plot_low_degrees
-degrees: []
-orders: []
 
-#plot_ops
-plot_min_degree: 2
-plot_max_degree: 40
+#plot_low_degrees
+degrees: 2  #[2,3]
+orders: inf #[inf,inf]
+
+#plotting options
+plot_legend_align_str: [corr,RMS]
+plot_legend_align_right_just: [false,false,false]
+

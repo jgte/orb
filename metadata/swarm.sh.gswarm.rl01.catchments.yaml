@@ -1,0 +1,36 @@
+plot_product: true
+method: gswarm.plot_catchments
+sources: [
+  grace.sh.rl06.csr,
+  swarm.sh.gswarm.rl01,
+  grace.sh.rl06.csr,
+  swarm.sh.gswarm.rl01,
+]
+stats_relative_to: grace.sh.rl06.csr
+plot_functional: eqwh
+
+storage_period: yearly
+polyorder: 1
+sin_period: [365.2426,182.6213]
+sin_period_unit: days
+sin_names: [yearly,semi-yearly]
+timescale: years
+
+plot_smoothing_method: gauss
+plot_smoothing_degree: [750e3,750e3,1000e3,1000e3]
+
+plot_pause_on_save: false
+plot_colormap: jetzero
+plot_poly_range: [1,0.3]
+
+catchment_list: ['Amazon','Alasca','Greenland','Ganges-Brahm','W Antarctica','Congo Zambezi']
+plot_std_range: 0.5
+pardecomp_catchments: false
+
+plot_legend_suppress: [smoothed,res,v01,v02,v03,v04,v05,v06,v07,v08,v09,v10,sh,GSWARM,gswarm]
+plot_title_suppress: [gswarm,smoothed,res,signal,sh]
+plot_legend_replace: [
+  'asu ifg','asu',
+  'osu aiub','osu',
+]
+plot_legend_include_smoothing: true

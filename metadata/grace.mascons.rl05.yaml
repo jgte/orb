@@ -5,7 +5,7 @@ model_format: csr
 date_parser: gravity.parse_epoch_csr
 storage_period: yearly
 method:  gswarm.load_models
-static_model: grace.static.gif48
+static_model: static.gif48
 
 storage_period: yearly
 use_GRACE_C20: false

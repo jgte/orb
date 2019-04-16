@@ -1,0 +1,14 @@
+method: datastorage.pardecomp_split
+sources: [grace.sh.rl06.csr/signal]
+storage_period: infinite
+polyorder: 1
+sin_period_unit: days
+sin_period: [365.2426,182.6213,161.04,1400.0,2800.0]
+sin_names: [yearly,semi-yearly,S2,K1,K2]
+timescale: days
+explicit_fields: true
+
+plot_pause_on_save: true
+plot_title_suppress: [gswarm,smoothed,res,signal,sh]
+plot_colormap: jetzero
+plot_poly_range: [1,0.3]

@@ -1,0 +1,10 @@
+method: datastorage.pardecomp_join
+sources: [grace.sh.rl06.csr.pd]
+storage_period: yearly
+polyorder: 1
+start: 2002-01-01
+stop: 2018-31-01
+time_step: 7
+time_step_unit: days
+explicit_fields: true
+

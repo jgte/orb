@@ -4,7 +4,7 @@ wilcarded_filename: 'AIUB-SLR_*_1010.gfc'
 model_format: gfc
 date_parser: gravity.parse_epoch_aiub_slr
 method:  gswarm.load_models
-static_model: scales.static
+static_model: static.gif48
 max_degree: 10
 plot_xdate: true
 plot_xdateformat: yy

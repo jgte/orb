@@ -4,7 +4,7 @@ wilcarded_filename: '*.GEO.*'
 model_format: csr
 date_parser: gravity.parse_epoch_csr
 method:  gswarm.load_models
-static_model: scales.static
+static_model: static.gif48
 #submetadata: scales.processing.submetadata
 submetadata: singleacc.processing.submetadata
 plot_xdate: true

@@ -1,17 +1,17 @@
-import_dir: <getenv('HOME')>/data/singleacc/JPL/
-model_types: [signal]
-wilcarded_filename: '*JPL.GEO'
-model_format: csr
-date_parser: gravity.parse_epoch_csr
+import_dir: <getenv('HOME')>/data/grace/L2/JPL/RL06/
+model_types: [signal,error]
+wilcarded_filename: 'GSM-2_*BA01*.gsm'
+model_format: gsm
+date_parser: gravity.parse_epoch_grace
 storage_period: yearly
 method:  gswarm.load_models
-static_model: grace.static.gif48
+static_model: static.ggm05c
 
 storage_period: yearly
-use_GRACE_C20: false
+use_GRACE_C20: TN-11
 delete_C20: false
 delete_C00: true
-start: 2016-11-01
+start: 2002-04-01
 stop: 2017-06-30
 
 plot_xdate: true
