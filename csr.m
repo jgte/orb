@@ -1067,7 +1067,7 @@ classdef csr
     function obj=import_l1b(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
       % sanity
-      assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
+      assert(time.isfinite(obj.start) && time.isfinite(obj.stop),'Need valid obj.start and obj.stop.')
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{...
         {...
@@ -1157,7 +1157,7 @@ classdef csr
     function obj=import_acc_mod(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
       % sanity
-      assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
+      assert(time.isfinite(obj.start) && time.isfinite(obj.stop),'Need valid obj.start and obj.stop.')
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{product.args},varargin{:});
       %gather list of daily data files
@@ -1208,7 +1208,7 @@ classdef csr
           error([mfilename,': cannot handle format ''',v.format,'''.'])
       end
       % sanity
-      assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
+      assert(time.isfinite(obj.start) && time.isfinite(obj.stop),'Need valid obj.start and obj.stop.')
       %gather list of daily data files
       [~,startlist,stoplist]=product.file('data',varargin{:},...
         'start',obj.start,...
@@ -1804,7 +1804,7 @@ classdef csr
             str.say('sat',v.sats{s},'calpar',fields{f})
             %shortcut to the time domain (sub-arcs may be dropped if small, so no point in time domain consistency checks)
             if isempty(t); t=arc.(v.sats{s}).(fields{f}).t;end
-%             else assert(arc.(v.sats{s}).(fields{f}).isteq(t),'Time domain discrepancy.');  
+%             else assert(arc.(v.sats{s}).(fields{f}).istequal(t),'Time domain discrepancy.');  
             %set the time domain in units compatible with the calibration parameters:
             %units are days and zero epoch is the start of the arc
             if isempty(tc); tc=days(t-startstop(1)); end
@@ -2521,7 +2521,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       %enforce common gaps
       ts=simpledata.op_multiple({'merge','mask_match'},ts,'estimate_temp_corr');
       %make room for outputs
-      tsout=simpletimeseries.unitc(ts{1}.t,ts{1}.width,...
+      tsout=simpletimeseries.one(ts{1}.t,ts{1}.width,...
         'units',ts{1}.y_units,'descriptor',product.name,'timesystem',ts{1}.timesystem);
       % get forcing temperature
       tsf=ts{4}.cols(v.ahk_col);
@@ -2710,7 +2710,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       end
       %sanity on the time domain
       for i=2:numel(ts)
-        if ~ts{1}.isteq(ts{i})
+        if ~ts{1}.istequal(ts{i})
           ts{i}=ts{i}.interp(ts{1}.t);
         end
       end
@@ -2731,7 +2731,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
     function obj=import_slr_Cheng(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
       % sanity
-      assert(time.isvalid(obj.start) && time.isvalid(obj.stop),'Need valid obj.start and obj.stop.')
+      assert(time.isfinite(obj.start) && time.isfinite(obj.stop),'Need valid obj.start and obj.stop.')
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{...
         {...
@@ -2940,5 +2940,6 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         dataproduct(mode,'metadata_dir',obj.metadata_dir).rm_data(varargin{:});
       end
     end
+     
   end
 end
