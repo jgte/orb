@@ -289,32 +289,23 @@ classdef dataproduct
           timestamp_fmt='none';
         otherwise
           %check if stop date is compatible
-          if ~isfinite(p.Results.stop)
-            %TODO: check if this ever happens, probably need to throw an error here
-            keyboard
-            %old code:
-            out={''};
-            startlist=time.zero_date;
-            stoplist =time.zero_date;
-            return
-          else
-            switch lower(obj.mdget('storage_period'))
-            case {'day','daily'}
-              [startlist,stoplist]=time.day_list(p.Results.start,p.Results.stop);
-              timestamp_fmt='yyyymmdd';
-            case {'month','monthly'}
-              [startlist,stoplist]=time.month_list(p.Results.start,p.Results.stop);
-              timestamp_fmt='yyyymm';
-            case {'year','yearly'}
-              [startlist,stoplist]=time.year_list(p.Results.start,p.Results.stop);
-              timestamp_fmt='yyyy';
-            case {'direct'}
-              startlist=p.Results.start;
-               stoplist=p.Results.stop;
-               timestamp_fmt='yyyymmdd';
-            otherwise
-              error([mfilename,': cannot handle metadata key ''storage_period'' with value ''',obj.mdget('storage_period'),'''.'])
-            end
+          assert(isfinite(p.Results.stop),'Trying to return infinite number of files, better set explicit start/stop')
+          switch lower(obj.mdget('storage_period'))
+          case {'day','daily'}
+            [startlist,stoplist]=time.day_list(p.Results.start,p.Results.stop);
+            timestamp_fmt='yyyymmdd';
+          case {'month','monthly'}
+            [startlist,stoplist]=time.month_list(p.Results.start,p.Results.stop);
+            timestamp_fmt='yyyymm';
+          case {'year','yearly'}
+            [startlist,stoplist]=time.year_list(p.Results.start,p.Results.stop);
+            timestamp_fmt='yyyy';
+          case {'direct'}
+            startlist=p.Results.start;
+             stoplist=p.Results.stop;
+             timestamp_fmt='yyyymmdd';
+          otherwise
+            error([mfilename,': cannot handle metadata key ''storage_period'' with value ''',obj.mdget('storage_period'),'''.'])
           end
         end
         %build list of files
