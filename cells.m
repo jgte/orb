@@ -13,10 +13,40 @@ classdef cells
       end
     end
     function out=isequal(c1,c2)
+      %ensures all correponding arbitrary class entries are the same
+      out=false;
+      if numel(c1)~=numel(c2); return; end
+      if ~isa(c1,class(c2)); return; end
+      if ~iscell(c1)
+        out=cells.isequal({c1},{c2});
+      else
+        for i=1:numel(c1)
+          if ~isa(c1{i},class(c2{i})); return; end
+          if isnumeric(c1{i}) || islogical(c1{i})
+            if any(c1{i}~=c2{i}); return; else continue; end
+          end
+          if ischar(c1{i})
+            if ~strcmp(c1{i},c2{i}); return; else continue; end
+          end
+          if iscell(c1{i})
+            if ~cells.isequal(c1{i},c2{i}); return; else continue; end
+          end
+          try
+            if ~c1{i}.isequal(c2{i}); return; else continue; end
+          catch
+            error(['Cannot handle data of class ',class(c1{i}),'.'])
+          end
+        end
+        out=true;
+      end
+    end
+    function out=isequalstr(c1,c2)
+      %ensures all correponding string entries are the same
       %http://stackoverflow.com/questions/3231580/matlab-comparison-of-cell-arrays-of-string
       out=isempty(setxor(c1,c2));
     end
     function out=allequal(in)
+      %ensures all entries are exactly the same
       in=cells.flatten(in);
       for i=2:numel(in)
         if any(in{1} ~= in{i})
@@ -51,7 +81,7 @@ classdef cells
         out=cellfun(@isempty,in);
         if isempty(out); out=true;end
       else
-        out=isempty(i);
+        out=isempty(in);
       end
     end
     function out=rm_empty(in)
@@ -73,11 +103,16 @@ classdef cells
         if numel(out)==1;break;end
       end
     end
+    function out=ismethod(cellstrin,method)
+     out=cellfun(@(i) any(strcmp(   methods(i),method)),cellstrin);
+    end
+    function out=isprop(cellstrin,method)
+      out=cellfun(@(i) isfield(i, method) || ...
+         any(strcmp(properties(i),method)),cellstrin);
+    end
     %checks if a method/field/property exists for a general object
     function out=respondto(cellstrin,method)
-      out=cellfun(@(i) isfield(i, method) || ...
-         any(strcmp(   methods(i),method))|| ...
-         any(strcmp(properties(i),method)),cellstrin);
+      out=cells.ismethod(cellstrin,method) | cells.isprop(cellstrin,method);
     end
     function out=allrespondto(cellstrin,method)
       out=cellfun(@(i) all(cells.respondto(cellstrin,i)),cells.scalar(method,'set'));
@@ -206,17 +241,26 @@ classdef cells
     end
     %% handling numeric cells
     %returns true if all entries in 'in' are numeric of strings that can be converted to numeric
+    %NOTICE: always returns a cell array
     function [out,in]=isnum(in)
-      if isnumeric(in);                   out=true;  in=num2cell(in); return; end
-      if   ~iscell(in) && ~iscellstr(in); out=false; in=[];           return; end
-      for i=1:numel(in)
-        try 
-          in{i}=str.num(in{i});
-        catch
-          out=false;in=[];return
+      if isnumeric(in)
+        out=true;
+        in=num2cell(in);
+      elseif ischar(in)
+        [out,in]=cells.isnum({in});
+      elseif iscell(in)
+        for i=1:numel(in)
+          try 
+            in{i}=str.num(in{i});
+          catch
+            out=false;in=[];return
+          end
         end
+        out=true;
+      else
+        out=false;
+        in=[];          
       end
-      out=true;
     end
     function in=num(in)
       [~,in]=cells.isnum(in);
