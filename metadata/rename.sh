@@ -54,8 +54,8 @@ fi
 
 
 #define the old and new metadata roots
-MTDR_OLD=$(basename ${METADATA_OLD/.metadata})
-MTDR_NEW=$(basename ${METADATA_NEW/.metadata})
+MTDR_OLD=$(basename ${METADATA_OLD/.yaml})
+MTDR_NEW=$(basename ${METADATA_NEW/.yaml})
 
 if [ -e $DATADIR/$MTDR_NEW ]
 then
@@ -67,7 +67,7 @@ fi
 $ECHO mkdir -p $DATADIR/$MTDR_NEW
 
 #rename all files in this new dir
-for j in $(find $DATADIR/$MTDR_OLD -name $MTDR_OLD\* -not -type d)
+for j in $(find $DATADIR/$MTDR_OLD -name $MTDR_OLD\* -not -type d || echo "NOTICE: no data found for $MTDR_OLD, ignoring data move" 1>&2)
 do
   #rename data 
   $ECHO mv -v $j $DATADIR/$MTDR_NEW/$(basename ${j//$MTDR_OLD/$MTDR_NEW})
@@ -77,8 +77,8 @@ done
 $ECHO mv -v $METADATA_OLD $METADATA_NEW
 
 #remove old dir
-rmdir $DATADIR/$MTDR_OLD 
+rmdir $DATADIR/$MTDR_OLD || echo "NOTICE: no data found for $MTDR_OLD, ignoring dir delete" 1>&2
 
 #check for references to this metadata in remaining metadata files
-OUT=$(grep -l $(basename ${MTDR_OLD/.metadata}) *.metadata)
-[ -z "$OUT" ] || echo -e "'$MTDR_OLD' mentioned in:\n$OUT"
+OUT=$(grep -l $(basename ${MTDR_OLD/.yaml}) *.yaml)
+[ -z "$OUT" ] || file-find-replace.sh -from=$MTDR_OLD -to=$MTDR_NEW $OUT
