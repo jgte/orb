@@ -93,19 +93,39 @@ classdef gswarm
           end
         case 'use_GRACE_C20'
           %set C20 coefficient
-          if v.isparameter('use_GRACE_C20') && v.use_GRACE_C20
+          if v.isparameter('use_GRACE_C20') && ~str.none(v.use_GRACE_C20)
             %some sanity
             if strcmpi(v.date_parser,'static')
               error([mfilename,': there''s no point in replacing GRACE C20 coefficients in a static model.'])
             end
+            %legacy support
+            if islogical(v.use_GRACE_C20) && v.use_GRACE_C20
+              v.use_GRACE_C20='TN-07';
+            end
             %get C20 timeseries, interpolated to current time domain
-            c20=gravity.graceC20.interp(mod.t);
+            c20=gravity.graceC20('version',v.use_GRACE_C20);
+            %use parametric decomposition if outside of time domain
+            if max(c20.t_masked)<max(mod.t_masked) || min(c20.t_masked)>min(mod.t_masked)
+              switch  v.use_GRACE_C20
+              case 'TN-11'
+                %NOTICE: these periods were derived with:
+                %[~,pd]=c20.parametric_decomposition_search('np',2,'T',[365.2426,182.6213],'timescale','days');pd.T
+                T=[365.2426 182.6213 7936 992 566.85714 1984 91.218391 881.77778 721.45455 ...
+                  214.48649 1587.2 529.06667 377.90476 122.09231 661.33333 273.65517 330.66667];
+                np=2;
+              case 'TN-07'
+                error('needs implementation')
+              end
+              c20=c20.parametric_decomposition('np',np,'T',T,'timescale','days','time',mod.t);
+            else
+              c20=c20.interp(mod.t);
+            end
   %         figure
   %         plot(c20.x_masked,c20.y_masked([],1),'x-','MarkerSize',10,'LineWidth',4), hold on
   %         plot(c20.x,spline(c20.x_masked,c20.y_masked([],1),c20.x),'o-','MarkerSize',10,'LineWidth',2)
   %         plot(c20.x,pchip(c20.x_masked,c20.y_masked([],1),c20.x),'+-','MarkerSize',10,'LineWidth',2)
   %         legend('data','spline','pchip')
-            %extrapolate in case there are gaps
+            %interpolate in case there are gaps
             if c20.nr_gaps>0
               c20=c20.assign([...
                 interp1(c20.x_masked,c20.y_masked([],1),c20.x),...
@@ -118,6 +138,7 @@ classdef gswarm
   %           plot(c20.t,c20.y(:,1),'o-'), hold on
   %           plot(m.t,m.C(2,0),'x-')
   %           legend('GRACE',m.descriptor)
+            msg=['set to ',v.use_GRACE_C20];
             show_msg=true;
           end
         case 'delete_C00'
@@ -198,7 +219,7 @@ classdef gswarm
         case 'static_model'
           %remove static field (if requested)
           if v.isparameter('static_model') && ~strcmpi(v.static_model,'none')
-            static=datastorage().init(v.static_model);
+            static=datastorage().init(v.static_model).data_get_scalar(datanames(v.static_model).append_field_leaf('signal'));
             %adjust the start/stop
             switch static.length
             case 1
@@ -396,15 +417,26 @@ classdef gswarm
             '), it needs to have the same number of elemets as sources (now equal to ',num2str(out.source.n),').'])
         end
         for i=1:out.source.n
+          %smooth the data
           out.source.signal{i}=out.source.signal{i}.scale(...
             v.plot_smoothing_degree(i),...
             v.plot_smoothing_method...
           );
+          %save smoothing annotations
+          smoothing_name=gravity.gauss_smoothing_name(v.plot_smoothing_degree(i));
+          out.source.file_smooth{i}=strjoin({'smooth',v.plot_smoothing_method,smoothing_name},'_');
+          out.source.title_smooth{i}=str.show({smoothing_name,...
+                                  gravity.smoothing_name(v.plot_smoothing_method),'smoothing'});
         end
-        out.file_smooth={'smooth',v.plot_smoothing_method,gravity.gauss_smoothing_name(v.plot_smoothing_degree(end))};
-        out.title_smooth=str.show({gravity.gauss_smoothing_name(v.plot_smoothing_degree(end)),...
-                                gravity.smoothing_name(v.plot_smoothing_method),'smoothing'});
+        %NOTICE: these are used in plots where all sources are shown together
+        out.file_smooth=out.source.file_smooth{end};
+        out.title_smooth=out.source.title_smooth{end};
       else
+        for i=1:out.source.n
+          out.source.file_smooth{i}='';
+          out.source.title_smooth{i}='';
+        end
+        %NOTICE: these are used in plots where all sources are shown together
         out.file_smooth='';
         out.title_smooth='';
       end
@@ -441,8 +473,13 @@ classdef gswarm
         %get the indexes of the sources to plot (i.e. not the reference)
         out.source.mod_idx=[1:out.source.ref_idx-1,out.source.ref_idx+1:out.source.n];
         %get product name difference between products to derive statistics from
-        out.mod.names=cellfun(@(i) strjoin(i,' '),datanames.unique(out.source.datanames(out.source.mod_idx)),'UniformOutput',false);
-        out.source.names(out.source.mod_idx)=cellfun(@(i) strrep(i,'_',' '),out.mod.names,'UniformOutput',false);
+        if numel(out.source.mod_idx)<2
+          out.mod.names={strjoin(datanames.unique(out.source.datanames(out.source.mod_idx)),' ')};
+          out.source.names(out.source.mod_idx)=strrep(out.mod.names,'_',' ');
+        else
+          out.mod.names=cellfun(@(i) strjoin(i,' '),datanames.unique(out.source.datanames(out.source.mod_idx)),'UniformOutput',false);
+          out.source.names(out.source.mod_idx)=cellfun(@(i) strrep(i,'_',' '),out.mod.names,'UniformOutput',false);
+        end
         out.source.names{out.source.ref_idx}=upper(strtrim(strrep(str.clean(out.mod.ref_name.name,v.plot_title_suppress),'.',' ')));
         %reduce the models to plot
         out.mod.dat=out.source.signal(out.source.mod_idx);
@@ -475,16 +512,40 @@ classdef gswarm
         end
       end
       %filename particles
-      out.file_root=product.file('plot','start',obj.start,'stop',obj.stop,'start_timestamp_only',false,'no_extension',true);
+      %NOTICE: this is needed so that only one name is returned, otherwise 
+      %         a cell array with numerous filenames may be returned, 
+      %         depending on the storage period
+      out.file_root=product.mdset('storage_period','direct').file('plot',...
+        'start',obj.start,...
+        'stop',obj.stop,...
+        'start_timestamp_only',false,...
+        'no_extension',true,...
+        'sub_dirs','single',...
+        'use_storage_period',true... 
+      );
       out.file_deg=['deg',num2str(v.plot_min_degree),'-',num2str(v.plot_max_degree)];
       %legend
-      out.source.legend_str=cellfun(@(i) strjoin(i,' '),datanames.unique(out.source.datanames),'UniformOutput',false);
+      if numel(out.source.datanames)>1
+        out.source.legend_str=cellfun(@(i) strjoin(i,' '),datanames.unique(out.source.datanames),'UniformOutput',false);
+      else
+        out.source.legend_str=str.rep(out.source.datanames{1}.str,'.',' ','/',' ');
+      end
       %patch empty legend entries (this expects there to be only one empty legend entry) 
       if any(cells.isempty(out.source.legend_str))
         out.source.legend_str(cells.isempty(out.source.legend_str))={strjoin(datanames.common(out.source.datanames),' ')};
       end
-      %title
-      out.title_startstop=['(',datestr(out.source.signal{1}.t(1),'yyyy-mm'),' to ',datestr(out.source.signal{1}.t(end),'yyyy-mm'),')'];
+      %time info in the title
+      for i=1:out.source.n
+        out.source.title_startstop{i}=['(',...
+          datestr(out.source.signal{i}.t_masked([],'start'),'yyyy-mm'),' to ',...
+          datestr(out.source.signal{i}.t_masked([],'stop' ),'yyyy-mm'),')'...
+        ];
+      end
+      %NOTICE: this is used in plots where all sources are shown together
+      out.title_startstop=['(',...
+        datestr(out.source.signal{1}.t_masked([],'start'),'yyyy-mm'),' to ',...
+        datestr(out.source.signal{1}.t_masked([],'stop' ),'yyyy-mm'),')'...
+      ];
       %save data if requested
       if savedata
         str.say('Saving plot data to ',datafilename)
@@ -508,6 +569,20 @@ classdef gswarm
       },varargin{:});
       %collect the models 
       out=gswarm.plot_ops(obj,product,v.varargin{:});
+      %build title suffix and legend prefix
+      legend_str_prefix=cell(1,out.source.n);
+      for k=1:out.source.n
+        legend_str_prefix{k}=upper(out.source.legend_str{k});
+      end
+      if v.plot_legend_include_smoothing
+        for k=1:out.source.n
+          legend_str_prefix{k}=strjoin([legend_str_prefix(k),out.source.title_smooth(out.source.mod_idx(k))],' ');
+        end
+        title_suffix=strjoin({out.title_masking},' ');
+      else
+        title_suffix=strjoin({out.title_masking,out.title_smooth},' ');
+      end
+
       %get collection of degrees/orders (this looks at arguments 'degrees' and 'orders')
       [degrees,orders]=gravity.resolve_degrees_orders(v.varargin{:});
       %loop over all requested degrees and orders
@@ -530,34 +605,38 @@ classdef gswarm
             %don't plot trivial data
             if isempty(ts_now{k}) || ts_now{k}.iszero
               trivial_idx(k)=false;
-              stats{k}.corrcoef=-1;stats{k}.rmsdiff=inf;
+              stats{k}.corrcoef=-1;stats{k}.rms=inf;
               continue
             end
             %add statistics to the legend (unless this is the produce from which the stats are derived)
             if k~=out.source.ref_idx
               mod_ref_now=out.mod.ref.ts_C(d,o).interp(ts_now{k}.t);
               if all(isnan(mod_ref_now.y(:)))
-                stats{k}.corrcoef=NaN;stats{k}.rmsdiff=NaN;
+                stats{k}.corrcoef=NaN;stats{k}.rms=NaN;
               else
-                stats{k}=ts_now{k}.stats2(mod_ref_now,'mode','struct','struct_fields',{'corrcoef','rmsdiff'},'period',seconds(inf));
+                stats{k}=ts_now{k}.stats2(mod_ref_now,'mode','struct','struct_fields',{'corrcoef','rms'},'period',seconds(inf));
               end
               if v.show_legend_stats
-                legend_str{k}=[out.source.legend_str{k},...
+                legend_str{k}=[legend_str_prefix{k},...
                   ' corr=',num2str(stats{k}.corrcoef,'%.2f'),...
-                  ', RMS{\Delta}=',num2str(stats{k}.rmsdiff,'%.2g')];
+                  ', RMS{\Delta}=',num2str(stats{k}.rms,'%.2g')];
               else
-                legend_str{k}=out.source.legend_str{k};
+                legend_str{k}=legend_str_prefix{k};
               end
             else
-              legend_str{k}=[out.source.legend_str{k},' (reference)'];
-              stats{k}.corrcoef=1;stats{k}.rmsdiff=0;
+              if ~isempty(out.source.ref_idx)
+                legend_str{k}=[legend_str_prefix{k},' (reference)'];
+              else
+                legend_str{k}=legend_str_prefix{k};
+              end
+              stats{k}.corrcoef=1;stats{k}.rms=0;
             end
           end
           %get rid of trivial data
           ts_now=ts_now(trivial_idx);
           legend_str=legend_str(trivial_idx);
           %sort it
-          [~,idx]=sort(cellfun(@(i) i.rmsdiff,stats),'ascend');
+          [~,idx]=sort(cellfun(@(i) i.rms,stats),'ascend');
           %truncate it
           idx=idx(1:min(out.source.n,v.plot_max_lines));
           ts_now=ts_now(idx);
@@ -576,10 +655,8 @@ classdef gswarm
           product.enforce_plot(v.varargin{:},...
             'plot_ylabel','[ ]',...
             'plot_legend',legend_str,...
-            'plot_legend_location','southwest',...
-            'plot_fontsize_legend',14,...
             'plot_line_color_order',idx,...
-            'plot_title',['C',num2str(d),',',num2str(o)]...
+            'plot_title',['C',num2str(d),',',num2str(o),' ',title_suffix]...
           );
           if v.plot_pause_on_save; keyboard; end
           saveas(gcf,filename)
@@ -606,6 +683,7 @@ classdef gswarm
           'plot_max_nr_lines',        20, @(i) isnumeric(i) && isscalar(i);...
           'plot_derived_quantity',          'cumdrms', @(i) ismethod(gravity.unit(1),i);...
           'plot_spatial_stat_list',{'diff','monthly'}, @iscellstr; ... TODO: corr
+          'plot_legend_include_smoothing', false, @islogical;...
         },...
         product.plot_args...
       },varargin{:});
@@ -641,7 +719,18 @@ classdef gswarm
           %sort it
           [yc_sorted,idx]=sort(yc,'ascend');
           y_sorted=y(:,idx);
-          legend_str=out.mod.names(idx);
+          %build legend
+          legend_str=upper(out.mod.names);
+          if v.plot_legend_include_smoothing
+            for i=1:numel(legend_str)
+              legend_str{i}=strjoin([legend_str(i),out.source.title_smooth(out.source.mod_idx(i))],' ');
+            end
+            title_suffix=strjoin({out.title_masking},' ');
+          else
+            title_suffix=strjoin({out.title_masking,out.title_smooth},' ');
+          end
+          %sort the legend
+          legend_str=legend_str(idx);
           %truncate it
           if v.plot_max_nr_lines < numel(idx)
               y_sorted=  y_sorted(:,1:v.plot_max_nr_lines);
@@ -649,6 +738,10 @@ classdef gswarm
             legend_str=legend_str(  1:v.plot_max_nr_lines);
                    idx=idx(         1:v.plot_max_nr_lines);
           end
+          %trim nans for plotting
+          plot_idx=any(num.trim_NaN(y_sorted),2);
+          y_sorted=y_sorted(plot_idx,:);
+          t_sorted=out.t(plot_idx);
         end
         
         %% plot diff rms (only if not done yet)
@@ -658,8 +751,8 @@ classdef gswarm
           %plot it
           plotting.figure(v.varargin{:});
           switch v.plot_type
-          case 'bar';   bar(out.t,y_sorted,'EdgeColor','none');
-          case 'line'; plot(out.t,y_sorted,'Marker','o');
+          case 'bar';   bar(t_sorted,y_sorted,'EdgeColor','none');
+          case 'line'; plot(t_sorted,y_sorted,'Marker','o');
           end
           %deal with legend stats
           if v.plot_show_legend_stats
@@ -675,9 +768,9 @@ classdef gswarm
             'plot_legend',legend_str,...
             'plot_ylabel',gravity.functional_label(v.plot_functional),...
             'plot_xdate',true,...
-            'plot_xlimits',[out.t(1),out.t(end)+days(1)],...
+            'plot_xlimits',[t_sorted(1),t_sorted(end)+days(1)],...
             'plot_line_color_order',idx,...
-            'plot_title',str.show({'Residual',out.title_wrt,out.title_masking,out.title_smooth})...
+            'plot_title',str.show({'Residual',out.title_wrt,title_suffix})...
           );
           if v.plot_pause_on_save; keyboard; end
           saveas(gcf,filenames{fn_idx})
@@ -689,7 +782,7 @@ classdef gswarm
         %% plot cumulative diff rms (only if not done yet)
         
         fn_idx=2;
-        if ~file.exist(filenames{fn_idx})
+        if ~file.exist(filenames{fn_idx}) && numel(yc_sorted)>1
           %plot it
           plotting.figure(v.varargin{:});
           grey=[0.5 0.5 0.5];
@@ -697,11 +790,11 @@ classdef gswarm
           set(gca,'YTick',1:numel(legend_str),'yticklabels',str.clean(legend_str,'title'));
           %enforce it
           product.enforce_plot(v.varargin{:},...
-            'plot_legend',{'none'},...
+            'plot_legend_location','none',...
             'plot_ylabel','none',...
             'plot_xlabel',gravity.functional_label(v.plot_functional),...
             'plot_ylimits',[0 numel(legend_str)+1],...
-            'plot_title',str.show({'Cum. residual',out.title_wrt,out.title_masking,out.title_smooth})...
+            'plot_title',str.show({'Cum. residual',out.title_wrt,out.title_startstop,title_suffix})...
           );
           set(gca,...
             'YTick',1:numel(legend_str),...
@@ -748,7 +841,7 @@ classdef gswarm
               'plot_legend',legend_str,...
               'plot_ylabel',gravity.functional_label(v.plot_functional),...
               'plot_colormap','jet',...
-              'plot_title',str.show({datestr(out.t(i),'yyyy-mm'),'degree-RMS',out.title_masking,out.title_smooth})...
+              'plot_title',str.show({datestr(out.t(i),'yyyy-mm'),'degree-RMS',title_suffix})...
             );
             if v.plot_monthly_error
               %get previous lines
@@ -764,7 +857,7 @@ classdef gswarm
                 set(lines_all(j),'Color',get(lines_before(j),'Color'),'LineWidth',v.plot_line_width)
               end
               axis auto
-              title(str.show({datestr(out.t(i),'yyyy-mm'),'degree-RMS ',out.title_masking,out.title_smooth}))
+              title(str.show({datestr(out.t(i),'yyyy-mm'),'degree-RMS ',title_suffix}))
             end
             if v.plot_pause_on_save; keyboard; end
             saveas(gcf,filename)
@@ -788,13 +881,14 @@ classdef gswarm
         {...
           'plot_min_degree',     2,          @(i) isnumeric(i) && isscalar(i);...
           'plot_max_degree',     inf,        @(i) isnumeric(i) && isscalar(i);...
-          'plot_rmsdiff_caxis',  [-inf inf], @(i) isnumeric(i) && isscalar(i);...
+          'plot_rms_caxis',  [-inf inf], @(i) isnumeric(i) && isscalar(i);...
           'plot_functional',     'geoid',    @gravity.isfunctional;...
           'plot_type',           'line',     @(i) cells.isincluded(i,{'line','bar'});...
           'plot_pause_on_save',  false,      @islogical;...
           'plot_max_nr_lines',   20,         @(i) isnumeric(i) && isscalar(i);...
-          'plot_temp_stat_list', {            'corrcoeff',           'rmsdiff',           'stddiff'},@(i) iscellstr(i); ...
+          'plot_temp_stat_list', {            'corrcoeff',           'rms',           'std'},@(i) iscellstr(i); ...
           'plot_temp_stat_title',{'temporal corr. coeff.','temporal RMS\Delta','temporal STD\Delta'},@(i) iscellstr(i); ...
+          'plot_legend_include_smoothing', false, @islogical;...
         },...
         product.plot_args...
       },varargin{:});
@@ -803,9 +897,6 @@ classdef gswarm
         'the ''plot_temp_stat_func'' metadata entry is no longer supported, use ''plot_functional'' instead.')
       %collect the models 
       out=gswarm.plot_ops(obj,product,v.varargin{:});
-      %assemble title suffix
-      title_suffix=str.show({newline,out.title_wrt,out.title_masking,out.title_startstop});
-      if ~isempty(out.title_smooth);title_suffix=[title_suffix,newline,out.title_smooth];end
       
       %% triangular plots
       
@@ -818,27 +909,38 @@ classdef gswarm
         for i=1:numel(out.mod.dat)
           %build filename
           filename=file.build(out.file_root,...
-            {v.plot_temp_stat_list{s},'triang'},out.file_smooth,strsplit(out.mod.names{i},' '),'png'...
+            {v.plot_temp_stat_list{s},'triang'},out.source.file_smooth{i},strsplit(out.mod.names{i},' '),'png'...
           );
           %plot only if not done yet
           if ~file.exist(filename)
             plotting.figure(v.varargin{:});
-            %compute the requested stat between this model and mod_ref
-            d=out.mod.ref.scale(v.plot_functional,'functional').interp(out.mod.dat{i}.t).stats2(...
-              out.mod.dat{i}.scale(v.plot_functional,'functional'),...
-              'mode','obj',...
-              'struct_fields',v.plot_temp_stat_list(s),...
-              'period',seconds(inf)...
-            );
+            if isfield(out.mod,'ref')
+              %compute the requested stat between this model and mod_ref
+              d=out.mod.ref.scale(v.plot_functional,'functional').interp(out.mod.dat{i}.t).stats2(...
+                out.mod.dat{i}.scale(v.plot_functional,'functional'),...
+                'mode','obj',...
+                'struct_fields',v.plot_temp_stat_list(s),...
+                'period',seconds(inf)...
+              );
+            else
+              d=out.mod.dat{i}.scale(v.plot_functional,'functional').stats(...
+                'mode','obj',...
+                'struct_fields',v.plot_temp_stat_list(s),...
+                'period',seconds(inf)...
+              );
+            end
             %set y-units
             d.y_units(:)={gravity.functional_units(v.plot_functional)};
             %plot it
-            d.plot('method','triang');
+            h=d.plot('method','triang');
             %enforce it
             product.enforce_plot(v.varargin{:},...
               'plot_caxis',cells.c2m(v.(['plot_',v.plot_temp_stat_list{s},'_caxis'])),...
-              'plot_title',str.show({out.mod.names{i},v.plot_temp_stat_title{s},title_suffix})...
-            );
+              'plot_title',str.show({...
+                upper(out.mod.names{i}),v.plot_temp_stat_title{s},out.title_wrt,...
+                out.title_masking,out.source.title_startstop{out.source.mod_idx(i)},...
+                strjoin(cells.rm_empty({' ',out.source.title_smooth{out.source.mod_idx(i)}}),newline)...
+            }));cb.nan(h.axis_handle);
             %need to adapt caxis label for correlation coefficients
             switch v.plot_temp_stat_list{s}
             case 'corrcoeff'
@@ -860,23 +962,47 @@ classdef gswarm
         %prepare plot data only if needed
         if any(~file.exist(filenames))
           %init plot counter and data container
-          d=zeros(numel(out.mod.dat),out.mod.ref.lmax+1);
+          d=zeros(numel(out.mod.dat),out.mod.dat{1}.lmax+1);
           %loop over all sources
           for i=1:numel(out.mod.dat)
-            %compute it
-            d(i,:)=out.mod.ref.scale(v.plot_functional,'functional').interp(out.mod.dat{i}.t).stats2(...
-              out.mod.dat{i}.scale(v.plot_functional,'functional'),...
-              'mode','obj',...
-              'struct_fields',v.plot_temp_stat_list(s),...
-              'period',seconds(inf)...
-            ).dmean;
+            if isfield(out.mod,'ref')
+              %compute it
+              d(i,:)=out.mod.ref.scale(v.plot_functional,'functional').interp(out.mod.dat{i}.t).stats2(...
+                out.mod.dat{i}.scale(v.plot_functional,'functional'),...
+                'mode','obj',...
+                'struct_fields',v.plot_temp_stat_list(s),...
+                'period',seconds(inf)...
+              ).dmean;
+            else
+              d(i,:)=out.mod.dat{i}.scale(v.plot_functional,'functional').stats(...
+                'mode','obj',...
+                'struct_fields',v.plot_temp_stat_list(s),...
+                'period',seconds(inf)...
+              ).dmean;
+            end
           end
           %enforce minimum degree
           d=d(:,v.plot_min_degree+1:end);
           %filter out nans
           good_idx=~all(isnan(d),2);
           d=d(good_idx,:);
-          legend_str=out.mod.names(good_idx);
+          %build legend
+          legend_str=upper(out.mod.names);
+          if v.plot_legend_include_smoothing
+            for i=1:numel(legend_str)
+              legend_str{i}=strjoin([legend_str(i),out.source.title_smooth(out.source.mod_idx(i))],' ');
+            end
+            title_suffix=strjoin({...
+              out.title_wrt,out.title_masking,out.title_startstop...
+            },' ');
+          else
+            title_suffix=strjoin({...
+              out.title_wrt,out.title_masking,out.title_startstop,...
+              strjoin(cells.rm_empty({' ',out.title_smooth}),newline)...
+            },' ');
+          end
+          %sort the legend         
+          legend_str=legend_str(good_idx);
           %accumulate it
           dc=sum(d,2);
           %need to adapt some plotting aspects to correlation coefficients
@@ -913,8 +1039,8 @@ classdef gswarm
           %plot it
           plotting.figure(v.varargin{:});
           switch v.plot_type
-          case 'bar';   bar(v.plot_min_degree:out.mod.ref.lmax,d_sorted','EdgeColor','none');
-          case 'line'; plot(v.plot_min_degree:out.mod.ref.lmax,d_sorted','Marker','o');
+          case 'bar';   bar(v.plot_min_degree:out.mod.dat{1}.lmax,d_sorted','EdgeColor','none');
+          case 'line'; plot(v.plot_min_degree:out.mod.dat{1}.lmax,d_sorted','Marker','o');
           end
           %enforce it
           product.enforce_plot(v.varargin{:},...
@@ -923,7 +1049,7 @@ classdef gswarm
             'plot_xlabel','SH degree',...
             'plot_xlimits',[v.plot_min_degree-1,v.plot_max_degree+1],...
             'plot_line_color_order',idx,...
-            'plot_title',str.show({'degree-mean',v.plot_temp_stat_title{s},title_suffix})...
+            'plot_title',str.show({'degree-mean',v.plot_temp_stat_title{s},newline,title_suffix})...
           );
           if v.plot_pause_on_save; keyboard; end
           saveas(gcf,filenames{fn_idx})
@@ -935,7 +1061,7 @@ classdef gswarm
         %% plot cumulative degree-mean/mean corr coeff stat  (only if not done yet)
         
         fn_idx=2;
-        if ~file.exist(filenames{fn_idx})
+        if ~file.exist(filenames{fn_idx}) && numel(dc_sorted)>1
           %need to adapt some plotting aspects to correlation coefficients
           switch v.plot_temp_stat_list{s}
           case 'corrcoeff'
@@ -950,12 +1076,14 @@ classdef gswarm
           set(gca,'YTick',1:numel(legend_str),'yticklabels',str.clean(legend_str,'title'));
           %enforce it
           product.enforce_plot(v.varargin{:},...
-            'plot_legend',{'none'},...
+            'plot_legend_location','none',...
             'plot_ylabel','none',...
             'plot_xlabel',x_label_str,...
             'plot_ylimits',[0 numel(legend_str)+1],...
-            'plot_title',str.show({'Degrees',v.plot_min_degree,'-',v.plot_max_degree,'cum. degree-mean',...
-              v.plot_temp_stat_title{s},title_suffix})...
+            'plot_title',str.show({...
+              'Degrees',v.plot_min_degree,'-',v.plot_max_degree,'cum. degree-mean',v.plot_temp_stat_title{s},newline,...
+              title_suffix...
+             })...
           );
           set(gca,...
             'YTick',1:numel(legend_str),...
@@ -976,98 +1104,101 @@ classdef gswarm
       obj=gswarm.plot_low_degrees(obj,product,varargin{:});
     end
     function obj=plot_parametric_decomposition(obj,product,varargin)
+      
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
       % add input arguments and plot metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{....
         plotting.default,...
         {...
-          't_mod_f',                                        1, @(i) isnumeric(i) && isscalar(i);...
+          't_mod_f',                                        1, @(i) isnumeric(i) && isscalar(i);... %TODO: implement this 
           'polyorder',                                      2, @(i) isnumeric(i) && isscalar(i);...
           'plot_functional',                           'eqwh', @gravity.isfunctional;...
           'polynames',      {'constant','linear','quadratic'}, @iscellstr;...
-          'plot_poly_range', [      inf,     inf,        inf], @isnumeric;...
           'sin_period',              [      12,            6], @isnumeric;...
           'sin_names',               {'yearly','semi-yearly'}, @iscellstr;...
-          'plot_amplitude_range'     [inf,               inf], @isnumeric;...
           'sin_period_unit',                        'months' , @ischar;...
+          'timescale',                               'years' , @ischar;...
+          'plot_spatial_step',                              1, @(i) isnumeric(i) && isscalar(i);...
           'plot_pause_on_save',                         false, @islogical;...
-          'plot_save_data',                              'no' ,@(i) islogical(i) || ischar(i);...
+          'plot_save_data',                             'yes', @(i) islogical(i) || ischar(i);...
         },...
         product.args...
       },varargin{:});
-    
-      %collect the models 
+      %some options are derived from others
+      v=varargs.wrap('sources',{...
+        {...
+          'plot_amplitude_range'     inf(size(v.sin_period)), @isnumeric;...
+          'plot_poly_range',         inf(1,v.polyorder+1),    @isnumeric;...
+        },...
+        v...
+      });
+      %collect the models; NOTICE: all operations in plot_ops are done now, so (e.g.) smoothing can be done in one go
       out=gswarm.plot_ops(obj,product,v.varargin{:});
-      %loop over all models
-      out.pd=cell(size(out.source.signal));
-      for i=1:out.source.n
-        
-        %check if loading the data is possible
-        try
-          loaddata=str.logical(v.plot_save_data);
-        catch
-          switch lower(v.plot_save_data)
-          case 'force';
-            loaddata=false;
-          otherwise
-            error(['Cannot handle parameter ''plot_save_data'' with value ''',v.plot_save_data,'''.'])
-          end
+      
+      %check if loading the data is possible
+      try
+        loaddata=str.logical(v.plot_save_data,'logical');
+      catch
+        switch lower(v.plot_save_data)
+        case 'force';
+          loaddata=false;
+        otherwise
+          error(['Cannot handle parameter ''plot_save_data'' with value ''',v.plot_save_data,'''.'])
         end
-        %first build data filename
-        
+      end
+      %init data container  
+      out.pd=cell(size(out.source.signal));
+      
+      %loop over all models
+      for i=1:out.source.n
+
         %TODO: check if all datafilenames here are generated consistently
         
+        %build data file name
         datafilename=cells.scalar(product.mdset('storage_period','direct').file('plot',...
           'start',obj.start,'stop',obj.stop,...
           'ext','mat',...
           'sub_dirs','single',...
           'start_timestamp_only',false,...
-          'suffix',[out.source.datanames{i}.name,'.plot-data']...
+          'suffix',strjoin(cells.rm_empty({out.source.datanames{i}.name,out.source.file_smooth{i},'pardecomp-data'}),'.')...
         ),'get');
-        %check if data is to be loaded
-        if loaddata
-          %check if plot data is saved
-          if ~isempty(datafilename) && file.exist(datafilename)
-            str.say('Loading plot data from ',datafilename)
-            load(datafilename,'pd')
-            out.pd{i}=pd;
-          else
-            %compute parametric decompositions
-            out.pd{i}=out.source.signal{i}.parametric_decomposition(...
-              't_mod_f',v.t_mod_f,... 
-              'polynomial',v.polyorder+1,...
-              'sinusoidal',simpletimeseries.timescale(time.num2duration(v.sin_period,v.sin_period_unit)),...
-              't0',seconds(obj.start-out.source.signal{i}.epoch)...
-            );
-            %split useful bit from the data
-            pd=out.pd{i};
-            save(datafilename,'pd'); 
-          end
+        %check if plot data is saved
+        if loaddata && ~isempty(datafilename) && file.exist(datafilename)
+          str.say('Loading plot data from ',datafilename)
+          load(datafilename,'pd')
+          out.pd{i}=pd;
+        else
+          %compute parametric decompositions
+          out.pd{i}=pardecomp.split(out.source.signal{i},...
+            'np',v.polyorder+1,...
+            'T',time.duration2num(time.num2duration(v.sin_period,v.sin_period_unit),v.timescale),...
+            'epoch',out.source.signal{i}.epoch,...
+            'timescale',v.timescale,...
+            't0',time.duration2num(obj.start-out.source.signal{i}.epoch,v.timescale)...
+          );
+          %split useful bit from the data
+          pd=out.pd{i};
+          save(datafilename,'pd'); 
+          str.say('Saved plot data to ',datafilename)
         end
       
-        %assemble title suffix
-        title_suffix=str.show({out.title_masking,out.title_startstop});
-        if ~isempty(out.title_smooth);title_suffix=[title_suffix,newline,out.title_smooth];end %#ok<AGROW>
         for j=0:v.polyorder
           par_name=['p',num2str(j)];
           %build filename
           filename=file.build(out.file_root,...
-            v.plot_functional,par_name,out.file_smooth,strsplit(out.source.names{i},' '),'png'...
+            v.plot_functional,par_name,out.source.file_smooth{i},strsplit(out.source.names{i},' '),'png'...
           );
           %plot only if not done yet
           if ~file.exist(filename)
             a=out.pd{i}.(par_name).scale(...
               v.plot_functional,'functional'...
-            ).grid;
+            ).grid('spatial_step',v.plot_spatial_step);
             %build cb titles
             if j==0
               cb_title=gravity.functional_label(v.plot_functional);
             else
               cb_title=[gravity.functional_names(v.plot_functional),' [',gravity.functional_units(v.plot_functional),...
-                '/',v.sin_period_unit,'^',num2str(j),']'];
-              %need to scale the time domain units
-              time_scale_function=str2func(v.sin_period_unit);
-              a=a.scale(simpletimeseries.timescale(time_scale_function(1))^j);
+                '/',v.timescale,'^',num2str(j),']'];
             end
             %plot it
             plotting.figure(v.varargin{:});
@@ -1076,13 +1207,13 @@ classdef gswarm
             );
             %enforce it
             product.enforce_plot(v.varargin{:},...
-              'plot_title',str.show({v.polynames{j+1},'term for',out.source.names{i},title_suffix})...
-            );
-            if isfinite(v.plot_poly_range(j+1))
-              caxis([-v.plot_poly_range(j+1),v.plot_poly_range(j+1)])
-            end
-            colormap jet
-            cb.zero_white;
+              'plot_legend_location','none',...
+              'plot_caxis',[-v.plot_poly_range(j+1),v.plot_poly_range(j+1)],...
+              'plot_title',str.show({...
+                v.polynames{j+1},'term for',out.source.names{i},...
+                out.title_masking,out.source.title_startstop{i},...
+                strjoin(cells.rm_empty({' ',out.source.title_smooth{i}}),newline)...
+            }));
             if v.plot_pause_on_save; keyboard; end
             saveas(gcf,filename)
             str.say('Plotted',filename)
@@ -1091,13 +1222,13 @@ classdef gswarm
         for j=1:numel(v.sin_period)
           %build filename for amplitude
           filename=file.build(out.file_root,...
-            v.plot_functional,{'a',j},out.file_smooth,strsplit(out.source.names{i},' '),'png'...
+            v.plot_functional,{'a',j},out.source.file_smooth{i},strsplit(out.source.names{i},' '),'png'...
           );
           %plot only if not done yet
           if ~file.exist(filename)
             %get the sine and cosine terms in the form of grids
-            s=out.pd{i}.(['s',num2str(j)]).scale(v.plot_functional,'functional').grid;
-            c=out.pd{i}.(['c',num2str(j)]).scale(v.plot_functional,'functional').grid;
+            s=out.pd{i}.(['s',num2str(j)]).scale(v.plot_functional,'functional').grid('spatial_step',v.plot_spatial_step);
+            c=out.pd{i}.(['c',num2str(j)]).scale(v.plot_functional,'functional').grid('spatial_step',v.plot_spatial_step);
             %compute amplitudes
             a=c.power(2)+s.power(2);
             a=a.sqrt;
@@ -1108,25 +1239,26 @@ classdef gswarm
             );
             %enforce it
             product.enforce_plot(v.varargin{:},...
-              'plot_title',str.show({v.sin_names{j},'amplitude for',out.source.names{i},title_suffix})...
-            );
-            if isfinite(v.plot_amplitude_range(j))
-              caxis([0,v.plot_amplitude_range(j)])
-            end
-            colormap jet
+              'plot_legend_location','none',...
+              'plot_caxis',[0,v.plot_amplitude_range(j)],...
+              'plot_title',str.show({...
+                v.sin_names{j},'amplitude for',out.source.names{i},...
+                out.title_masking,out.source.title_startstop{i},...
+                strjoin(cells.rm_empty({' ',out.source.title_smooth{i}}),newline)...
+            }));
             if v.plot_pause_on_save; keyboard; end
             saveas(gcf,filename)
             str.say('Plotted',filename)
           end
           %build filename for phase
           filename=file.build(out.file_root,...
-            v.plot_functional,{'f',j},out.file_smooth,strsplit(out.source.names{i},' '),'png'...
+            v.plot_functional,{'f',j},out.source.file_smooth{i},strsplit(out.source.names{i},' '),'png'...
           );
           %plot only if not done yet
           if ~file.exist(filename)
             %get the sine and cosine terms in the form of grids
-            s=out.pd{i}.(['s',num2str(j)]).grid;
-            c=out.pd{i}.(['c',num2str(j)]).grid;
+            s=out.pd{i}.(['s',num2str(j)]).grid('spatial_step',v.plot_spatial_step);
+            c=out.pd{i}.(['c',num2str(j)]).grid('spatial_step',v.plot_spatial_step);
             %compute phase
             a=s./c;
             a=a.atan.scale(v.sin_period(j)/pi);
@@ -1137,11 +1269,13 @@ classdef gswarm
             );
             %enforce it
             product.enforce_plot(v.varargin{:},...
-              'plot_title',str.show({v.sin_names{j},'phase for',out.source.names{i},title_suffix})...
-            );
-            caxis([-v.sin_period(j),v.sin_period(j)]/2)
-            colormap jet
-            cb.zero_white;
+              'plot_legend_location','none',...
+              'plot_caxis',[-v.sin_period(j),v.sin_period(j)]/2,...
+              'plot_title',str.show({...
+                v.sin_names{j},'phase for',out.source.names{i},...
+                out.title_masking,out.source.title_startstop{i},...
+                strjoin(cells.rm_empty({' ',out.source.title_smooth{i}}),newline)...
+            }));
             if v.plot_pause_on_save; keyboard; end
             saveas(gcf,filename)
             str.say('Plotted',filename)
@@ -1149,38 +1283,161 @@ classdef gswarm
         end
       end
   
-      %show stats header (if relevant)
-      if size(simplegrid.catchment_list,1)>0
-        tab_len=20;
-        disp(str.tablify(tab_len,'catch','solution','bias [cm]','bias diff [cm]','trend [cm/y]','trend diff [cm/y]','corr coeff'))
-      end
-      norm_stats=zeros(out.source.n,5,size(simplegrid.catchment_list,1));
-      for j=1:size(simplegrid.catchment_list,1)
-        %build filename
+      for i=1:out.source.n
+        %build filename        
         filename=file.build(out.file_root,...
-          v.plot_functional,'catch',out.file_smooth,strsplit(simplegrid.catchment_list{j,1},' '),'png'...
+          v.plot_functional,'std',out.source.file_smooth{i},strsplit(out.source.names{i},' '),'png'...
         );
         %plot only if not done yet
         if ~file.exist(filename)
-          ref_idx=out.source.ref_idx;
+          plotting.figure(v.varargin{:});
+          out.source.signal{i}.scale(v.plot_functional,'functional').grid('spatial_step',v.plot_spatial_step).stats('mode','std').imagesc(...
+            'cb_title',gravity.functional_label(v.plot_functional)...
+          );
+          plotting.enforce(v.varargin{:},...
+            'plot_legend_location','none',...
+            'plot_caxis',[0,v.plot_std_range],...
+            'plot_colormap','parula',... %this colormap goes well with the red boxes
+            'plot_title',str.show({...
+              'temporal STD of ',out.source.names{i},...
+              out.title_masking,out.source.title_startstop{i},...
+              strjoin(cells.rm_empty({' ',out.source.title_smooth{i}}),newline)...
+          }));
+          if v.plot_pause_on_save; keyboard; end
+          saveas(gcf,filename)
+          str.say('Plotted',filename)
+        end
+      end
+      
+    end
+    function obj=plot_catchments(obj,product,varargin)
+
+      obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
+      % add input arguments and plot metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{....
+        plotting.default,...
+        {...
+          'polyorder',                                      2, @(i) isnumeric(i) && isscalar(i);...
+          'plot_functional',                           'eqwh', @gravity.isfunctional;...
+          'polynames',      {'constant','linear','quadratic'}, @iscellstr;...
+          'sin_period',              [      12,            6], @isnumeric;...
+          'sin_names',               {'yearly','semi-yearly'}, @iscellstr;...
+          'sin_period_unit',                        'months' , @ischar;...
+          'timescale',                               'years' , @ischar;...
+          'plot_spatial_step',                              1, @(i) isnumeric(i) && isscalar(i);...
+          'plot_pause_on_save',                         false, @islogical;...
+          'plot_save_data',                             'yes', @(i) islogical(i) || ischar(i);...
+          'catchment_list',    simplegrid.catchment_list(:,1), @iscellstr; ....
+          'pardecomp_catchments',                        true, @islogical;... %do pardecomp on the catchment timeseries
+          'plot_pardecomp_catchments',            {'p0','p1'}, @iscellstr;... %plot these components
+          'plot_legend_include_smoothing',              false, @islogical;...
+        },...
+        product.args...
+      },varargin{:});
+    
+      %collect the models; NOTICE: all operations in plot_ops are done now, so (e.g.) smoothing can be done in one go
+      out=gswarm.plot_ops(obj,product,v.varargin{:});
+      
+      %check if loading the data is possible
+      try
+        loaddata=str.logical(v.plot_save_data,'logical');
+      catch
+        switch lower(v.plot_save_data)
+        case 'force';
+          loaddata=false;
+        otherwise
+          error(['Cannot handle parameter ''plot_save_data'' with value ''',v.plot_save_data,'''.'])
+        end
+      end
+      %init data container  
+      out.catch=cell(size(out.source.signal));
+%       %try to load all data (otherwise it's way slower)
+%       alldatafilename=cells.scalar(product.mdset('storage_period','direct').file('plot',...
+%             'start',obj.start,'stop',obj.stop,...
+%             'ext','mat',...
+%             'sub_dirs','single',...
+%             'start_timestamp_only',false,...
+%             'suffix',strjoin(cells.rm_empty({out.file_smooth,'all-catchment-data'}),'.')...
+%           ),'get');
+%       if loaddata && ~isempty(alldatafilename) && file.exist(alldatafilename)
+%         str.say('Loading all plot data from ',alldatafilename)
+%         load(alldatafilename,'allcatchments')
+%         out.catch=allcatchments;
+%       else
+        %loop over all catchments
+        for j=1:numel(v.catchment_list)
+          %loop over all models
+          for i=1:out.source.n
+
+            %TODO: check if all datafilenames here are generated consistently
+
+            %build data file name
+            datafilename=cells.scalar(product.mdset('storage_period','direct').file('plot',...
+              'start',obj.start,'stop',obj.stop,...
+              'ext','mat',...
+              'sub_dirs','single',...
+              'start_timestamp_only',false,...
+              'suffix',strjoin(cells.rm_empty({out.source.datanames{i}.name,out.source.file_smooth{i},v.catchment_list{j},'catchment-data'}),'.')...
+            ),'get');
+            %check if plot data is saved
+            if loaddata && ~isempty(datafilename) && file.exist(datafilename)
+              str.say('Loading plot data from ',datafilename)
+              load(datafilename,'catchment')
+              out.catch{i,j}=catchment;
+            else
+              %compute parametric decompositions
+              out.catch{i,j}=out.source.signal{i}.scale(...
+                v.plot_functional,'functional'...
+              ).grid(...
+                'spatial_step',v.plot_spatial_step...
+              ).catchment_get(...
+                v.catchment_list{j},...
+                'parametric_decomposition',v.pardecomp_catchments,...
+                'np',v.polyorder+1,...
+                'T',time.duration2num(time.num2duration(v.sin_period,v.sin_period_unit),v.timescale),...
+                'epoch',out.source.signal{i}.epoch,...
+                'timescale',v.timescale,...
+                't0',time.duration2num(obj.start-out.source.signal{i}.epoch,v.timescale)...
+              );
+              %split useful bit from the data
+              catchment=out.catch{i,j};
+              save(datafilename,'catchment'); 
+              str.say('Saved plot data to ',datafilename)
+            end
+          end
+        end
+%         allcatchments=out.catch;
+%         save(alldatafilename,'allcatchments','-v7.3'); 
+%         str.say('Saved all plot data to ',alldatafilename)        
+%       end
+    
+      %show stats header (if relevant)
+      msg=cell(out.source.n*(numel(v.catchment_list)+1),1);mc=0;
+      tab_len=20;
+      mc=mc+1;msg{mc}=str.tablify(tab_len,'catch','solution','bias [cm]','bias diff [cm]','trend [cm/y]','trend diff [cm/y]','corr coeff');
+      norm_stats=zeros(out.source.n,5,numel(v.catchment_list));
+      for j=1:numel(v.catchment_list)
+        %build filename
+        filename=file.build(out.file_root,...
+          v.plot_functional,'catch',out.file_smooth,strsplit(v.catchment_list{j},' '),'png'...
+        );
+        %plot only if not done yet
+        if ~file.exist(filename)
+          ref_idx=out.source.ref_idx; if isempty(ref_idx),ref_idx=1;end
           plotting.figure(v.varargin{:});
           legend_str=cell(1,out.source.n);
           for i=1:out.source.n
-            out.catch{i,j}=out.source.signal{i}.scale(v.plot_functional,'functional').grid('Nlat',100,'Nlon',200).catchment(...
-              simplegrid.catchment_list{j,1},...
-              'parametric_decomposition',v.parametric_decomposition,...
-              'plot_parametric_components',v.plot_parametric_components,...
-              't_mod_f',v.t_mod_f,...  %this and the arguments below will end up in simpledata.parametric_decomposition (depending on the value of parametric_decomposition)
-              'polynomial',v.polyorder+1,...
-              'sinusoidal',simpletimeseries.timescale(time.num2duration(v.sin_period,v.sin_period_unit)),...
-              't0',seconds(obj.start-out.source.signal{i}.epoch),...
-              v.varargin{:}...
+            out.catch{i,j}=simplegrid.catchment_plot(out.catch{i,j},...
+              'plot_parametric_components',v.plot_pardecomp_catchments...
             );
-            legend_str{i}=out.source.names{i};
+            legend_str{i}=upper(out.source.names{i});
+            if v.plot_legend_include_smoothing
+              legend_str{i}=strjoin([legend_str(i),out.source.title_smooth(i)]);
+            end
             if i==ref_idx
               l=plotting.line_handles(gca);
               set(l(1),'Color','k')
-              set(l(2),'Color','k')
+              if v.pardecomp_catchments; set(l(2),'Color','k'); end
             end
           end
           plotting.enforce(...
@@ -1188,39 +1445,44 @@ classdef gswarm
             'plot_line_style','none',... %these 2 nones are needed so that the formating defined in simplegrid.catchment is not over written
             'plot_line_color','none',...
             'plot_ylabel',gravity.functional_label(v.plot_functional),...
+            'plot_title',v.catchment_list{j},...
             'plot_legend',legend_str...
           );
-          %show some stats
-          latex_data=cell(out.source.n,6);
-          latex_name=cell(out.source.n,1);
-          latex_scale=[100 100 years(1)/simpletimeseries.timescale(1)*100 years(1)/simpletimeseries.timescale(1)*100 1];
-          %loop over all sources
-          for i=1:out.source.n
-            %get the names of this solutions and enforce string replacement and cleaning
-            latex_name{i}=out.source.names{i};
-            latex_name{i}=str.rep(latex_name{i},v.plot_legend_replace{:});
-            latex_name{i}=str.clean(latex_name{i},[v.plot_legend_suppress(:);{'title'}]);
-            latex_data(i,:)={...
-              latex_name{i},...                                                          %solution name
-              latex_scale(1)* out.catch{i,j}.pws.p0.y,...                                %bias
-              latex_scale(2)*(out.catch{i,j}.pws.p0.y-out.catch{ref_idx,j}.pws.p0.y),... %biasdiff
-              latex_scale(3)* out.catch{i,j}.pws.p1.y,...                                %trend cm/year
-              latex_scale(4)*(out.catch{i,j}.pws.p1.y-out.catch{ref_idx,j}.pws.p1.y),... %trenddiff
-              latex_scale(5)* out.catch{i,j}.ws.interp(out.catch{ref_idx,j}.ws.t).stats2(out.catch{ref_idx,j}.ws,'mode','corrcoeff')...
-            };
-            
-            disp(str.tablify(tab_len,out.catch{i,j}.name,latex_data{i,:}))
-            %save some stats for later
-            norm_stats(i,:,j)=[latex_data{i,2:end}];
-          end
-          file.strsave(...
-            fullfile(fileparts(filename),str.rep([out.catch{i,j}.name,'.tex'],' ','_')...
-          ),str.latex_table(latex_data,{'','%5.1f','%5.1f','%5.1f','%5.1f','%5.2f'}));
           if v.plot_pause_on_save; keyboard; end
           saveas(gcf,filename)
           str.say('Plotted',filename)
+          
+          %show some stats, if parametric decomposition was made
+          if isfield(out.catch{i,j},'pws')
+            latex_data=cell(out.source.n,6);
+            latex_name=cell(out.source.n,1);
+            latex_scale=[100 100 years(1)/simpletimeseries.timescale(1)*100 years(1)/simpletimeseries.timescale(1)*100 1];
+            %loop over all sources
+            for i=1:out.source.n
+              %get the names of this solutions and enforce string replacement and cleaning
+              latex_name{i}=out.source.names{i};
+              latex_name{i}=str.rep(latex_name{i},v.plot_legend_replace{:});
+              latex_name{i}=str.clean(latex_name{i},[v.plot_legend_suppress(:);{'title'}]);
+              latex_data(i,:)={...
+                latex_name{i},...                                                          %solution name
+                latex_scale(1)* out.catch{i,j}.pws.p0.y,...                                %bias
+                latex_scale(2)*(out.catch{i,j}.pws.p0.y-out.catch{ref_idx,j}.pws.p0.y),... %biasdiff
+                latex_scale(3)* out.catch{i,j}.pws.p1.y,...                                %trend cm/year
+                latex_scale(4)*(out.catch{i,j}.pws.p1.y-out.catch{ref_idx,j}.pws.p1.y),... %trenddiff
+                latex_scale(5)* out.catch{i,j}.ws.interp(out.catch{ref_idx,j}.ws.t).stats2(out.catch{ref_idx,j}.ws,'mode','corrcoeff')...
+              };
+              mc=mc+1;msg{mc}=str.tablify(tab_len,out.catch{i,j}.name,latex_data{i,:});
+              %save some stats for later
+              norm_stats(i,:,j)=[latex_data{i,2:end}];
+            end
+            file.strsave(...
+              fullfile(fileparts(filename),str.rep([out.catch{i,j}.name,'.tex'],' ','_')...
+            ),str.latex_table(latex_data,{'','%5.1f','%5.1f','%5.1f','%5.1f','%5.2f'}));
+          end
         end
       end
+      %show stats
+      if numel(v.catchment_list)>0 && mc>1; disp(msg);end
       %compute stats for all catchments, if any was computed
       if ~all(norm_stats(i)==0)
         latex_data=cell(out.source.n,4);
@@ -1234,32 +1496,44 @@ classdef gswarm
         end
         file.strsave('all_catchments.tex',str.latex_table(latex_data,{'','%5.2f','%5.2f','%5.2f'}));
       end
-      
-      for i=1:out.source.n
-        %build filename        
-        filename=file.build(out.file_root,...
-          v.plot_functional,'std',out.file_smooth,strsplit(out.source.names{i},' '),'png'...
-        );
-        %plot only if not done yet
-        if ~file.exist(filename)
-          plotting.figure(v.varargin{:});
-          out.source.signal{i}.scale(v.plot_functional,'functional').grid('Nlat',100,'Nlon',200).stats('mode','std').imagesc(...
-            'boxes',simplegrid.catchment_list...
-          );
-          plotting.enforce(...
-            v.varargin{:},...
-            'plot_colormap','parula',... %this colormap goes well with the red boxes
-            'plot_line_color','',...
-            'plot_title',['temporal STD of ',out.source.names{i}]...
-          );
-          if v.plot_pause_on_save; keyboard; end
-          saveas(gcf,filename)
-          str.say('Plotted',filename)
-        end
-      end
-      
+     
     end
     %% utils
+    function d=quality(varargin)
+      p =dataproduct('swarm.sh.gswarm.rl01.err');
+      ps=dataproduct(p.sources(1));
+      m='deep ocean';
+      debug=true;
+      [~,f]=fileparts(strrep(ps.metadata.wilcarded_filename,'*_',''));
+      str.say(' --- Input combined models are:',f)
+      f=fullfile(getenv('HOME'),'data','gswarm','dissemination',[f,'.quality']);
+      str.say(' --- Getting datastorage:')
+      d=datastorage(...
+        'start',datetime('2013-12-01'),...
+        'stop', datetime('2018-09-30'),...
+        'inclusive',true,...
+        'debug',debug...
+      ).init(p);
+      str.say(' --- Getting gravity:')
+      g =d.data_get_scalar( p.dataname.append_field_leaf('signal'));
+      gs=d.data_get_scalar(ps.dataname.append_field_leaf('signal'));
+      str.say(' --- Time domain is:')
+      disp([g.t_masked,gs.t_masked]);t=g.t_masked;
+      f=[f,'.',datestr(t(1),'yyyymm'),'-',datestr(t(end),'yyyymm')];
+      str.say(' --- Applying',m,'spatial mask:')
+      gm=g.set_lmax(20).spatial_mask('deep ocean');
+      str.say(' --- Smoothing, computing geoid and cumulative RMS:')
+      c=gm.scale(750e3,'gauss').scale('geoid','functional').cumdrms;
+      str.say(' --- Plotting the time series:')
+      plotting.figure(varargin{:});
+      c.plot;
+      plotting.enforce(....
+        'plot_legend_location','none'...
+      );
+      saveas(gcf,[f,'.png'])
+      str.say(' --- Exporting  the time series:')
+      c.export([f,'.dat'],'ascii')
+    end
     function production
       %parameters
       recompute=false;
@@ -1291,22 +1565,41 @@ classdef gswarm
      
 %         'gswarm.swarm.all.TN-03_2.land',...
 %         'gswarm.swarm.all.TN-03_2.ocean',...
-%         
-
-
-      datafilename=file.unresolve('~/data/gswarm/analyses/2019-02-17/d.mat');
-      p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datafilename)),{...  
+% 
+%       datadir=file.unresolve('~/data/gswarm/analyses/2019-02-17/');
+      datadir=file.unresolve('~/data/gswarm/analyses/2019-04-15/');
+      p=cellfun(@(i) dataproduct(i,'plot_dir',fileparts(datadir)),{...  
+        'gswarm.swarm.all.TN-03.catchments',...
         'gswarm.swarm.all.TN-03.smoothed',...
         'gswarm.swarm.all.TN-03.ocean',...
         'gswarm.swarm.all.TN-03.land',...
         'gswarm.swarm.all.TN-03.unsmoothed',...
-        'gswarm.swarm.all.TN-03.catchments',...
+        'gswarm.swarm.all.TN-03.pardecomp',...
       },'UniformOutput',false);
       start=datetime('2014-07-01');
       stop =datetime('2017-07-31');
-      
       %save version numbers into latex table
-      file.strsave(str.rep(datafilename,'d.mat','versions.tex'),gswarm.sourcelatextable(p{1}));
+      file.strsave(fullfile(datadir,'versions.tex'),gswarm.sourcelatextable(p{1}));
+
+%         'comp.grace.swarm.catchments',...
+%         'swarm.sh.gswarm.rl01.land',...
+%         'swarm.sh.gswarm.rl01.lowdeg',...
+%         'swarm.sh.gswarm.rl01.pardecomp',...
+%       datadir=file.unresolve('~/data/gswarm/analyses/2019-04-05/');
+%       p=cellfun(@(i) dataproduct(i,'plot_dir',datadir),{...  
+%         'swarm.sh.gswarm.rl01.quality',...
+%       },'UniformOutput',false);
+%       start=datetime('2002-04-01');
+%       stop =datetime('2018-12-31');      
+     
+      if numel(p)==1
+        datafilename=fullfile(datadir,[p{1}.str,'.mat']);
+      else
+        datafilename=fullfile(datadir,'d.mat');
+      end
+    
+
+
       
       %TODO: There's problem with the handling of model errors!!!
       %TODO: can't have GRACE data and Swarm data all the way until Sep 2018
@@ -1318,7 +1611,7 @@ classdef gswarm
       else
         d=datastorage('debug',true,'start',start,'stop',stop,'inclusive',true);
         for i=1:p{1}.nr_sources
-          d=d.init(p{1}.sources(i),'recompute',recompute);
+          d=d.init(p{1}.sources(i),'force',recompute);
         end
         file.ensuredir(datafilename,true);
         save(datafilename,'d')
