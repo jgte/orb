@@ -122,7 +122,8 @@ classdef str
         try
           out=in.str;
         catch
-          error([mfilename,': class ''',class(in),''' is not supported.'])
+          out=['obj of class ''',class(in),'''.'];
+%           error([mfilename,': class ''',class(in),''' is not supported.'])
         end
       end
     end
@@ -287,14 +288,21 @@ classdef str
         s=str.clean(s,'succ',' ');
       case 'succ'
         assert(exist('alt_char','var')~=0,['If mode is ''',mode,''', then need ''alt_char'' input arg.'])
-        while ~isempty(strfind(s,[alt_char,alt_char]))
+        going=true;
+        while going
           s=strrep(s,[alt_char,alt_char],alt_char);
+          %if cellstr gets here, 'isempty(strfind(' will loop forever
+          if iscellstr(s)
+            going=cells.isincluded(s,[alt_char,alt_char]);
+          else
+            going=~isempty(strfind(s,[alt_char,alt_char]));
+          end
         end
         if alt_char==' '
           s=strtrim(s);
         end
       case 'title'
-        s=strrep(s,'_',' ');
+        s=strrep(str.clean(s,'succ_blanks'),'_',' ');
       case 'fieldname'
         if ~exist('alt_char','var') || isempty(alt_char)
           alt_char='';
@@ -457,6 +465,12 @@ classdef str
     function out=num(in)
       %trivial call
       if isnumeric(in); out=in; return; end
+      %datetime mode
+      if isdatetime(in); out=time.ToDateTime(in); return; end
+      %vector mode
+      if iscell(in); out=cells.num(in); return; end
+      %type check
+      assert(ischar(in),['Cannot handle inputs of type ''',class(in),'''.'])
       %handle keywords
       switch lower(in)
       case  'inf'; out= inf;return
@@ -547,8 +561,6 @@ classdef str
       end
       %empty also means none (also handles numeric/cell empties)
       if isempty(in); out=true; return; end
-      %can only handle strings
-      if ~ischar(in); out=false; return; end
       %first try logical strings (false means none; true means not none)
       try
         out=~str.logical(in,'logical');
