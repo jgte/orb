@@ -53,7 +53,7 @@ classdef cb
       NELEM=size(old,1);
 
       if (WHITEVAL < MINVAL) || (WHITEVAL > MAXVAL)
-          disp([mfilename,':WARNING: requested white zero is out range.'])
+          disp([mfilename,':WARNING: requested white zero is out of range.'])
           if nargout == 0
               %setting colormap
               colormap(old)
@@ -117,7 +117,7 @@ classdef cb
           colormap(new)
       end
     end
-    function cm=nan(color)
+    function cm=nan(axis_handle,color)
       % PLOT_COLORBAR_NAN(COLOR) sets the NaN's in the current figure to be of the
       % specified color. COLOR can be either a color character or an RGB triplet.
       %
@@ -134,15 +134,18 @@ classdef cb
           % default color is white
           color = [ 1 1 1 ];
       end
-
+      if ~exist('axis_handle','var') || isempty(axis_handle)
+          axis_handle = gca;
+      end
+      
       % Translate to color if char
       if ischar(color)
           color = plot_color2RGB(color);
       end
 
       % get the colormap and current axes
-      cm=colormap;
-      ca=caxis;
+      cm=colormap(axis_handle);
+      ca=caxis(axis_handle);
 
       % get the step size of the colorbar
       dc=diff(ca)/length(cm);
@@ -154,8 +157,8 @@ classdef cb
       cm = [ color ; cm ];
 
       % apply new colormap and color axis
-      colormap(cm);
-      caxis(ca);
+      colormap(axis_handle,cm);
+      caxis(axis_handle,ca);
     end
     function new=manual(domain,old)
       %sets the <old> colormap (if ignored, the current one is considered) to be
