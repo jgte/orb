@@ -174,7 +174,7 @@ classdef structs
       if ~exist('parents2','var');parents2={};end
       fl1=structs.field_list(S1,parents1);
       fl2=structs.field_list(S2,parents2);
-      out=numel(fl1) == numel(fl2) && all(arrayfun(@(i) cells.isequal(fl1{i},fl2{i}),1:numel(fl1)));
+      out=numel(fl1) == numel(fl2) && all(arrayfun(@(i) cells.isequalstr(fl1{i},fl2{i}),1:numel(fl1)));
     end
     %like field_list but accepts '*' entries in field_path
     function out=field_list_glob(S,field_path)
@@ -227,8 +227,11 @@ classdef structs
           %get the object
           o=structs.get_value(S,fl{i});
           if ~isempty(o)
-            %apply the method
-            o=o.(method)(varargin{:});
+            %NOTICE: no catch statement here, too bad if it doesn't work...
+            try %#ok<TRYNC>
+              %apply the method
+              o=o.(method)(varargin{:});
+            end
           end
           %save the operated object back in the structure
           S=structs.set_value(S,fl{i},o);
