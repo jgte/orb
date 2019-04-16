@@ -8,6 +8,10 @@ classdef datanames
     name
     field_path
   end
+  %calculated only when asked for
+  properties(Dependent)
+    field_path_leaf
+  end
   methods(Static)
     function out=array(in,field_path)
       assert(iscell(in),[mfilename,': cannot handle input ''in'' of class ',class(in),', expecting a cell array.'])
@@ -22,19 +26,25 @@ classdef datanames
       end
     end
     function out=common(dn_array)
-      %this spits out a vertical cell array
-      out=dn_array{1}.split;
-      for i=2:numel(dn_array)
-        out=intersect(out,dn_array{i}.split,'stable');
+      %handle edges
+      switch numel(dn_array)
+      case 0; out={};
+      otherwise
+        %this spits out a vertical cell array
+        out=dn_array{1}.split;
+        for i=2:numel(dn_array)
+          out=intersect(out,dn_array{i}.split,'stable');
+        end
       end
     end
     function out=unique(dn_array)
       %this spits out a vertical cell array
       common=datanames.common(dn_array);
-      %trivial call
-      if numel(dn_array)==1
-        out=common;
-      else
+      %handle edges
+      switch numel(dn_array)
+      case 0; out={};
+      case 1; out=common;
+      otherwise
         out=cell(size(dn_array));
         for i=1:numel(dn_array)
           out{i}=setdiff(dn_array{i}.split,common,'stable');
@@ -136,6 +146,23 @@ classdef datanames
     end
     function out=global_field_path(obj) %e.g. {'grace_calpar_csr'    'estim'    'AC0X'    'A'}
       out=[{obj.name_clean},obj.field_path];
+    end
+    function out=get.field_path_leaf(obj)
+      if isempty(obj.field_path)
+        out='';
+      else
+        out=obj.field_path{end};
+      end
+    end
+    function obj=set.field_path_leaf(obj,field_path_leaf)
+      if isempty(obj.field_path)
+        obj=obj.set_field_path(field_path_leaf);
+      else
+        obj=obj.set_field_path([obj.field_path,cells.get_scalar(field_path_leaf,'get')]);
+      end
+    end
+    function out=isfield_path_leaf(obj,field_path_leaf)
+      out=strcmp(obj.field_path_leaf,field_path_leaf);
     end
     %% names
     function out=filename(obj)       %e.g. grace.calpar.csr
