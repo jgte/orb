@@ -81,30 +81,57 @@ classdef time
         ])
       end
     end
+    %% tests for mutated inputs
+    function out=mutate(in)
+      switch class(in)
+      case 'cell'
+        out=cellfun(@time.mutate,in);
+      case 'datetime'
+        out=in;
+      case {'double','single','uint8','uint16','uint32','uint64','int8','int16','int32','int64'}
+        out=datenum(in);
+      otherwise
+        error(['Cannot handle class ''',class(in),'''.'])
+      end
+    end
     function out=iszero(in)
       switch class(in)
       case 'cell'
-          out=cellfun(@time.iszero,in);
-      case 'datetime'
-        out=(in==time.zero_date);
-      case {'double','single','uint8','uint16','uint32','uint64','int8','int16','int32','int64'}
-        out=(datenum(in)==0);
+        out=cellfun(@time.iszero,in);
       otherwise
-        error(['Cannot handle class ''',class(in),'''.'])
+        out=seconds(time.mutate(in)-time.zero_date)<2e-6;
       end
     end
     function out=isinf(in)
       switch class(in)
       case 'cell'
-          out=cellfun(@time.iszero,in);
-      case 'datetime'
-        out=(in==time.inf_date);
-      case {'double','single','uint8','uint16','uint32','uint64','int8','int16','int32','int64'}
-        out=~isfinite(datenum(in));
+        out=cellfun(@time.iszero,in);
       otherwise
-        error(['Cannot handle class ''',class(in),'''.'])
+        out=(time.mutate(in)==time.inf_date);
       end
     end
+    function out=isfinite(in)
+      if isempty(in)
+        out=false;
+      else
+        switch class(in)
+        case 'cell'
+          out=cellfun(@time.isfinite,in);
+        otherwise
+          out=~time.iszero(in)&&~time.isinf(in);
+        end
+      end
+    end
+    %% constructors
+    function out=rand(n)
+      out=datetime(sort(datenum(round([...
+        rand(n,1),...
+        rand(n,1)*12,...
+        rand(n,1)*31,...
+        rand(n,3)*60 ...
+      ]))),'ConvertFrom','datenum')+years(2000);
+    end
+    %% auto time/duration/strings
     function out=scale(in)
       out=find(in<=time.magnt_list,1,'first');
     end
@@ -202,6 +229,10 @@ classdef time
         end
       end
     end
+    function out=duration2num(in,units)
+      out=time.num2duration(in,units);
+    end
+    %% monitor lengthy iterations
     function s=progress(s,i)
       % %Example: 
       % s.msg='something'; s.n=n;
@@ -273,6 +304,72 @@ classdef time
         tic
       end
     end
+    %% lists
+    function [startlist,stoplist]=day_list(start,stop)
+      p=inputParser;
+      p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
+      p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
+      p.parse(start,stop)
+      round_start=dateshift(start,'start','day');
+        round_end=dateshift(stop, 'start','day');
+      startlist=round_start:days(1):round_end;
+      if nargout>1
+        stoplist=startlist+days(1);
+      end
+    end
+    function [startlist,stoplist]=month_list(start,stop)
+      p=inputParser;
+      p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
+      p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
+      p.parse(start,stop)
+      %https://www.mathworks.com/matlabcentral/answers/73749-how-do-i-create-a-vector-with-the-first-day-of-each-month#answer_83695
+      dvec      = datevec(datenum(start):datenum(stop));
+      duniq     = unique(dvec(:, 1:2), 'rows');
+      startlist = datetime(datenum(duniq(:,1), duniq(:,2), 1),'ConvertFrom','datenum');
+      if nargout>1
+        if numel(startlist)==1
+          stoplist = dateshift(startlist,'end','month')+days(1);
+        else
+          stoplist = [startlist(2:end);dateshift(startlist(end),'end','month')+days(1)];
+        end
+      end
+    end
+    function [startlist,stoplist]=year_list(start,stop)
+      p=inputParser;
+      p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
+      p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
+      p.parse(start,stop)
+      %https://www.mathworks.com/matlabcentral/answers/73749-how-do-i-create-a-vector-with-the-first-day-of-each-month#answer_83695
+      dvec      = datevec(datenum(start):datenum(stop));
+      duniq     = unique(dvec(:, 1), 'rows');
+      startlist = datetime(datenum(duniq(:,1), 1, 1),'ConvertFrom','datenum');
+      if nargout>1
+        if numel(startlist)>1
+          stoplist = [startlist(2:end);dateshift(startlist(end),'end','year')+days(1)];
+        else
+          stoplist = dateshift(startlist(end),'end','year')+days(1);
+        end
+      end
+    end
+    function [startlist,stoplist]=list(start,stop,period)
+      p=inputParser;
+      p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
+      p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
+      p.addRequired( 'period',  @(i) isduration(i));
+      p.parse(start,stop,period)
+      switch period
+      case days(1)
+        [startlist,stoplist]=time.day_list(start,stop);
+      case years(1)/12
+        [startlist,stoplist]=time.month_list(start,stop);
+      case years(1)
+        [startlist,stoplist]=time.year_list(start,stop);
+      otherwise
+        startlist=start:period:stop;
+        stoplist=startlist+period;
+      end
+    end
+    %% time representations
     function [date, doy, dow] = gps2date(gps_week, gps_sow)
       % SYNTAX:
       %   [date, doy, dow] = gps2date(gps_week, gps_sow);
@@ -428,92 +525,6 @@ classdef time
     end
     function date=doy2datetime(year,doy)
       date=datetime(datenum([year 0 0 0 0 0])+doy,'ConvertFrom','datenum');
-    end
-    function out=rand(n)
-      out=datetime(sort(datenum(round([...
-        rand(n,1),...
-        rand(n,1)*12,...
-        rand(n,1)*31,...
-        rand(n,3)*60 ...
-      ]))),'ConvertFrom','datenum')+years(2000);
-    end
-    function [startlist,stoplist]=day_list(start,stop)
-      p=inputParser;
-      p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
-      p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
-      p.parse(start,stop)
-      round_start=dateshift(start,'start','day');
-        round_end=dateshift(stop, 'start','day');
-      startlist=round_start:days(1):round_end;
-      if nargout>1
-        stoplist=startlist+days(1);
-      end
-    end
-    function [startlist,stoplist]=month_list(start,stop)
-      p=inputParser;
-      p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
-      p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
-      p.parse(start,stop)
-      %https://www.mathworks.com/matlabcentral/answers/73749-how-do-i-create-a-vector-with-the-first-day-of-each-month#answer_83695
-      dvec      = datevec(datenum(start):datenum(stop));
-      duniq     = unique(dvec(:, 1:2), 'rows');
-      startlist = datetime(datenum(duniq(:,1), duniq(:,2), 1),'ConvertFrom','datenum');
-      if nargout>1
-        if numel(startlist)==1
-          stoplist = dateshift(startlist,'end','month')+days(1);
-        else
-          stoplist = [startlist(2:end);dateshift(startlist(end),'end','month')+days(1)];
-        end
-      end
-    end
-    function [startlist,stoplist]=year_list(start,stop)
-      p=inputParser;
-      p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
-      p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
-      p.parse(start,stop)
-      %https://www.mathworks.com/matlabcentral/answers/73749-how-do-i-create-a-vector-with-the-first-day-of-each-month#answer_83695
-      dvec      = datevec(datenum(start):datenum(stop));
-      duniq     = unique(dvec(:, 1), 'rows');
-      startlist = datetime(datenum(duniq(:,1), 1, 1),'ConvertFrom','datenum');
-      if nargout>1
-        if numel(startlist)>1
-          stoplist = [startlist(2:end);dateshift(startlist(end),'end','year')+days(1)];
-        else
-          stoplist = dateshift(startlist(end),'end','year')+days(1);
-        end
-      end
-    end
-    function [startlist,stoplist]=list(start,stop,period)
-      p=inputParser;
-      p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
-      p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
-      p.addRequired( 'period',  @(i) isduration(i));
-      p.parse(start,stop,period)
-      switch period
-      case days(1)
-        [startlist,stoplist]=time.day_list(start,stop);
-      case years(1)/12
-        [startlist,stoplist]=time.month_list(start,stop);
-      case years(1)
-        [startlist,stoplist]=time.year_list(start,stop);
-      otherwise
-        startlist=start:period:stop;
-        stoplist=startlist+period;
-      end
-    end
-    function out=isvalid(in)
-      if isempty(in)
-        out=false;
-      else
-        switch class(in)
-        case 'cell'
-          out=cellfun(@time.isvalid,in);
-        case 'datetime'
-          out= in~=time.zero_date && in~=time.inf_date;
-        otherwise
-          error([mfilename,': unsupported class ',class(in),'.'])
-        end
-      end
     end
     function out=gpssec2datetime(in,zero_epoch)
       if ~exist('zero_epoch','var')
