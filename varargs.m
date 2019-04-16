@@ -142,10 +142,10 @@ classdef varargs < dynamicprops
       %The variables 'sinks' is a cell array with the objects passed in 'sinks' (in the same order), with their fields/methods
       %set with the (possible) values of any parameter passed in 'parser', 'sources' or varargin, as implemented in the 
       %varargs.save methods.
-      
       %this is the parser for this method (there's an additional parser going in and out if this method)
       pn=inputParser;
       pn.KeepUnmatched=true;
+      pn.PartialMatching=false;
       pn.addParameter('parser',    inputParser, @(i) isa(i,'inputParser'));
       pn.addParameter('mandatory', {}, @(i) iscell(i));
       pn.addParameter('sources',   {}, @(i) all(cellfun(@(j) varargs.isvarargs(j),i)));
@@ -164,7 +164,7 @@ classdef varargs < dynamicprops
       %loop over all sources and join to v (no entries are ignored, sources over-writes common entries in v)
       for i=1:numel(sources);v.join(sources{i});end
       %retrieve (possible) external parser
-      p=pn.Results.parser; p.KeepUnmatched=true; p.PartialMatching=false; 
+      p=pn.Results.parser; p.KeepUnmatched=true; p.PartialMatching=false; p.CaseSensitive=true;
       %the parameters already defined in the external parser are not to be saved to the 'sinks' (this only concerns the 'sinks')
       external_parameters=p.Parameters;
       %declare parameters in parser
@@ -437,6 +437,15 @@ classdef varargs < dynamicprops
         end
       end
     end
+    function obj=rm_empty(obj)
+      to_delete=cell(1,obj.length);
+      for i=1:obj.length
+        if isempty(obj.S(i).value)
+          to_delete{i}=obj.S(i).name;
+        end
+      end
+      obj=obj.delete(cells.rm_empty(to_delete));
+    end
     %% edit methods
     function obj=delete(obj,varargin)
       if numel(varargin)==1
@@ -532,6 +541,7 @@ classdef varargs < dynamicprops
     end    
     %% parser
     function [p,obj]=declare(obj,p)
+      p.PartialMatching=false;
       for i=1:obj.length
         p.addParameter(obj.S(i).name,obj.S(i).value,obj.S(i).validation)
       end
