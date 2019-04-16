@@ -29,15 +29,15 @@ classdef gravity < simpletimeseries
     );
     %default value of some internal parameters
     parameter_list={...
-      'G',        6.67408e-11,   @(i) isnumeric(i) && isscalar(i);...      % Gravitational constant [m3/kg/s2]
       'GM',       398600.4415e9, @(i) isnumeric(i) && isscalar(i);...      % Standard gravitational parameter [m^3 s^-2]
       'R',        6378136.460,   @(i) isnumeric(i) && isscalar(i);...      % Earth's equatorial radius [m]
-      'Rm',       6371000,       @(i) isnumeric(i) && isscalar(i);...      % Earth's mean radius [m]
-      'rho_earth',5514.323108293622, @(i) isnumeric(i) && isscalar(i);...      % average density of the Earth = (GM/G) / (4/3*pi*R_av^3) [kg/m3]
-      'rho_water',1000,          @(i) isnumeric(i) && isscalar(i);...      % water density
-      'love',  [  0       0.000;...   
+      'rho_earth',5514.32310829, @(i) isnumeric(i) && isscalar(i);...      % average density of the Earth = (GM/G) / (4/3*pi*R_av^3) [kg/m3]
+      'rho_water',1000,          @(i) isnumeric(i) && isscalar(i);...      % water density [kg/m3]
+      'G',        6.67408e-11,   @(i) (isnumeric(i) && isscalar(i)) || isempty(i);...      % Gravitational constant [m3/kg/s2]
+      'Rm',       6371000,       @(i) (isnumeric(i) && isscalar(i)) || isempty(i);...      % Earth's mean radius [m]
+      'love',  [  0       0.000;...               
                   1       0.027;...
-                  2      -0.303;...
+                  2      -0.303;... 
                   3      -0.194;...
                   4      -0.132;...
                   5      -0.104;...
@@ -55,10 +55,12 @@ classdef gravity < simpletimeseries
                   70     -0.020;...
                   100    -0.014;...
                   150    -0.010;...
-                  200    -0.007], @(i) isnumeric(i) && size(i,2)==2;...     % Love numbers
+                  200    -0.007], @(i) isnumeric(i) && size(i,2)==2;...     % Love numbers ?http://dx.doi.org/10.1029/98JB02844
         'origin',      'unknown', @(i) ischar(i);...                        % (arbitrary string)
         'functional',   'nondim', @(i) ischar(i) && any(strcmp(i,gravity.functionals)); %see above
         'aux_dir', fullfile(gravity.scriptdir,'aux'), @(i) ischar(i);...
+        'zf_love', 0.30190,       @(i) isnumeric(i) && isscalar(i);...      % zero frequency Love number: reported in IERS2003 Section 6.3 as "k20"
+        'pt_factor',1.391413e-08, @(i) isnumeric(i) && isscalar(i);...      % permanent tide factor: reported in IERS2003 Section 6.3 as "A0*H0", (4.4228e-8)*(0.31460)
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -357,15 +359,15 @@ classdef gravity < simpletimeseries
     end
     %% constructors 
     function obj=unit(lmax,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired( 'lmax',                            @(i) isscalar(i) && isnumeric(i));
-      p.addParameter('scale',           1,              @(i) isscalar(i));
-      p.addParameter('scale_per_degree',ones(lmax+1,1), @(i) isvector(i) && lmax+1 == numel(i));
-      p.addParameter('scale_per_coeff', ones(lmax+1),   @(i) ismatrix(i) && all([lmax+1,lmax+1] == size(i)));
-      p.addParameter('t',               datetime('now'),@(i) isdatetime(i) || isvector(i));
       %create argument object, declare and parse parameters, save them to obj
-      v=varargs.wrap('parser',p,'sources',{gravity.parameters('obj')},'mandatory',{lmax},varargin{:});
+      v=varargs.wrap('sources',{gravity.parameters('obj'),...
+        {...
+          'scale',           1,              @(i) isscalar(i);...
+          'scale_per_degree',ones(lmax+1,1), @(i) isvector(i) && lmax+1 == numel(i);...
+          'scale_per_coeff', ones(lmax+1),   @(i) ismatrix(i) && all([lmax+1,lmax+1] == size(i));...
+          't',               datetime('now'),@(i) isdatetime(i) || isvector(i);...
+        }...
+      },varargin{:});
       %create unitary triangular matrix
       u=gravity.dtc('mat','tri',ones(lmax+1));
       %scale along degrees (if needed)
@@ -610,7 +612,7 @@ classdef gravity < simpletimeseries
         else
           t=p.Results.date_parser(filelist{i});
           %skip if this t is outside the required range (or invalid)
-          if isempty(t) || ( time.isvalid(p.Results.start) && time.isvalid(p.Results.stop) && (t<p.Results.start || p.Results.stop<t) )
+          if isempty(t) || ( time.isfinite(p.Results.start) && time.isfinite(p.Results.stop) && (t<p.Results.start || p.Results.stop<t) )
             c=c+1; continue
           end
         end
@@ -641,8 +643,8 @@ classdef gravity < simpletimeseries
           m1=m1.scale(m);
           e1=e1.scale(e);
           %append to output objects
-          m=m.append(m1,p.Results.overwrite_common_t);
-          e=e.append(e1,p.Results.overwrite_common_t);
+          m=m.append(m1.set_lmax(m.lmax),p.Results.overwrite_common_t);
+          e=e.append(e1.set_lmax(e.lmax),p.Results.overwrite_common_t);
         end
       end
       %fix some parameters
@@ -653,14 +655,20 @@ classdef gravity < simpletimeseries
     end
     %% retrieves the Monthly estimates of C20 from 5 SLR satellites based on GRACE RL05 models
     function out=graceC20(varargin)
+      %parse arguments that are required later
+      v=varargs.wrap('sources',{...
+        {...
+          'pardecomp',false,...
+        },...
+      },varargin{:});
       %call mother routine
-      [t,s,e]=GetGraceC20(varargin{:});
+      [t,s,e,d]=GetGRACEC20(varargin{:});
       %create time series
       out=simpletimeseries(t,[s,e],...
         'labels',{'C20','error C20'},...
         'units',{'',''},...
         'timesystem','gps',...
-        'descriptor','Monthly estimates of C20 from 5 SLR satellites based on GRACE RL05 models'...
+        'descriptor',d...
       );
     end
     %% vector operations to make models compatible
@@ -700,7 +708,7 @@ classdef gravity < simpletimeseries
       end
 %       %sanity
 %       for i=2:numel(model_list)
-%         if ~model_list{1}.isteq(model_list{i})
+%         if ~model_list{1}.istequal(model_list{i})
 %           error([mfilename,': time domain discrepancy between model ',...
 %             model_list{1}.descriptor,' and model ',...
 %             model_list{i}.descriptor,'.'])
@@ -757,7 +765,7 @@ classdef gravity < simpletimeseries
     function out=gauss_smoothing_type(in)
       % This is a weak criteria but will work as long as there's no need
       % to smooth at degrees larger than 10000 or radii smaller than 10km.
-      if in>10e3;
+      if round(sum(in>10e3));
         out='rad';
       else
         out='deg';
@@ -771,8 +779,21 @@ classdef gravity < simpletimeseries
     end
     function out=gauss_smoothing_name(in)
       switch gravity.gauss_smoothing_type(in)
-      case 'rad'; out=[num2str(in/1e3),'km'];
-      case 'deg'; out=[num2str(round(gravity.gauss_smoothing_radius(in)/1e4)*1e1),'km'];
+      case 'rad';
+        %NOTICE: this test should be to see if in is zero but that is assumed to refer to degrees
+        if isfinite(in)
+          out=[num2str(in/1e3),'km'];
+        else
+          out='no';
+        end
+      case 'deg';
+        %NOTICE: this test should only be to see if in is inf but zero is assumed to refer to degrees
+        %        even if in practice is always refers to radius
+        if isfinite(in) && in~=0
+          out=[num2str(round(gravity.gauss_smoothing_radius(in)/1e4)*1e1),'km'];
+        else
+          out='no';
+        end
       end
     end
     function out=smoothing_name(in)
@@ -825,6 +846,31 @@ classdef gravity < simpletimeseries
       end
       [m,e]=gravity.load(datafile,'gfc');
     end
+    %% permanent (solid earth) tide
+    function C20=zero_tide(C20,tide_system)
+    % https://geodesyworld.github.io/SOFTS/solid.htm
+    %?http://www.springerlink.com/index/V1646106J6746210.pdf
+    % https://www.ngs.noaa.gov/PUBS_LIB/EGM96_GEOID_PAPER/egm96_geoid_paper.html
+    % https://www.iers.org/SharedDocs/Publikationen/EN/IERS/Publications/tn/TechnNote32/tn32_057.pdf, section 6.3
+    %   The degree 2 zonal tide generating potential has a mean (time average)
+    %   value that is nonzero. This time independent (nm) = (20) potential
+    %   produces a permanent deformation and a consequent time independent
+    %   contribution to the geopotential coefficient C20.
+      switch tide_system
+      case {'zero_tide'}
+        % the zero-frequency value includes the indirect distortion, but not the direct distortion
+        % NOTICE: do nothing, this is the default
+      case {'free_tide','tide_free','tide_tide','non_tidal'}
+        % the tide-free value is the quantity from which all tidal effects have been removed
+        C20=C20-gravity.parameters('zf_love')*gravity.parameters('pt_factor');
+      case 'mean_tide'
+        % the mean tide value includes both the direct and indirect permanent tidal distortions
+        %http://mitgcm.org/~mlosch/geoidcookbook/node9.html
+        C20=C20+gravity.parameter('pt_factor');
+      otherwise
+        error(['Cannot handle the permanent tide system ''',tide_system,'''.'])
+      end
+    end
     %% utilities
     function [degrees,orders]=resolve_degrees_orders(varargin)
       v=varargs.wrap('sources',{{...
@@ -845,11 +891,17 @@ classdef gravity < simpletimeseries
       end
       %convert degree-wise orders
       degrees_out=cell(size(v.degrees));
-       orders_out=cell(size(v.orders));
+       orders_out=cell(size(v.degrees));
       %need to convert keywords in orders ('inf'), if there
       v.orders=cell2mat(cells.num(v.orders));
+      %sanitize
+      assert(numel(v.degrees)==numel(v.orders),...
+        ['Numel of ''degrees'' (',num2str(numel(v.degrees)),...
+        ') different than numel of ''orders'' (',num2str(numel(v.orders)),').'])
       for i=1:numel(v.degrees)
-        if ~isfinite(v.orders(i))
+        if (v.degrees(i)<0)
+          %do nothing
+        elseif ~isfinite(v.orders(i))
            orders_out{i}=-v.degrees(i):v.degrees(i);
           degrees_out{i}=ones(size(orders_out{i}))*v.degrees(i);
         else
@@ -857,8 +909,11 @@ classdef gravity < simpletimeseries
           degrees_out{i}=v.degrees(i);
         end
       end
-      orders=cell2mat(orders_out);
-      degrees=cell2mat(degrees_out);
+       orders=cell2mat(cells.rm_empty(orders_out));
+      degrees=cell2mat(cells.rm_empty(degrees_out));
+    end
+    function lmax=width2lmax(width)
+      lmax=sqrt(width)-1;
     end
     %% tests
     %general test for the current object
@@ -1041,7 +1096,7 @@ classdef gravity < simpletimeseries
     function [obj,reset_flag]=setlabels(obj)
       [l,u]=gravity.labels(obj.lmax,obj.functional_unit);
       reset_flag=false;
-      if numel(obj.labels)~=obj.width || ~cells.isequal(obj.labels,l)
+      if numel(obj.labels)~=obj.width || ~cells.isequalstr(obj.labels,l)
         obj.labels=l;
         obj.y_units=u;
         reset_flag=true;
@@ -1103,7 +1158,7 @@ classdef gravity < simpletimeseries
       obj.lmax=l;
     end
     function out=get.lmax(obj)
-      out=sqrt(obj.width)-1;
+      out=gravity.width2lmax(obj.width);
     end
     %% representations
     %returns a cell array with matrix representation
@@ -1414,8 +1469,15 @@ classdef gravity < simpletimeseries
     function s=scale_gauss(obj,fwhm_degree)
       % translate smoothing radius to degree (criteria inside) 
       fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
-      %https://en.wikipedia.org/wiki/Gaussian_function#Properties
-      s=exp(-4*log(2)*((0:obj.lmax)/fwhm_degree/2).^2);
+      %NOTICE: gravity.gauss_smoothing_degree_translate(0) will assume the input is in degrees
+      %        which should mean infinite smoothing, but generally the 0 will actually refer
+      %        to a zero smoothing radius, i.e. no smoothing. This is the assumed convention.
+      if fwhm_degree==0
+        s=ones(1,obj.lmax+1);
+      else
+        %https://en.wikipedia.org/wiki/Gaussian_function#Properties
+        s=exp(-4*log(2)*((0:obj.lmax)/fwhm_degree/2).^2);
+      end
 %       find(abs(s-0.5)==min(abs(s-0.5)))
 %       %NOTICE: the tail of this function is unstable
 %       %http://dx.doi.org/10.1029/98JB02844
@@ -1431,6 +1493,14 @@ classdef gravity < simpletimeseries
     function s=scale_spline(obj,fwhm_degree,width_degree)
       if ~exist('width_degree','var') || isempty(width_degree)
         width_degree=5;
+      end
+      % translate smoothing radius to degree (criteria inside) 
+      fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
+      %NOTICE: usually smoothing up to degree zero would mean zeroing the data
+      %        but the convention here is that is means no smoothing.
+      if fwhm_degree==0
+        s=ones(1,obj.lmax+1);
+        return
       end
       if fwhm_degree<=width_degree
         width_degree=fwhm_degree-1;
@@ -1522,6 +1592,7 @@ classdef gravity < simpletimeseries
       else
         % input 's' assumes different meanings, dependending on the method; invoke as:
         % obj.scale('geoid','functional')
+        % obj.scale(300e3,'gauss')
         obj=obj.scale(obj.scale_factor(s,method));
         %need to update metadata in some cases
         switch lower(method)
@@ -1613,7 +1684,7 @@ classdef gravity < simpletimeseries
       out=zeros(obj.length,obj.lmax+1);
       tri_now=obj.tri;
       for i=1:obj.length
-        %compute DAS
+        %compute Degree amplitude
         out(i,:) = sqrt(sum(tri_now{i}.^2,2));
       end
     end
@@ -1642,16 +1713,15 @@ classdef gravity < simpletimeseries
     end
     %% convert to grid
     function out=grid(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addParameter( 'Nlat', obj.lmax+1    , @(i) isnumeric(i) && isscalar(i));
-      p.addParameter( 'Nlon',(obj.lmax+1)*2 , @(i) isnumeric(i) && isscalar(i));
-      p.addParameter( 'Nfactor',          1 , @(i) isnumeric(i) && isscalar(i));
-      % parse it
-      p.parse(varargin{:});
+      v=varargs.wrap('sources',{{...
+        'Nlat', obj.lmax+1    , @(i) isnumeric(i) && isscalar(i);...
+        'Nlon',(obj.lmax+1)*2 , @(i) isnumeric(i) && isscalar(i);...
+        'Nfactor',          1 , @(i) isnumeric(i) && isscalar(i);...
+        'spatial_step',   inf , @(i) isnumeric(i) && isscalar(i);...
+      }},varargin{:});
       %easier names for the resolution
-      Nlat=p.Results.Nlat*p.Results.Nfactor;
-      Nlon=p.Results.Nlon*p.Results.Nfactor;
+      Nlat=max([v.Nlat,simplegrid.lat_stepped_length(v.spatial_step)])*v.Nfactor;
+      Nlon=max([v.Nlon,simplegrid.lon_stepped_length(v.spatial_step)])*v.Nfactor;
       %retrieve CS-representation
       cs_now=obj.cs;
       %initiate grid 3d-matrix
@@ -1676,7 +1746,7 @@ classdef gravity < simpletimeseries
     end
     %% spatial operations
     function obj=spatial_mask(obj,mode,varargin)
-      obj=obj.grid('cutoff',-1,'Nfactor',3,varargin{:}).spatial_mask(mode,varargin{:}).sh(obj.lmax,'functional',obj.functional);
+      obj=obj.grid('Nfactor',3,varargin{:}).spatial_mask(mode,varargin{:}).sh(obj.lmax,'functional',obj.functional);
     end
     %% overloading
     function [obj,stats]=component_split(obj,varargin)
@@ -1778,7 +1848,7 @@ classdef gravity < simpletimeseries
     end
     function obj1=glue(obj1,obj2,varargin)
       %objects need to have the same time domain
-      assert(obj1.isteq(obj2),'Input objects do not share the same time domain.')
+      assert(obj1.istequal(obj2),'Input objects do not share the same time domain.')
       %get maximum degree
       lmax_now=max([obj1.lmax,obj2.lmax]);
       %match lmax
@@ -1857,8 +1927,8 @@ classdef gravity < simpletimeseries
           if ~isempty(v.colormap)
             colormap(v.colormap)
           end
-          out.cb=colorbar;
           cb.nan;
+          out.cb=colorbar;
           if strcmpi(v.method,'trianglog10')
             cb.label(['log_{10}(',obj.functional_name,') [',obj.functional_unit,']']);
           else
@@ -1866,6 +1936,8 @@ classdef gravity < simpletimeseries
           end
           out.title=[obj.descriptor,' - ',datestr(obj.t(i)),', \mu=',num2str(mean(tri_now{i}(~bad_idx)))];
           title(out.title)
+          out.axis_handle=gca;
+          out.fig_handle=gcf;
         end
       case {'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
         d=transpose(obj.(v.method));
@@ -1877,7 +1949,7 @@ classdef gravity < simpletimeseries
         end
         grid on
         xlabel('SH degree')
-        ylabel([obj.functional_name,'[ ',obj.functional_unit,']'])
+        ylabel([obj.functional_name,' [',obj.functional_unit,']'])
         if v.showlegend
           out.legend=legend(datestr(obj.t));
         end
@@ -2045,6 +2117,7 @@ classdef gravity < simpletimeseries
           disp(['Already available: ',filelist{i}])
         end
       end
+      %
     end
   end
 end
@@ -2146,8 +2219,8 @@ function [m,e]=load_gsm(filename,time)
     s=fgets(fid);
   end
   %fix permanent_tide
-  if permanent_tide
-    mi.C(3,1)=mi.C(3,1)-4.173e-9;
+  if ~permanent_tide
+    mi.C(3,1)=gravity.zero_tide(mi.C(3,1),'tide_free');
   end
   %initializing data object
   m=gravity(...
@@ -2427,26 +2500,12 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
     s=fgets(fid);
   end
   fclose(fid);
-  %handle the tide system
-  switch header.tide_system
-    case {'zero_tide'}
-      %do nothing, this is the default
-    case {'free_tide','tide_free','tide_tide'}
-      mi.C(3,1)=mi.C(3,1)-4.173e-9;
-      header.tide_system='zero_tide';
-    case 'mean_tide'
-      %http://mitgcm.org/~mlosch/geoidcookbook/node9.html
-      mi.C(3,1)=mi.C(3,1)+1.39e-8;
-      header.tide_system='zero_tide';
-    otherwise
-      %the tide system is not documented, so make some assumptions
-      switch header.modelname
-        case 'GROOPS'
-          %do nothing, Norber Zehentner's solutions are zero tide
-        otherwise
-          error([mfilename,': unknown tide system ''',header.tide_system,'''.'])
-      end
+  % the tide system is not documented in some models
+  if strcmp(header.modelname,'GROOPS')
+    header.tide_system='zero_tide';
   end
+  % handle the permanent tide deformation system
+  mi.C(3,1)=gravity.zero_tide(mi.C(3,1),header.tide_system);
   %initializing data object
   m=gravity(...
     time,...
@@ -2664,27 +2723,38 @@ function out = legendre_degree(L,lat)
 end
 
 %% Auxiliarly data
-function [t,s,e]=GetGraceC20(varargin)
-  p=inputParser;
-  p.KeepUnmatched=true;
-  p.addParameter('mode','read', @(i) ischar(i))
-  p.addParameter('file',fullfile(fileparts(which(mfilename)),'aux','TN-07_C20_SLR.txt'),@(i) ischar(i))
-  p.addParameter('url','ftp://podaac.jpl.nasa.gov/allData/grace/docs/TN-07_C20_SLR.txt',@(i) ischar(i))
-  p.addParameter('grace_models_dir',[getenv('HOME'),'/media/data2/data/grace/L2/GFZ/RL05'],@(i) ischar(i))
-  p.parse(varargin{:})
-  switch lower(p.Results.mode)
+function [t,s,e,d]=GetGRACEC20(varargin)
+  %parse arguments that are required later
+  v=varargs.wrap('sources',{...
+    {...
+      'version', 'TN-07', @(i) ischar(i);...
+      'mode',    'read',  @(i) ischar(i);...
+      'data_dir', gravity.parameters('aux_dir'),  @(i) ischar(i) && exist(i,'dir')~=0;
+    },...
+  },varargin{:});
+  %parse dependent arguments (can be over-written)
+  v=varargs.wrap('sources',{v,...
+    {...
+      'file',fullfile(v.data_dir,[v.version,'_C20_SLR.txt']),                                    @(i) ischar(i);...
+      'url',['ftp://podaac.jpl.nasa.gov/allData/grace/docs/',v.version,'_C20_SLR.txt'],          @(i) ischar(i);...
+      'descriptor',['Monthly estimates of C20 from 5 SLR satellites based on GRACE ',v.version], @(i) ischar(i);...
+    },...
+  },varargin{:});
+  %some outputs are already known
+  d=v.descriptor;
+  switch lower(v.mode)
   case 'read'
     %download data, if not already
-    if isempty(dir(p.Results.file))
-      GetGraceC20('mode','set');
+    if isempty(dir(v.file))
+      GetGRACEC20('mode','set');
     end
-    [t,s,e]=GetGraceC20('mode','get');
+    [t,s,e]=GetGRACEC20('mode','get');
   case 'get'
     %open the file
-    fid=file.open(p.Results.file);
+    fid=file.open(v.file);
     %sanity
     if fid<=0
-      error([mfilename,': cannot open the data file ''',p.Results.file,'''.'])
+      error([mfilename,': cannot open the data file ''',v.file,'''.'])
     end
     %skip header info
     found=false;
@@ -2700,11 +2770,11 @@ function [t,s,e]=GetGraceC20(varargin)
     s=d{3};
     e=d{5}*1e-10;
   case 'set'
-    fid=file.open(p.Results.file,'w+');
-    fprintf(fid,'%s',urlread(p.Results.url));
+    fid=file.open(v.file,'w+');
+    fprintf(fid,'%s',urlread(v.url));
     fclose(fid);
   otherwise
-    error([mfilename,': unknown mode ''',p.Results.mode,'''.'])
+    error([mfilename,': unknown mode ''',v.mode,'''.'])
   end
 end
 
