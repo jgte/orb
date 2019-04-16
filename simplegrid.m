@@ -66,11 +66,23 @@ classdef simplegrid < simpletimeseries
       out=v.picker(varargin{:});
     end
     %% spacing
+    function out=spacing(in)
+      out= min(diff(unique(in(:),'sorted')));
+      if isempty(out); out=1; end
+    end
     function out=getSpacing(lon,lat)
-      out = [ min(diff(unique(lon(:),'sorted'))) min(diff(unique(lat(:),'sorted'))) ];
-      if isempty(out)
-        out=[1 1];
+      out = [ simplegrid.spacing(lon) simplegrid.spacing(lat) ];
+    end
+    function out=spacing_size(lon,lat,radius)
+      if ~exist('radius','var') || isempty(radius)
+        radius=gravity.parameters('Rm');
       end
+      out=deg2rad(simplegrid.getSpacing(lon,lat))*radius;
+    end
+    function out=sh_lmax(lon,lat)
+      %NOTICE: this function is the same as:
+      % floor(gravity.hwl2deg(simplegrid.spacing_size(lon,lat)))
+      out = min([numel(lat)-1,floor((numel(lon)-1)/2)]);
     end
     function out=lat_spacing_valid(spacing)
       out= isnumeric(spacing) && isscalar(spacing) && mod(180,spacing)==0;
@@ -80,7 +92,7 @@ classdef simplegrid < simpletimeseries
     end
     %% lon and lat handlers
     function out=getLimits(lon,lat)
-      lon=wrapTo360(lon);
+      lon=simplegrid.setlon360(lon);
       out = [ min(lon(:)) max(lon(:)) min(lat(:)) max(lat(:)) ];
       %some sanity
       assert(~(any(lon <   0) || any(lon > 360)),'Ilegal longitude domain. Debug needed!')
@@ -101,8 +113,47 @@ classdef simplegrid < simpletimeseries
       %NOTICE: this looks redundant but linspace is not very accurate and introduces small variations
       out=transpose(-90:simplegrid.delta(-90,90,n):90);
     end
-    %a(idx_a)=b(idx_b)=out and is the common entries between a and b
+    function out=lat_stepped(delta_deg)
+      %NOTICE: this is the same as: out=simplegrid.lat_default((180+delta_deg)/delta_deg);
+      out=-90:delta_deg:90;
+      assert(out(end)==90,'Input delta_deg is ilegal because it does not produce a complete latitude domain')
+    end
+    function out=lon_stepped(delta_deg)
+      %NOTICE: this is the same as: out=simplegrid.lon_default((360+delta_deg)/delta_deg);
+      out=0:delta_deg:360;
+      assert(out(end)==360,'Input delta_deg is ilegal because it does not produce a complete latitude domain')
+    end
+    function out=lat_stepped_length(delta_deg)
+      if isfinite(delta_deg)
+        if delta_deg==0; out=inf;
+        else out=(180+delta_deg)/delta_deg;
+        end
+      else
+        out=0;
+      end
+    end
+    function out=lon_stepped_length(delta_deg)
+      if isfinite(delta_deg)
+        if delta_deg==0; out=inf;
+        else out=(360+delta_deg)/delta_deg;
+        end
+      else
+        out=0;
+      end
+    end
+    function out=setlon360(lon)
+      out=wrapTo360(lon);
+    end
+    function out=islon360complete(lon)
+      lon360=simplegrid.setlon360(lon);
+      sp_tol=simplegrid.parameters('sp_tol')^2;
+      out = ...
+        (lon360(end)-360                          )^2<sp_tol && ... %check if lon 360 is already there
+        (lon360(1)                                )^2<sp_tol && ... %check if current spatial domain includes longitude 0
+        (lon360(end-1)+simplegrid.spacing(lon)-360)^2<sp_tol;       %check if current spatial domain should have longitude 360
+    end
     function [idx_a,idx_b,out]=common(a,b)
+      %a(idx_a)=b(idx_b)=out and is the common entries between a and b
       [ag,bg]=meshgrid(a,b);
       [idx_b,idx_a]=find((ag-bg).^2<simplegrid.parameters('sp_tol')^2);
       if nargout>2; out=a(idx_a); end
@@ -177,7 +228,7 @@ classdef simplegrid < simpletimeseries
       out=size(vecmat.map);
     end
     function vectmat=vecmat_init(t,map,lon,lat)
-      vectmat=struct('t',t,'lon',wrapTo360(lon),'lat',lat,'map',map);
+      vectmat=struct('t',t,'lon',simplegrid.setlon360(lon),'lat',lat,'map',map);
     end
     %% list representation (lat, lon and t are vectors, map is a 2D matrix, with time changing along the rows)
     function       out=list_valid(list)
@@ -256,7 +307,7 @@ classdef simplegrid < simpletimeseries
       out = [ numel(unique(list.lon(:))) numel(unique(list.lat(:))) numel(list.t) ];
     end
     function      list=list_init(t,map,lon,lat)
-      list=struct('t',t,'lon',wrapTo360(lon),'lat',lat,'map',map);
+      list=struct('t',t,'lon',simplegrid.setlon360(lon),'lat',lat,'map',map);
     end
     %% flatlist representation (lat, lon, t and map are vectors, all have the same length)
     function       out=flatlist_valid(flatlist)
@@ -342,7 +393,7 @@ classdef simplegrid < simpletimeseries
       out = [ numel(unique(list.lon(:))) numel(unique(list.lat(:))) numel(unique(list.t)) ];
     end
     function      list=flatlist_init(t,map,lon,lat)
-      list=struct('t',t,'lon',wrapTo360(lon),'lat',lat,'map',map);
+      list=struct('t',t,'lon',simplegrid.setlon360(lon),'lat',lat,'map',map);
     end
     %% matrix representation (lat and lon are 2D matrices, map is a 3D matrix with time changing along the right-most dim)
     function    out=matrix_valid(matrix)
@@ -420,7 +471,7 @@ classdef simplegrid < simpletimeseries
       out=size(matrix.map);
     end
     function matrix=matrix_init(t,map,lon,lat)
-      matrix=struct('t',t,'lon',wrapTo360(lon),'lat',lat,'map',map);
+      matrix=struct('t',t,'lon',simplegrid.setlon360(lon),'lat',lat,'map',map);
     end
     %% vecmat and list convertions
     function [vecmat,idx]=list2vecmat(list)
@@ -604,7 +655,7 @@ classdef simplegrid < simpletimeseries
       % build structure with inputs
       si=struct(...
         't',t,...
-        'lon',wrapTo360(lon),...
+        'lon',simplegrid.setlon360(lon),...
         'lat',lat,...
         'map',map...
       );
@@ -763,16 +814,34 @@ classdef simplegrid < simpletimeseries
     end
     %% catchment handling
     function out=catchment_idx(name)
-      out=cells.strfind(simplegrid.catchment_list(:,1),name);
+      out=cells.strfind(lower(simplegrid.catchment_list(:,1)),lower(name));
       assert(~isempty(out),['Cannot handle catchment ''',name,'''.'])
     end
     function out=catchment_details(name,field)
+      if iscellstr(name)
+        out=cellfun(@(i) simplegrid.catchment_details(i,field),name,'UniformOutput',false)';
+        %need to tweak this
+        switch field
+        case {'lonlat','latlon'};
+          tmp=out;
+          out=cell(numel(tmp),2);
+          for i=1:numel(tmp)
+            out{i,1}=tmp{i}{1};
+            out{i,2}=tmp{i}{2};
+          end
+        end    
+        return
+      end
       idx=simplegrid.catchment_idx(name);
       switch field
-      case 'lat'; out=simplegrid.catchment_list{idx,2};
-      case 'lon'; out=simplegrid.catchment_list{idx,3};
+      case 'lat';                out=simplegrid.catchment_list{idx,2};
+      case 'lon';                out=simplegrid.catchment_list{idx,3};
+      case {'lonlat','latlon'};  out=simplegrid.catchment_list(idx,2:3);
       otherwise; error(['Cannot handle field ''',field,'''.'])
       end    
+    end
+    function out=catchment_subset(names)
+      out=[names(:),simplegrid.catchment_details(names,'latlon')];
     end
     %% smooting/conv aux functions
     function map=map_mirroredges(map,n)
@@ -787,6 +856,36 @@ classdef simplegrid < simpletimeseries
       map=[map(:,end-w+1:end),map];
       %right edge
       map=[map,map(:,w+1:2*w)];
+    end
+    %% catchment plotting
+    function catchment=catchment_plot(catchment,varargin)
+      v=varargs.wrap('sources',{....
+        {...
+          'plot_parametric_components',{},   @(i) iscellstr(i);...
+          'parametric_components_line_fmt',{'--'},@(i) isstring(i);...
+        },...
+      },varargin{:});
+      %plot it
+      catchment.plot=catchment.ws.plot(varargin{:});
+      %add parametric decompositions (if requested)
+      if isfield(catchment,'pws')
+        %accumulate components to plot
+        for i=1:numel(v.plot_parametric_components)
+          if i==1
+            catchment.pwst=catchment.pws.(['ts_',v.plot_parametric_components{i}]);
+          else
+            catchment.pwst=catchment.pwst+catchment.pws.(['ts_',v.plot_parametric_components{i}]);
+          end
+          catchment.pwst_val.(v.plot_parametric_components{i})=catchment.pws.(v.plot_parametric_components{i}).y_masked;
+        end
+        %plot it
+        catchment.pwst.plot('line',v.parametric_components_line_fmt)
+        %copy the color from the last line (and get its handle)
+        llh=plotting.line_color_set_last;
+        %don't show this line in the legend
+        set(get(get(llh,'Annotation'),'LegendInformation'),'IconDisplayStyle','off');
+      end
+      title(catchment.name)
     end
     %% tests
     %general test for the current object
@@ -1057,10 +1156,14 @@ classdef simplegrid < simpletimeseries
           'lon',lon_now...
         );
       case 'struct'
-        error([mfilename,': cannot handle retrive multiple stats in the form a structure.'])
+        error([mfilename,': cannot retrive multiple stats in the form a structure.'])
       otherwise
         error([mfilename,': cannot handle stats when upstream method returns class ',class(s),'.'])
       end
+      %copy metadata
+      out=out.copy_metadata(obj);
+      %update descriptor
+      out.descriptor=[varargs(varargin).mode,' of ',obj.descriptor];
     end
     %% (spatial) units convertion
     function obj=convert(obj,units,scale)
@@ -1144,6 +1247,24 @@ classdef simplegrid < simpletimeseries
     function obj=set.map(obj,map)
       obj.vecmat=simplegrid.vecmat_init(obj.t,map,obj.lon,obj.lat);
     end
+    function out=map_weighted(obj)
+      w=obj.lat_weights;
+      out=obj.map;
+      for i=1:obj.length
+        out(:,:,i)=w.*out(:,:,i);
+      end
+    end
+    function out=map_sum(obj);                  out=sum(sum(obj.map));  end
+    function out=map_sum_weighted(obj);         out=sum(sum(obj.map_weighted));  end
+    function out=map_squared_sum(obj);          out=sum(sum(obj.map.^2));  end
+    function out=map_squared_sum_weighted(obj)
+      w=obj.lat_weights;
+      out=obj.map;
+      for i=1:obj.length
+        out(:,:,i)=w.*out(:,:,i).^2;
+      end
+      out=sum(sum(out));
+    end
     %% lat handling
     function obj=set.lat(obj,lat_now)
       %trivial call
@@ -1167,11 +1288,10 @@ classdef simplegrid < simpletimeseries
       end
     end
     function out=get.latSpacing(obj)
-      spacing=simplegrid.getSpacing(obj.lon,obj.lat);
-      out=spacing(2);
+      out=simplegrid.spacing(obj.lat);
     end
     function obj=set.latSpacing(obj,spacing)
-      obj.lat=simplegrid.lat_default(180/spacing);
+      obj.lat=simplegrid.lat_default(181/spacing);
     end
     function out=lat_domain(obj)
       out=['[ ',...
@@ -1189,6 +1309,9 @@ classdef simplegrid < simpletimeseries
       case 'rad'; out=obj.lat;
       end
     end
+    function out=lat_weights(obj)
+      out=(cos(obj.lat_rad))*ones(size(obj.lon));
+    end
     %% lon handling
     function obj=set.lon(obj,lon_now)
       %trivial call
@@ -1205,10 +1328,10 @@ classdef simplegrid < simpletimeseries
       end
     end
     function obj=set.lon360(obj,lon_now)
-      obj.lon=wrapTo360(lon_now);
+      obj.lon=simplegrid.setlon360(lon_now);
     end
     function out=get.lon360(obj)
-      out=wrapTo360(obj.lon);
+      out=simplegrid.setlon360(obj.lon);
     end
     function obj=set.lon180(obj,lon_now)
       obj.lon=wrapTo180(lon_now);
@@ -1224,8 +1347,7 @@ classdef simplegrid < simpletimeseries
       end
     end
     function out=get.lonSpacing(obj)
-      spacing=simplegrid.getSpacing(obj.lon,obj.lat);
-      out=spacing(1);
+      out=simplegrid.spacing(obj.lon);
     end
     function obj=set.lonSpacing(obj,spacing)
       obj=obj.lon_set(simplegrid.lon_default(300/spacing));
@@ -1247,30 +1369,16 @@ classdef simplegrid < simpletimeseries
       end
     end
     function [obj,changed]=add360lon(obj)
-      %assume nothing changes
-      changed=false;
-      %easier names
-      l360=obj.lon360;
-      %check if lon 360 is already there
-      if (l360(end)-360)^2<simplegrid.parameters('sp_tol')^2
-        return
+      %see if things need changing
+      changed=~simplegrid.islon360complete(obj.lon);
+      if changed
+        %get map
+        m=obj.map;
+        %append longitude 360
+        m(:,end+1,:)=m(:,1,:);
+        %TODO: make this work for time entries (multiple maps)
+        obj=obj.assign(m,'lon',[obj.lon360,360]);
       end
-      %check if current spatial domain includes longitude 0
-      if (l360(1))^2>simplegrid.parameters('sp_tol')^2
-        return
-      end
-      %check if current spatial domain should have longitude 360
-      if (l360(end)+obj.lonSpacing-360)^2>simplegrid.parameters('sp_tol')^2
-        return
-      end
-      %if not, then things changed
-      changed=true;
-      %get map
-      m=obj.map;
-      %append longitude 360
-      m(:,end+1,:)=m(:,1,:);
-      %TODO: make this work for multiple time entries
-      obj=obj.assign(m,'lon',[obj.lon360,360]);
     end
     function [obj,changed]=del360lon(obj)
       %assume nothing changes
@@ -1339,11 +1447,19 @@ classdef simplegrid < simpletimeseries
         if all(isnan(map_new(end,:)))
           map_new(end,:)=interp1(obj.lon,obj.map(end,:),lon_new);
         end
+        if all(isnan(map_new(:,end)))
+          map_new(:,end)=interp1(obj.lat,obj.map(:,end),lat_new);
+        end
+        if isnan(map_new(end))
+          submap=map_new(end-1:end,end-1:end);
+          map_new(end)=mean(submap(~isnan(submap)));
+        end
+        assert(~any(isnan(map_new(:))),'BUG TRAP:Still there''s NaNs in the interpolated map')
       end
       %save results
       obj=obj.assign(map_new,'t',obj.t,'lat',lat_new,'lon',lon_new);
       %unfix missing 360 (if needed)
-      if changed
+      if changed && ~simplegrid.islon360complete(lon_new)
         obj=obj.del360lon;
       end
     end
@@ -1366,7 +1482,7 @@ classdef simplegrid < simpletimeseries
       %get the spatial mask
       mask=struct(...
         'lat',obj.lat>=lat_limits(1) & obj.lat<=lat_limits(2), ...
-        'lon',obj.lon360>=wrapTo360(lon_limits(1)) & obj.lon360<=wrapTo360(lon_limits(2)) ...
+        'lon',obj.lon360>=simplegrid.setlon360(lon_limits(1)) & obj.lon360<=simplegrid.setlon360(lon_limits(2)) ...
       );
 %         'lon',wrapTo180(obj.lon)>=wrapTo180(lon_limits(1)) & wrapTo180(obj.lon)<=wrapTo180(lon_limits(2)) ...
       %apply the mask
@@ -1377,55 +1493,79 @@ classdef simplegrid < simpletimeseries
       obj.matrix=m;
     end
     function obj=spatial_mask(obj,mode,varargin)
-      %save the descriptor
-      descriptor=obj.descriptor;
+      %NOTICE: a positive buffer reduces the land/ocean areas, a negative buffer enlarges it
+      %trivial call
+      if str.none(mode); return; end
+      %handle special cases
       switch lower(mode)
-      case {'','none'}
-        %do nothing
-      case 'land'
-        spmask=simplegrid.landmask(obj.lon,obj.lat,varargin{:});
-        obj=obj.*spmask;
-        obj.descriptor=['land areas of ',descriptor];
-      case 'ocean'
-        spmask=simplegrid.landmask(obj.lon,obj.lat,varargin{:});
-        spmask=spmask.assign(1-spmask.y);
-        obj=obj.*spmask;
-        obj.descriptor=['ocean areas of ',descriptor];
-      case 'ocean-buffer'
-        spmask=simplegrid.oceanmask(obj.lon,obj.lat,varargin{:});
-        obj=obj.*spmask;
-        obj.descriptor=['(buffered) ocean areas of ',descriptor];
-      otherwise
-        error(['Cannot understand mode ''',mode,'''.'])
+      case 'deep ocean'
+        obj=obj.spatial_mask('ocean','buffer',1000e3);
+        return
       end
+      %handle optionals
+      v=varargs.wrap('sources',{{...
+        'buffer',   0, @(i) isnumeric(i) && isscalar(i);...
+        'cutoff', 0.1,@(i) (isnumeric(i) && isscalar(i)) || isempty(i);... %NOTICE: this value seems to work well
+      }},varargin{:});
+      %retrieve the land mask
+      spmask=simplegrid.landmask(obj.lon,obj.lat,varargin{:});
+      %apply buffer
+      if v.buffer~=0
+        spmask=spmask.sh(simplegrid.sh_lmax(obj.lon,obj.lat)...
+        ).scale(abs(v.buffer),'gauss'...
+        ).grid(varargin{:}...
+        ).spatial_interp(obj.lon,obj.lat...
+        );
+        obj.descriptor=[num2str(v.buffer*1e-3),'km buffered ',mode,' areas of ',obj.descriptor];
+      else
+        obj.descriptor=[mode,' areas of ',obj.descriptor];
+      end
+      %enforce cutoff
+      if ~isempty(v.cutoff)
+         y_now=spmask.y;
+         switch lower(mode)
+         case 'land';  if v.buffer>0; idx=y_now>1-v.cutoff; else idx=y_now>v.cutoff; end
+         case 'ocean'; if v.buffer<0; idx=y_now>1-v.cutoff; else idx=y_now>v.cutoff; end
+         end
+         y_now(idx)=1;
+         y_now(~idx)=0;
+         spmask=spmask.assign(y_now);
+      end
+      %enforce mode
+      switch lower(mode)
+      case 'land';  %do nothing
+      case 'ocean'; spmask=spmask.assign(1-spmask.y);
+      otherwise; error(['Cannot handle the spatial mask ''',mode,'''.'])
+      end
+      %apply mask
+      obj=obj.*spmask;
     end
     %% spatial ops
-    function obj=spatial_sum(obj)
+    function [out,m]=global_spatial_op(obj,mode)
+      %NOTICE: this returns a time series, the spatial domain is reduced to a point
       %get the data
       m=obj.vecmat;
       %collapse data to a single spatial point
       m.lat=mean(m.lat);
       m.lon=mean(m.lon);
-      m.map=sum(sum(m.map));
-      %propagate the data
-      obj.vecmat=m;
-    end
-    function out=spatial_mean(obj)
-      %get the data
-      m=obj.vecmat;
-      %collapse data to a single spatial point
-      m.lat=mean(m.lat);
-      m.lon=mean(m.lon);
-      m.map=sum(sum(m.map))/size(m.map,1)/size(m.map,2);
-      %propagate the data
-      obj.vecmat=m;
+      m.t=obj.t;
+      m.n=size(m.map,1)*size(m.map,2);
+      %branch on mode
+      switch lower(mode)
+        case 'sum';          m.map=obj.map_sum_weighted;
+        case 'mean';         m.map=obj.map_sum_weighted/m.n;
+        case 'squared-sum';  m.map=obj.map_squared_sum_weighted;
+        case 'rms';          m.map=sqrt(obj.map_squared_sum_weighted/m.n);
+        case {'rss','norm'}; m.map=sqrt(obj.map_squared_sum_weighted);
+      end
       %reduce to timeseries object
       out=simpletimeseries(obj.t,m.map(:)).copy_metadata(obj);
+      out.descriptor=[mode,' of ',obj.descriptor,' (centered at ',num2str(m.lat),'deg lat by ',num2str(m.lon),'deg long)'];
     end
     %% utilities
     function obj=area(obj,radius)
       if ~exist('radius','var') || isempty(radius)
-        radius=varargs(gravity.parameter_list).get('Rm').value;
+        radius=gravity.parameters('Rm');
       end
       original_units=obj.sp_units;
       obj=obj.convert('rad');
@@ -1464,10 +1604,11 @@ classdef simplegrid < simpletimeseries
     end
     function [y,x]=rms(obj,mode)
       h=obj.map;
-      w=(cos(obj.lat_rad))*ones(size(obj.lon));
+      w=obj.lat_weights;
       switch mode
       case {'total','tot',0}
         y=num.rms(h,w,0);
+        x=0;
       case {'lat','row',1}
         y=num.rms(h,w,1);
         x=h.lon;
@@ -1481,10 +1622,12 @@ classdef simplegrid < simpletimeseries
     %% convert to spherical harmonics
     %it's a good idea to identify the functional represented in this grid explicitly in varargin ('functional',<something>)
     function out=sh(obj,lmax,varargin)
-      % make sure longitude domain goes up to 360 degree
-      obj=obj.add360lon;
-      % need global domain
-      assert(obj.isglobal,'Need global domain to perform SH analysis')
+%TODO: I'm not sure why this is needed; when plotting the std of a GRACE time series,
+%there was a strong vertical artefact at zero longitude
+%       % make sure longitude domain goes up to 360 degree
+%       obj=obj.add360lon;
+%       % need global domain
+%       assert(obj.isglobal,'Need global domain to perform SH analysis')
       % make room for CS-structures
       cs(obj.length)=struct('C',[],'S',[]);
       % make spherical harmonic analysis of each grid
@@ -1561,21 +1704,26 @@ classdef simplegrid < simpletimeseries
     %the append method can be called directly (only acts in the time domain)
     %% plot functions
     function out=imagesc(obj,varargin)
-      p=inputParser;
-      p.addParameter('t',    obj.t_masked(1), @(i) simpletimeseries.valid_t(i));
-      p.addParameter('center_resample', true, @(i) islogical(i));
-      p.addParameter('show_coast',      true, @(i) islogical(i));
-      p.addParameter('show_colorbar',   true, @(i) islogical(i));
-      p.addParameter('cb_loc','SouthOutside', @(i) ischar(i));
-      p.addParameter('cb_title',          '', @(i) ischar(i));
-      p.addParameter('bias',               0, @(i) isscalar(i) && isnumeric(i));
-      p.addParameter('boxes',             {}, @(i) iscell(i));
-      p.addParameter('boxes_fmt',    {'r--'}, @(i) iscellstr(i));
-      p.parse(varargin{:});
+      v=varargs.wrap('sources',{{...
+      't',obj.t_masked([],'start'), @(i) simpletimeseries.valid_t(i);...
+      'center_resample',      true, @(i) islogical(i);...
+      'show_coast',           true, @(i) islogical(i);...
+      'show_colorbar',        true, @(i) islogical(i);...
+      'plot_spatial_step',       0, @(i) isnumeric(i)&&isscalar(i);...
+      'cb_loc',     'SouthOutside', @(i) ischar(i);...
+      'cb_title',               '', @(i) ischar(i);...
+      'bias',                    0, @(i) isscalar(i) && isnumeric(i);...
+      'boxes',                  {}, @(i) iscell(i);...
+      'boxes_fmt',         {'r--'}, @(i) iscellstr(i);...
+      }},varargin{:});
       %interpolate at the requested time and 
-      obj_interp=obj.interp(p.Results.t);
+      obj_interp=obj.interp(v.t);
+      %upsample if needed
+      if v.plot_spatial_step>0
+        obj=spatial_interp(obj,simplegrid.lon_stepped(v.plot_spatial_step),simplegrid.lon_stepped(v.plot_spatial_step));
+      end
       %resample to center of grid if requested 
-      if p.Results.center_resample
+      if v.center_resample
         obj_interp=obj_interp.center_resample;
       end
       %need to have lon domain in the -180 to 180 domain, so that coast is show properly
@@ -1593,25 +1741,25 @@ classdef simplegrid < simpletimeseries
       xlabel(['lon [',obj.sp_units,']'])
       ylabel(['lat [',obj.sp_units,']'])
       %ploting coastline
-      if p.Results.show_coast
+      if v.show_coast
         out.coast_handle=simplegrid.coast('lon',lon_now);
       end
       %add colorbar
-      if p.Results.show_colorbar
-        out.colorbar_handle=colorbar('location',p.Results.cb_loc);
-        if ~isempty(p.Results.cb_title)
-          switch lower(p.Results.cb_loc)
+      if v.show_colorbar
+        out.colorbar_handle=colorbar('location',v.cb_loc);
+        if ~isempty(v.cb_title)
+          switch lower(v.cb_loc)
           case {'north','south','northoutside','southoutside'}
-            set(get(out.colorbar_handle,'xlabel'),'string',p.Results.cb_title);
+            set(get(out.colorbar_handle,'xlabel'),'string',v.cb_title);
           case {'east','west','eastoutside','westoutside'}
-            set(get(out.colorbar_handle,'ylabel'),'string',p.Results.cb_title);
+            set(get(out.colorbar_handle,'ylabel'),'string',v.cb_title);
           end
         end
       end
       %add boxes
-      if ~isempty(p.Results.boxes)
-        b=p.Results.boxes;
-        b_fmt=cells.deal(p.Results.boxes_fmt,numel(b));
+      if ~isempty(v.boxes)
+        b=v.boxes;
+        b_fmt=cells.deal(v.boxes_fmt,numel(b));
         for i=1:size(b,1)
           plot(...
   wrapTo180([b{i,3}(1) b{i,3}(2) b{i,3}(2) b{i,3}(1) b{i,3}(1)]),...
@@ -1621,96 +1769,69 @@ classdef simplegrid < simpletimeseries
         end
       end
     end
-%     function out=plot(obj,varargin)
-%       % Parse inputs
-%       p=inputParser;
-%       p.KeepUnmatched=true;
-%       % optional arguments
-%       p.addParameter('MapProjection','ortho',@(i)ischar(i));
-%       p.addParameter('MapLatLimit',[-90,90],@(i)isnumeric(i) && isvector(i) && numel(i)==2);
-%       p.addParameter('MapLonLimit',[-90,90],@(i)isnumeric(i) && isvector(i) && numel(i)==2);
-%       p.addParameter('Origin',     [0    0],@(i)isnumeric(i) && isvector(i) && numel(i)==2);
-%       p.addParameter('Frame',      'on',    @(i)ischar(i));
-%       p.addParameter('MeridianLabel','off', @(i)ischar(i));
-%       p.addParameter('ParallelLabel','off', @(i)ischar(i));
-%       p.addParameter('time',obj.t,          @(i) simpletimeseries.valid_t(i) || isempty(i));
-%       p.addParameter('coast',true,          @(i) isscalar(i) && islogical(i));
-%       % parse it
-%       p.parse(varargin{:});
-%       % init outputs
-%       out=cell(size(p.Results.time));
-%       % get data
-%       sv=obj.vecmat;
-%       %loop over all time
-%       for i=1:numel(p.Results.time)
-%         %get index of this time
-%         idx=obj.idx(p.Results.time(i));
-%         %create world
-%         wm=worldmap(p.Results.MapLatLimit,p.Results.MapLonLimit);
-%         %enforce map preferences
-%         prop_list={...
-%           'MapProjection',...
-%           'MapLatLimit',...
-%           'MapLonLimit',...
-%           'Origin',...
-%           'Frame',...
-%           'MeridianLabel',...
-%           'ParallelLabel'...
-%         };
-%         for j=1:numel(prop_list)
-%           setm(wm,prop_list{j},p.Results.(prop_list{j}));
-%         end
-%         % plot grid on map
-%         gs=geoshow(wm,sv.lat(:),sv.lon(:),sv.map(:,:,idx),'DisplayType','texturemap');
-%         %ploting coastline
-%         if p.Results.coast
-%           gsc=simplegrid.coast;
-%         end
-%         % save outputs
-%         if nargout>0
-%           out{i}.wm=wm;
-%           out{i}.gs=gs;
-%           out{i}.gsc=gsc;
-%         end
-%       end
-%     end
-
-    function out=catchment(obj,name,varargin)
-      %TODO: needs testing
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addParameter('parametric_decomposition', false, @(i) islogical(i)); %turn on for additional plotting of parametric decomposition
-      p.addParameter('plot_parametric_components',{},   @(i) iscellstr(i)); %define the parametric components *to plot* (use 
-                                                                            %'polynomial' and 'sinusoidal' to define the decomposition)
-      p.addParameter('parametric_components_line_fmt',{'--'},@(i) isstring(i));
-      p.parse(varargin{:});
+    %% spatial truncation and parameter decomposition
+    function catchment=catchment_get(obj,name,varargin)
+      v=varargs.wrap('sources',{....
+        {...
+          'parametric_decomposition', false, @(i) islogical(i);...
+        },...
+      },varargin{:});
       %save name of this catchment
-      out.name=name;
-      %compute storage timeseries on this catchment
-      out.ws=obj.spatial_crop(simplegrid.catchment_details(name,'lon'),simplegrid.catchment_details(name,'lat')).spatial_mean;
-      %plot it
-      out.plot=out.ws.plot(varargin{:});
-      %add parametric decompositions (if requested)
-      if p.Results.parametric_decomposition
-        %decompose
-        out.pws=out.ws.parametric_decomposition(varargin{:});
-        %accumulate components to plot
-        for i=1:numel(p.Results.plot_parametric_components)
-          if i==1
-            out.pwst=out.pws.(['ts_',p.Results.plot_parametric_components{i}]);
-          else
-            out.pwst=out.pwst+out.pws.(['ts_',p.Results.plot_parametric_components{i}]);
-          end
-          out.pwst_val.(p.Results.plot_parametric_components{i})=out.pws.(p.Results.plot_parametric_components{i}).y_masked;
-        end
-        %plot it
-        out.pwst.plot('line',p.Results.parametric_components_line_fmt)
-        %copy the color from the last line (and get its handle)
-        llh=plotting.line_color_set_last;
-        %don't show this line in the legend
-        set(get(get(llh,'Annotation'),'LegendInformation'),'IconDisplayStyle','off');
+      catchment.name=name;
+      %branch between different types of "catchments"
+      if any(ismember(lower(simplegrid.catchment_list(:,1)),lower(name)))
+        %build array with catchment limits
+        catchment.lat=simplegrid.catchment_details(name,'lat');
+        catchment.lon=simplegrid.catchment_details(name,'lon');
+        %compute storage timeseries on this catchment
+        catchment.ws=obj.spatial_crop(catchment.lon,catchment.lat).global_spatial_op('mean');
+      else
+        %TODO: it would be nice to set lat/lon equal to the mask boundary
+        catchment.lat=[];
+        catchment.lon=[];
+        catchment.ws=obj.spatial_mask(name,varargin{:}).global_spatial_op('mean');
       end
-      title(name)
+      %add parametric decompositions (if requested)
+      if v.parametric_decomposition
+        %decompose
+        catchment.pws=pardecomp.split(catchment.ws,varargin{:});
+      end
+    end
+    function out=catchment(obj,name,varargin)
+      out=simplegrid.catchment_plot(obj.catchment_get(name,varargin{:}),varargin{:});
+    end
+    %% export 
+    function xyz(obj,filename,varargin)
+      v=varargs.wrap('sources',{{...
+        'header',  'default',   @ischar;...
+        'columns', 1:obj.width, @isnumeric;...
+        'force',   false,       @islogical;...
+        'fmt',     '%10.4f %10.4f %14.8e\n', @ischar;
+      }},varargin{:});
+      if ~exist(filename,'file') || v.force
+        disp([datestr(now),': start exporting ',filename])
+        %make sure this directory exists
+        assert(file.ensuredir(filename),['Error creating directory of file ',filename,'.'])
+        %get extension and filename
+        [fd,fn,fe]=fileparts(filename);
+        %get the map
+        m=obj.vecmat;
+        for f=1:size(m.map,3)
+          %build file for the current time
+          f_now=fullfile(fd,[fn,'.',datestr(obj.t(f),'yyyyMMddThhmmss'),fe]);
+          %open the file (sanity done inside)
+          fid=file.open(f_now,'w');
+          %save the data
+          s.msg=['exporting ',obj.descriptor,' for ',datestr(obj.t(f),'yyyy-MM-dd hh:mm:ss'),' to file ',f_now];s.n=size(m.map,2);
+          for j=1:size(m.map,2)
+            for i=1:size(m.map,1)
+              fprintf(fid,v.fmt,m.lon(j),m.lat(i),m.map(i,j,f));
+            end
+            s=time.progress(s,j);
+          end
+          fclose(fid);
+        end
+      end
     end
   end
 end
