@@ -21,8 +21,8 @@ plot_legend_box: false
 plot_legend_location: east
 plot_title_suppress: ['GEO','singleacc','scales','signal','sh','comp','COMP']
 plot_title_replace: ['RL05','predicted RL05']
-plot_stddiff_caxis: [0,0.001]
-plot_rmsdiff_caxis: [0,0.001]
+plot_std_caxis: [0,0.001]
+plot_rms_caxis: [0,0.001]
 plot_corrcoeff_caxis: [0,1]
 plot_size: [200,200,775,650]
 plot_pause_on_save: true
@@ -33,7 +33,7 @@ plot_type: line
 # plot_temporal_stats
 plot_min_degree: 2
 plot_max_degree: 4
-plot_temp_stat_list: [corrcoeff,rmsdiff] #[corrcoeff,rmsdiff,stddiff]
+plot_temp_stat_list: [corrcoeff,rms] #[corrcoeff,rms,std]
 plot_show_legend_stats: true
 #plot_temp_stat_title: <something>
 

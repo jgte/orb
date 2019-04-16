@@ -2,7 +2,7 @@ import_dir: <getenv('HOME')>/data/SLR/csr/Ries
 method: csr.import_slr_Ries
 format: slr-csr-grace
 storage_period: yearly
-static_model: scales.static
+static_model: static.gif48
 start: 2002-01-01
 
 #WARNING: C40 ends in 2015

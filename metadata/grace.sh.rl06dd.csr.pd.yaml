@@ -1,0 +1,13 @@
+method: datastorage.pardecomp_split
+sources: [grace.sh.rl06dd.csr]
+storage_period: infinite
+explicit_fields: true
+
+polyorder: 1
+sin_period: [365.2426,182.6213]
+sin_period_unit: days
+sin_names: [yearly,semi-yearly]
+
+start: 2002-04-01
+stop: 2015-03-31
+

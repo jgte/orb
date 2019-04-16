@@ -1,0 +1,7 @@
+import_dir: <getenv('HOME')>/data/scales/GEO/static
+method: arithmetic
+operation: minus
+sources: [static.ggm05c,static.gif48]
+source_fields_from: static.ggm05c
+operation_order: [1,2]
+storage_period: infinite 

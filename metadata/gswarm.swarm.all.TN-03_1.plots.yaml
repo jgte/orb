@@ -23,15 +23,15 @@ plot_title_suppress: [gswarm,swarm,smoothed,res,signal]
 plot_visible: false
 plot_legend_replace: ['combined v06','NEQ comb','combined v05','mean']
 plot_legend_location: northeast
-plot_stddiff_caxis: [0,0.0035]
-plot_rmsdiff_caxis: [0,0.0045]
+plot_std_caxis: [0,0.0035]
+plot_rms_caxis: [0,0.0045]
 plot_corrcoeff_caxis: [0,1]
 plot_legend_box: false
 
 # plot_temporal_stats
 plot_min_degree: 2
 plot_max_degree: 40
-plot_temp_stat_list: [corrcoeff,rmsdiff] #[corrcoeff,rmsdiff,stddiff]
+plot_temp_stat_list: [corrcoeff,rms] #[corrcoeff,rms,std]
 #plot_temp_stat_title: <something>
 
 #plot_spatial_stats

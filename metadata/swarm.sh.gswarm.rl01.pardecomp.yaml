@@ -1,0 +1,32 @@
+plot_product: true
+method: gswarm.plot_parametric_decomposition
+sources: [
+  swarm.sh.gswarm.rl01,
+  grace.sh.rl06.csr,
+  swarm.sh.gswarm.rl01,
+  grace.sh.rl06.csr,
+  swarm.sh.gswarm.rl01,
+  grace.sh.rl06.csr,
+]
+stats_relative_to: none
+plot_functional: geoid
+
+storage_period: yearly
+polyorder: 1
+sin_period: [365.2426,182.6213]
+sin_period_unit: days
+sin_names: [yearly,semi-yearly]
+timescale: years
+
+plot_smoothing_method: gauss
+plot_smoothing_degree: [1000e3,1000e3,750e3,750e3,500e3,500e3]
+
+plot_pause_on_save: false
+plot_colormap: jetzero
+plot_poly_range: [0.02,0.003]
+plot_amplitude_range: [0.01,0.002]
+
+plot_std_range: 0.01
+pardecomp_catchments: false
+
+plot_title_suppress: [gswarm,smoothed,res,signal,sh]
