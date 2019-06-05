@@ -2739,11 +2739,12 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     },...
   },varargin{:});
   %parse dependent arguments (can be over-written)
+%       'url',['ftp://podaac.jpl.nasa.gov/allData/grace/docs/',v.version,'_C20_SLR.txt'],             @(i) ischar(i);...
   v=varargs.wrap('sources',{v,...
     {...
-      'file',fullfile(v.data_dir,[v.version,'_C20_SLR.txt']),                                    @(i) ischar(i);...
-      'url',['ftp://podaac.jpl.nasa.gov/allData/grace/docs/',v.version,'_C20_SLR.txt'],          @(i) ischar(i);...
-      'descriptor',['Monthly estimates of C20 from 5 SLR satellites based on GRACE ',v.version], @(i) ischar(i);...
+      'file',fullfile(v.data_dir,[v.version,'_C20_SLR.txt']),                                       @(i) ischar(i);...
+      'url',['https://podaac-w10n.jpl.nasa.gov/w10n/allData/grace/docs/',v.version,'_C20_SLR.txt'], @(i) ischar(i);...
+      'descriptor',['Monthly estimates of C20 from 5 SLR satellites based on GRACE ',v.version],    @(i) ischar(i);...
     },...
   },varargin{:});
   %some outputs are already known
@@ -2752,7 +2753,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   case 'read'
     %download data, if not already
     if isempty(dir(v.file))
-      GetGRACEC20('mode','set');
+      GetGRACEC20('mode','set','version',v.version,'data_dir',v.data_dir);
     end
     [t,s,e]=GetGRACEC20('mode','get');
   case 'get'
@@ -2764,9 +2765,12 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     end
     %skip header info
     found=false;
+    c=0;
     while ~found
+      c=c+1;
       found=strcmp(fgetl(fid),'PRODUCT:');
     end
+    str.say('read through ',c,'header lines')
     %read the data
     d=textscan(fid,'%7.1f%10.4f%22.13f%8.4f%8.4f','CommentStyle','*');
     %close the file
