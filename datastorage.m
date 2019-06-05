@@ -734,12 +734,20 @@ classdef datastorage
       if nargout>1; dn=product.dataname; end
     end
     %% load/save operations
-    function out=data_edges(obj,product,mode)
-      switch mode
-      case 'start'; f=@max;
-      case 'stop';  f=@min;
-      otherwise
-        error(['Unknown mode ''',mode,'''.'])
+    function out=data_edges(obj,product,mode,exclusive_switch)
+      if ~exist('exclusive_switch','var') || isempty(exclusive_switch)
+        exclusive_switch=true;
+      end
+      if exclusive_switch
+        switch mode
+        case 'start'; f=@max;
+        case 'stop';  f=@min;
+        end
+      else
+        switch mode
+        case 'start'; f=@min;
+        case 'stop';  f=@max;
+        end
       end
       if product.ismdfield(mode)
         out=f([obj.(mode),product.(mode)]);
@@ -761,17 +769,17 @@ classdef datastorage
       end
       % get the file list
       file_list=product.file(product_type,...
-        'start',obj.data_edges(product,'start'),... %this (and stop) only reduces the number of files to be loaded, it does not garantee that the data is trimmed correctly
-        'stop',obj.data_edges(product,'stop'),...
+        'start',obj.data_edges(product,'start',false),... %exclusive mode is false so that it is possible to ingest new data
+        'stop',obj.data_edges(product,'stop',false),...
         'start_timestamp_only',datastorage.parameters('start_timestamp_only'),... %this needs to be in agreement with what is used in datastorage.save
-        'discover',false,... %TODO: it may make sense to set this to true, dunno why it's not
+        'discover',false,... %this needs to be false so that data stops after the one in the data produce names of non-existing files
         'ensure_dir',false,...
         varargin{:}...
       );
       % get file existence
       file_exists=product.isfile(product_type,...
-        'start',obj.data_edges(product,'start'),...
-        'stop',obj.data_edges(product,'stop'),...
+        'start',obj.data_edges(product,'start',false),...
+        'stop',obj.data_edges(product,'stop',false),...
         'start_timestamp_only',datastorage.parameters('start_timestamp_only'),... %this needs to be in agreement with what is used in datastorage.save
       varargin{:});
       % check if any file is missing
@@ -1045,8 +1053,11 @@ classdef datastorage
       %retrieve product info
       product=obj.product_get(id,varargin{:});
       obj.log('@','in','product',product,'product start',product.start,'product stop',product.stop)
-      % make sure all data sources are loaded
-      obj=obj.init_sources(product,varargin{:});
+      %NOTICE: source initialization was here, which caused all sources to be initialized, even if they weren't needed
+      %        potentially changing the start/stop of the dataset (which is not good with either inclusive as true or false)
+      %        TODO: This may have potentially bad consequences for the value of product_list below, needs checking
+%       % make sure all data sources are loaded
+%       obj=obj.init_sources(product,varargin{:});
       % get init method
       ih=str2func(product.mdget('method'));
       %resolve leafs: either from level-wrapping, from sources or from existing leafs
@@ -1121,6 +1132,8 @@ classdef datastorage
           if success
             obj.log('@','iter',['loaded product_list{',num2str(i),'}'],product_list{i})
           else
+            % make sure all data sources are loaded
+            obj=obj.init_sources(product,varargin{:});
             % invoke init method, for all unwrapped leaf products (if any)
             % first, test some slow and often-used methods an call them directly
             switch func2str(ih)
