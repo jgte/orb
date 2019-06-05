@@ -411,6 +411,16 @@ classdef plotting
         set(hl, 'FontSize', hlfs);
       end
     end
+    function no_ticks(axis_handle)
+      if ~exist('axis_handle','var') || isempty(axis_handle)
+        axis_handle = gca;
+      end
+      for i={'x','y'}
+        for j={'tick','ticklabel'}
+          set(axis_handle,[i{1},j{1}],[])
+        end
+      end
+    end
     function size(s,fig_handle)
       % handle inputs
       if ~exist('s','var') || isempty(s)
@@ -543,7 +553,7 @@ classdef plotting
       if ~str.none(v.plot_line_style)
         plotting.line_style(v.plot_line_style,out.axis_handle)
       end
-      if ~str.none(v.plot_line_color) || numel(plotting.line_handles(out.axis_handle))>size(get(out.axis_handle,'colororder'),1)
+      if ~str.none(v.plot_line_color)
         plotting.line_color(v.plot_line_color,v.plot_line_color_order,out.axis_handle)
       end
       
@@ -732,7 +742,6 @@ classdef plotting
     function out=legend_replace_clean(varargin)
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{plotting.default,{...
-        'axis_handle',  gca,  @(i) ~isempty(i) && ishandle(i);...
       }},varargin{:});
       %replace explicit strings (keep this before the legend-cleaning bit so the strings make sense outside)
       if ~isempty(v.plot_legend_replace)
