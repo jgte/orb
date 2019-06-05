@@ -1,11 +1,12 @@
 method: gswarm.plot_stats
 model_types: [signal]
-submetadata: gswarm.swarm.all.TN-03_3.submetadata
+submetadata: gswarm.swarm.validation.submetadata
 
 #plot_ops
+plot_max_degree: 20
 plot_smoothing_degree: 750e3
 plot_smoothing_method: gauss
-
+plot_spatial_mask: deep ocean
 
 
 # plot_temporal_stats
@@ -25,3 +26,4 @@ orders: [inf]
 
 #plotting options
 plot_legend_location: northeast
+

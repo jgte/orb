@@ -1,16 +1,13 @@
 plot_product: true
 sources: [
-  grace.sh.rl06.csr,
+  grace.sh.rl06.csr.pd.ts,
   gswarm.swarm.aiub.aiub.v01,
   gswarm.swarm.asu.ifg.v02,
   gswarm.swarm.ifg.ifg.v03,
   gswarm.swarm.osu.aiub.v02,
-  gswarm.swarm.combined.v07,
-  gswarm.swarm.combined.v08,
-  gswarm.swarm.combined.v09,
-  gswarm.swarm.combined.v10,
+  swarm.sh.gswarm.rl01,
 ]
-stats_relative_to: grace.sh.rl06.csr
+stats_relative_to: grace.sh.rl06.csr.pd.ts
 explicit_fields: true
 storage_period: direct
 
@@ -18,22 +15,16 @@ storage_period: direct
 plot_outlier: 0
 plot_xdateformat: yy/mm
 plot_legend_suppress: [GSWARM,SH]
-plot_title_suppress: [GSWARM,SH]
+plot_title_suppress: [GSWARM,SH,PD,TS]
 plot_title_replace: [
   'ASU IFG','ASU',
   'OSU AIUB','OSU',
-  'COMBINED V07','NEQ comb 20',
-  'COMBINED V08','NEQ comb 40',
-  'COMBINED V09','SOL comb 20',
-  'COMBINED V10','SOL comb 40',
+  'PD TS','model',
 ]
 plot_legend_replace: [
   'ASU IFG','ASU',
   'OSU AIUB','OSU',
-  'COMBINED V07','NEQ comb 20',
-  'COMBINED V08','NEQ comb 40',
-  'COMBINED V09','SOL comb 20',
-  'COMBINED V10','SOL comb 40',
+  'PD TS','model',
 ]
 plot_functional: eqwh
 plot_std_caxis: [0,0.015]
@@ -44,14 +35,11 @@ plot_legend_box: false
 plot_spatial_mask: none
 plot_save_data: yes
 
-plot_pause_on_save: true
-plot_visible: true
-
-# plot_xlimits: [2013-12-01,2017-06-30]
-plot_xlimits: [2014-07-01,2017-06-30]
+plot_pause_on_save: false
+plot_visible: false
 
 #plot_ops
 plot_min_degree: 2
-plot_max_degree: 20
+plot_max_degree: 40
 
 
