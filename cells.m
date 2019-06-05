@@ -146,6 +146,21 @@ classdef cells
         out=find(cells.isstrfind(cellstrin,strin));
       end
     end
+    function out=isstrequal(cellstrin,strin) %this is similar to strfind but the strings have to be an exact match
+      if cells.iscellstr(strin) && ischar(cellstrin)
+        %switch it around
+        tmp=strin;
+        strin=cellstrin;
+        cellstrin=tmp;
+      end
+      if isempty(strin)
+        out=cellfun(@isempty,cellstrin);
+      elseif isempty(cellstrin)
+        out={};
+      else
+        out=cellfun(@(i) all(size(i)==size(strin)) && all(i==strin),cellstrin);
+      end
+    end
     function out=strcount(cellstrin,strin) 
       if isempty(cellstrin)
         out=0;
