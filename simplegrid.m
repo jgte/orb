@@ -13,7 +13,7 @@ classdef simplegrid < simpletimeseries
     compatible_parameter_list={'sp_units'};
     %catchment list: name, lat, lon
     catchment_list={...
-      'Alasca',        [  56   65],[-151 -129];...
+      'Alaska',        [  56   65],[-151 -129];...
       'Columbia',      [  38   50],[-125 -110];...
       'Mississippi',   [  29   44],[-101  -80];...
       'Amazon',        [ -17,   3],[ -76  -47];...
@@ -723,7 +723,7 @@ classdef simplegrid < simpletimeseries
     end
     %NOTICE: inpupts lon and lat can be scalar (domain size) or vectors (domain entries)
     function obj=landmask(lon,lat,varargin)
-      p=inputParser;p.KeepUnmatched=true;
+      p=inputParser;p.KeepUnmatched=true;p.PartialMatching=false; p.CaseSensitive=true;
       p.addRequired( 'lon',  @(i) isnumeric(i));
       p.addRequired( 'lat',  @(i) isnumeric(i));
       p.addParameter('t',     datetime('now'),@(i) isdatetime(i));
@@ -822,7 +822,7 @@ classdef simplegrid < simpletimeseries
         out=cellfun(@(i) simplegrid.catchment_details(i,field),name,'UniformOutput',false)';
         %need to tweak this
         switch field
-        case {'lonlat','latlon'};
+        case {'lonlat','latlon'}
           tmp=out;
           out=cell(numel(tmp),2);
           for i=1:numel(tmp)
@@ -841,7 +841,16 @@ classdef simplegrid < simpletimeseries
       end    
     end
     function out=catchment_subset(names)
-      out=[names(:),simplegrid.catchment_details(names,'latlon')];
+      %trivial call
+      if iscell(names) && size(names,2)==3 && iscellstr(names(1,:))
+        out=names;
+        return
+      end
+      assert(iscellstr(names),['Input ''names'' must be a cell string, not a ',class(names),'.'])
+      out=cell(numel(names),3);
+      for i=1:numel(names)
+        out(i,:)=simplegrid.catchment_list(simplegrid.catchment_idx(names{i}),:);
+      end
     end
     %% smooting/conv aux functions
     function map=map_mirroredges(map,n)
@@ -863,18 +872,26 @@ classdef simplegrid < simpletimeseries
         {...
           'plot_parametric_components',{},   @(i) iscellstr(i);...
           'parametric_components_line_fmt',{'--'},@(i) isstring(i);...
+          'time',[],@isdatetime;...
         },...
       },varargin{:});
-      %plot it
-      catchment.plot=catchment.ws.plot(varargin{:});
+      %plot it; NOTICE: for plots with more than 7 lines, matlab's default color scheme is
+      %too short, so you need to externally define a colormap and, for each line, pass the
+      %argument pair: 'color',[x,y,z] (which is handled in simpledata.plot)
+      catchment.plot=catchment.ws.plot(varargin{:}); %
       %add parametric decompositions (if requested)
       if isfield(catchment,'pws')
         %accumulate components to plot
         for i=1:numel(v.plot_parametric_components)
-          if i==1
-            catchment.pwst=catchment.pws.(['ts_',v.plot_parametric_components{i}]);
+          if isempty(v.time)
+            pwst_now=catchment.pws.(['ts_',v.plot_parametric_components{i}]);
           else
-            catchment.pwst=catchment.pwst+catchment.pws.(['ts_',v.plot_parametric_components{i}]);
+            pwst_now=pardecomp.join(catchment.pws,'time',v.time,'coeffnames',v.plot_parametric_components(i));
+          end
+          if i==1
+            catchment.pwst=pwst_now;
+          else
+            catchment.pwst=catchment.pwst+pwst_now;
           end
           catchment.pwst_val.(v.plot_parametric_components{i})=catchment.pws.(v.plot_parametric_components{i}).y_masked;
         end
@@ -1491,6 +1508,9 @@ classdef simplegrid < simpletimeseries
       m.map=m.map(mask.lat,mask.lon,:);
       %propagate the data
       obj.matrix=m;
+      %fix labels and units (NOTICE; this assumes there is no order in the labels and units (which makes sense in a grid)
+      obj.labels=obj.labels(1:obj.width);
+      obj.y_units=obj.y_units(1:obj.width);
     end
     function obj=spatial_mask(obj,mode,varargin)
       %NOTICE: a positive buffer reduces the land/ocean areas, a negative buffer enlarges it
@@ -1561,6 +1581,9 @@ classdef simplegrid < simpletimeseries
       %reduce to timeseries object
       out=simpletimeseries(obj.t,m.map(:)).copy_metadata(obj);
       out.descriptor=[mode,' of ',obj.descriptor,' (centered at ',num2str(m.lat),'deg lat by ',num2str(m.lon),'deg long)'];
+      %adjust labels and units (NOTICE; this assumes there is no order in the labels and units (which makes sense in a grid)
+      out.labels=obj.labels(1);
+      out.y_units=obj.y_units(1);
     end
     %% utilities
     function obj=area(obj,radius)
@@ -1758,7 +1781,7 @@ classdef simplegrid < simpletimeseries
       end
       %add boxes
       if ~isempty(v.boxes)
-        b=v.boxes;
+        b=simplegrid.catchment_subset(v.boxes);
         b_fmt=cells.deal(v.boxes_fmt,numel(b));
         for i=1:size(b,1)
           plot(...
