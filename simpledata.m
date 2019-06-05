@@ -2004,7 +2004,7 @@
           disp(['WARNING:BEGIN',10,'There are ',num2str(numel(common_diff_idx)),...
               ' entries in obj1 that are defined at the same epochs as in obj2 but with different values:'])
           for i=1:min([10,numel(common_diff_idx)])
-            if ismethod(obj1,'t')
+            if ismethod(obj1,'t') || isprop(obj1,'t')
               var_name='t';
               x1=obj1_out.t(common_diff_idx(i));
               x2=obj2_out.t(common_diff_idx(i));
@@ -2016,6 +2016,8 @@
             idx_str=num2str(common_diff_idx(i));
             y1=obj1_out.y(common_diff_idx(i),:);
             y2=obj2_out.y(common_diff_idx(i),:);
+            if numel(y1)>8; y1=[y1(1:4), y1(end-5:end)]; end
+            if numel(y2)>8; y2=[y2(1:4), y2(end-5:end)]; end
             disp(str.tablify([16,20,16,12],['obj1.',var_name,'(',idx_str,  ')='],x1,   ['obj1.y(',idx_str,',:)='],y1   ))
             disp(str.tablify([16,20,16,12],['obj2.',var_name,'(',idx_str,  ')='],x2,   ['obj2.y(',idx_str,',:)='],   y2))
             disp(str.tablify([16,20,16,12],['diff.',var_name,'(',idx_str,  ')='],x1-x2,['diff.y(',idx_str,',:)='],y1-y2))
@@ -2531,6 +2533,7 @@
         {...
           'columns',    1:obj.width,@(i)isnumeric(i) || iscell(i);...
           'line'   ,    {},         @(i)iscell(i);...
+          'color',      {},         @(i)iscell(i);...
           'zeromean',   false,      @(i)islogical(i) && isscalar(i);...
           'normalize',  false,      @(i)islogical(i) && isscalar(i);...
           'outlier',    0,          @(i)isfinite(i)  && isscalar(i);...
@@ -2628,6 +2631,10 @@
             out.line_handle{i}=plot(x_plot,y_plot,v.line{i});hold on
           end
         end
+      end
+      % set the color, if given
+      if ~isempty(v.color) && ~isempty(v.color{i})
+        set(out.line_handle{i},'Color',v.color{i});
       end
       %set x axis
       if obj.length>1
