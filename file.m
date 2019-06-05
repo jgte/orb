@@ -671,9 +671,9 @@ classdef file
         ];
         %try again
         out=file.build(elements{:});
-        %we're done
-        return
       end
+      %resolve multi-machine paths
+      out=file.resolve(out);
     end
     function out=build_particle(varargin)
       out=cellfun(...
