@@ -228,6 +228,7 @@ classdef time
           return
         end
       end
+      error(['Cannot understand units ''',units,'''; options are: ',strjoin(time.units_list,','),'.'])
     end
     function out=duration2num(in,units)
       out=time.num2duration(in,units);
@@ -260,49 +261,58 @@ classdef time
       end
       %defaults
       if ~isfield(s,'step')
-        s.step=0.01;
+        s.step=1; %seconds
       end
       if ~isfield(s,'msg')
-        s.msg='';
+        s.msg='progress';
       end
       %initialize
       if ~isfield(s,'l')
         s.l=0;
         s.l_max=0;
-        s.step_c=0;
-        tic
-        s.t=zeros(1,ceil(1/s.step));
+        s.e_show=0;
+        s.dt=zeros(1,s.n);
         s.c=0;
+      end
+      if ~isfield(s,'stationary')
+        s.stationary=true;
       end
       %finalize
       if i>=s.n
         if s.c>0
-          fprintf('%s\n',sprintf('%s',[...
-            repmat(8,1,s.l_max),s.msg,': ',...
-            num2str(i,'%03d'),' iter done in ',time.str(sum(s.t)),...
-            '                            '...
-          ]))
+          fprintf('%s',repmat(8,1,s.l_max))
+          out=sprintf('%s',[s.msg,': ',num2str(i,'%03d'),' iter done in ',time.str(sum(s.dt))]);
+          fprintf('%s\n',[out,repmat(' ',1,s.l_max-length(out))])
         end
         return
       end
+      %gather measurements
+      if s.c>0; dt=toc; else dt=0; end
+      s.c=s.c+1;
+      s.dt(s.c)=dt;
+      s.dt_std=std(s.dt(1:s.c));
+      s.e=sum(s.dt);
+      s.f=(s.n-i)*s.e/s.c;
+      s.f_err=s.dt_std*(s.n-i);
       %give feedback during iterations
-      if (i > s.step_c)
-        dt=toc;
-        s.c=s.c+1;
-        s.t(s.c)=dt;
-        s.e=sum(s.t);
-        s.f=(s.n-i)*s.e/(s.step*s.n*s.c);
-        out=sprintf('%s',[repmat(8,1,s.l),s.msg,': ',num2str(round(i/s.n*100)),'% (',...
-          'finished in ',time.str( s.f ),...
+      if (s.e-s.e_show > s.step)
+        fprintf('%s',repmat(8,1,s.l_max))
+        out=sprintf('%s',[s.msg,': ',num2str(round(i/s.n*100)),'% (',...
+          'finished in ',time.str( s.f ),' +/-',time.str(s.f_err),...
           ', elapsed ',  time.str( s.e ),...
-          ', total ',    time.str( s.e+s.f ),...
-          ')                    ']);
-        fprintf('%s',out)
-        s.l=numel(out);      %nr of chars to be deleted
+          ', iteration ',time.str( s.e/s.c ),' +/-',time.str(s.dt_std),...
+          ', total ',    time.str( s.e+s.f-s.f_err ),' - ',time.str( s.e+s.f+s.f_err )...
+          ')']);
+        if s.stationary
+          fprintf('%s',[out,repmat(' ',1,s.l_max-length(out))])
+        else
+          fprintf('%s\n',out)
+        end
+        s.l=length(out);      %nr of chars to be deleted
         s.l_max=max([s.l_max,s.l]);
-        s.step_c=i+s.step*s.n;   %next user feedback at this iter
-        tic
+        s.e_show=s.e;   %next user feedback only after s.step has elapsed after this
       end
+      tic
     end
     %% lists
     function [startlist,stoplist]=day_list(start,stop)
