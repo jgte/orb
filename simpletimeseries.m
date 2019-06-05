@@ -91,39 +91,17 @@ classdef simpletimeseries < simpledata
       out=epoch+simpletimeseries.timescale(in);
     end
     function out=ist(mode,t1,t2,tol)
+      %expect vectors as well
+      if numel(t1)~=numel(t2)
+        out=false;
+        return
+      end
 			%this handles infinites
-      if t1~=t2
+      if t1(:)~=t2(:)
         out=simpledata.isx(mode,seconds(t1(:)-t2(:)),0,tol);
       else
         out=true;
       end
-%       switch mode
-%       case {'=','==','equal'}
-%         if numel(t1)==numel(t2) 
-%           out=seconds(t1(:)-t2(:)).^2<tol.^2;
-%         elseif isscalar(t1)
-%           out=seconds(t1-t2(:)).^2<tol.^2;
-%         elseif isscalar(t2)
-%           out=seconds(t1(:)-t2).^2<tol.^2;
-%         else
-%           out=false;
-%         end
-%         return
-%       case {'<','less','smaller'}
-%         out=t1<t2;
-%         out(simpletimeseries.ist('==',t1,t2,tol))=false;
-%       case {'<=','lessorequal'}
-%         out=t1<t2;
-%         out(simpletimeseries.ist('==',t1,t2,tol))=true;
-%       case {'>','more','larger'}
-%         out=t1>t2;
-%         out(simpletimeseries.ist('==',t1,t2,tol))=false;
-%       case {'>=','moreorequal','largerorequal'}
-%         out=t1>t2;
-%         out(simpletimeseries.ist('==',t1,t2,tol))=true;
-%       otherwise
-%         error([mfilename,': unknown mode ''',mode,'''.'])
-%       end
     end
     function presence=ispresent(parser,fields)
       % defaults
@@ -1705,9 +1683,9 @@ classdef simpletimeseries < simpledata
     function out=istequal(obj1,obj2)
       %NOTICE: this also handles the single-object operation
       if isdatetime(obj2)
-        out=obj1.length==length(obj2) && ~any(~simpletimeseries.ist('==',obj1.t,obj2,obj1.t_tol));
+        out=~any(~simpletimeseries.ist('==',obj1.t,obj2,obj1.t_tol));
       else
-        out=obj1.length==obj2.length && ~any(~simpletimeseries.ist('==',obj1.t,obj2.t,min([obj1.t_tol,obj2.t_tol])));
+        out=~any(~simpletimeseries.ist('==',obj1.t,obj2.t,min([obj1.t_tol,obj2.t_tol])));
       end
     end
     function compatible(obj1,obj2,varargin)
