@@ -70,7 +70,8 @@ classdef str
       if ~exist('join_char','var'); join_char=' '; end
       assert(ischar(join_char),['Input ''join_char'' must of class ''char'', not ''',class(join_char),'''.'])
       %handle non-scalar quantities
-      if ~isscalar(in)
+      %NOTICE: don't use isscalar here because it will pick the size method in objects and return false
+      if numel(in)>1
         out=cell(size(in));
         for i=1:numel(in)
           out{i}=str.show(in(i),fmt,join_char);
@@ -91,7 +92,11 @@ classdef str
         else   out='F';
         end
       case 'cell'
-        out=str.show(in{1},fmt,join_char); %non-scalar cells already handled above
+        if isempty(in{1})
+          out='';
+        else
+          out=str.show(in{1},fmt,join_char); %non-scalar cells already handled above
+        end
       case 'datetime'
         if isnat(in)
           out='NaT';
@@ -108,12 +113,12 @@ classdef str
         out=time.str(seconds(in));
       case 'struct'
         if ~exist('join_char','var')
-          out=['  ',strjoin(strsplit(structs.str(in,'','',false),char(10)),[10,'  '])];
+          out=['  ',strjoin(strsplit(structs.str(in,'','',false),newline),[10,'  '])];
         else
           if strcmp(join_char,'_')
             out=structs.str(in,'','_',false);
           else
-            out=strjoin(strsplit(structs.str(in,'','',false),char(10)),join_char);
+            out=strjoin(strsplit(structs.str(in,'','',false),newline),join_char);
           end
         end
       case 'function_handle'
@@ -432,6 +437,9 @@ classdef str
         io=io(1:min([n,length(io)]));
       end
     end
+    function out=iseq(str1,str2)
+      out=length(str1)==length(str2) && all(str1==str2);
+    end
     %% conversion
     %first argument is field width, all remaining inputs are values to print.
     function out=tablify(w,varargin)
@@ -538,10 +546,10 @@ classdef str
       end
       %then convert to requested mode
       switch lower(mode)
-      case 'truefalse'; if in; out='true'; else out='false';end
-      case 'tf';        if in; out='T';    else out='F';    end
-      case 'onoff';     if in; out='on';   else out='off';  end
-      case 'yesno';     if in; out='yes';  else out='no';   end
+      case 'truefalse'; if in; out='true'; else, out='false';end
+      case 'tf';        if in; out='T';    else, out='F';    end
+      case 'onoff';     if in; out='on';   else, out='off';  end
+      case 'yesno';     if in; out='yes';  else, out='no';   end
       case 'logical';   out=in;
       otherwise
         idx=strfind(mode,'-');
