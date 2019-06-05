@@ -62,15 +62,31 @@ classdef pardecomp
         out{i+np+numel(T)}=['c',num2str(i)];
       end
     end
+    function out=xstr(xname)
+      switch xname(1)
+        case 'p'
+          switch xname(2)
+            case '0'; out='bias';
+            case '1'; out='trend';
+            case '2'; out='quadratic';
+            case '3'; out='cubic';
+            otherwise; out=[xname(2),'-th order polynomial'];
+          end
+        case 's'; out='sine';
+        case 'c'; out='cosine';
+        otherwise
+          error(['Cannot handle xname with value ''',xname,'''.'])
+      end
+    end
     function out=idx(np,T,name)
       assert(isnumeric(T)  || isempty(T),  'Ilegal input T')
       assert(isnumeric(np) && isscalar(np),'Ilegal input np')
       if iscellstr(name)
-        %NOTICE: if the errro 'Non-scalar in Uniform output, at index 3, output 1.' is triggered, 
+        %NOTICE: if the error 'Non-scalar in Uniform output, at index 3, output 1.' is triggered, 
         %        it means one of the entries in 'name' is not a valid x-name
         out=cellfun(@(i) pardecomp.idx(np,T,i),name,'UniformOutput',true);
       else
-        out=find(cells.isstrfind(pardecomp.xnames(np,T),name));
+        out=find(cells.isstrequal(pardecomp.xnames(np,T),name));
       end
     end
     function out=to_timescaled(t,timescale)
@@ -89,6 +105,7 @@ classdef pardecomp
         {...
           'timescale','seconds', @ischar;...
           'quiet',        false, @islogical;...
+          'parallel',     false, @islogical;...
         },...
       },varargin{:});
       %need time series
@@ -98,22 +115,21 @@ classdef pardecomp
       y_pd=obj.y_masked;
       % parfor wide objects
       % TODO: can't seem to get this to work: Error using pardecomp (line 313) Not enough input arguments.)
-      if obj.width>999999999
+      if v.parallel
         parfor i=1:obj.width
           %create temporary var
           varargin_now=varargin;
           % call mother routine, solve and implement higher x-domain resolution 
-          % for the model is needed (trivial check done inside)
+          % for the model if needed (trivial check done inside)
           % TODO: the latter needs checking
-          d(i)=pardecomp(...
-            t_pd,y_pd(:,i),varargin_now{:}...
-          ).lsq();
+          d(i)=pardecomp(t_pd,y_pd(:,i),varargin_now{:});
+          d(i)=d(i).lsq;
         end
       else
         s.msg=['Parametric decomposition of ',obj.descriptor]; s.n=obj.width;
         for i=1:obj.width
           % call mother routine, solve and implement higher x-domain resolution 
-          % for the model is needed (trivial check done inside)
+          % for the model if needed (trivial check done inside)
           % TODO: the latter needs checking
           d(i)=pardecomp(...
             t_pd,y_pd(:,i),varargin{:}...
@@ -128,8 +144,15 @@ classdef pardecomp
       for j=1:numel(coeffnames)
         %retrieve coefficient index within its type
         switch coeffnames{j}(1)
-        case 'p';       i=str2double(coeffnames{j}(2:end))+1;
-        case {'c','s'}; i=str2double(coeffnames{j}(2:end));
+        case 'p';
+          i=str2double(coeffnames{j}(2:end))+1;
+          labels=[str.th(i-1),'-order polynomial term'];
+          units=[obj.y_units{1},'/',v.timescale,'^',num2str(i-1)];
+        case {'c','s'};
+          i=str2double(coeffnames{j}(2:end));
+          labels=['sine term for period with ',num2str(d(1).T(i)),' ',v.timescale];
+          if coeffnames{j}(1)=='c'; labels=['co',labels]; end %#ok<AGROW>
+          units=obj.y_units{1};
         otherwise
           error(['Cannot understand the coefficient name ''',coeffnames{j},'''.'])
         end
@@ -137,6 +160,7 @@ classdef pardecomp
         o=init(time.zero_date,transpose(num.struct_deal(d,coeffnames{j}(1),i,[])));
         o=o.copy_metadata(obj);
         o.descriptor=[coeffnames{j},' of ',str.clean(obj.descriptor,'file')];
+        o.y_units(:)={units}; o.labels(:)={labels};
         %append to pd_args
         pd_args{c+1}=coeffnames{j};
         pd_args{c+2}=o;
@@ -185,12 +209,14 @@ classdef pardecomp
     function obj=join(pd_set,varargin)
       %sanity
       assert(pardecomp.ispd_set(pd_set),'Input ''pd_set'' must validate the pardecomp.ispd_set method')
+      %easiner names
+      coeffnamall=pardecomp.xnames(pd_set.np,pd_set.T);
       %parse inputs
       v=varargs.wrap('sources',{....
         {...
-          'time',      pd_set.time,                          @isdatetime;... 
-          'coeffnames',pardecomp.xnames(pd_set.np,pd_set.T), @iscellstr;...
-          'add_res',   false,                                @islogical;...
+          'time',      pd_set.time, @isdatetime;... 
+          'coeffnames',coeffnamall,    @iscellstr;...
+          'add_res',   false,       @islogical;...
         },...
       },varargin{:});
       %init output
@@ -202,8 +228,8 @@ classdef pardecomp
       %match epochs (very important and not done with copying the metadata)
       obj.epoch=pd_set.epoch;
       %initialize coefficient containers
-      coeffval=zeros(numel(v.coeffnames),pd_set.width);
-      coeffidx=false(size(v.coeffnames));
+      coeffval=zeros(pardecomp.xlength(pd_set.np,pd_set.T),pd_set.width);
+      coeffidx=zeros(pardecomp.xlength(pd_set.np,pd_set.T),1);
       % go over all coefficients and collect that component (if possible)
       for i=1:numel(v.coeffnames)
         %get time series name
@@ -218,15 +244,17 @@ classdef pardecomp
           if size(y_now,1)>1
             assert(all(mean(y_now(2:end,:))==y_now(1,:)),[v.coeffnames{i},' has time-varying values, this is ilegal'])
           end
+          %get parameter index
+          idx=pardecomp.idx(pd_set.np,pd_set.T,v.coeffnames{i});
           %save the parameter values
-          coeffval(i,:)=y_now(1,:);
-          coeffidx(i)=true;
+          coeffval(idx,:)=y_now(1,:);
+          coeffidx(idx)=1;
         end
       end
       %rebuild component timeseries if needed
-      if any(coeffidx)
+      if any(coeffidx==1)
         % call mother routine
-        s.msg=['Parametric reconstruction of ',obj.descriptor,' with components ',strjoin(v.coeffnames(coeffidx),', ')]; s.n=obj.width;
+        s.msg=['Parametric reconstruction of ',obj.descriptor,' with components ',strjoin(coeffnamall(coeffidx==1),', ')]; s.n=obj.width;
         for i=1:obj.width
           obj=obj.set_cols(i,pardecomp(...
             pardecomp.to_timescaled(obj.x,pd_set.timescale),[],'T',pd_set.T,'np',pd_set.np,'t0',pd_set.t0,'x',coeffval(:,i)...
@@ -239,20 +267,29 @@ classdef pardecomp
         obj=obj+pd_set.res.interp(v.time);
       end
     end
+    function out=default
+      out={...
+        't',                     [], @(i)  isnumeric(i) || isempty(i);... 
+        'T',                     [], @(i)  isnumeric(i) || isempty(i);... 
+        'np',                     0, @(i)  isnumeric(i) && isscalar(i);... 
+        't0',                     0, @(i)  isnumeric(i) && isscalar(i);...
+        'epoch',     time.zero_date, @(i)  isdatetime(i) && isscalar(i);...
+        'timescale',      'seconds', @(i)  ischar(i);...
+        'descriptor',            '', @(i)  ischar(i);...
+      };
+    end
+    function out=str(varargin)
+      switch nargin
+        case 1
+          out=varargs(varargin{1}).str;
+        otherwise
+          out=varargs.wrap('sources',{pardecomp.default},varargin{:}).str;
+      end
+    end
     function pd_set=assemble(varargin)
       %NOTICE; this is needed so that the coeffnames get into v
       v=varargs(varargin);
-      v=varargs.wrap('sources',{v,....
-        {...
-          't',                     [], @(i)  isnumeric(i) || isempty(i);... 
-          'T',                     [], @(i)  isnumeric(i) || isempty(i);... 
-          'np',                     0, @(i)  isnumeric(i) && isscalar(i);... 
-          't0',                     0, @(i)  isnumeric(i) && isscalar(i);...
-          'epoch',     time.zero_date, @(i)  isdatetime(i) && isscalar(i);...
-          'timescale',      'seconds', @(i)  ischar(i);...
-          'descriptor',            '', @(i)  ischar(i);...
-        },...
-      },varargin{:});
+      v=varargs.wrap('sources',{v,pardecomp.default},varargin{:});
       v=varargs.wrap('sources',{v,....
         {...
           'time',v.epoch+pardecomp.from_timescaled(v.t,v.timescale), @isdatetime;... 
@@ -275,9 +312,12 @@ classdef pardecomp
             catch
               rvalue=eval([rnames{f},'(d)']);
             end
-            %need to delete the descriptor (it changes for every coefficient)
+            %need to delete the some metadata entries (it changes for every coefficient or type of coefficient)
             switch rnames{f}
-            case 'metadata'; rvalue=varargs(rvalue).delete('descriptor').varargin;
+            case 'metadata'
+              for m={'descriptor','y_units','units','x_units','labels'}
+                rvalue=varargs(rvalue).delete(m{1}).varargin;
+              end
             end
             if ~isfield(records,rnames{f})
               records(1).(rnames{f})=rvalue;
@@ -311,6 +351,34 @@ classdef pardecomp
         if ~isfield(in,i{1}); disp(['ERROR: field ',i{1},' missing from pd_set']);return; end
       end
       out=true;
+    end
+    %% data visualization
+    function out=table(pd_set,varargin)
+      v=varargs.wrap('sources',{...
+        {...
+          'tabw',     20,    @(i) isnumeric(i) && isscalar(i);...
+          'time_unit',@years,@(i) isa(i,'function_handle');...
+        }},...
+      varargin{:});
+      ps=0;pc=0;c=0;
+      out=cell(pd_set.np+numel(pd_set.T),1);
+      for i=pardecomp.xnames(pd_set.np,pd_set.T)
+        c=c+1;
+        s=pardecomp.xstr(i{1});
+        switch s
+          case 'sine'
+            ps=ps+1;
+            sec=seconds(pardecomp.from_timescaled( pd_set.T(ps),pd_set.timescale ));
+            c1=[s,'(',num2str(v.time_unit(sec)),')'];
+          case 'cosine'
+            pc=pc+1;
+            sec=seconds(pardecomp.from_timescaled( pd_set.T(pc),pd_set.timescale ));
+            c1=[s,'(',num2str(v.time_unit(sec)),')'];
+          otherwise
+            c1=s;
+        end            
+        out{c}=str.tablify(v.tabw,c1,pd_set.(i{1}).y);
+      end
     end
     %% testing
     function test
