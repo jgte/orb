@@ -7,16 +7,14 @@ plot_smoothing_degree: 750e3
 plot_smoothing_method: gauss
 
 # plot_parametric_decomposition
-plot_poly_range: [0.2,0.1]
-plot_amplitude_range: [0.1,0.01]
 polyorder: 1
 polynames: [constant,linear]
 sin_period: [1, 0.5]
 sin_period_unit: years
 sin_names: [yearly,semi-yearly]
 timescale: years
-
-
+t0: 2014-07-01
+plot_catchment_boxes: true
 
 
 
@@ -24,8 +22,12 @@ timescale: years
 
 
 #plotting
-plot_functional: geoid
+# plot_functional: geoid
+# plot_poly_range: [0.02,0.003]
+# plot_amplitude_range: [0.01,0.002]
+plot_functional: eqwh
+plot_poly_range: [0.2,0.05]
+plot_amplitude_range: [0.3,0.06]
 plot_colormap: jetzero
-plot_poly_range: [0.02,0.003]
-plot_amplitude_range: [0.01,0.002]
-plot_std_range: 0.01
+plot_std_colormap: parula
+plot_std_range: inf

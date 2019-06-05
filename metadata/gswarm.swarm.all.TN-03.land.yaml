@@ -22,3 +22,8 @@ plot_monthly_error: false
 #plot_low_degrees
 degrees: [-1]
 orders: [inf]
+
+#plotting options
+plot_legend_location: northeast
+
+#TODO: legend location
