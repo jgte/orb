@@ -491,6 +491,34 @@ classdef num
         error(['dim=',num2str(dim),' not implemented.'])
       end
     end
+    function out = mean(x,w,dim)
+      if ~exist('dim','var') || isempty(dim)
+        dim=0;
+      else
+        assert(dim <= numel(size(w)),'the value of input <dim> must not be larger than the number of dimensions in <x>')
+      end
+      if ~exist('w','var') || isempty(w)
+        w=ones(size(x));
+      else
+        assert(all(size(w) == size(x)),'inputs <x> and <w> must have the same size')
+      end
+      switch dim
+      case 0
+        %filtering NaNs
+        i = ~isnan(x) & ~isnan(w);
+        %compute
+        out= sum(w(i).*(x(i)))/sum(w(i));
+      case 1 %computes the RMS along columns, so a row is returned
+        out=arrayfun(@(i) num.mean(x(:,i),w(:,i),0),1:size(x,2));
+      case 2 %computes the RMS along rows, so a column is returned
+        out=transpose(arrayfun(@(i) num.mean(x(i,:),w(i,:),0),1:size(x,1)));
+      otherwise
+        error(['dim=',num2str(dim),' not implemented.'])
+      end
+    end
+    function out = std(x,w,dim)
+      out=sqrt(num.rms(x,w,dim).^2-num.mean(x,w,dim).^2);
+    end
     function out=cov(x,y)
       n=size(x,2);
       if n==0
