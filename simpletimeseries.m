@@ -1132,10 +1132,14 @@ classdef simpletimeseries < simpledata
       end
     end
     function t_out=x2t(obj,x_now)
-      if simpledata.valid_x(x_now)
-        t_out=simpletimeseries.num2time(x_now,obj.epoch);
-      else
-        t_out=x_now;
+      switch class(x_now)
+      case 'datetime'; t_out=x_now;
+      otherwise
+        if simpledata.valid_x(x_now)
+          t_out=simpletimeseries.num2time(x_now,obj.epoch);
+        else
+          t_out=x_now;
+        end
       end
     end
     function obj=set.t(obj,t_now)
@@ -1199,12 +1203,7 @@ classdef simpletimeseries < simpledata
       if isscalar(t)
         out=any(simpletimeseries.ist('==',t,obj.t,obj.t_tol));
       else
-        for i=1:numel(t)
-          %scalar call
-          out=obj.istavail(t(i));
-          %no need to continue looping if found something
-          if out;break;end
-        end
+        out=arrayfun(@(i) obj.istavail(i),t);
       end
     end
     function out=isxavail(obj,x)
@@ -1454,6 +1453,16 @@ classdef simpletimeseries < simpledata
       end
     end
     %% edit methods (specific to this class)
+    function obj=addgaps(obj,mingapsize)
+      %get locations indexes of gaps
+      gap_idx=find(diff(obj.t)>mingapsize);
+      %check for trivial call
+      if isempty(gap_idx);return;end
+      %compute mid-epoch for each gap
+      t_new=obj.t(gap_idx)+(obj.t(gap_idx+1)-obj.t(gap_idx))/2;
+      %add NaNs
+      obj=obj.set_at(t_new,nan(numel(t_new),obj.width));
+    end
     function obj=extend(obj,nr_epochs)
 %       %sanity
 %       if ~obj.ishomogeneous
