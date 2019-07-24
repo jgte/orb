@@ -130,6 +130,10 @@ classdef cells
         tmp=strin;
         strin=cellstrin;
         cellstrin=tmp;
+      elseif cells.iscellstr(strin) && cells.iscellstr(cellstrin)
+        %expand
+        out=cellfun(@(i) cells.isstrfind(cellstrin,i),strin,'UniformOutput',false);
+        return
       end
       if isempty(strin)
         out=cellfun(@isempty,cellstrin);
@@ -179,8 +183,8 @@ classdef cells
     function out=isincluded(cellstrin,strin)
       %N.B. this is not the same as ismember (isincluded returns true of strin is a sub-string
       %of any entries in cellstrin, unlike ismember where the whole entry must be the same)
-      out=cells.isstrfind(cellstrin,strin);
-      out=~isempty(out) && any(out);
+      out=cells.c2m(cells.isstrfind(cellstrin,strin));
+      out=~isempty(out) && any(out(:));
     end
     function out=cellstrget(cellstrin,strin)
       out=cellstrin(cells.isstrfind(cellstrin,strin));
