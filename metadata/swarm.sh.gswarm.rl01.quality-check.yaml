@@ -10,6 +10,7 @@ sources: [
 stats_relative_to: none
 explicit_fields: true
 storage_period: direct
+plot_time_domain_source: 2 #options are: idx of source or 0, meaning the common time domain
 
 #plotting
 plot_xdateformat: yy/mm
@@ -51,7 +52,6 @@ orders: -1
 #plot_ops
 plot_smoothing_method: gauss
 plot_smoothing_degree: [750e3,750e3,0,0]
-# plot_legend_include_smoothing: true
 plot_legend_include_smoothing: true
 
 plot_title: none

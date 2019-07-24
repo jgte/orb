@@ -1,13 +1,16 @@
 plot_product: true
 method: gswarm.plot_catchments
-sources: [
+model_types: [signal]
+sources: [ #remember that plots with multiple sources pick the start/stop from the first source
   grace.sh.rl06.csr,
   swarm.sh.gswarm.rl01,
   # grace.sh.rl06.csr,
   # swarm.sh.gswarm.rl01,
 ]
-
 stats_relative_to: grace.sh.rl06.csr
+explicit_fields: true
+storage_period: direct
+
 
 #plotting
 plot_xdateformat: yy/mm
@@ -22,13 +25,15 @@ plot_legend_replace: [
 plot_colormap: jetzero
 plot_save_data: yes
 
-plot_pause_on_save: true
-plot_visible: true
+
+
+plot_pause_on_save: false
+plot_visible: false
 
 #plot ops
 plot_legend_include_smoothing: false
 plot_poly_range: [1,0.3]
-plot_std_range: 0.5
+plot_std_range: 0.3
 
 catchment_list: [
   'Amazon',

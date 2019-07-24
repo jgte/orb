@@ -3,11 +3,11 @@ model_types: [signal]
 wilcarded_filename: GSWARM_GF_SABC_COMBINED_*_09.gfc
 model_format: gfc
 date_parser: gravity.parse_epoch_gswarm
+storage_period: yearly
 method: gswarm.load_models
 static_model: static.ggm05c
 
-storage_period: yearly
-use_GRACE_C20: TN-11
+use_GRACE_C20: TN-11-model
 delete_C20: false
 delete_C00: true
 start: 2013-12-01
@@ -15,3 +15,5 @@ stop: 2019-03-31
 
 plot_xdate: true
 plot_xdateformat: yy
+
+never_force: true

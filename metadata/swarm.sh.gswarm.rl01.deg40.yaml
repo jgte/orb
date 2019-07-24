@@ -3,12 +3,12 @@ method: gswarm.plot_stats
 model_types: [signal]
 sources: [ #remember that plots with multiple sources pick the start/stop from the first source
   swarm.sh.gswarm.rl01,
-  grace.sh.rl06.csr.pd.ts, 
+  swarm.sh.gswarm.rl01,
+  swarm.sh.gswarm.rl01,
+  swarm.sh.gswarm.rl01,
+  grace.sh.rl06.csr.pd.ts,
   grace.sh.rl06.csr,
 ]
-
-
-
 stats_relative_to: grace.sh.rl06.csr.pd.ts
 explicit_fields: true
 storage_period: direct
@@ -17,8 +17,8 @@ plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common 
 #plotting
 plot_xdateformat: yy/mm
 plot_outlier: 0
-plot_legend_suppress: [sh,GSWARM,gswarm,signal]
-plot_title_suppress:  [sh,GSWARM,gswarm,signal]
+plot_legend_suppress: [sh,GSWARM,gswarm,GSwarm,signal]
+plot_title_suppress:  [sh,GSWARM,gswarm,GSwarm,signal]
 plot_legend_replace: [SWARM,Swarm,PD TS,model]
 plot_title_replace:  [SWARM,Swarm,PD TS,model]
 plot_functional: eqwh
@@ -34,11 +34,11 @@ plot_visible: true
 plot_summary: false
 #plot_ops
 plot_min_degree: 2
-plot_max_degree: 20
-
-
+plot_max_degree: 40
+plot_logy: true
+plot_legend_sorting: none
 #plot_spatial_stats
-plot_spatial_mask: land
+plot_spatial_mask: none
 plot_derived_quantity: cumdrms
 plot_type: line
 plot_spatial_stat_list: [diff]
@@ -54,7 +54,7 @@ orders: -1
 
 #plot_ops
 plot_smoothing_method: gauss
-plot_smoothing_degree: [750e3,750e3,750e3]
-plot_legend_include_smoothing: false
+plot_smoothing_degree: [0,300e3,750e3,1500e3,0,0]
+plot_legend_include_smoothing: true
 
 plot_title: none
