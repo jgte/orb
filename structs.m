@@ -216,10 +216,15 @@ classdef structs
     end
     %applies ''method'' to the object at the leafs of structure ''S''
     function S=objmethod(method,S,varargin)
+      %trivial call
+      if isempty(S)
+        return
+      end
       %get field list
       fl=structs.field_list(S);
       %maybe this is not a structure
       if isempty(fl)
+        assert(ismethod(S,method)||isprop(S,method),['Object of class ',class(S),' does not support the ''',method,''' method.'])
         S=S.(method)(varargin{:});
       else
         %loop over all fields
@@ -258,6 +263,12 @@ classdef structs
         %save the operated object back in the structure
         Sout=structs.set_value(Sout,fl_out{i},Oout);
       end
+    end
+    %applies 'method' to S, expecting to retrieve numeric scalar values, which are then compared to 'value'
+    function out=iseq_numscal_method(method,S,val,varargin)
+      out=cells.scalar(structs.get_value_all(structs.objmethod(method,S,varargin{:})),'set');
+      numscal_idx=cellfun(@(i) isnumeric(i) && isscalar(i),out);
+      out=cells.c2m(out(numscal_idx))==val;
     end
     %% utils
     function out=isleaf(S,field_path,non_empty)
