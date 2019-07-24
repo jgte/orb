@@ -426,7 +426,7 @@ classdef str
         end
       end
     end
-    function out=contains(str,pattern)
+    function out=contains(str,pattern) %TODO: this may be duplicate with MATLAB's contains, not sure
       out=~isempty(regexp(str,['.*',pattern,'.*'],'once'));
     end
     function io=trunc(io,n,default)
@@ -590,6 +590,7 @@ classdef str
       while start_idx~=start_idx_old
         %update loop controls
         start_idx_old=start_idx;
+        if ~ischar(varargin{start_idx}); break; end
         %check if this is an internal parameter
         switch varargin{start_idx}
         case 'stack_delta'
