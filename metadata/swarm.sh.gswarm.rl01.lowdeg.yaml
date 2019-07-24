@@ -1,35 +1,41 @@
 plot_product: true
 method: gswarm.plot_stats
 model_types: [signal]
-sources: [
-  grace.sh.rl06.csr,
+sources: [ #remember that plots with multiple sources pick the start/stop from the first source
   swarm.sh.gswarm.rl01,
+  grace.sh.rl06.csr.pd.ts,
+  grace.sh.rl06.csr,
 ]
+
 
 
 stats_relative_to: none
 explicit_fields: true
 storage_period: direct
+plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common time domain
 
 #plotting
 plot_xdateformat: yy/mm
 plot_outlier: 0
-plot_legend_suppress: [sh,gswarm,signal]
-plot_title_suppress: [sh,gswarm,signal]
-plot_functional: eqwh
-plot_std_caxis: [0,0.01]
-plot_rms_caxis: [0,0.01]
-plot_corrcoeff_caxis: [0,1]
-plot_colormap: jet
+plot_legend_suppress: [sh,GSWARM,gswarm,signal]
+plot_title_suppress:  [sh,GSWARM,gswarm,signal]
+plot_legend_replace: [SWARM,Swarm,PD TS,model,ASU IFG,ASU,OSU AIUB,OSU]
+plot_title_replace:  [SWARM,Swarm,PD TS,model,ASU IFG,ASU,OSU AIUB,OSU]
+plot_functional: geoid
+plot_std_caxis: [0,0.00015]
+plot_rms_caxis: [0,0.00015]
+plot_corrcoeff_caxis: [-1,1]
+plot_colormap: jetzero
 plot_legend_box: false
 plot_save_data: yes
 
-plot_pause_on_save: true
+plot_pause_on_save: false
 plot_visible: false
 
 #plot_ops
 plot_min_degree: 2
 plot_max_degree: 20
+
 
 #plot_spatial_stats
 plot_spatial_mask: none
@@ -42,6 +48,6 @@ plot_spatial_stat_list: [none]
 plot_temp_stat_list: [none] #[corrcoeff,rms,std]
 plot_temp_stat_title: [] #[temporal corr. coeff.,temporal RMS,temporal STD]
 
-# plot_low_degrees (don't plot anything)
-degrees: [2,3]
-
+# plot_low_degrees 
+degrees: [2,3,4,5]
+orders: [inf,inf,inf,inf]
