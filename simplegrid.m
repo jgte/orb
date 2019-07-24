@@ -872,13 +872,14 @@ classdef simplegrid < simpletimeseries
         {...
           'plot_parametric_components',{},   @(i) iscellstr(i);...
           'parametric_components_line_fmt',{'--'},@(i) isstring(i);...
+          'plot_lines_over_gaps_narrower_than', days(120), @isduration;...
           'time',[],@isdatetime;...
         },...
       },varargin{:});
       %plot it; NOTICE: for plots with more than 7 lines, matlab's default color scheme is
       %too short, so you need to externally define a colormap and, for each line, pass the
       %argument pair: 'color',[x,y,z] (which is handled in simpledata.plot)
-      catchment.plot=catchment.ws.plot(varargin{:}); %
+      catchment.plot=catchment.ws.addgaps(v.plot_lines_over_gaps_narrower_than).plot(varargin{:}); %
       %add parametric decompositions (if requested)
       if isfield(catchment,'pws')
         %accumulate components to plot
@@ -1625,21 +1626,139 @@ classdef simplegrid < simpletimeseries
     function obj=volume(obj)
       obj=obj.area.*obj.height;
     end
-    function [y,x]=rms(obj,mode)
+    function [y,x,ts]=rms(obj,mode)
       h=obj.map;
       w=obj.lat_weights;
       switch mode
       case {'total','tot',0}
-        y=num.rms(h,w,0);
+        y=zeros(size(h,3),1);
+        for i=1:obj.length
+          y(i)=num.rms(h(:,:,i),w,0);
+        end
         x=0;
       case {'lat','row',1}
-        y=num.rms(h,w,1);
+        y=zeros(size(h,3),size(h,2));
+        for i=1:obj.length
+          y(i)=num.rms(h(:,:,i),w,1);
+        end
         x=h.lon;
       case {'lon','col',2}
-        y=num.rms(h,w,2);
+        y=zeros(size(h,3),size(h,1));
+        for i=1:obj.length
+          y(i)=num.rms(h(:,:,i),w,2);
+        end
         x=h.lat;
       otherwise
         error(['Cannot understand mode ''',mode,'''.'])
+      end
+      if nargout>1
+        switch mode
+        case {'total','tot',0}
+          labels={'Global RMS'};
+        case {'lat','row',1}
+          labels=arrayfun(@(i) {str.show({'RMS at',i,'lon'})},x,'UniformOutput',false);
+        case {'lon','col',2}
+          labels=arrayfun(@(i) {str.show({'RMS at',i,'lat'})},x,'UniformOutput',false);
+        end
+        ts=simpletimeseries(...
+          obj.t,...
+          y,...
+          'format','datetime',...
+          'labels',labels,...
+          'timesystem',obj.timesystem,...
+          'units',obj.y_units(1:numel(x)),...
+          'descriptor',['RMS of ',obj.descriptor]...
+        );      
+      end
+    end
+    function [y,x,ts]=mean(obj,mode)
+      h=obj.map;
+      w=obj.lat_weights;
+      switch mode
+      case {'total','tot',0}
+        y=zeros(size(h,3),1);
+        for i=1:obj.length
+          y(i)=num.mean(h(:,:,i),w,0);
+        end
+        x=0;
+      case {'lat','row',1}
+        y=zeros(size(h,3),size(h,2));
+        for i=1:obj.length
+          y(i)=num.mean(h(:,:,i),w,1);
+        end
+        x=h.lon;
+      case {'lon','col',2}
+        y=zeros(size(h,3),size(h,1));
+        for i=1:obj.length
+          y(i)=num.mean(h(:,:,i),w,2);
+        end
+        x=h.lat;
+      otherwise
+        error(['Cannot understand mode ''',mode,'''.'])
+      end
+      if nargout>1
+        switch mode
+        case {'total','tot',0}
+          labels={'Global mean'};
+        case {'lat','row',1}
+          labels=arrayfun(@(i) {str.show({'mean at',i,'lon'})},x,'UniformOutput',false);
+        case {'lon','col',2}
+          labels=arrayfun(@(i) {str.show({'mean at',i,'lat'})},x,'UniformOutput',false);
+        end
+        ts=simpletimeseries(...
+          obj.t,...
+          y,...
+          'format','datetime',...
+          'labels',labels,...
+          'timesystem',obj.timesystem,...
+          'units',obj.y_units(1:numel(x)),...
+          'descriptor',['mean of ',obj.descriptor]...
+        );      
+      end
+    end
+    function [y,x,ts]=std(obj,mode)
+      h=obj.map;
+      w=obj.lat_weights;
+      switch mode
+      case {'total','tot',0}
+        y=zeros(size(h,3),1);
+        for i=1:obj.length
+          y(i)=num.std(h(:,:,i),w,0);
+        end
+        x=0;
+      case {'lat','row',1}
+        y=zeros(size(h,3),size(h,2));
+        for i=1:obj.length
+          y(i)=num.std(h(:,:,i),w,1);
+        end
+        x=h.lon;
+      case {'lon','col',2}
+        y=zeros(size(h,3),size(h,1));
+        for i=1:obj.length
+          y(i)=num.std(h(:,:,i),w,2);
+        end
+        x=h.lat;
+      otherwise
+        error(['Cannot understand mode ''',mode,'''.'])
+      end
+      if nargout>1
+        switch mode
+        case {'total','tot',0}
+          labels={'Global STD'};
+        case {'lat','row',1}
+          labels=arrayfun(@(i) {str.show({'STD at',i,'lon'})},x,'UniformOutput',false);
+        case {'lon','col',2}
+          labels=arrayfun(@(i) {str.show({'STD at',i,'lat'})},x,'UniformOutput',false);
+        end
+        ts=simpletimeseries(...
+          obj.t,...
+          y,...
+          'format','datetime',...
+          'labels',labels,...
+          'timesystem',obj.timesystem,...
+          'units',obj.y_units(1:numel(x)),...
+          'descriptor',['STD of ',obj.descriptor]...
+        );      
       end
     end
     %% convert to spherical harmonics
@@ -1796,7 +1915,7 @@ classdef simplegrid < simpletimeseries
     function catchment=catchment_get(obj,name,varargin)
       v=varargs.wrap('sources',{....
         {...
-          'parametric_decomposition', false, @(i) islogical(i);...
+          'parametric_decomposition', false, @islogical;...
         },...
       },varargin{:});
       %save name of this catchment
