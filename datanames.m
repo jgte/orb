@@ -117,7 +117,11 @@ classdef datanames
     function obj=set_field_path(obj,field_path)
       %handle shallow structures
       if ischar(field_path)
-        field_path={field_path};
+        if isempty(field_path)
+          field_path={};
+        else
+          field_path={field_path};
+        end
       end
       %some sanity
       assert(iscellstr(field_path),['input ''field_path'' must be a cell of strings, not a ',class(field_path),'.'])
@@ -163,6 +167,13 @@ classdef datanames
     end
     function out=isfield_path_leaf(obj,field_path_leaf)
       out=strcmp(obj.field_path_leaf,field_path_leaf);
+    end
+    function out=isanyfield_path(obj,field_path)
+      if iscellstr(field_path)
+        out=cellfun(@(i) obj.isanyfield_path(i),field_path);
+      else
+        out=any(strcmp(obj.field_path,field_path));
+      end
     end
     %% names
     function out=filename(obj)       %e.g. grace.calpar.csr
