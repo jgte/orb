@@ -1243,12 +1243,7 @@
       if isscalar(x)
         out=any(obj.x==x);
       else
-        for i=1:numel(x)
-          %scalar call
-          out=obj.isxavail(x(i));
-          %no need to continue looping if found something
-          if out;break;end
-        end
+        out=arrayfun(@(i) obj.isxavail(i),t);
       end
     end
     %% y methods
@@ -1299,11 +1294,11 @@
         f='assign';
       end
       switch f
-      case {'increment','add','+'}
+      case {'increment','add'  ,'+'}
         f=@(i,j) i+j;
       case {'decrement','minus','-'}
         f=@(i,j) i-j;
-      case {'assign','equal','='}
+      case {'assign'   ,'equal','='}
         f=@(i,j) j;
       otherwise
         error(['Cannot understand input ''f''with value ''',f,'''.'])
@@ -1461,6 +1456,17 @@
     end
     function out=ismaskcommon(obj1,obj2)
       out=obj1.length==obj2.length && obj1.nr_gaps==obj2.nr_gaps && all(obj1.x_masked==obj2.x_masked);
+    end
+    function obj=noedgegaps(obj)
+      %NOTICE: cannot set the loop criteria to obj.length>0 because cannot handle empty y
+      while obj.length>1 && ~obj.mask(1)
+        m=[false;true(obj.length-1,1)];
+        obj=obj.assign(obj.y(m,:),'x',obj.x(m));
+      end
+      while obj.length>1 && ~obj.mask(end)
+        m=[true(obj.length-1,1);false];
+        obj=obj.assign(obj.y(m,:),'x',obj.x(m));
+      end
     end
     %% invalid methods
     function obj=demasked(obj,invalid)
@@ -1677,7 +1683,7 @@
         y_detrended=detrend(y_now,'linear',find(~obj.mask));
         %propagate
         obj.y(obj.mask,:)=y_detrended(obj.mask,:);
-      case ('constant')
+      case 'constant'
         obj.y(obj.mask,:)=detrend(obj.y_masked,'constant');
       otherwise
         error([mfilename,': unknown mode ''',mode,'''.'])
