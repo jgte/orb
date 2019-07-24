@@ -171,8 +171,10 @@ classdef pardecomp
         assert(all(simpledata.isx('==',obj.x_masked,x_now)),['time domain discrepancy in ',o.descriptor])
         %save timeseries represented by each coefficient
         o=init(obj.t_masked,num.struct_deal(d,['y',coeffnames{j}(1)],[],i));
-        o=o.copy_metadata(obj); 
+        o=o.copy_metadata(obj);
         o.descriptor=['p',num2str(i-1),' of ',str.clean(obj.descriptor,'file')];
+        %restore gaps
+        o=o.t_merge(obj.t);
         %append to pd_args
         pd_args{c+1}=['ts_',coeffnames{j}];
         pd_args{c+2}=o;
@@ -184,7 +186,7 @@ classdef pardecomp
         'np',d(1).np,...
         't0',d(1).t0,...
         't',d(1).t,...   %this is the abcissae used in the regression (actually: t-t0)
-        'time',obj.t_masked,... %this is the abcissae defined in obj
+        'time',obj.t,... %this is the abcissae defined in obj, including gaps
         'epoch',obj.epoch,...
         'descriptor',obj.descriptor,...
         'timescale',v.timescale,...
@@ -193,6 +195,8 @@ classdef pardecomp
       o=init(obj.t_masked,num.struct_deal(d,'yr',[],1));
       o=o.copy_metadata(obj);
       o.descriptor=['residual of ',str.clean(obj.descriptor,'file')];
+      %restore gaps
+      o=o.t_merge(obj.t);
       pd_set.res=o;
       %save norms
       o=init(time.zero_date,num.struct_deal(d,'rn',[],1));
@@ -333,6 +337,7 @@ classdef pardecomp
         %check if the timeseries of this field exists
         if v.isparameter(['ts_',coeffnames{i}])
           pd_set.(['ts_',coeffnames{i}])=v.(['ts_',coeffnames{i}]);
+          assert(pd_set.(['ts_',coeffnames{i}]).istequal(v.time),'Time domain discrepancy: debug needed!')
         end
       end
       pd_set.init=str2func(records.class);
