@@ -867,9 +867,9 @@ classdef datastorage
       % get the data to be saved
       % NOTICE: it is *always* everything under this product.name, never resolved at the level of the field_path
       % this is to be in agreement with how the filenames are built in datanames
-      s_out=obj.value_get(product.name);
+      s0=obj.value_get(product.name);
       % get list of start/stop dates from the data
-      [startlist,stoplist]=obj.startstop_list(s_out);
+      [startlist,stoplist]=obj.startstop_list(s0);
       % catch invalid products
       if isempty(startlist)
         obj.log('@','out','no data to save for',product)
@@ -895,59 +895,55 @@ classdef datastorage
         if isempty(startlist) || isempty(stoplist)
           %paranoid sanity
           assert(numel(file_list)==1,['expecting there to be a single file name to save, not ',num2str(numel(file_list)),'.'])
-          s=s_out;
+          s=s0;
         else
-          %trim the data to the current start/stop epochs
-          if isstruct(s_out)
-            %do that for all fields in this structure
-            s=structs.objmethod('trim',s_out,startlist(f),stoplist(f));
-          else
-            %simple call
-            s=s_out.trim(startlist(f),stoplist(f));
-          end
+          %trim the data to the current start/stop epochs (structs.objmethod handles both structures and objects)
+          s=structs.objmethod('trim',s0,startlist(f),stoplist(f));
         end
+        % do not save gaps at edges
+        s=structs.objmethod('noedgegaps',s);
         %skip if this entry is empty
-        if structs.isempty(s)
+        if structs.isempty(s) || all(structs.iseq_numscal_method('nr_valid',s,0))
           obj.log(['skip saving file ',num2str(f)],['no data for ',datestr(startlist(f),29)])
           continue
         end
         %check if this file already exists
         if exist(file_list{f},'file')
           %save the data if force is true
-          if p.Results.force
+          if product.force(p.Results.force)
             replace_flag=true;
           else
             %save new variable
-            s_new=s;
+            s1=s;
             %load this file
             load(file_list{f},'s');
             %re-align data if needed
-            if ~strcmp(class(s),class(s_new))
-              disp(['Data type in newly-computed object (',class(s_new),...
+            if ~strcmp(class(s),class(s1))
+              disp(['Data type in newly-computed object (',class(s1),...
               ') differs from what is saved in file ',file_list{f},' (',class(s),')',...
               '; replacing data saved in file'])
               %discard saved data
               replace_flag=true;
-              s=s_new;
+              s=s1;
             elseif isstruct(s)
               replace_flag=false;
-              [good_fnl,fnl,fnl_new]=structs.iseq_field_list(s,s_new);
+              [good_fnl,fnl,fnl_new]=structs.iseq_field_list(s,s1);
               if good_fnl
                 %skip saving if start/stop dates in s_new are not wider than those already in file
                 for i=1:numel(fnl)
-                  s_new_now=structs.get_value(s_new,fnl{i});
-                  s_old    =structs.get_value(s,    fnl{i});
-                  if isempty(s_new_now)
+                  s_new=structs.get_value(s1,fnl{i});
+                  s_old=structs.get_value(s, fnl{i});
+                  if isempty(s_new)
                     replace_flag=false;
                   elseif isempty(s_old)
                     replace_flag=true;
-                  elseif s_new_now.start>=s_old.start && s_new_now.stop<=s_old.stop
+                  elseif s_new.start>=s_old.start && s_new.stop<=s_old.stop
                     %do nothing
-                  elseif isempty(s_new_now) && isempty(s_old)
+                  elseif isempty(s_new) && isempty(s_old)
                     %also do nothing
-                  elseif s_new_now.start<s_old.start || s_new_now.stop>s_old.stop
+                  elseif s_new.start<s_old.start || s_new.stop>s_old.stop
                     %augment saved data
-                    s=structs.set_value(s,fnl{i},s_old.augment(s_new_now));
+                    s=structs.set_value(s,fnl{i},s_old.augment(s_new));
                     replace_flag=true;
                   else
                     replace_flag=true;
@@ -961,7 +957,7 @@ classdef datastorage
                   '); replacing data saved in file'])
                 %discard saved data
                 replace_flag=true;
-                s=s_new;
+                s=s1;
               end
             else
               assert(...
@@ -970,16 +966,16 @@ classdef datastorage
                 ['Cannot handle data of type ',class(s),', no support for start/stop.']...
               );
               assert(...
-                (ismethod(s_new,'start') || isprop(s_new,'start')) && ...
-                (ismethod(s_new,'stop' ) || isprop(s_new,'stop' )),...
-                ['Cannot handle data of type ',class(s_new),', no support for start/stop.']...
+                (ismethod(s1,'start') || isprop(s1,'start')) && ...
+                (ismethod(s1,'stop' ) || isprop(s1,'stop' )),...
+                ['Cannot handle data of type ',class(s1),', no support for start/stop.']...
               );
               replace_flag=false;
-              if s_new.start>=s.start && s_new.stop<=s.stop
+              if s1.start>=s.start && s1.stop<=s.stop
                 %do nothing
-              elseif s_new.start<s.start || s_new.stop>s.stop
+              elseif s1.start<s.start || s1.stop>s.stop
                 %augment saved data
-                s=s.augment(s_new);
+                s=s.augment(s1);
                 replace_flag=true;
               else
                 replace_flag=true;
@@ -987,7 +983,7 @@ classdef datastorage
             end
           end
           if replace_flag
-            if p.Results.force
+            if product.force(p.Results.force)
               obj.log(['replacing file ',num2str(f)],'force flag is true')
             else
               obj.log(['replacing file ',num2str(f)],'new data found')
@@ -1061,7 +1057,8 @@ classdef datastorage
       % get init method
       ih=str2func(product.mdget('method'));
       %resolve leafs: either from level-wrapping, from sources or from existing leafs
-      if product.is_wrapped        
+      if product.is_wrapped
+        obj.log('@','in','product',product,'product type','wrapped')
         %unwarp products in this list and feed output to input, to unwrap multitple wrapped parts
         product_list=dataproduct.unwrap_product({product});
         %maybe need to prepend some source fields
@@ -1083,12 +1080,15 @@ classdef datastorage
           product_list=product_list_out(:);
         end
       elseif product.mdget('explicit_fields','default',false) %|| product.mdget('plot_product','default',false) (this breaks expanding plot product fields)
+        obj.log('@','in','product',product,'product type','explicit fields')
         %the handling of the data flow between source products and this product is handled explicitly in the product method
         product_list={product};
       elseif product.nr_sources>0
+        obj.log('@','in','product',product,'product type','has sources')
         %expand to source leafs (avoids having to declare 'levelX_name/vals' in all downstream products)
         product_list=obj.product_from_source_leafs({product});
       else
+        obj.log('@','in','product',product,'product type','root')
         %enforce sub-category, if requested
         if ~isempty(p.Results.subcat)
           product.dataname=product.dataname.append_field_leaf(p.Results.subcat);
@@ -1108,7 +1108,7 @@ classdef datastorage
       end
       %wrapped products need to be loaded differently because they are all stored in the same file,
       %i.e. can't iterate over product_list to load them (but need to iterate to init them)
-      if product.is_wrapped && ~p.Results.force
+      if product.is_wrapped && ~product.force(p.Results.force)
         %try loading this product
         [obj,success]=obj.load(product,varargin{:});
         %if that works, then empty product_list to skip the loading/init loop
@@ -1122,7 +1122,7 @@ classdef datastorage
         %check if data is already loaded
         if obj.isdata_empty(product_list{i}) || p.Results.reload
           %check if init method is to be called even if data was already saved as mat file
-          if p.Results.force
+          if product.force(p.Results.force)
             success=false;
           else
             %try to load saved data
@@ -1333,7 +1333,7 @@ classdef datastorage
       %loop over all source data
       for i=1:product.nr_sources
         %load this source if it is empty (use obj.init explicitly to re-load or reset data)
-        if obj.isdata_empty(product.sources(i)) || p.Results.reload || p.Results.force
+        if obj.isdata_empty(product.sources(i)) || p.Results.reload || product.force(p.Results.force)
           obj.log('@','iter','product',product,'loading source',product.sources(i))
           obj=obj.init(product.sources(i),varargin{:});
         end
@@ -1368,8 +1368,15 @@ classdef datastorage
     %% plot utils
     function out=plotdatafilename(obj,product)
       suffix='plot-data';
-      for i={'plot_smoothing_method'}
-        suffix=strjoin({product.mdget(i{1},'default','unsmoothed'),suffix},'.');
+      fields={'plot_smoothing_degree','plot_smoothing_method'};
+      for i=1:numel(fields)
+        if product.ismdfield(fields{i})
+          value=product.mdget(fields{i});
+          if ~ischar(value)
+            value=str.show(unique(value));
+          end
+          suffix=strjoin({value,suffix},'.');
+        end
       end
       out=cells.scalar(product.mdset('storage_period','direct').file('plot',...
         'start',obj.start,'stop',obj.stop,...
@@ -2126,8 +2133,8 @@ classdef datastorage
         't0',time.duration2num(obj.start-in.epoch,v.timescale),...
         v.varargin{:}...
       );
-      %TODO: not all time domain is being saved in the ts_* fields
-      keyboard
+      %check if time domain has changed
+      assert(in.istequal(out.time),'Time domain discrepancy: debug needed!')
       %propagate result
       obj=obj.data_set(product,out);
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
