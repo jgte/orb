@@ -761,13 +761,13 @@ classdef gswarm
           %build data array
           y=zeros(numel(v.pod.t),numel(v.pod.mod.res));
           for di=1:numel(v.pod.mod.res)
-            tmp=v.pod.mod.res{di}.interp(...
+            [tmp,~,title_name]=v.pod.mod.res{di}.interp(...
               v.pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than...
             ).scale(v.plot_functional,'functional').(v.plot_derived_quantity);
             y(:,di)=tmp(:,end);
           end
           if v.plot_signal && ~str.none(product.mdget('stats_relative_to','default','none'))
-            tmp=v.pod.source.signal{v.pod.source.ref_idx}.interp(...
+            [tmp,~,title_name]=v.pod.source.signal{v.pod.source.ref_idx}.interp(...
               v.pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than...
             ).scale(v.plot_functional,'functional').(v.plot_derived_quantity);
             y(:,di+1)=tmp(:,end);
@@ -836,16 +836,6 @@ classdef gswarm
                ' +/- ',num2str( std(y_sorted(~isnan(y_sorted(:,i)),i)),2),...
             ' \Sigma=',num2str( sum(y_sorted(~isnan(y_sorted(:,i)),i)),2)];
             end
-          end
-          %pretty title
-          switch v.plot_derived_quantity
-          case 'drms';     title_name='Degree RMS';
-          case 'dmean';    title_name='Degree mean';
-          case 'dstd';     title_name='Degree STD';
-          case 'cumdrms';  title_name='Cum. degree RMS';
-          case 'cumdmean'; title_name='Cum. degree mean';
-          case 'cumdstd';  title_name='Cum. degree STD';
-          otherwise;    title_name=v.plot_derived_quantity;
           end
           %enforce it
           product.enforce_plot(v.varargin{:},...
