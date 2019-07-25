@@ -1706,109 +1706,152 @@ classdef gravity < simpletimeseries
     function out=nopd(obj)
       out=2*(1:obj.lmax+1)-1;
     end
+    % aux function to create time series from derived quantities
+    function ts=makets(obj,d,l,title,label)
+      %if data is only a column, then there is no degree dependence
+      if size(d,2)==1
+        ts=simpletimeseries(...
+          obj.t,...
+          d,...
+          'format','datetime',...
+          'labels',{label},...
+          'timesystem',obj.timesystem,...
+          'units',{obj.functional_unit},...
+          'descriptor',[title,' @ degree ',num2str(l),' of ',obj.descriptor]...
+        );    
+      else
+        assert(size(d,2)==l+1,['Input ''d'' must have ',num2str(l+1),' columns, not ',num2str(size(d,2))])
+        ts=simpletimeseries(...
+          obj.t,...
+          d,...
+          'format','datetime',...
+          'labels',cellfun(@(i) ['deg. ',i],strsplit(num2str(0:l)),'UniformOutput',false),...
+          'timesystem',obj.timesystem,...
+          'units',repmat({obj.functional_unit},1,l+1),...
+          'descriptor',[title,' of ',obj.descriptor]...
+        );
+      end
+    end
     %degree mean
-    function out=dmean(obj)
-      out=zeros(obj.length,obj.lmax+1);
+    function [d,ts,title,label]=dmean(obj,l)
+      if ~exist('l','var') || isempty(l)
+        l=obj.lmax;
+      end
+      d=zeros(obj.length,obj.lmax+1);
       tri_now=obj.tri;
-      n=obj.nopd';
+      m=transpose(obj.nopd);
       for i=1:obj.length
         %compute mean over each degree (don't use 'mean' here, there's lots of zeros in tri_now for the low degrees)
-        out(i,:) = sum(tri_now{i},2)./n;
+        d(i,:) = sum(tri_now{i},2)./m;
       end
-    end
-    %cumulative degree mean
-    function [d,ts]=cumdmean(obj)
-      d=cumsum(obj.dmean,2);
       if nargout>1
-        ts=simpletimeseries(...
-          obj.t,...
-          d(:,end),...
-          'format','datetime',...
-          'labels',{['cumulative RMS @ degree ',num2str(obj.lmax)]},...
-          'timesystem',obj.timesystem,...
-          'units',{obj.functional_unit},...
-          'descriptor',['degree ',num2str(obj.lmax),' cumdmean of ',obj.descriptor]...
-        );      
-      end
-     end
-    %degree RMS
-    function out=drms(obj)
-      das=obj.das;
-      out=zeros(size(das));
-      l=obj.nopd;
-      for i=1:obj.length
-        out(i,:)=das(i,:)./sqrt(l);
-      end
-    end
-    %cumulative degree RMS
-    function [d,ts]=cumdrms(obj)
-      d=sqrt(cumsum(obj.drms.^2,2));
-      if nargout>1
-        ts=simpletimeseries(...
-          obj.t,...
-          d(:,end),...
-          'format','datetime',...
-          'labels',{['cumulative RMS @ degree ',num2str(obj.lmax)]},...
-          'timesystem',obj.timesystem,...
-          'units',{obj.functional_unit},...
-          'descriptor',['degree ',num2str(obj.lmax),' cumdrms of ',obj.descriptor]...
-        );      
+        title='Degree mean';
+        label=[title,' @ degree ',num2str(l)];
+        ts=obj.makets(d(:,end),l,title,label);
       end
     end
     %degree STD
-    function out=dstd(obj)
-      out=sqrt(obj.drms.^2-obj.dmean.^2);
-    end
-    %cumulative degree mSTD
-    function [d,ts]=cumdstd(obj)
-      d=sqrt(cumsum(obj.dstd.^2,2));
+    function [d,ts,title,label]=dstd(obj,l)
+      if ~exist('l','var') || isempty(l)
+        l=obj.lmax;
+      end
+      d=sqrt(obj.drms(l).^2-obj.dmean(l).^2);
       if nargout>1
-        ts=simpletimeseries(...
-          obj.t,...
-          d(:,end),...
-          'format','datetime',...
-          'labels',{['cumulative RMS @ degree ',num2str(obj.lmax)]},...
-          'timesystem',obj.timesystem,...
-          'units',{obj.functional_unit},...
-          'descriptor',['degree ',num2str(obj.lmax),' cumdstd of ',obj.descriptor]...
-        );      
+        title='Degree STD';
+        label=[title,' @ degree ',num2str(l)];
+        ts=obj.makets(d(:,end),l,title,label);
+      end
+    end
+    %degree RMS
+    function [d,ts,title,label]=drms(obj,l)
+      if ~exist('l','var') || isempty(l)
+        l=obj.lmax;
+      end
+      das=obj.das(l);
+      d=zeros(size(das));
+      m=obj.nopd;
+      for i=1:obj.length
+        d(i,:)=das(i,:)./sqrt(m);
+      end
+      if nargout>1
+        title='Degree RMS';
+        label=[title,' @ degree ',num2str(l)];
+        ts=obj.makets(d(:,end),l,title,label);
       end
     end
     % returns degree amplitude spectrum for each row of obj.y. The output
     % matrix has in each row the epochs of obj.y (corresponding to the epochs
     % of the models) and for each column i the degree i-1 (this is implicit).
-    function out=das(obj)
-      out=zeros(obj.length,obj.lmax+1);
+    function [d,ts,title,label]=das(obj,l)
+      if ~exist('l','var') || isempty(l)
+        l=obj.lmax;
+      end
+      d=zeros(obj.length,l+1);
       tri_now=obj.tri;
       for i=1:obj.length
         %compute Degree amplitude
-        out(i,:) = sqrt(sum(tri_now{i}.^2,2));
+        d(i,:) = sqrt(sum(tri_now{i}(1:l+1,:).^2,2));
+      end
+      if nargout>1
+        title='Degree amplitude';
+        label=[title,' @ degree ',num2str(l)];
+        ts=obj.makets(d(:,end),l,title,label);
+      end
+    end
+    %cumulative degree mean
+    function [d,ts]=cumdmean(obj,l)
+      if ~exist('l','var') || isempty(l)
+        l=obj.lmax;
+      end
+      d=sqrt(cumsum(obj.dmean(l).^2,2));
+      if nargout>1
+        title='Cum. degree mean';
+        label=[title,' @ degree ',num2str(l)];
+        ts=obj.makets(d(:,end),l,title,label);
+      end
+    end
+    %cumulative degree STD
+    function [d,ts,title,label]=cumdstd(obj,l)
+      if ~exist('l','var') || isempty(l)
+        l=obj.lmax;
+      end
+      d=sqrt(cumsum(obj.dstd(l).^2,2));
+      if nargout>1
+        title='Cum. degree STD';
+        label=[title,' @ degree ',num2str(l)];
+        ts=obj.makets(d(:,end),l,title,label);
+      end
+    end
+    %cumulative degree RMS
+    function [d,ts]=cumdrms(obj)
+      if ~exist('l','var') || isempty(l)
+        l=obj.lmax;
+      end
+      d=sqrt(cumsum(obj.drms(l).^2,2));
+      if nargout>1
+        title='Cum. degree RMS';
+        label=[title,' @ degree ',num2str(l)];
+        ts=obj.makets(d(:,end),l,title,label);
       end
     end
     % cumulative degree amplitude spectrum
-    function [d,ts]=cumdas(obj)
+    function [d,ts,title,label]=cumdas(obj,l)
+      if ~exist('l','var') || isempty(l)
+        l=obj.lmax;
+      end
+      %NOTICE: this is squared-sum-rooted, not simply summed!
       d=sqrt(cumsum(obj.das.^2,2));
       if nargout>1
-        ts=simpletimeseries(...
-          obj.t,...
-          d(:,end),...
-          'format','datetime',...
-          'labels',{['cumulative DAS @ degree ',num2str(obj.lmax)]},...
-          'timesystem',obj.timesystem,...
-          'units',{obj.functional_unit},...
-          'descriptor',['degree ',num2str(obj.lmax),' cumdas of ',obj.descriptor]...
-        );    
+        title='Cum. degree amplitude';
+        label=[title,' @ degree ',num2str(l)];
+        ts=obj.makets(d(:,end),l,title,label);
       end
     end
-    % created a timeseries object with the derived quantities above
-    function out=derived(obj,quantity)
-      out=simpletimeseries(...
-        obj.t,...
-        obj.(quantity),...
-        'labels',cellfun(@(i) ['deg. ',i],strsplit(num2str(0:obj.lmax)),'UniformOutput',false),...
-        'units',repmat({obj.functional_unit},1,obj.lmax+1),...
-        'descriptor',[quantity,' of ',obj.descriptor]...
-      );
+    % created a timeseries object with the derived quantities above, *for all degrees* (unlike the above which is only for one degrees)
+    function ts=derived(obj,quantity)
+      %NOTICE: there is no 'l' argument in this call so that obj.lmax is used
+      [d,~,title,label]=obj.(quantity);
+      ts=obj.makets(d,obj.lmax,title,label);
     end
     %% convert to grid
     function out=grid(obj,varargin)
