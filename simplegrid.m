@@ -1149,6 +1149,7 @@ classdef simplegrid < simpletimeseries
         disp(out)
       end
     end
+    %NOTICE: these are temporal statistics
     function out=stats(obj,varargin)
       %call upstream method
       s=stats@simpletimeseries(obj,varargin{:});
@@ -1570,7 +1571,7 @@ classdef simplegrid < simpletimeseries
       m.lat=mean(m.lat);
       m.lon=mean(m.lon);
       m.t=obj.t;
-      m.n=size(m.map,1)*size(m.map,2);
+      m.n=sum(sum(obj.lat_weights));
       %branch on mode
       switch lower(mode)
         case 'sum';          m.map=obj.map_sum_weighted;
