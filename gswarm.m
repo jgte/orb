@@ -1,5 +1,5 @@
 classdef gswarm
-  methods(Static)
+   methods(Static)
     function obj=load_models(obj,product,varargin)
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{...
@@ -346,7 +346,7 @@ classdef gswarm
           'plot_spatial_mask', 'none' ,@(i) iscellstr(i);...
           'plot_save_data',      'no' ,@(i) islogical(i) || ischar(i);...
           'stats_relative_to', 'none' ,@(i) ischar(i);...
-          'model_types',   {'signal'} ,@(i) iscellstr(i);...
+          'model_types',        {'*'} ,@(i) iscellstr(i);...
           'plot_lines_over_gaps_narrower_than',days(120),@isduration;...
         },...
         product.args({'stats_relative_to','model_types'}),...
@@ -384,43 +384,45 @@ classdef gswarm
       end
       %collect the models 
       pod.source.n=0; %this acts as a counter inside the following for loop but becomes a constant thereafter
-      pod.source.signal=cell(0);pod.source.datanames=cell(0);
+      pod.source.dat=cell(0);pod.source.datanames=cell(0);
       for i=1:product.nr_sources
         dn_sources=obj.data_list(product.sources(i));
-        %dn_sources is usually 'signal' (and 'error' sometimes)
+        %dn_sources is usually 'signal' (and 'error' sometimes) but can be anything
+        %NOTICE: all different dn_sources (more specifically the model_type) are clumped together under pod.source.dat
         for j=1:numel(dn_sources)
           %check if there's any value in the field path to define the type of model
           if ~isempty(dn_sources{j}.field_path)
-            %only plot the relevant model types (the metadata 'model_types' defines the relevant model types)
-            %NOTICE: this function has not been tested for model_types other than 'signal'
-            if ~cells.isincluded(v.model_types,dn_sources{j}.field_path{end}); continue;end
+            %model_types {'*'} gathers everything
+            if ~cells.isincluded(v.model_types,'*')
+              %only plot the relevant model types (the metadata 'model_types' defines the relevant model types)
+              if ~cells.isincluded(dn_sources{j}.field_path(end),v.model_types); continue;end
+            end
             %get this model type
             model_type=dn_sources{j}.field_path{end};
           else
             %assume signal if no field path to specify the type of model
             model_type='signal';
           end
-          %this is legacy but still needed, otherwise the errors associated with the signal will also iterate the counter
-          if strcmp(model_type,'signal')
-            %only iterate on the signal
+          %only iterate on the requested model type
+          if cells.isincluded({model_type},v.model_types)
             pod.source.n=pod.source.n+1;
             %save general dataname
             pod.source.datanames(pod.source.n)=dn_sources(j);
           end
-          %save this model_type (most likely out.source.signal{out.source.n})
-          pod.source.(model_type){pod.source.n}=obj.data_get_scalar(dn_sources(j));
+          %save this model_type (most likely out.source.dat{out.source.n})
+          pod.source.dat{pod.source.n}=obj.data_get_scalar(dn_sources(j));
           %handle default value of plot_max_degree
           %TODO: fix this, it makes it impossible to plot degree ranges above inclusive maximum
-          v.plot_max_degree=min([pod.source.(model_type){pod.source.n}.lmax,v.plot_max_degree]);
+          v.plot_max_degree=min([pod.source.dat{pod.source.n}.lmax,v.plot_max_degree]);
         end
       end
       %enforce maximum degree
-      pod.source.signal=cellfun(@(i) i.set_lmax(v.plot_max_degree),pod.source.signal,'UniformOutput',false);
+      pod.source.dat=cellfun(@(i) i.set_lmax(v.plot_max_degree),pod.source.dat,'UniformOutput',false);
       %enforce smoothing
-      if ~isempty(v.plot_smoothing_degree) && ~isempty(v.plot_smoothing_method)
+      if ~isempty(v.plot_smoothing_degree) && ~isempty(v.plot_smoothing_method) && ~str.none(v.plot_smoothing_method)
         v.plot_smoothing_degree=cells.c2m(v.plot_smoothing_degree);
         if isscalar(v.plot_smoothing_degree)
-          v.plot_smoothing_degree=v.plot_smoothing_degree*ones(size(pod.source.signal));
+          v.plot_smoothing_degree=v.plot_smoothing_degree*ones(size(pod.source.dat));
         else
           assert(numel(v.plot_smoothing_degree)==pod.source.n,...
             ['If plot_smoothing_degree is a vector (now with length ',num2str(numel(v.plot_smoothing_degree)),...
@@ -428,7 +430,7 @@ classdef gswarm
         end
         for i=1:pod.source.n
           %smooth the data
-          pod.source.signal{i}=pod.source.signal{i}.scale(...
+          pod.source.dat{i}=pod.source.dat{i}.scale(...
             v.plot_smoothing_degree(i),...
             v.plot_smoothing_method...
           );
@@ -454,10 +456,10 @@ classdef gswarm
       idx_t=product.mdget('plot_time_domain_source','default',0);
       if idx_t==0
         %set time domain common to all sources
-        pod.t=simpletimeseries.t_mergev(pod.source.signal);
+        pod.t=simpletimeseries.t_mergev(pod.source.dat);
       else
         %set time domain equal to the requested source
-        pod.t=pod.source.signal{idx_t}.t;
+        pod.t=pod.source.dat{idx_t}.t;
       end
       %find reference product
       switch v.stats_relative_to
@@ -469,8 +471,8 @@ classdef gswarm
           );
           pod.mod.names=pod.source.names;
           %alias sources to mods and res
-          pod.mod.dat=pod.source.signal;
-          pod.mod.res=pod.source.signal;
+          pod.mod.dat=pod.source.dat;
+          pod.mod.res=pod.source.dat;
           %patch remaining details
           pod.source.ref_idx=[];
           pod.source.mod_idx=1:pod.source.n;
@@ -479,7 +481,7 @@ classdef gswarm
         for i=1:pod.source.n
           str.say(pod.source.datanames{i}.filename,'?=',v.stats_relative_to)
           if str.iseq(pod.source.datanames{i}.filename,v.stats_relative_to)
-            pod.mod.ref=pod.source.signal{i};
+            pod.mod.ref=pod.source.dat{i};
             pod.source.ref_idx=i;
             pod.mod.ref_name=pod.source.datanames{pod.source.ref_idx};
             break
@@ -499,7 +501,7 @@ classdef gswarm
         end
         pod.source.names{pod.source.ref_idx}=upper(strtrim(strrep(str.clean(pod.mod.ref_name.name,v.plot_title_suppress),'.',' ')));
         %reduce the models to plot
-        pod.mod.dat=pod.source.signal(pod.source.mod_idx);
+        pod.mod.dat=pod.source.dat(pod.source.mod_idx);
         %compute residual, need to interpolate twice to force explicit gaps
         ref=pod.mod.ref.interp(pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than);
         pod.mod.res=cellfun(...
@@ -563,14 +565,14 @@ classdef gswarm
       %time info in the title
       for i=1:pod.source.n
         pod.source.title_startstop{i}=['(',...
-          datestr(pod.source.signal{i}.t_masked([],'start'),'yyyy-mm'),' to ',...
-          datestr(pod.source.signal{i}.t_masked([],'stop' ),'yyyy-mm'),')'...
+          datestr(pod.source.dat{i}.t_masked([],'start'),'yyyy-mm'),' to ',...
+          datestr(pod.source.dat{i}.t_masked([],'stop' ),'yyyy-mm'),')'...
         ];
       end
       %NOTICE: this is used in plots where all sources are shown together
       pod.title_startstop=['(',...
-        datestr(pod.source.signal{1}.t_masked([],'start'),'yyyy-mm'),' to ',...
-        datestr(pod.source.signal{1}.t_masked([],'stop' ),'yyyy-mm'),')'...
+        datestr(pod.source.dat{1}.t_masked([],'start'),'yyyy-mm'),' to ',...
+        datestr(pod.source.dat{1}.t_masked([],'stop' ),'yyyy-mm'),')'...
       ];
       %save data if requested
       if savedata
@@ -636,7 +638,7 @@ classdef gswarm
           %loop over all models
           for k=1:v.pod.source.n
             %plot the time series for this degree/order and model
-            ts_now{k}=v.pod.source.signal{k}.ts_C(d,o).addgaps(v.plot_lines_over_gaps_narrower_than);
+            ts_now{k}=v.pod.source.dat{k}.ts_C(d,o).addgaps(v.plot_lines_over_gaps_narrower_than);
             %don't plot trivial data
             if isempty(ts_now{k}) || ts_now{k}.iszero
               trivial_idx(k)=false;
@@ -721,7 +723,7 @@ classdef gswarm
           'plot_pause_on_save',    false, @islogical;...
           'plot_show_legend_stats',false, @islogical;...
           'plot_max_nr_lines',        20, @(i) isnumeric(i) && isscalar(i);...
-          'plot_derived_quantity',              'cumdrms', @(i) ismethod(gravity.unit(1),i);...
+          'plot_derived_quantity',     {'cumdas','gridmean'}, @(i) all(cellfun(@(j) ismethod(gravity.unit(1),j),i));...
           'plot_spatial_stat_list',    {'diff','monthly'}, @iscellstr; ... TODO: corr
           'plot_legend_include_smoothing',          false, @islogical;...
           'plot_lines_over_gaps_narrower_than', days(120), @isduration;...
@@ -749,137 +751,146 @@ classdef gswarm
       %check if this plot is requested
       if cells.isincluded(v.plot_spatial_stat_list,'diff')
         
-        %% prepare data for (cumulative) diff rms plots
-        
-        %build filenames
-        filenames={...
-          file.build(v.pod.file_root,'cumdrms',        v.pod.file_smooth,v.pod.source.names_str,'png');...
-          file.build(v.pod.file_root,'cumdrms_summary',v.pod.file_smooth,v.pod.source.names_str,'png');...
-        };
-        %prepare plot data only if needed
-        if any(~file.exist(filenames))
-          %build data array
-          y=zeros(numel(v.pod.t),numel(v.pod.mod.res));
-          for di=1:numel(v.pod.mod.res)
-            [tmp,~,title_name]=v.pod.mod.res{di}.interp(...
-              v.pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than...
-            ).scale(v.plot_functional,'functional').(v.plot_derived_quantity);
-            y(:,di)=tmp(:,end);
-          end
-          if v.plot_signal && ~str.none(product.mdget('stats_relative_to','default','none'))
-            [tmp,~,title_name]=v.pod.source.signal{v.pod.source.ref_idx}.interp(...
-              v.pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than...
-            ).scale(v.plot_functional,'functional').(v.plot_derived_quantity);
-            y(:,di+1)=tmp(:,end);
-          end
-          %average it
-          yc=sum(y,1,'omitnan')./sum(~isnan(y));
-          %sort it (if requested)
-          switch v.plot_legend_sorting
-          case {'ascend','descend'};   [yc_sorted,idx]=sort(yc,'ascend');
-          case {'none','no'};           yc_sorted=yc;idx=1:numel(yc);
-          otherwise
-            error(['Cannot handle ''plot_legend_sorting'' with value ''',v.plot_legend_sorting,'''.'])
-          end
-          y_sorted=y(:,idx);
-          %build legend
-          legend_str=upper(v.pod.mod.names);
-          if v.plot_legend_include_smoothing
-            for i=1:numel(legend_str)
-              legend_str{i}=strjoin([legend_str(i),v.pod.source.title_smooth(v.pod.source.mod_idx(i))],' ');
-            end
-            title_suffix=strjoin({v.pod.title_masking},' ');
-          else
-            title_suffix=strjoin({v.pod.title_masking,v.pod.title_smooth},' ');
-          end
-          %add legend signal
-          if v.plot_signal && ~str.none(product.mdget('stats_relative_to','default','none'))
-            n=numel(legend_str);
-            legend_str{n+1}=upper(v.pod.source.legend_str{v.pod.source.ref_idx});
-            for i=1:n
-              legend_str{i}=strjoin([legend_str(i),'diff w.r.t',legend_str(n+1)],' ');
-            end
-            if v.plot_legend_include_smoothing
-              legend_str{n+1}=strjoin([legend_str(n+1),v.pod.source.title_smooth(v.pod.source.ref_idx)],' ');
-            end
-          end
-          %sort the legend
-          legend_str=legend_str(idx);
-          %truncate it
-          if v.plot_max_nr_lines < numel(idx)
-              y_sorted=  y_sorted(:,1:v.plot_max_nr_lines);
-             yc_sorted= yc_sorted(  1:v.plot_max_nr_lines);
-            legend_str=legend_str(  1:v.plot_max_nr_lines);
-                   idx=idx(         1:v.plot_max_nr_lines);
-          end
-          %trim nans for plotting
-          plot_idx=any(num.trim_NaN(y_sorted),2);
-          y_sorted=y_sorted(plot_idx,:);
-          t_sorted=v.pod.t(plot_idx);
-        end
-        
-        %% plot diff rms (only if not done yet)
-        
-        fn_idx=1;
-        if ~file.exist(filenames{fn_idx})
-          %plot it
-          plotting.figure(v.varargin{:});
-          switch v.plot_type
-          case 'bar';   bar(t_sorted,y_sorted,'EdgeColor','none');
-          case 'line'; plot(t_sorted,y_sorted,'Marker','o');
-          end
-          %deal with legend stats
-          if v.plot_show_legend_stats
-            for i=1:numel(legend_str)
-              legend_str{i}=[legend_str{i},...
-                   ' ',num2str(mean(y_sorted(~isnan(y_sorted(:,i)),i)),2),...
-               ' +/- ',num2str( std(y_sorted(~isnan(y_sorted(:,i)),i)),2),...
-            ' \Sigma=',num2str( sum(y_sorted(~isnan(y_sorted(:,i)),i)),2)];
-            end
-          end
-          %enforce it
-          product.enforce_plot(v.varargin{:},...
-            'plot_legend',legend_str,...
-            'plot_ylabel',gravity.functional_label(v.plot_functional),...
-            'plot_xdate',true,...
-            'plot_xlimits',[t_sorted(1),t_sorted(end)+days(1)],...
-            'plot_line_color_order',idx,...
-            'plot_title',str.show({title_name,v.pod.title_wrt,title_suffix})...
-          );
-          if v.plot_logy; set(gca, 'YScale', 'log'); end
-          if v.plot_pause_on_save; keyboard; end
-          saveas(gcf,filenames{fn_idx})
-          str.say('Plotted',filenames{fn_idx})
-        else
-          disp(['NOTICE: plot already available: ',filenames{fn_idx}])
-        end
+        %loop over all requested derived quantities
+        for qi=1:numel(v.plot_derived_quantity)
+          
+          %% prepare data for (cumulative) diff rms plots
 
-        %% plot cumulative diff rms (only if not done yet)
-        
-        fn_idx=2;
-        if ~file.exist(filenames{fn_idx}) && numel(yc_sorted)>1 && v.plot_summary
-          %plot it
-          plotting.figure(v.varargin{:});
-          grey=[0.5 0.5 0.5];
-          barh(flipud(yc_sorted(:)),'EdgeColor',grey,'FaceColor',grey);
-          set(gca,'YTick',1:numel(legend_str),'yticklabels',str.clean(legend_str,'title'));
-          %enforce it
-          product.enforce_plot(v.varargin{:},...
-            'plot_legend_location','none',...
-            'plot_ylabel','none',...
-            'plot_xlabel',gravity.functional_label(v.plot_functional),...
-            'plot_ylimits',[0 numel(legend_str)+1],...
-            'plot_title',str.show({'Cum. residual',v.pod.title_wrt,v.pod.title_startstop,title_suffix})...
-          );
-          set(gca,...
-            'YTick',1:numel(legend_str),...
-            'yticklabels',plotting.legend_replace_clean(v.varargin{:},'plot_legend',flipud(legend_str(:)))...
-          );
-          if v.plot_pause_on_save; keyboard; end
-          saveas(gcf,filenames{fn_idx})
-          str.say('Plotted',filenames{fn_idx})
-        else
-          disp(['NOTICE: plot already available: ',filenames{fn_idx}])
+          %build filenames
+          filenames={...
+            file.build(v.pod.file_root, v.plot_derived_quantity{qi},            v.pod.file_smooth,v.pod.source.names_str,'png');...
+            file.build(v.pod.file_root,[v.plot_derived_quantity{qi},'_summary'],v.pod.file_smooth,v.pod.source.names_str,'png');...
+          };
+          %prepare plot data only if needed
+          if any(~file.exist(filenames))
+            %build data array
+            y=zeros(numel(v.pod.t),numel(v.pod.mod.res));
+            for di=1:numel(v.pod.mod.res)
+              [tmp,~,title_name]=v.pod.mod.res{di}.interp(...
+                v.pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than...
+              ).scale(v.plot_functional,'functional').(v.plot_derived_quantity{qi});
+              y(:,di)=tmp(:,end);
+            end
+            if v.plot_signal && ~str.none(product.mdget('stats_relative_to','default','none'))
+              [tmp,~,title_name]=v.pod.source.dat{v.pod.source.ref_idx}.interp(...
+                v.pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than...
+              ).scale(v.plot_functional,'functional').(v.plot_derived_quantity{qi});
+              y(:,di+1)=tmp(:,end);
+            end
+            %average it
+            yc=sum(y,1,'omitnan')./sum(~isnan(y));
+            %sort it (if requested)
+            switch v.plot_legend_sorting
+            case {'ascend','descend'};   [yc_sorted,idx]=sort(yc,'ascend');
+            case {'none','no'};           yc_sorted=yc;idx=1:numel(yc);
+            otherwise
+              error(['Cannot handle ''plot_legend_sorting'' with value ''',v.plot_legend_sorting,'''.'])
+            end
+            y_sorted=y(:,idx);
+            %build legend
+            legend_str=upper(v.pod.mod.names);
+            if v.plot_legend_include_smoothing
+              for i=1:numel(legend_str)
+                legend_str{i}=strjoin([legend_str(i),v.pod.source.title_smooth(v.pod.source.mod_idx(i))],' ');
+              end
+              title_suffix=strjoin({v.pod.title_masking},' ');
+            else
+              title_suffix=strjoin({v.pod.title_masking,v.pod.title_smooth},' ');
+            end
+            %add legend signal
+            if v.plot_signal && ~str.none(product.mdget('stats_relative_to','default','none'))
+              n=numel(legend_str);
+              legend_str{n+1}=upper(v.pod.source.legend_str{v.pod.source.ref_idx});
+              for i=1:n
+                legend_str{i}=strjoin([legend_str(i),'diff w.r.t',legend_str(n+1)],' ');
+              end
+              if v.plot_legend_include_smoothing
+                legend_str{n+1}=strjoin([legend_str(n+1),v.pod.source.title_smooth(v.pod.source.ref_idx)],' ');
+              end
+            end
+            %sort the legend
+            legend_str=legend_str(idx);
+            %truncate it
+            if v.plot_max_nr_lines < numel(idx)
+                y_sorted=  y_sorted(:,1:v.plot_max_nr_lines);
+               yc_sorted= yc_sorted(  1:v.plot_max_nr_lines);
+              legend_str=legend_str(  1:v.plot_max_nr_lines);
+                     idx=idx(         1:v.plot_max_nr_lines);
+            end
+            %trim nans for plotting
+            plot_idx=any(num.trim_NaN(y_sorted),2);
+            y_sorted=y_sorted(plot_idx,:);
+            t_sorted=v.pod.t(plot_idx);
+            %compute abs value in case of log scale
+            if v.plot_logy
+              y_sorted=abs(y_sorted);
+            end
+          end
+
+          %% plot diff rms (only if not done yet)
+
+          fn_idx=1;
+          if ~file.exist(filenames{fn_idx})
+            %plot it
+            plotting.figure(v.varargin{:});
+            switch v.plot_type
+            case 'bar';   bar(t_sorted,y_sorted,'EdgeColor','none');
+            case 'line'; plot(t_sorted,y_sorted,'Marker','o');
+            end
+            %deal with legend stats
+            if v.plot_show_legend_stats
+              for i=1:numel(legend_str)
+                legend_str{i}=[legend_str{i},...
+                     ' ',num2str(mean(y_sorted(~isnan(y_sorted(:,i)),i)),2),...
+                 ' +/- ',num2str( std(y_sorted(~isnan(y_sorted(:,i)),i)),2),...
+              ' \Sigma=',num2str( sum(y_sorted(~isnan(y_sorted(:,i)),i)),2)];
+              end
+            end
+            %enforce it
+            product.enforce_plot(v.varargin{:},...
+              'plot_legend',legend_str,...
+              'plot_ylabel',gravity.functional_label(v.plot_functional),...
+              'plot_xdate',true,...
+              'plot_xlimits',[t_sorted(1),t_sorted(end)+days(1)],...
+              'plot_line_color_order',idx,...
+              'plot_title',str.show({title_name,v.pod.title_wrt,title_suffix})...
+            );
+            if v.plot_logy; set(gca, 'YScale', 'log'); end
+            if v.plot_pause_on_save; keyboard; end
+            saveas(gcf,filenames{fn_idx})
+            str.say('Plotted',filenames{fn_idx})
+          else
+            disp(['NOTICE: plot already available: ',filenames{fn_idx}])
+          end
+
+          %% plot cumulative diff rms (only if not done yet)
+
+          fn_idx=2;
+          if ~file.exist(filenames{fn_idx}) && numel(yc_sorted)>1 && v.plot_summary
+            %plot it
+            plotting.figure(v.varargin{:});
+            grey=[0.5 0.5 0.5];
+            barh(flipud(yc_sorted(:)),'EdgeColor',grey,'FaceColor',grey);
+            set(gca,'YTick',1:numel(legend_str),'yticklabels',str.clean(legend_str,'title'));
+            %enforce it
+            product.enforce_plot(v.varargin{:},...
+              'plot_legend_location','none',...
+              'plot_ylabel','none',...
+              'plot_xlabel',gravity.functional_label(v.plot_functional),...
+              'plot_ylimits',[0 numel(legend_str)+1],...
+              'plot_title',str.show({'Cum. residual',v.pod.title_wrt,v.pod.title_startstop,title_suffix})...
+            );
+            set(gca,...
+              'YTick',1:numel(legend_str),...
+              'yticklabels',plotting.legend_replace_clean(v.varargin{:},'plot_legend',flipud(legend_str(:)))...
+            );
+            if v.plot_pause_on_save; keyboard; end
+            saveas(gcf,filenames{fn_idx})
+            str.say('Plotted',filenames{fn_idx})
+          else
+            disp(['NOTICE: plot already available: ',filenames{fn_idx}])
+          end
+          
         end
       end
       
@@ -889,7 +900,7 @@ classdef gswarm
       if cells.isincluded(v.plot_spatial_stat_list,'monthly')
         for i=1:numel(v.pod.t)
           %gather models valid now
-          dat    =cellfun(@(j) j.interp(v.pod.t(i)),v.pod.source.signal,'UniformOutput',false);
+          dat    =cellfun(@(j) j.interp(v.pod.t(i)),v.pod.source.dat,'UniformOutput',false);
           dat_idx=cellfun(@(j) j.nr_valid>0,dat);
           %gather error if requested
           if v.plot_monthly_error
@@ -974,6 +985,8 @@ classdef gswarm
           'plot_legend_include_smoothing', false, @islogical;...
           'plot_logy',                     false, @islogical;...
           'plot_legend_sorting',        'ascend', @ischar;...
+          'plot_corrcoeff_caxis',         [-1,1], @(i) isnumeric(i) && numel(i)==2 && all(abs(i)<=1)
+          'plot_summary',                  false, @islogical;...
         },...
         product.plot_args...
       },varargin{:});
@@ -1233,7 +1246,7 @@ classdef gswarm
         %plot only if not done yet
         if ~file.exist(filename)
           plotting.figure(v.varargin{:});
-          v.pod.source.signal{i}.scale(v.plot_functional,'functional').grid('spatial_step',v.plot_spatial_step).stats('mode','std').imagesc(...
+          v.pod.source.dat{i}.scale(v.plot_functional,'functional').grid('spatial_step',v.plot_spatial_step).stats('mode','std').imagesc(...
             'boxes',v.catchment_list,...
             'cb_title',gravity.functional_label(v.plot_functional)...
           );
@@ -1310,7 +1323,7 @@ classdef gswarm
         end
       end
       %init data container  
-      v.pod.pd=cell(size(v.pod.source.signal));
+      v.pod.pd=cell(size(v.pod.source.dat));
       
       %loop over all models
       for i=1:v.pod.source.n
@@ -1332,10 +1345,10 @@ classdef gswarm
           v.pod.pd{i}=pd;
         else
           %compute parametric decompositions
-          v.pod.pd{i}=pardecomp.split(v.pod.source.signal{i},...
+          v.pod.pd{i}=pardecomp.split(v.pod.source.dat{i},...
             'np',v.polyorder+1,...
             'T',time.duration2num(time.num2duration(v.sin_period,v.sin_period_unit),v.timescale),...
-            'epoch',v.pod.source.signal{i}.epoch,...
+            'epoch',v.pod.source.dat{i}.epoch,...
             'timescale',v.timescale,...
             't0',time.duration2num(obj.start-v.t0,v.timescale)...
           );
@@ -1505,17 +1518,23 @@ classdef gswarm
           error(['Cannot handle parameter ''plot_save_data'' with value ''',v.plot_save_data,'''.'])
         end
       end
+      %support legacy
+      if isfield(v.pod.source,'dat')
+        sfn='dat';
+      else
+        sfn='signal';
+      end
       %init data container  
-      v.pod.catch=cell(size(v.pod.source.signal));
+      v.pod.catch=cell(size(v.pod.source.(sfn)));
       %init user feedback
       s.msg='Loading/computing catchments';s.n=numel(v.catchment_list)*v.pod.source.n;s.stationary=false;
       pd_args={...
         'T',time.duration2num(time.num2duration(v.sin_period,v.sin_period_unit),v.timescale),...
         'np',v.polyorder+1,...
         't0',time.duration2num(obj.start-v.t0,v.timescale)...
-        'epoch',v.pod.source.signal{1}.epoch,...
+        'epoch',v.pod.source.(sfn){1}.epoch,...
         'timescale',v.timescale,...
-        'descriptor',v.pod.source.signal{1}.descriptor,...
+        'descriptor',v.pod.source.(sfn){1}.descriptor,...
       };
       if v.parametric_decomposition
         disp(['Parametric decomposition will consider the following parameters:',newline,pardecomp.str(pd_args{:})])
@@ -1538,7 +1557,7 @@ classdef gswarm
             v.pod.catch{i,j}=catchment;
           else
             %compute parametric decompositions
-            v.pod.catch{i,j}=v.pod.source.signal{i}.scale(...
+            v.pod.catch{i,j}=v.pod.source.(sfn){i}.scale(...
               v.plot_functional,'functional'...
             ).grid(...
               'spatial_step',v.plot_spatial_step...
@@ -1546,7 +1565,7 @@ classdef gswarm
               v.catchment_list{j},...
               pd_args{:},...
               'parametric_decomposition',v.parametric_decomposition,...
-              'epoch',v.pod.source.signal{i}.epoch...
+              'epoch',v.pod.source.(sfn){i}.epoch...
             );
             %split useful bit from the data
             catchment=v.pod.catch{i,j};
@@ -1627,7 +1646,8 @@ classdef gswarm
             latex_name=cell(v.pod.source.n,1);
             latex_scale=[100 100 100 100 1]; %converts m to cm
             %compute bias of the reference (the p0 value is only relevant at t0 and it doesn't really give a good idea of the bias)
-            v.pod.catch{ref_idx,j}.bias=mean(v.pod.catch{ref_idx,j}.ws.minus(v.pod.catch{ref_idx,j}.pws.ts_p1).minus(v.pod.catch{ref_idx,j}.pws.ts_p0).y_masked);
+            v.pod.catch{ref_idx,j}.mean=mean(v.pod.catch{ref_idx,j}.ws.y_masked);
+            v.pod.catch{      i,j}.mean=mean(v.pod.catch{      i,j}.ws.y_masked);
             %loop over all sources
             for i=1:v.pod.source.n
               %get the names of this solutions and enforce string replacement and cleaning
@@ -1638,8 +1658,8 @@ classdef gswarm
               v.pod.catch{i,j}.bias=mean(v.pod.catch{i,j}.ws.minus(v.pod.catch{i,j}.pws.ts_p1).minus(v.pod.catch{i,j}.pws.ts_p0).y_masked);
               latex_data(i,:)={...
                 latex_name{i},...                                                              %solution name
-                latex_scale(1)* v.pod.catch{i,j}.bias,...                                      %bias
-                latex_scale(2)*(v.pod.catch{i,j}.bias-v.pod.catch{ref_idx,j}.bias),...         %biasdiff
+                latex_scale(1)* v.pod.catch{i,j}.mean,...                                      %bias
+                latex_scale(2)*(v.pod.catch{i,j}.mean-v.pod.catch{ref_idx,j}.mean),...         %biasdiff
                 latex_scale(3)* v.pod.catch{i,j}.pws.p1.y,...                                  %trend cm/year
                 latex_scale(4)*(v.pod.catch{i,j}.pws.p1.y-v.pod.catch{ref_idx,j}.pws.p1.y),... %trenddiff
                 latex_scale(5)* v.pod.catch{i,j}.ws.interp(v.pod.catch{ref_idx,j}.ws.t).stats2(v.pod.catch{ref_idx,j}.ws,'mode','corrcoeff')...
@@ -1651,7 +1671,7 @@ classdef gswarm
             %enforce legend editing
             latex_data(:,1)=plotting.legend_replace_clean(v.varargin{:},'plot_legend',upper(latex_data(:,1)));
             %save table
-            file.strsave(filename,str.latex_table(latex_data,{'','%5.1f','%5.1f','%5.1f','%5.1f','%5.2f'}));
+            file.strsave(filename,str.latex_table(latex_data,{'','%6.2f','%6.2f','%6.2f','%6.2f','%5.2f'}));
           end
         end
       end
@@ -1903,8 +1923,18 @@ classdef gswarm
 %             'swarm.sh.gswarm.rl01.land';...
 %             'swarm.sh.gswarm.rl01.lowdeg';...
 %             'swarm.sh.gswarm.rl01.quality';...
-%             'swarm.sh.gswarm.rl01.deg40';...
 %             'swarm.sh.gswarm.rl01.individual';...
+%             'swarm.sh.gswarm.rl01.quality';...
+%             'swarm.sh.gswarm.rl01.quality-land';...
+%             'swarm.sh.gswarm.rl01.quality-land-deg40';...
+%             'swarm.sh.gswarm.rl01.smooth0';...
+%             'swarm.sh.gswarm.rl01.smooth300';...
+%             'swarm.sh.gswarm.rl01.smooth750';...
+%             'swarm.sh.gswarm.rl01.smooth1500';...
+%             'swarm.sh.gswarm.rl01.smooth-ocean1000';...
+%             'swarm.sh.gswarm.rl01.smooth-ocean1500';...
+%             'swarm.sh.gswarm.rl01.smooth-ocean3000';...
+%             'swarm.sh.gswarm.rl01.smooth-ocean5000';...
       v=varargs.wrap('sources',{....
         {...
           'debug',                   true, @logical;...
@@ -1913,22 +1943,59 @@ classdef gswarm
           'force',                  false, @islogical;...
           'plot_save_data',          true, @(i) islogical(i) || ischar(i);... %can be 'force'
           'plot_dir',fullfile(getenv('HOME'),'cloud','Work','articles','2019-04.gswarm'), @ischar;...
+          'plot_type',                 '', @ischar;...
           'products',{...
-            'swarm.sh.gswarm.rl01.land';...
+            'swarm.sh.gswarm.rl01.individual';...
           }, @iscellstr;
         },... 
       },varargin{:});
-      args={'plot_dir',v.plot_dir,'force',v.force,'plot_save_data',v.plot_save_data};
-      d=datastorage(...
-        'start',v.start,...
-        'stop', v.stop,...
-        'inclusive',true,...
-        'debug',v.debug...
-      );
-      for i=1:numel(v.products)
-        d=d.init(v.products{i},args{:});
+      switch v.plot_type
+      case ''
+        args={'plot_dir',v.plot_dir,'force',v.force,'plot_save_data',v.plot_save_data};
+        d=datastorage(...
+          'start',v.start,...
+          'stop', v.stop,...
+          'inclusive',true,...
+          'debug',v.debug...
+        );
+        for i=1:numel(v.products)
+          d=d.init(v.products{i},args{:});
+        end
+      case 'TN11'
+        gravity.graceC20('mode','model-plot')
+        saveas(gcf,fullfile(v.plot_dir,'figures','TN11.png'))
+      case 'TN11-parameters'
+        gravity.graceC20('mode','model-list')
+      case 'deepoceanmask'
+        l=4;
+        a=simplegrid.unit(l*90,l*45);
+        a=a.spatial_mask('deep ocean');
+        c=gray(l*16);
+        c=flipud(c(l*4:l*12,:));
+        plotting.figure;
+        a.imagesc;
+        colormap(c)
+        colorbar off
+        plotting.enforce('plot_legend_location','none')
+        saveas(gcf,fullfile(v.plot_dir,'figures','deepoceanmask.png'))
+      case 'graceC30'
+        d=datastorage(...
+          'start',datetime('2002-04-01'),...
+          'stop', datetime('2017-06-30'),...
+          'debug',v.debug...
+        ).init('grace.sh.rl06.csr'...
+        ).init('grace.sh.rl06.csr.pd.ts'...
+        );
+        %make pretty plot
+        plotting.figure(varargin{:});
+        grs=d.data_get_scalar('grace_sh_rl06_csr/signal').ts_C(3,0).add_expl_gaps(days(45)).plot('line',{'-o'});
+        grm=d.data_get_scalar('grace_sh_rl06_csr_pd_ts' ).ts_C(3,0).plot;
+        plotting.enforce('plot_legend',{...
+          str.rep(grs.legend{1},'C3,0','data');...
+          str.rep(grm.legend{1},'C3,0','model');...
+        },'plot_title','','plot_ylabel','C_{3,0} [ ]');
+        saveas(gcf,fullfile(v.plot_dir,'figures','graceC30.png'))
       end
-
     end
     function validation(varargin)
       v=varargs.wrap('sources',{....
