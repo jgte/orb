@@ -588,6 +588,8 @@ classdef dataproduct
       switch class(out)
       case 'datetime'
         out=arrayfun(@(i) {i},out);
+      case 'double'
+        out=cells.m2c(out);
       otherwise  
         out=cells.scalar(out,'set');
       end
