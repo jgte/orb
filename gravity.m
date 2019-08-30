@@ -682,14 +682,26 @@ classdef gravity < simpletimeseries
         str.say('Written',b,'bytes of data to file:',newline,f,newline,'related to the periods of:',newline,c20.descriptor);
       case 'model-periods'
         out=GRACEC20_periods(v.version,v.descriptor);
+      case 'model-poly'
+        out=2;
       case 'model'
         assert(~isempty(v.time),['If mode is ''',v.mode,''', need argument ''time''.'])
         %this loads all raw data
         c20=gravity.graceC20(varargin{:},'mode','read');
-        np=2;
+        np=gravity.graceC20('mode','model-poly');
         T=gravity.graceC20('mode','model-periods','descriptor',c20.descriptor);
         %this does split of all raw data and join to v.time
         out=c20.parametric_decomposition('np',np,'T',T,'timescale','days','time',v.time);
+      case 'model-list'
+        %this loads all raw data
+        c20=gravity.graceC20(varargin{:},'mode','read');
+        np=gravity.graceC20('mode','model-poly');
+        T=gravity.graceC20('mode','model-periods','descriptor',c20.descriptor);
+        %get the coefficients
+        [~,pd_set]=c20.parametric_decomposition('np',np,'T',T,...
+          'timescale','days',...
+          'time',datetime('2002-04-01'):days(30):datetime('2017-06-30'));
+        pardecomp.table(pd_set)
       case 'model-plot'
         %retrieve the orignal data
         c20o=gravity.graceC20(varargin{:},'mode','read');
@@ -714,7 +726,7 @@ classdef gravity < simpletimeseries
         c20e=c20e-c20em(1);
         %plot it
         plotting.figure;
-        c20o.plot('columns',1);
+        c20o.add_expl_gaps(days(35)).plot('columns',1);
         c20m.plot('columns',1);
         c20e.plot('columns',1);
         plotting.enforce(...
@@ -1081,7 +1093,7 @@ classdef gravity < simpletimeseries
         m=gravity.ggm05g;
         m.print
         m.grid.print
-     case 'stats'
+      case 'stats'
         m=gravity.load('ggm05g.gfc.txt');
         for i={'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
           figure
@@ -1111,6 +1123,16 @@ classdef gravity < simpletimeseries
           a.scale_plot(t,methods{i});
         end
         legend(methods);
+      case 'deepoceanmaskplot'
+        a=simplegrid.unit(l*90,l*45);
+        a=a.spatial_mask('deep ocean');
+        c=gray(l*16);
+        c=flipud(c(l*4:l*12,:));
+        plotting.figure;
+        a.imagesc;
+        colormap(c)
+        colorbar off
+        plotting.enforce('plot_legend_location','none')
       end
     end
   end
@@ -1370,15 +1392,22 @@ classdef gravity < simpletimeseries
         error([mfilename,': inputs ''d'' and ''o'' must have the same size(s).'])
       end
       %get indexes of the cosine-coefficients
-      C_idx=o>=0;
+      C_idx=find(o>=0);
+      S_idx=find(o<0);
       %make room for output
       out=cell(size(time));
       for i=1:numel(out)
         out{i}=zeros(size(d));
-        %retrive cosine coefficients
-        out{i}( C_idx)=obj.mat{obj.idx(time(i))}( d( C_idx)+1,o( C_idx)+1);
-        %retrieve sine coefficients
-        out{i}(~C_idx)=obj.mat{obj.idx(time(i))}(-o(~C_idx)  ,d(~C_idx)+1);
+        for j=1:numel(C_idx)
+          %retrive cosine coefficients
+          out{i}( C_idx(j))=obj.mat{obj.idx(time(i))}( d( C_idx(j))+1,o( C_idx(j))+1);
+        end
+        for j=1:numel(S_idx)
+          %skip zonals
+          if -o(S_idx(j))==0; continue; end
+          %retrieve sine coefficients
+          out{i}( S_idx(j))=obj.mat{obj.idx(time(i))}(-o( S_idx(j))  ,d( S_idx(j))+1);
+        end
       end
       %handle scalar quantities gracefully
       if isscalar(d)
@@ -1451,6 +1480,25 @@ classdef gravity < simpletimeseries
         for i=1:numel(d)
           %set cosine coefficients
           tri_now{obj.idx(time(ti))}(d(i)+1,:)=values( i);
+        end
+      end
+      %save new values
+      obj.tri=tri_now;
+    end
+    function obj=setorder(obj,o,values,time)
+      if ~exist('time','var') || isempty(time)
+        time=obj.t;
+      end
+      if any(size(o)~=size(values))
+        error([mfilename,': inputs ''d'' and ''values'' must have the same size'])
+      end
+      %retrieve triangular form
+      tri_now=obj.tri;
+      %get indexes of the cosine-coefficients
+      for ti=1:numel(time)
+        for i=1:numel(o)
+          %set cosine coefficients
+          tri_now{obj.idx(time(ti))}(:,o(i)+1+obj.lmax)=values( i);
         end
       end
       %save new values
@@ -1853,6 +1901,22 @@ classdef gravity < simpletimeseries
       [d,~,title,label]=obj.(quantity);
       ts=obj.makets(d,obj.lmax,title,label);
     end
+    % gridded wrapers for statistics (the mean and std are not possible with SH)
+    function [d,ts,title,label]=gridmean(obj)
+      [d,~,ts]=obj.grid.mean('total');
+      title='Grid mean';
+      label=title;
+    end
+    function [d,ts,title,label]=gridrms(obj)
+      [d,~,ts]=obj.grid.rms('total');
+      title='Grid RMS';
+      label=title;
+    end
+    function [d,ts,title,label]=gridstd(obj)
+      [d,~,ts]=obj.grid.std('total');
+      title='Grid STD';
+      label=title;
+    end
     %% convert to grid
     function out=grid(obj,varargin)
       v=varargs.wrap('sources',{{...
@@ -1885,6 +1949,38 @@ classdef gravity < simpletimeseries
         'descriptor',obj.descriptor,...
         'units',units...
       );
+    end
+    function out=point(obj,lon,lat,h)
+      assert(all(size(lat)==size(lon)) && all(size(lon)==size(h)),'all inputs must have the same length')
+      assert(isvector(lat),'all inputs must be vectors')
+      %make room for outputs
+      out=zeros(obj.length,numel(lat));
+      %determine number of longitude points
+      if numel(lon)>1 && mean(diff(lon))>0
+        Nlon=360/mean(diff(lon));
+      else
+        Nlon=360;
+      end
+      %retrieve CS-representation
+      cs_now=obj.cs;
+      %make synthesis on each set of coefficients
+      for i=1:obj.length
+        for j=1:numel(lat)
+          %scale to requested height
+          obj=obj.scale(obj.R+h(j),'R');
+          %perform synthesis
+          [lon_out,lat_out,tmp]=mod_sh_synth(cs_now(i).C,cs_now(i).S,deg2rad(lat(j)),Nlon);
+          %sanity (probably unnecessary)
+          assert(lat(j)==rad2deg(lat_out),'discrepancy in input/output lat')
+          %retrieve longitude
+          lon_out=rad2deg(lon_out);
+          if any(lon_out==lon(j))
+            out(i,j)=tmp(lon_out==lon(j));
+          else
+            out(i,j)=interp1(lon_out,tmp,lon(j));
+          end
+        end
+      end
     end
     %% spatial operations
     function obj=spatial_mask(obj,mode,varargin)
@@ -2076,7 +2172,11 @@ classdef gravity < simpletimeseries
           else
             cb.label([obj.functional_name,' [',obj.functional_unit,']']);
           end
-          out.title=[obj.descriptor,' - ',datestr(obj.t(i)),', \mu=',num2str(mean(tri_now{i}(~bad_idx)))];
+          if isempty(v.title)
+            out.title=[obj.descriptor,' - ',datestr(obj.t(i)),', \mu=',num2str(mean(tri_now{i}(~bad_idx)))];
+          else
+            out.title=v.title;
+          end
           title(out.title)
           out.axis_handle=gca;
           out.fig_handle=gcf;
