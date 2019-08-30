@@ -17,10 +17,10 @@ classdef cb
       cb_handle=findobj(axis_handle,'tag','Colorbar');
       if ~isempty(cb_handle)
           % find colorbar position
-          if any(strcmpi(get(cb_handle,'Location'),{'north','south','northoutside','southoutside'}))
-              xlabel(cb_handle,str)
+          if any(strcmpi(get(cb_handle(1),'Location'),{'north','south','northoutside','southoutside'}))
+              xlabel(cb_handle(1),str)
           else
-              ylabel(cb_handle,str)
+              ylabel(cb_handle(1),str)
           end
       end
     end
