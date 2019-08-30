@@ -1269,6 +1269,16 @@ classdef simpletimeseries < simpledata
       end
       out=time.FromDateTime(obj.t(mask),'modifiedjuliandate');
     end
+    function obj=add_expl_gaps(obj,min_gap_len)
+      %find time domain indexes where explicit gaps need to be added
+      gap_idx=find(diff(obj.t)>min_gap_len);
+      %trivial call
+      if isempty(gap_idx); return; end
+      %determine mid-epoch of explicit gaps
+      t_gaps=mean([obj.t(gap_idx),obj.t(gap_idx+1)],2);
+      %augment object with newly found explicit gaps
+      obj=obj.t_merge(t_gaps);
+    end
     %% mask methods
     function [obj1,obj2]=mask_match(obj1,obj2,errmsg)
       if ~exist('errmsg','var') || isempty(errmsg)
