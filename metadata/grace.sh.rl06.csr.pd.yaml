@@ -4,7 +4,7 @@ storage_period: infinite
 polyorder: 1
 sin_period_unit: days
 sin_period: [365.2426,182.6213,161.04,1400.0,2800.0]
-sin_names: [yearly,semi-yearly,S2,K1,K2]
+sin_names: [yearly,semi-yearly,S2,K2,K1]
 timescale: days
 explicit_fields: true
 never_force: true
