@@ -1061,7 +1061,7 @@
           end
         end
       otherwise
-        error([mfilename,': unknown mode.'])
+        error([mfilename,': unknown mode ''',p.Results.mode,'''.'])
       end
       %bug traps
       if isnumeric(out)
@@ -1380,6 +1380,7 @@
       obj.mask=all(~isnan(obj.y),2);
     end
     function [out,nr_epochs]=gap_length(obj)
+      %NOTICE: this needs explicit gaps to work as expected
       %inits
             out=zeros(obj.length,1);
       nr_epochs=zeros(obj.length,1);
@@ -1596,6 +1597,7 @@
         %both x-domains AND are not gaps will appear in the ouput
         mask_now=obj.mask(idx_now);
       else
+        %NOTICE: this needs explicit gaps to work as expected!
         %compute gap length and create a mask from that, i.e. it is
         %possible to control the maximum length of a gap in the output
         mask_add=obj.gap_length<p.Results.interp_over_gaps_narrower_than;
