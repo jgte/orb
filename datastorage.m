@@ -789,7 +789,7 @@ classdef datastorage
         if isempty(file_list)
           obj.log('@','out','no files to load for',product)
         else
-          obj.log('@','out','file(s) missing for',[product.str,newline,strjoin(file_list(~file_exists),newline)])
+          obj.log('@','out','cannot load: file(s) missing for',[product.str,newline,strjoin(file_list(~file_exists),newline)])
         end
         return
       end
@@ -1058,9 +1058,14 @@ classdef datastorage
       ih=str2func(product.mdget('method'));
       %resolve leafs: either from level-wrapping, from sources or from existing leafs
       if product.is_wrapped
+        %TODO: fix the swarm_sh_gswarm_rl01_err_smooth, grace_sh_rl06_csr_pd_ts_smooth and grace_sh_rl06_csr_err_smooth products
+        error('needs revision')
         obj.log('@','in','product',product,'product type','wrapped')
-        %unwarp products in this list and feed output to input, to unwrap multitple wrapped parts
-        product_list=dataproduct.unwrap_product({product});
+        %clear field path, so that when a product is called with field path, the data is not loaded into a mess such as 
+        %swarm.sh.gswarm.rl01.err.smooth/smoothing_degree_0/smoothing_degree_300
+        product_no_fp=product;product_no_fp.dataname=product_no_fp.dataname.set_field_path({});
+        %unwarp products 
+        product_list=dataproduct.unwrap_product({product_no_fp});
         %maybe need to prepend some source fields
         if product.ismdfield('source_fields_from')
           %get field path to prepend (from specified source product)
@@ -2096,6 +2101,24 @@ classdef datastorage
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
     %% special operations
+    function obj=smooth(obj,product,varargin)
+      obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
+      assert(product.nr_sources==1,['The smooth method cannot operated on product ''',product.str,...
+        ''' because it only accept one source, not ',num2str(product.nr_sources),'.'])
+      %retrieve required operation
+      sm=product.mdget('smoothing_method');
+      sd=product.mdget('smoothing_degree');
+      %get source
+      in=obj.data_get_scalar(product.sources(1));
+      %make sure this is the correct data type
+      assert(isa(in,'gravity'),['Cannot handle product ''',product.sources(1),...
+        ''' because it is not of class ''gravity'' but ''',class(in),'''.'])
+      %operate
+      out=in.scale(sd,sm);
+      %propagate result
+      obj=obj.data_set(product,out);
+      obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
+    end
     function obj=component_split(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
       assert(product.nr_sources==1,['The component_split method cannot operated on product ''',product.str,...
