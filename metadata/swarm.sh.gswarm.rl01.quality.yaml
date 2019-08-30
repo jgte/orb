@@ -17,13 +17,13 @@ plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common 
 #plotting
 plot_xdateformat: yy/mm
 plot_outlier: 0
-plot_legend_suppress: [sh,GSWARM,gswarm,signal]
-plot_title_suppress:  [sh,GSWARM,gswarm,signal]
-plot_legend_replace: [ERR,res w.r.t GRACE mod,SWARM,Swarm,PD TS,model]
-plot_title_replace: [ERR,res w.r.t GRACE mod,SWARM,Swarm,PD TS,model]
-plot_functional: geoid
-plot_std_caxis: [0,0.00015]
-plot_rms_caxis: [0,0.00015]
+plot_legend_suppress: [sh,GSWARM,gswarm,GSwarm,signal,RL06,CSR,RL01]
+plot_title_suppress:  [sh,GSWARM,gswarm,GSwarm,signal,RL06,CSR,RL01]
+plot_legend_replace: [ERR,diff w.r.t GRACE model,SWARM,Swarm,PD TS,model]
+plot_title_replace:  [ERR,diff w.r.t GRACE model,SWARM,Swarm,PD TS,model]
+plot_functional: eqwh
+plot_std_caxis: [0,0.005]
+plot_rms_caxis: [0,0.005]
 plot_corrcoeff_caxis: [-1,1]
 plot_colormap: jetzero
 plot_legend_box: false
@@ -36,10 +36,10 @@ plot_summary: false
 plot_min_degree: 2
 plot_max_degree: 20
 
-
+plot_legend_sorting: none
 #plot_spatial_stats
 plot_spatial_mask: deep ocean
-plot_derived_quantity: cumdrms
+plot_derived_quantity: [cumdas]
 plot_type: line
 plot_spatial_stat_list: [diff]
 

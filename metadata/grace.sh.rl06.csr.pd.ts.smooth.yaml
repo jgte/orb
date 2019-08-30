@@ -1,0 +1,8 @@
+method: datastorage.smooth
+smoothing_method: gauss
+level1_name: smoothing_degree
+level1_vals: [0,300,750,1500]
+sources: [grace.sh.rl06.csr.pd.ts]
+storage_period: yearly
+explicit_fields: false
+never_force: true

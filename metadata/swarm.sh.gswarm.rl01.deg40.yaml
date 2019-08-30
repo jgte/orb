@@ -39,7 +39,7 @@ plot_logy: true
 plot_legend_sorting: none
 #plot_spatial_stats
 plot_spatial_mask: none
-plot_derived_quantity: cumdrms
+plot_derived_quantity: [cumdas]
 plot_type: line
 plot_spatial_stat_list: [diff]
 

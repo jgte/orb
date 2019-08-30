@@ -7,6 +7,8 @@ sources: [
   swarm.sh.gswarm.rl01,
   swarm.sh.gswarm.rl01.err,
 ]
+
+
 stats_relative_to: none
 explicit_fields: true
 storage_period: direct
@@ -34,9 +36,10 @@ plot_visible: true
 plot_min_degree: 2
 plot_max_degree: 40
 
+
 #plot_spatial_stats
 plot_spatial_mask: deep ocean
-plot_derived_quantity: cumdrms
+plot_derived_quantity: [cumdas]
 plot_type: line
 plot_spatial_stat_list: [diff]
 

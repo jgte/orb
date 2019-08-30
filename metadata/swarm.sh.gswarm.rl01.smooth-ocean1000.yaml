@@ -1,0 +1,3 @@
+submetadata: swarm.sh.gswarm.rl01.smooth-ocean.submetadata
+plot_smoothing_degree: [1000e3,1000e3,1000e3]
+plot_logy: false
