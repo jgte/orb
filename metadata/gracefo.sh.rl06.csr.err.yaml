@@ -1,0 +1,6 @@
+method: arithmetic
+operation: minus
+sources: [gracefo.sh.rl06.csr/signal,gracefo.sh.rl06.csr.pd.ts]
+source_fields_from: grace.sh.rl06.csr
+operation_order: [1,2]
+storage_period: yearly 

@@ -3,8 +3,8 @@ method: gswarm.plot_stats
 model_types: [signal]
 sources: [ #remember that plots with multiple sources pick the start/stop from the first source
   swarm.sh.gswarm.rl01,
-  grace.sh.rl06.csr,
-  grace.sh.rl06.csr.pd.ts,
+  gracefo.sh.rl06.csr,
+  gracefo.sh.rl06.csr.pd.ts,
 ]
 
 

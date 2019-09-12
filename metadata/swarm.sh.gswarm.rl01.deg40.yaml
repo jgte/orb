@@ -6,8 +6,8 @@ sources: [ #remember that plots with multiple sources pick the start/stop from t
   swarm.sh.gswarm.rl01,
   swarm.sh.gswarm.rl01,
   swarm.sh.gswarm.rl01,
-  grace.sh.rl06.csr.pd.ts,
-  grace.sh.rl06.csr,
+  gracefo.sh.rl06.csr.pd.ts,
+  gracefo.sh.rl06.csr,
 ]
 stats_relative_to: grace.sh.rl06.csr.pd.ts
 explicit_fields: true
