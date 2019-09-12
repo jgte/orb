@@ -756,31 +756,32 @@ classdef datastorage
       end
     end
     function [obj,success]=load(obj,product,varargin)
+      %gather inputs
+      v=varargs.wrap('sources',{{...
+        'plot_product',        false,@(i) islogical(i) && isscalar(i);...
+        'exclusive_mode',      false,@(i) islogical(i) && isscalar(i);... %exclusive mode is false so that it is possible to ingest products with different time spans
+        'start_timestamp_only',datastorage.parameters('start_timestamp_only'),@(i) islogical(i);... %this needs to be in agreement with what is used in datastorage.save
+      },product.metadata},varargin{:});
       %ignore plot products, file loading is done inside the init method
-      if product.mdget('plot_product','default',false)
+      if v.plot_product
         success=false;
         return
       end
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
-      if product.mdget('plot_product','default',false)
-        product_type='plot';
-      else
-        product_type='data';
-      end
       % get the file list
-      file_list=product.file(product_type,...
-        'start',obj.data_edges(product,'start',false),... %exclusive mode is false so that it is possible to ingest new data
-        'stop', obj.data_edges(product,'stop', false),...
-        'start_timestamp_only',datastorage.parameters('start_timestamp_only'),... %this needs to be in agreement with what is used in datastorage.save
+      file_list=product.file('data',...
+        'start',obj.data_edges(product,'start',v.exclusive_mode),... 
+        'stop', obj.data_edges(product,'stop', v.exclusive_mode),...
+        'start_timestamp_only',v. start_timestamp_only,...
         'discover',false,... %this needs to be false so that data stops after the one in the data produce names of non-existing files
         'ensure_dir',false,...
         varargin{:}...
       );
       % get file existence
-      file_exists=product.isfile(product_type,...
-        'start',obj.data_edges(product,'start',false),...
-        'stop', obj.data_edges(product,'stop', false),...
-        'start_timestamp_only',datastorage.parameters('start_timestamp_only'),... %this needs to be in agreement with what is used in datastorage.save
+      file_exists=product.isfile('data',...
+        'start',obj.data_edges(product,'start',v.exclusive_mode),...
+        'stop', obj.data_edges(product,'stop', v.exclusive_mode),...
+        'start_timestamp_only',v. start_timestamp_only,...
       varargin{:});
       % check if any file is missing
       if any(~file_exists)
@@ -851,16 +852,17 @@ classdef datastorage
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
     function save(obj,product,varargin)
+      %gather inputs
+      v=varargs.wrap('sources',{{...
+        'force',               false,@(i) islogical(i) && isscalar(i);...
+        'plot_product',        false,@(i) islogical(i) && isscalar(i);...
+        'start_timestamp_only',datastorage.parameters('start_timestamp_only'),@(i) islogical(i);... %this needs to be in agreement with what is used in datastorage.load
+      },product.metadata},varargin{:});
       %ignore plot products, file saving is done inside the init method
-      if product.mdget('plot_product','default',false)
+      if v.plot_product
         return
       end
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addParameter('force',false,@(i) islogical(i) && isscalar(i)); %forces saving the data even if the data is already saved 
-      % parse it
-      p.parse(varargin{:});
       % get the data to be saved
       % NOTICE: it is *always* everything under this product.name, never resolved at the level of the field_path
       % this is to be in agreement with how the filenames are built in datanames
@@ -876,7 +878,7 @@ classdef datastorage
       [file_list,startlist,stoplist]=product.file('data',...
         'start',min(startlist),...
         'stop',max(stoplist),...
-        'start_timestamp_only',datastorage.parameters('start_timestamp_only'),... %this needs to be in agreement with what is used in datastorage.load
+        'start_timestamp_only',v.start_timestamp_only,... %this needs to be in agreement with what is used in datastorage.load
         'discover',false,...
         varargin{:}...
       );
@@ -907,7 +909,7 @@ classdef datastorage
         %check if this file already exists
         if exist(file_list{f},'file')
           %save the data if force is true
-          if product.force(p.Results.force)
+          if product.force(v.force)
             replace_flag=true;
           else
             %save new variable
@@ -980,7 +982,7 @@ classdef datastorage
             end
           end
           if replace_flag
-            if product.force(p.Results.force)
+            if product.force(v.force)
               obj.log(['replacing file ',num2str(f)],'force flag is true')
             else
               obj.log(['replacing file ',num2str(f)],'new data found')
@@ -1128,7 +1130,10 @@ classdef datastorage
             success=false;
           else
             %try to load saved data
-            [obj,success]=obj.load(product_list{i},varargin{:});
+            %NOTICE: exclusive_mode will be true (the default is false) so that it is possible to load a product without having
+            %        to specify the start/stop as datastorage('start',...,'stop',...).init(...) and rely on the start/stop
+            %        metadata.
+            [obj,success]=obj.load(product_list{i},varargin{:},'exclusive_mode',numel(product_list)==1);
           end
           %check if data was not loaded
           if success
