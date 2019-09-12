@@ -1,6 +1,6 @@
 plot_product: true
 sources: [
-  grace.sh.rl06.csr.pd.ts,
+  gracefo.sh.rl06.csr.pd.ts,
   gswarm.swarm.aiub.aiub.v01,
   gswarm.swarm.asu.ifg.v02,
   gswarm.swarm.ifg.ifg.v03,
@@ -35,8 +35,8 @@ plot_legend_box: false
 plot_spatial_mask: none
 plot_save_data: yes
 
-plot_pause_on_save: false
-plot_visible: false
+plot_pause_on_save: true
+plot_visible: true
 
 #plot_ops
 plot_min_degree: 2
