@@ -1,0 +1,4 @@
+submetadata: swarm.sh.gswarm.rl01.smooth.submetadata
+plot_smoothing_degree: [0,0,0]
+plot_logy: false
+plot_spatial_mask: land
