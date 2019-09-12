@@ -770,7 +770,7 @@ classdef datastorage
       % get the file list
       file_list=product.file(product_type,...
         'start',obj.data_edges(product,'start',false),... %exclusive mode is false so that it is possible to ingest new data
-        'stop',obj.data_edges(product,'stop',false),...
+        'stop', obj.data_edges(product,'stop', false),...
         'start_timestamp_only',datastorage.parameters('start_timestamp_only'),... %this needs to be in agreement with what is used in datastorage.save
         'discover',false,... %this needs to be false so that data stops after the one in the data produce names of non-existing files
         'ensure_dir',false,...
@@ -779,13 +779,13 @@ classdef datastorage
       % get file existence
       file_exists=product.isfile(product_type,...
         'start',obj.data_edges(product,'start',false),...
-        'stop',obj.data_edges(product,'stop',false),...
+        'stop', obj.data_edges(product,'stop', false),...
         'start_timestamp_only',datastorage.parameters('start_timestamp_only'),... %this needs to be in agreement with what is used in datastorage.save
       varargin{:});
       % check if any file is missing
       if any(~file_exists)
-        % debug output
         success=false;
+        % debug output
         if isempty(file_list)
           obj.log('@','out','no files to load for',product)
         else
@@ -794,61 +794,58 @@ classdef datastorage
         return
       end
       obj.log('nr of files to load',numel(file_list),'from dir',fileparts(file_list{1}))
-%       %if this is a plot product, then skip loading data
-%       if ~product.mdget('plot_product','default',false)
-        %loop over all files
-        for f=1:numel(file_list)
-          %load data in this file
-          load(file_list{f},'s');
-          if f==1
-            %move to cumulative variable
-            s_out=s;
-          else
-            %%append to cumulative data
-            if isstruct(s_out)
-              %do that for all fields in this structure
-              s_out=structs.objmethod2('append',s_out,s);
-            else
-              %simple call
-              s_out=s_out.append(s);
-            end
-          end
-          %get start/stop lists
-          [startlist,stoplist]=obj.startstop_list(s_out);
-          % debug output
-          start_now=obj.start_criteria(startlist);
-          stop_now =obj.stop_criteria( stoplist );
-          nr_gaps  =max(cells.c2m(obj.overload_struct(s_out,'nr_gaps')));
-          [~,file_now,e]=fileparts(file_list{f});
-          obj.log(['loaded file ',num2str(f),' '],[' ',file_now,e],'cum start',start_now,'cum stop',stop_now,'gaps',nr_gaps)
-        end
-        % enforce start/stop in metadata
-        %NOTICE: this handles the case when data is saved first and the start/stop metadata entries are increased/decreased (trimming the saved data)
-        %NOTICE: this does not handle decreasing/increased the start/stop metadata such that no new data file(s) is created (e.g. when using yearly or global storage_period)
-        s_out=structs.objmethod('trim',s_out,obj.data_edges(product,'start'),obj.data_edges(product,'stop'));
-        %TEMPORARY: enforce proper gravity object labels
-        gravitylabelfix=false;
-        if isstruct(s_out)
-          fl=structs.field_list(s_out);
-          for i=1:numel(fl)
-            fv=structs.get_value(s_out,fl{i});
-            if isa(fv,'gravity')
-              [fv,r]=fv.setlabels;
-              if r; s_out=structs.set_value(s_out,fl{i},fv);gravitylabelfix=true; end
-            end
-          end
+      %loop over all files
+      for f=1:numel(file_list)
+        %load data in this file
+        load(file_list{f},'s');
+        if f==1
+          %move to cumulative variable
+          s_out=s;
         else
-          if isa(s_out,'gravity')
-            [s_out,gravitylabelfix]=s_out.setlabels;
+          %%append to cumulative data
+          if isstruct(s_out)
+            %do that for all fields in this structure
+            s_out=structs.objmethod2('append',s_out,s);
+          else
+            %simple call
+            s_out=s_out.append(s);
           end
         end
-        % save the data in the object
-        obj=obj.data_set(product,s_out);
-        %TEMPORARY: enforce proper gravity object labels
-        if gravitylabelfix; obj.save(product); end
-        % update start/stop
-        obj=obj.startstop_retrieve_update(product);
-%       end
+        %get start/stop lists
+        [startlist,stoplist]=obj.startstop_list(s_out);
+        % debug output
+        start_now=obj.start_criteria(startlist);
+        stop_now =obj.stop_criteria( stoplist );
+        nr_gaps  =max(cells.c2m(obj.overload_struct(s_out,'nr_gaps')));
+        [~,file_now,e]=fileparts(file_list{f});
+        obj.log(['loaded file ',num2str(f),' '],[' ',file_now,e],'cum start',start_now,'cum stop',stop_now,'gaps',nr_gaps)
+      end
+      % enforce start/stop in metadata
+      %NOTICE: this handles the case when data is saved first and the start/stop metadata entries are increased/decreased (trimming the saved data)
+      %NOTICE: this does not handle decreasing/increased the start/stop metadata such that no new data file(s) is created (e.g. when using yearly or global storage_period)
+      s_out=structs.objmethod('trim',s_out,obj.data_edges(product,'start'),obj.data_edges(product,'stop'));
+      %TEMPORARY: enforce proper gravity object labels
+      gravitylabelfix=false;
+      if isstruct(s_out)
+        fl=structs.field_list(s_out);
+        for i=1:numel(fl)
+          fv=structs.get_value(s_out,fl{i});
+          if isa(fv,'gravity')
+            [fv,r]=fv.setlabels;
+            if r; s_out=structs.set_value(s_out,fl{i},fv);gravitylabelfix=true; end
+          end
+        end
+      else
+        if isa(s_out,'gravity')
+          [s_out,gravitylabelfix]=s_out.setlabels;
+        end
+      end
+      % save the data in the object
+      obj=obj.data_set(product,s_out);
+      %TEMPORARY: enforce proper gravity object labels
+      if gravitylabelfix; obj.save(product); end
+      % update start/stop
+      obj=obj.startstop_retrieve_update(product);
       % debug output
       success=true;
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
