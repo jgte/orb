@@ -17,9 +17,9 @@ plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common 
 #plotting
 plot_xdateformat: yy/mm
 plot_outlier: 0
-plot_legend_suppress: [GSWARM,V01,V02,V03]
+plot_legend_suppress: [SH,GSWARM,V01,V02,V03]
 plot_title_suppress:  [SH,GSWARM,V01,V02,V03]
-plot_legend_replace: [SH RL06 CSR PD TS,model,ASU IFG,ASU,OSU AIUB,OSU]
+plot_legend_replace: [diff w.r.t. GRACE SH RL06 CSR PD TS,'',SH RL06 CSR PD TS,model,ASU IFG,ASU,OSU AIUB,OSU]
 plot_title_replace:  [RL06 CSR PD TS,model,ASU IFG,ASU,OSU AIUB,OSU]
 plot_functional: eqwh
 plot_std_caxis: [0,0.01]
