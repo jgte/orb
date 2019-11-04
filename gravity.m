@@ -745,13 +745,17 @@ classdef gravity < simpletimeseries
       otherwise
         %call mother routine
         [t,s,e,d]=GetGRACEC20(varargin{:});
-        %create time series
-        out=simpletimeseries(t,[s,e],...
-          'labels',{'C20','error C20'},...
-          'units',{'',''},...
-          'timesystem','gps',...
-          'descriptor',d...
-        );
+        if ~isempty(s)
+          %create time series
+          out=simpletimeseries(t,[s,e],...
+            'labels',{'C20','error C20'},...
+            'units',{'',''},...
+            'timesystem','gps',...
+            'descriptor',d...
+          );
+        else
+          out=t;
+        end
       end
     end
     %% vector operations to make models compatible
@@ -1953,6 +1957,8 @@ classdef gravity < simpletimeseries
     function out=point(obj,lon,lat,h)
       assert(all(size(lat)==size(lon)) && all(size(lon)==size(h)),'all inputs must have the same length')
       assert(isvector(lat),'all inputs must be vectors')
+      %wrap inputs
+      lon=wrapTo360(lon);
       %make room for outputs
       out=zeros(obj.length,numel(lat));
       %determine number of longitude points
@@ -1971,7 +1977,7 @@ classdef gravity < simpletimeseries
           %perform synthesis
           [lon_out,lat_out,tmp]=mod_sh_synth(cs_now(i).C,cs_now(i).S,deg2rad(lat(j)),Nlon);
           %sanity (probably unnecessary)
-          assert(lat(j)==rad2deg(lat_out),'discrepancy in input/output lat')
+          assert(abs(lat(j)-rad2deg(lat_out))<1e-12,'discrepancy in input/output lat')
           %retrieve longitude
           lon_out=rad2deg(lon_out);
           if any(lon_out==lon(j))
@@ -2991,6 +2997,10 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       GetGRACEC20('mode','set','version',v.version,'data_dir',v.data_dir);
     end
     [t,s,e,d]=GetGRACEC20('mode','get');
+  case 'reload'
+    %refresh data
+    GetGRACEC20('mode','set','version',v.version,'data_dir',v.data_dir);
+    [t,s,e,d]=GetGRACEC20('mode','get');
   case 'plot'
     %NOTICE: this is a low-level plot, without much features
     [t,s,e,d]=GetGRACEC20(varargin{:},'mode','read');
@@ -3022,7 +3032,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     end
 %     str.say('read through ',c,'header lines')
     %read the data
-    dat=textscan(fid,'%7.1f%10.4f%22.13f%8.4f%8.4f','CommentStyle','*');
+    dat=textscan(fid,'%7.1f%10.4f%22.13f%8.4f%8.4f%8.1f%10.4f','CommentStyle','*');
     %close the file
     fclose(fid);
     % outputs
@@ -3032,8 +3042,10 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     e=dat{5}*1e-10;
   case 'set'
     fid=file.open(v.file,'w+');
-    fprintf(fid,'%s',urlread(v.url));
+    t=webread(v.url);
+    fprintf(fid,'%s',t);
     fclose(fid);
+    s=[];e=[];d=[];
   otherwise
     error([mfilename,': unknown mode ''',v.mode,'''.'])
   end
