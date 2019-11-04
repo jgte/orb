@@ -700,7 +700,7 @@ classdef file
       if ~exist('n','var') || isempty(n)
         n=1;
       end
-      path=file.wildcard(path,'disp',false,'scalar_as_strings',true);
+      path=file.resolve_wildcards(path,'disp',false,'scalar_as_strings',true);
       switch exist(path,'dir')
       case 2
         path=fileparts(path);
