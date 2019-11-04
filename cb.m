@@ -117,7 +117,7 @@ classdef cb
           colormap(new)
       end
     end
-    function cm=nan(axis_handle,color)
+    function cm=nan(color)
       % PLOT_COLORBAR_NAN(COLOR) sets the NaN's in the current figure to be of the
       % specified color. COLOR can be either a color character or an RGB triplet.
       %
@@ -134,9 +134,6 @@ classdef cb
           % default color is white
           color = [ 1 1 1 ];
       end
-      if ~exist('axis_handle','var') || isempty(axis_handle)
-          axis_handle = gca;
-      end
       
       % Translate to color if char
       if ischar(color)
@@ -144,8 +141,9 @@ classdef cb
       end
 
       % get the colormap and current axes
-      cm=colormap(axis_handle);
-      ca=caxis(axis_handle);
+      %NOTICE: do not give any argument to colormap, this only works in gca
+      cm=colormap;
+      ca=caxis(gca);
 
       % get the step size of the colorbar
       dc=diff(ca)/length(cm);
@@ -157,8 +155,8 @@ classdef cb
       cm = [ color ; cm ];
 
       % apply new colormap and color axis
-      colormap(axis_handle,cm);
-      caxis(axis_handle,ca);
+      colormap(gca,cm);
+      caxis(gca,ca);
     end
     function new=manual(domain,old)
       %sets the <old> colormap (if ignored, the current one is considered) to be
