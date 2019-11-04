@@ -69,7 +69,7 @@ classdef num
         end
       end
     end
-    %NOTICE: the use of delta may look redundant but linspace is not very accurate and introduces small variations
+    %NOTICE: this may look redundant but Matlab's linspace is not very accurate and introduces small errors
     function out=linspace(l,u,n)
       out=l:(u-l)/(n-1):u;
       assert(num.ishomogeneous(out),...
@@ -97,7 +97,28 @@ classdef num
     function M=diff_coeffs(dt,xpoints,nderiv)
       n=length(xpoints);
       i=0:n-1;
-      M=inv((xpoints(:)*ones(1,n)).^(ones(n,1)*i).*(dt*ones(n)).^(ones(n,1)*i)).*(factorial(0:n-1)'*ones(1,n));
+      w=warning('error','MATLAB:nearlySingularMatrix'); %#ok<NASGU,CTPCT>
+      try 
+        M=inv((xpoints(:)*ones(1,n)).^(ones(n,1)*i).*(dt*ones(n)).^(ones(n,1)*i)).*(factorial(0:n-1)'*ones(1,n));
+      catch ME
+        switch ME.identifier
+        case 'MATLAB:nearlySingularMatrix'
+          %reduce number of points
+          if abs(xpoints(1))>=abs(xpoints(end))
+            xpoints_new=xpoints(2:end);
+          else
+            xpoints_new=xpoints(1:end-1);
+          end
+          assert(numel(xpoints_new)>nderiv,'When trying to fix nearly singular matrix issue, ended up removing too many xpoints')
+%           warning(['Using xpoints = [',strjoin(cellfun(@num2str,cells.m2c(xpoints),'Uniform',false),' '),'] for the ',...
+%             str.th(nderiv),' derivative leads to nearly singular matrix; trying the following xpoints = [',...
+%             strjoin(cellfun(@num2str,cells.m2c(xpoints_new),'Uniform',false),' '),']'])
+           M=num.diff_coeffs(dt,xpoints_new,nderiv);
+        otherwise
+          error(['Cannot handle error ', ME.identifier,'; DEBUG NEEDED!'])
+        end
+        return
+      end
       %negative sign needed here.
       M=M(nderiv+1,:)*(-1)^nderiv;
     end
@@ -257,6 +278,7 @@ classdef num
       end
       assert(nderiv <= npoints,['cannot calculate the ',num2str(nderiv),'-th derivative with only ',num2str(npoints),' points.'])
       nf=size(f,2);
+      assert(nf>=npoints,['cannot use ',num2str(npoints),' points stencil with data with only ',num2str(nf),' points'])
       %compute derivative
       df=num.conv(f,num.diff_coeffs(dt,dpoints,nderiv));
       %find edges
@@ -297,6 +319,107 @@ classdef num
           end
         end
       end
+    end
+    function out=zeros(in)
+      %also handes symbolic zeros
+      switch class(in)
+      case 'sym';   out=sym(zeros(size(in)));
+      otherwise;    out=    zeros(size(in));
+      end
+    end
+    function out=triu(in)
+      switch ndims(in)
+      case 1
+        %this shouldn't happen, because matlab:
+        %ndims([])=2
+        %ndims(0)=2
+        %ndims(ones(1,1))=2
+        %ndims(ones(1,2))=2
+        %ndims(ones(2,1))=2
+        %ndims(ones(1,1,1))=2
+        %ndims(ones(1,1,2))=3
+      case 2
+        if isvector(in)
+          out=in;
+        else
+          out=triu(in);
+        end
+      case 3
+        out=num.zeros(in);
+        nk=size(in,3);
+        for k=1:nk
+          out(k:end,k:end,k)=num.triu(in(k:end,k:end,k));
+        end
+      otherwise
+        error(['Cannot handle matrices with ',num2str(ndims(in)),' dimensions: implementation needed'])
+      end
+    end
+    function out=symmetricidx(in)
+      switch ndims(in)
+      case 2
+        if isvector(in)
+          %trivial call, no symmetry
+          out=reshape(1:numel(in),size(in));
+          return
+        else
+          n1=size(in,1);
+          n2=size(in,2);
+          ci=cell(n1,n2);
+          s1=str.characters(1:n1);
+          s2=str.characters(1:n2);
+          for i=1:n1
+            for j=1:n2
+              ci{i,j}=[s1(i),s2(j)];
+            end
+          end
+        end
+      case 3  
+        n1=size(in,1);
+        n2=size(in,2);
+        n3=size(in,3);
+        ci=cell(n1,n2,3);
+        s1=str.characters(1:n1);
+        s2=str.characters(1:n2);
+        s3=str.characters(1:n3);
+        for i=1:n1
+          for j=1:n2
+            for k=1:n3
+              ci{i,j,k}=[s1(i),s2(j),s3(k)];
+            end
+          end
+        end
+      end
+      out=num.zeros(ci);
+      ci=cellfun(@sort,ci,'UniformOutput',false);
+      done=false(size(ci));
+      for i=1:numel(ci)
+        if done(i), continue, end
+        same_idx=strfind(ci,ci{i});
+        same_idx=cellfun(@(i) ~isempty(i),same_idx);
+        out(same_idx)=i;
+        done(same_idx)=true;
+      end
+    end
+    function out=makesymmetric(in)
+      idx=num.symmetricidx(in);
+      out=num.zeros(in);
+      for i=1:numel(in)
+        out(i)=in(idx(i));
+      end
+    end
+    function out=issymmetric(in)
+      idx=num.symmetricidx(in);
+      idx_flat=unique(idx(:));
+      for i=1:numel(idx_flat)
+        f=(idx==idx_flat(i));
+        if sum(f)==1, continue, end
+        fv=in(f);
+        if ~all(fv==fv(1))
+          out=false;
+          return
+        end
+      end
+      out=true;
     end
     %% pardecomp stuff (deprecated)
     function plot_pardecomp(pd_struct)
@@ -781,5 +904,106 @@ classdef num
         end
       end
     end
-  end
+    %% symbolic stuff
+    function [common,map,pow]=factorize(expr)
+      %NOTE: expr = (map*comm).^pow
+      %gather factors
+      fact=cell(size(expr));
+      for i=1:numel(expr)
+        fact{i}=factor(expr(i));
+      end
+      %get common factors
+      common=unique([fact{:}]);
+      %get power
+      pow=zeros(numel(expr),numel(common));
+      for i=1:numel(expr)
+        for j=1:numel(common)
+          for l=1:numel(fact{i})
+            if isequal(fact{i}(l),common(j))
+              pow(i,j)=pow(i,j)+1;
+            end
+          end
+        end
+      end
+      %get mapping of common factors
+      map=(pow~=0);
+    end
+    %NOTE: exact inverse operation to factorize
+    function expr=defactorize(common,map,pow)
+      expr=(map*common).^pow;
+    end
+    function out=matvecmul(expr,var)
+      %NOTE: expr=out*var (matrix multiplication)
+      out=sym(zeros(size(expr)));
+      %loop through the expressions
+      for i=1:numel(expr)
+        for j=1:numel(var)
+          out(i,j)=diff(expr(i),var(j));
+        end
+      end
+    end
+    % Christoffel Symbol of the Second Kind: Lambda^m_{i,j}
+    % http://mathworld.wolfram.com/ChristoffelSymboloftheSecondKind.html
+    function out=cs2k(g,u,m,invg)
+      n=numel(u);
+      %this is only used internally to avoid re-computing the inverse when the full tensor is requested
+      if ~exist('invg','var') || isempty(invg)
+        invg=inv(g);
+      end
+      if ~exist('m','var') || isempty(m)
+        %full tensor requested, loop over m
+        out=sym(zeros(n,n,n));
+        for m=1:n
+          out(:,:,m)=num.cs2k(g,u,m,invg);
+        end
+      else
+        out=sym(zeros(n));
+        for i=1:n
+          for j=1:n
+            for k=1:n
+              out(i,j)=out(i,j)+invg(k,m)*(diff(g(i,k),u(j))+diff(g(j,k),u(i))-diff(g(i,j),u(k)));
+            end
+          end
+        end
+        out=simplify(0.5*out);
+      end
+    end
+    function out=latex_def(name,value,repstr,transpose_flag)
+      %NOTE: defined a latex macro called <name> with the latex string of the symbolic expression <value>
+      %NOTE: <repstr> is the replacement string cell array that defines how matlab's latex command is fine-tuned
+      if exist('transpose_flag','var') && ~isempty(transpose_flag) && transpose_flag
+        value=[latex(transpose(value)),'^T'];
+      else
+        value=latex(value);
+      end
+      if exist('repstr','var') && ~isempty(repstr)
+        value=str.rep(['$',value,'$'],repstr{:});
+      end
+      out=['\def\',name,'{',value,'}'];
+    end
+    function out=dydx(y,x,Y)
+      %NOTE: derivatives on the symbol in 'Y' are taken implicitly, i.e. dY/dx=Y_x
+      %INFO: a 3D tensor of second order can be reprenented as:
+      %  syms x y z V; reshape(num.dydx(num.dydx(V,[x;y;z],V),[x;y;z],V),3,3)
+      assert(strcmp(class(y),'sym') && strcmp(class(x),'sym'),'Need symbolics') %#ok<STISA>
+      if ~exist('Y','var')
+        %patch something that will fail the contains test
+        Y=sym(str.rand(numel(char(y))));
+      end
+      if isscalar(x) && isscalar(y)
+        if contains(char(y),char(Y)) 
+          out=sym([char(y),char(x)]);
+        else
+          out=diff(y,x);
+        end
+      elseif isscalar(y)
+        out=cells.c2m(arrayfun(@(i) num.dydx(y,i,Y),x(:),'UniformOutput',false));
+      elseif isscalar(x)
+        out=cells.c2m(arrayfun(@(i) num.dydx(i,x,Y),y(:),'UniformOutput',false));
+      else
+        [XM,YM]=meshgrid(transpose(y(:)),x(:));
+        out=cells.c2m(arrayfun(@(i,j) num.dydx(i,j,Y),XM(:),YM(:),'UniformOutput',false));
+      end
+    end
+  end 
 end
