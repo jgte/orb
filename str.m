@@ -11,6 +11,11 @@ classdef str
 '\varpi','\0','\rceil','\rangle','\mid','\vee','\langle','\copyright'....
   };
   latex_chars={'{','}'};
+  ascii=struct(...
+    'digit',struct('start', 48,'stop',  57),...
+    'upper',struct('start', 65,'stop' , 90),...
+    'lower',struct('start', 97,'stop' ,122) ...
+  );
   end
   methods(Static)
     function test
@@ -45,18 +50,24 @@ classdef str
       end
       switch lower(mode)
         case {'u','upper','caps'}
-          ascii_start=65;
-          ascii_stop=90;
+          ascii_start=str.ascii.upper.start;
+          ascii_stop= str.ascii.upper.stop;
         case {'l','lower','noncaps'}
-          ascii_start=97;
-          ascii_stop=122;
+          ascii_start=str.ascii.lower.start;
+          ascii_stop= str.ascii.lower.stop;
         case {'n','numeric'}
-          ascii_start=48;
-          ascii_stop=57;
+          ascii_start=str.ascii.digit.start;
+          ascii_stop= str.ascii.digit.stop;
         otherwise
           error([mfilename,': unknown mode ''',mode,'''.'])
       end
       out=char(floor((ascii_stop-ascii_start)*rand(l,n)) + ascii_start);
+    end
+    function out=characters(idx)
+      map=[str.ascii.upper.start:str.ascii.upper.stop,str.ascii.lower.start:str.ascii.lower.stop];
+      assert(all(idx<=numel(map)),...
+        ['Input ''idx'' cannot have any entry larger than ',num2str(numel(map))])
+      out=char(map(idx));
     end
     function out=show(in,fmt,join_char)
       %trivial call
@@ -127,8 +138,12 @@ classdef str
         try
           out=in.str;
         catch
-          out=['obj of class ''',class(in),'''.'];
-%           error([mfilename,': class ''',class(in),''' is not supported.'])
+          try 
+            out=char(in);
+          catch
+            out=['obj of class ''',class(in),'''.'];
+  %           error([mfilename,': class ''',class(in),''' is not supported.'])
+          end
         end
       end
     end
