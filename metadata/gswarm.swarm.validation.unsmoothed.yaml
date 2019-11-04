@@ -1,6 +1,14 @@
 method: gswarm.plot_stats
-model_types: [signal,error]
 submetadata: gswarm.swarm.validation.submetadata
+sources: [
+  gracefo.sh.rl06.csr.pd.ts,
+  swarm.sh.gswarm.rl01,
+  # gswarm.swarm.aiub.aiub.v01,
+  # gswarm.swarm.asu.ifg.v02,
+  # gswarm.swarm.ifg.ifg.v03,
+  # gswarm.swarm.osu.aiub.v02,
+  gracefo.sh.rl06.csr,
+]
 
 #plot_ops
 plot_min_degree: 2
@@ -14,7 +22,7 @@ plot_temp_stat_list: [corrcoeff,rms] #[corrcoeff,rms,std]
 #plot_temp_stat_title: <something>
 
 #plot_spatial_stats
-plot_derived_quantity: cumdrms
+plot_derived_quantity: [cumdas]
 plot_type: line
 plot_spatial_stat_list: [diff] #[monthly]
 plot_monthly_error: true

@@ -1,6 +1,14 @@
 method: gswarm.plot_catchments
-model_types: [signal]
 submetadata: gswarm.swarm.validation.submetadata
+sources: [
+  gracefo.sh.rl06.csr.pd.ts,
+  swarm.sh.gswarm.rl01,
+  # gswarm.swarm.aiub.aiub.v01,
+  # gswarm.swarm.asu.ifg.v02,
+  # gswarm.swarm.ifg.ifg.v03,
+  # gswarm.swarm.osu.aiub.v02,
+  gracefo.sh.rl06.csr,
+]
 
 #plot_ops
 plot_max_degree: 20
