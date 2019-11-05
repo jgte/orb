@@ -713,21 +713,32 @@ classdef plotting
           end
           caxis(ca);
         end
-        %get list of options for the colormap
-        clist={'opt','zero'};
-        %determine if any option is being used
-        cuse=cellfun(@(i) str.contains(v.plot_colormap,i),clist);
-        %clean the colormap of options
-        if any(cuse); v.plot_colormap=str.clean(v.plot_colormap,clist(cuse)); end
-        %get the requested colormap
-        out.colormap=eval([v.plot_colormap,'(1000)']);
+        if ischar(v.plot_colormap)
+          %get list of options for the colormap: these can be added to the names of generic colormaps, e.g.:
+          % 'jetzero', 'optbone'
+          clist={'opt','zero'};
+          %determine if any option is being used
+          cuse=cellfun(@(i) str.contains(v.plot_colormap,i),clist);
+          %clean the colormap of options
+          if any(cuse); v.plot_colormap=str.clean(v.plot_colormap,clist(cuse)); end
+          %get the requested colormap
+          out.colormap=eval([v.plot_colormap,'(1000)']);
+        else
+          %any fine-tuned colormap will be distorted by the caxis command above
+          if any(isfinite(v.plot_caxis))
+            disp('WARNING: numeric plot_colormap doesn''t play well with plot_caxis for non-generic colormaps; for generic ones, you might as well pass the colormap names');
+          end
+          clist={'unknown'};
+          cuse=false;
+          out.colormap=v.plot_colormap;
+        end
         %apply options
         for c=1:numel(clist)
           if ~cuse(c); continue; end
           switch clist{c}
-          case 'opt';  
+          case 'opt'
             out.colormap=cb.opt(out.colormap,out.axis_handle);
-          case 'zero'; 
+          case 'zero' 
             clim=caxis;
             if clim(1)<0 && clim(2)>0; czero=0;
             elseif all(clim<=0);        czero=max(clim);
