@@ -583,7 +583,7 @@ classdef gravity < simpletimeseries
       p.addRequired( 'dirname',     @(i) ischar(i));
       p.addRequired( 'format',      @(i) ischar(i));
       p.addRequired( 'date_parser', @(i) isa(i,'function_handle'));
-      p.addParameter('wilcarded_filename',['*.',format], @(i) ischar(i))
+      p.addParameter('wildcarded_filename',['*.',format], @(i) ischar(i))
       p.addParameter('descriptor',        'unknown',     @(i) ischar(i))
       %NOTICE: start/stop is only used to avoid loading models outside a certain time range
       p.addParameter('start', [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i))); 
@@ -591,7 +591,7 @@ classdef gravity < simpletimeseries
       p.addParameter('overwrite_common_t',  false, @(i) islogical(i));
       p.parse(dirname,format,date_parser,varargin{:})
       %retrieve all gsm files in the specified dir
-      filelist=cells.scalar(file.unwrap(fullfile(dirname,p.Results.wilcarded_filename)),'set');
+      filelist=cells.scalar(file.unwrap(fullfile(dirname,p.Results.wildcarded_filename)),'set');
       assert(~isempty(filelist{1}),['Need valid dir, not ''',fileparts(filelist{1}),'''.'])
       %this counter is needed to report the duplicate models correctly
       c=0;init_flag=true;
@@ -639,12 +639,14 @@ classdef gravity < simpletimeseries
               c=c+1; continue
             end              
           end
-          %ensure R and GM are compatible
+          %ensure R and GM are compatible append to output objects
           m1=m1.scale(m);
-          e1=e1.scale(e);
-          %append to output objects
           m=m.append(m1.set_lmax(m.lmax),p.Results.overwrite_common_t);
-          e=e.append(e1.set_lmax(e.lmax),p.Results.overwrite_common_t);
+          %same for error models, if there
+          if ~isempty(e1)
+            e1=e1.scale(e);
+            e=e.append(e1.set_lmax(e.lmax),p.Results.overwrite_common_t);
+          end
         end
       end
       %fix some parameters
@@ -919,13 +921,13 @@ classdef gravity < simpletimeseries
       p=inputParser; p.KeepUnmatched=true;
       p.addParameter('datadir',fullfile(getenv('HOME'),'data','csr','RL05'),@(i) ischar(i) && exist(i,'dir')~=0)
       p.parse(varargin{:})
-      [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wilcarded_filename','*.GEO.*',varargin{:});
+      [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wildcarded_filename','*.GEO.*',varargin{:});
     end
     function [m,e]=CSR_RL05_Mascons(varargin)
       p=inputParser; p.KeepUnmatched=true;
       p.addParameter('datadir',fullfile(getenv('HOME'),'data','csr','mascons'),@(i) ischar(i) && exist(i,'dir')~=0)
       p.parse(varargin{:})
-      [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wilcarded_filename','*.GEO',varargin{:});
+      [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wildcarded_filename','*.GEO',varargin{:});
     end
     function [m,e]=ggm05g(datafile)
       if ~exist('datafile','var') || isempty(datafile)
