@@ -2234,6 +2234,8 @@ classdef gravity < simpletimeseries
         'functional',obj.funct,@(i) ischar(i);...
         'time',      [],       @(i) simpletimeseries.valid_t(i) || isempty(i);...
         'colormap',  '',       @(i) ischar(i) || ismatrix(i);...
+        'degrees',[2,3],       @(i) isnumeric(i);...
+        'orders', [0,0],       @(i) isnumeric(i);...
       }},varargin{:}); 
       % enforce requested functional
       if ~strcmpi(obj.funct,v.functional)
@@ -2251,7 +2253,7 @@ classdef gravity < simpletimeseries
       switch lower(v.method)
       case 'timeseries'
         %call superclass
-        out=plot@simpletimeseries(obj,varargin{:});
+        out=plot@simpletimeseries(obj,'columns',gravity.colidx(v.degrees,v.orders,obj.lmax),varargin{:});
       case {'cumdmean-timeseries','cumdrms-timeseries','cumdstd-timeseries','cumdas-timeseries'}
         %compute cumdrms for all epochs
         out=obj.(strrep(v.method,'-timeseries','')).plot(varargin{:});
