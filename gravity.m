@@ -1554,6 +1554,10 @@ classdef gravity < simpletimeseries
       if numel(values)==1
         values=values*ones(numel(time),numel(d));
       end
+      %interpolate over time if needed
+      if ~obj.istequal(time)
+        values=interp1(time,values.obj.t_masked);
+      end
       %retrieve matrix form
       mat_now=obj.mat;
       %get indexes of the cosine-coefficients
