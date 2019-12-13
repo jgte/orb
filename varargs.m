@@ -509,8 +509,6 @@ classdef varargs < dynamicprops
         ['Cannot renamed parameter ''',old_name,''' to ''',new_name,''' because the former does not exist.'])
       assert(~obj.isparameter(new_name),...
         ['Cannot renamed parameter ''',old_name,''' to ''',new_name,''' because the latter already exists.'])
-      assert(obj.isparameter(old_name),...
-        ['Cannot renamed parameter ''',old_name,''' to ''',new_name,''' because the former does not exist.'])
       S_now=obj.get(old_name);
       obj=obj.delete({old_name});
       S_now.name=new_name;
