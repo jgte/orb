@@ -818,33 +818,37 @@ classdef datastorage
         start_now=obj.start_criteria(startlist);
         stop_now =obj.stop_criteria( stoplist );
         nr_gaps  =max(cells.c2m(obj.overload_struct(s_out,'nr_gaps')));
+        nr_data  =min(cells.c2m(obj.overload_struct(s_out,'length')));
         [~,file_now,e]=fileparts(file_list{f});
-        obj.log(['loaded file ',num2str(f),' '],[' ',file_now,e],'cum start',start_now,'cum stop',stop_now,'gaps',nr_gaps)
+        obj.log(['loaded file ',num2str(f),' '],[' ',file_now,e],...
+          'cdate',file.datestr(file_list{f}),...
+          'cum start',start_now,'cum stop',stop_now,...
+          'gaps',nr_gaps,'len',nr_data)
       end
       % enforce start/stop in metadata
       %NOTICE: this handles the case when data is saved first and the start/stop metadata entries are increased/decreased (trimming the saved data)
       %NOTICE: this does not handle decreasing/increased the start/stop metadata such that no new data file(s) is created (e.g. when using yearly or global storage_period)
       s_out=structs.objmethod('trim',s_out,obj.data_edges(product,'start'),obj.data_edges(product,'stop'));
-      %TEMPORARY: enforce proper gravity object labels
-      gravitylabelfix=false;
-      if isstruct(s_out)
-        fl=structs.field_list(s_out);
-        for i=1:numel(fl)
-          fv=structs.get_value(s_out,fl{i});
-          if isa(fv,'gravity')
-            [fv,r]=fv.setlabels;
-            if r; s_out=structs.set_value(s_out,fl{i},fv);gravitylabelfix=true; end
-          end
-        end
-      else
-        if isa(s_out,'gravity')
-          [s_out,gravitylabelfix]=s_out.setlabels;
-        end
-      end
+%       %TEMPORARY: enforce proper gravity object labels
+%       gravitylabelfix=false;
+%       if isstruct(s_out)
+%         fl=structs.field_list(s_out);
+%         for i=1:numel(fl)
+%           fv=structs.get_value(s_out,fl{i});
+%           if isa(fv,'gravity')
+%             [fv,r]=fv.setlabels;
+%             if r; s_out=structs.set_value(s_out,fl{i},fv);gravitylabelfix=true; end
+%           end
+%         end
+%       else
+%         if isa(s_out,'gravity')
+%           [s_out,gravitylabelfix]=s_out.setlabels;
+%         end
+%       end
       % save the data in the object
       obj=obj.data_set(product,s_out);
-      %TEMPORARY: enforce proper gravity object labels
-      if gravitylabelfix; obj.save(product); end
+%       %TEMPORARY: enforce proper gravity object labels
+%       if gravitylabelfix; obj.save(product); end
       % update start/stop
       obj=obj.startstop_retrieve_update(product);
       % debug output
