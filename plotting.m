@@ -718,7 +718,7 @@ classdef plotting
           end
           caxis(ca);
         end
-        if ischar(v.plot_colormap)
+        if ischar(v.plot_colormap) && ~isempty(v.plot_colormap)
           %get list of options for the colormap: these can be added to the names of generic colormaps, e.g.:
           % 'jetzero', 'optbone'
           clist={'opt','zero'};
@@ -735,7 +735,12 @@ classdef plotting
           end
           clist={'unknown'};
           cuse=false;
-          out.colormap=v.plot_colormap;
+          %fallback to a defaule
+          if isempty(v.plot_colormap)
+            out.colormap='jet';
+          else
+            out.colormap=v.plot_colormap;
+          end
         end
         %apply options
         for c=1:numel(clist)
