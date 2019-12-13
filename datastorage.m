@@ -1519,7 +1519,7 @@ classdef datastorage
       %plot filename
       filename=dn.file(filename_args{:});
       % check if plot is already there
-      if isempty(dir(filename))
+      if ~file.exist(filename)
         plotting.figure(v.varargin{:});
         %retrive data names to be plotted here
         out=obj.justplot(dn,v.varargin{:});
@@ -1578,7 +1578,7 @@ classdef datastorage
         %plot filename
         filename=product.dataname.file(filename_args{:});
         % check if plot is already there
-        if isempty(dir(filename))
+        if ~file.exist(filename)
           plotting.figure(v.varargin{:});
           out{i}.filename=filename;
           %inites
@@ -1968,7 +1968,7 @@ classdef datastorage
         }];
         %plot filename
         filename=dn.file(filename_args{:});
-        if isempty(dir(filename))
+        if ~file.exist(filename)
           %make sure there is data
           if any(cell2mat(obj.vector_method_tr('all','nr_valid'))>1)
             %plot it

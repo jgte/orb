@@ -442,7 +442,7 @@ classdef simpletimeseries < simpledata
       [d,f,format]=fileparts(filename);
       %check if mat file is available
       datafile=fullfile(d,[f,'.mat']);
-      if ~isempty(dir(datafile))
+      if file.exist(datafile)
         load(datafile)
         %sanity on the loaded data
         if ~exist('obj','var')
@@ -864,7 +864,7 @@ classdef simpletimeseries < simpledata
       %delete uncompressed file if compressed file is there
       if p.Results.del_arch
         for i={'.z','.zip','.tgz','.gz','.tar','.gzip'}
-          if ~isempty(dir(fullfile(d,[f,i{1}])))
+          if file.exist(fullfile(d,[f,i{1}]))
             delete(filename)
             disp(['Deleted uncompressed file ''',in,'''.'])
           end

@@ -16,7 +16,7 @@ classdef nrtdm_product
   end
   methods(Static)
     function test
-      if isempty(dir(nrtdm.config_dir))
+      if exist(nrtdm.config_dir,'dir')
         disp([mfilename,':WARNING: cannot find NRTDM config dir: ',nrtdm.config_dir,'. Skipping test.'])
         return
       end
