@@ -1,6 +1,6 @@
 import_dir: <getenv('HOME')>/data/csr/mascons/RL06-climat
 model_types: [signal]
-wilcarded_filename: '*_mascongeo_RL06eq200km.GEO.wMJD'
+wildcarded_filename: '*_mascongeo_RL06eq200km.GEO.wMJD'
 model_format: csr
 date_parser: gravity.parse_epoch_csr
 storage_period: yearly

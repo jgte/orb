@@ -10,7 +10,7 @@ f0z000h53,
 f0z000h73,
 f0z000h93,
 ]
-wilcarded_filename: '*.GEO.*'
+wildcarded_filename: '*.GEO.*'
 model_format: csr
 date_parser: gravity.parse_epoch_csr
 method:  gswarm.load_project_models
