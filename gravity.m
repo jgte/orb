@@ -663,47 +663,95 @@ classdef gravity < simpletimeseries
           'time',        [], @(i) isdatetime(i) || isempty(i);...
           'mode',    'read', @ischar;...
           'descriptor',  '', @ischar;...
-          'version','TN-11', @ischar;...
+          'version','TN-11', @(i) ischar(i) || iscellstr(i);...
+          'start',time.zero_date, @isdatetime;...
+          'stop',  time.inf_date, @isdatetime;...
+          'C20mean',-4.8416945732000E-04, @isscalar;...
         },...
       },varargin{:});
       switch v.mode
-      case 'model-compute'
-        c20=gravity.graceC20('mode','read');
-        [~,pd]=c20.parametric_decomposition_search('np',2,'T',[365.2426,182.6213],'timescale','days');
-        out=pd.T;
-        %build strings to save to file
-        h=strsplit(c20.descriptor,newline);
-        s=strjoin([...
-            cellfun(@(i) ['%',i],h(:),'UniformOutput',false);...
-            {'out=[...'};...
-            arrayfun(@(i) ['  ',num2str(i,'%.12e'),';...'],out(:),'UniformOutput',false);...
-            {'];'};...
-          ],newline);
-        f=str.rep(GetGRACEC20(varargin{:},'mode','data_file'),'.txt','_periods.m','-','_');
-        b=file.strsave(f,s);
-        str.say('Written',b,'bytes of data to file:',newline,f,newline,'related to the periods of:',newline,c20.descriptor);
-      case 'model-periods'
-        out=GRACEC20_periods(v.version,v.descriptor);
+      case 'C20mean';
+        out=v.C20mean; 
       case 'model-poly'
         out=2;
+      case 'model-periods-datfile'
+        [p,n]=fileparts(GetGRACEC20('mode','data_file','version',v.version));
+        out=fullfile(p,[n,'_periods.mat']);
+      case {'model-compute','model-periods'}
+        %get data file
+        f=gravity.graceC20(varargin{:},'mode','model-periods-datfile');
+        %check if periods were already computed
+        if ~file.exist(f)
+          %loading necessary data
+          c20=gravity.graceC20(varargin{:},'mode','read');
+           np=gravity.graceC20(varargin{:},'mode','model-poly');
+          %compute periods
+          [~,pd]=c20.parametric_decomposition_search('np',np,'T',[365.2426,182.6213],'timescale','days');
+          out=pd.T;
+          %save periods
+          save(f,'out');
+        else
+          %load periods
+          load(f,'out');
+        end
+%         %build strings to save to file
+%         h=strsplit(c20.descriptor,newline);
+%         s=strjoin([...
+%             cellfun(@(i) ['%',i],h(:),'UniformOutput',false);...
+%             {'out=[...'};...
+%             arrayfun(@(i) ['  ',num2str(i,'%.12e'),';...'],out(:),'UniformOutput',false);...
+%             {'];'};...
+%           ],newline);
+%         f=gravity.graceC20(varargin{:},'mode','model-periods-datfile');
+%         b=file.strsave(f,s);
+%         str.say('Written',b,'bytes of data to file:',newline,f,newline,'related to the periods of:',newline,c20.descriptor);
+      case 'model-datfile'
+        [p,n]=fileparts(GetGRACEC20('mode','data_file','version',v.version));
+        out=fullfile(p,[n,'_pd.mat']);
       case 'model'
-        assert(~isempty(v.time),['If mode is ''',v.mode,''', need argument ''time''.'])
-        %this loads all raw data
+        %loading necessary data
         c20=gravity.graceC20(varargin{:},'mode','read');
-        np=gravity.graceC20('mode','model-poly');
-        T=gravity.graceC20('mode','model-periods','descriptor',c20.descriptor);
-        %this does split of all raw data and join to v.time
-        out=c20.parametric_decomposition('np',np,'T',T,'timescale','days','time',v.time);
-      case 'model-list'
-        %this loads all raw data
-        c20=gravity.graceC20(varargin{:},'mode','read');
-        np=gravity.graceC20('mode','model-poly');
-        T=gravity.graceC20('mode','model-periods','descriptor',c20.descriptor);
-        %get the coefficients
-        [~,pd_set]=c20.parametric_decomposition('np',np,'T',T,...
-          'timescale','days',...
-          'time',datetime('2002-04-01'):days(30):datetime('2017-06-30'));
-        pardecomp.table(pd_set)
+         np=gravity.graceC20(varargin{:},'mode','model-poly');
+          T=gravity.graceC20(varargin{:},'mode','model-periods');
+        %check if pdset is already available
+        f_pdset=gravity.graceC20(varargin{:},'mode','model-list-datfile');
+        f_pd   =gravity.graceC20(varargin{:},'mode','model-datfile');
+        if ~file.exist(f_pdset) || ~file.exist(f_pd) 
+          %get the coefficients; NOTICE: always use c20.t so that f_pdset is not dependent on inputs
+          [out,pd_set]=c20.parametric_decomposition('np',np,'T',T,...
+            'timescale','days','time',c20.t_domain(days(7))); %#ok<ASGLU>
+          %save them
+          save(f_pdset,'pd_set')
+          save(f_pd,      'out')
+        else
+          load(f_pd,      'out')
+        end
+        %handle different time domains
+        if isempty(v.time);      v.time=c20.t; end
+        %implement default start/stop for modelling
+        if time.iszero(v.start); v.start=v.time(1  ); end
+        if time.isinf( v.stop );  v.stop=v.time(end); end
+        %enforce start/stop
+        v.time=v.time(v.time>=v.start & v.time<=v.stop);
+        %interpolate if needed
+        out=out.interp(v.time);
+      case 'model-list-datfile'
+        [p,n]=fileparts(GetGRACEC20('mode','data_file'));
+        out=fullfile(p,[n,'_pdset.mat']);
+      case {'model-list','model-list-tex'}
+        %check if pdset is already available
+        f=gravity.graceC20(varargin{:},'mode','model-list-datfile');
+        if ~file.exist(f)
+          %compute the model (saving is done inside)
+          gravity.graceC20(varargin{:},'mode','model');
+        end
+        %load it
+        load(f,'pd_set')
+        %output it
+        switch v.mode
+          case 'model-list';     out=pardecomp.table(pd_set,'tablify',true); %#ok<NODEF>
+          case 'model-list-tex'; out=pardecomp.table(pd_set,'tablify',false,'latex_table',true); %#ok<NODEF>
+        end       
       case 'model-plot'
         %retrieve the orignal data
         c20o=gravity.graceC20(varargin{:},'mode','read');
@@ -712,7 +760,7 @@ classdef gravity < simpletimeseries
           'interp_over_gaps_narrower_than',days(45),...
           'interp1_args',{'pchip'}...
         );
-        c20m=gravity.graceC20(varargin{:},'mode','model','time',c20r.t);
+        c20m=gravity.graceC20(varargin{:},'mode','model','time',c20o.t_domain(days(7)));
         c20e=c20r-c20m;
         %compute means
         c20om=c20o.stats('mode','mean');
@@ -731,22 +779,73 @@ classdef gravity < simpletimeseries
         c20o.add_expl_gaps(days(35)).plot('columns',1);
         c20m.plot('columns',1);
         c20e.plot('columns',1);
-        plotting.enforce(...
+        plotting.enforce(varargin{:},...
           'plot_legend',...
           {...
             ['Original \mu=',num2str(c20om(1),'%.3e'),' \sigma=',num2str(c20os(1),'%.3e')],...
             ['Modelled \mu=',num2str(c20mm(1),'%.3e'),' \sigma=',num2str(c20ms(1),'%.3e')],...
             ['Residual \mu=',num2str(c20em(1),'%.3e'),' \sigma=',num2str(c20es(1),'%.3e')],...
           },...
+          'plot_xlabel','none',...
           'plot_title',c20o.descriptor...
         );
         out=c20e;
       case 'interp'
         assert(~isempty(v.time),['If mode is ''',v.mode,''', need argument ''time''.'])
-        out=gravity.graceC20(varargin{:},'mode','read').interp(v.time);
+        out=gravity.graceC20(varargin{:},'mode','read');
+        out=out.interp(v.time);
+      case 'plot-all'
+        if iscellstr(v.version)
+          version_list=v.version;
+        else
+          version_list={'GSFC-7day','GSFC','CSR-RL06','TN-14','TN-11','TN-07'};
+        end
+        dat_list=cell(size(version_list));
+        plotting.figure(varargin{:});
+        for i=1:numel(version_list)
+          %pick keywords
+          kw=strsplit(version_list{i},'-');
+          %branch on them (NOTICE: always last)
+          switch kw{end}
+          case 'model'
+            if i>1
+              %NOTICE: to get the model with the most complete time domain, out it last in the 'version' input
+              dat_list{i}=gravity.graceC20('mode','model',...
+                'version',strrep(version_list{i},'-model',''),...
+                'time',time.union(cellfun(@(j) j.t,dat_list(1:i-1),'UniformOutput',false),days(7))...
+              );
+            else
+              dat_list{i}=gravity.graceC20('mode','model',...
+                'version',strrep(version_list{i},'-model','')...
+              );
+            end              
+          otherwise
+            dat_list{i}=gravity.graceC20('mode','read','version',version_list{i});
+            dat_list{i}=dat_list{i}.interp(dat_list{i}.t_domain(days(7)),...
+              'interp_over_gaps_narrower_than',days(45)...
+            );
+          end
+          dat_list{i}=dat_list{i}-v.C20mean;
+          dat_list{i}.plot('columns',1);
+        end
+        plotting.enforce(varargin{:},...
+          'plot_legend',version_list,...
+          'plot_xlabel','none')
+        title(['mean C_{20}: ',num2str(v.C20mean,'%e')]);
+        d=dat_list;
       otherwise
         %call mother routine
-        [t,s,e,d]=GetGRACEC20(varargin{:});
+        try
+          [t,s,e,d]=GetGRACEC20(varargin{:},'mode',v.mode);
+        catch ME
+          switch ME.identifier
+            case 'MATLAB:unassignedOutputs'
+              t=GetGRACEC20(varargin{:},'mode',v.mode);
+              s=[];
+            otherwise
+              rethrow(ME)
+          end
+        end
         if ~isempty(s)
           %create time series
           out=simpletimeseries(t,[s,e],...
@@ -2977,28 +3076,67 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   %parse arguments that are required later
   v=varargs.wrap('sources',{...
     {...
-      'version', 'TN-11', @(i) ischar(i);...
-      'mode',    'read',  @(i) ischar(i);...
+      'version',     'TN-11', @ischar;...
+      'mode',         'read', @ischar;...
+      'start',time.zero_date, @isdatetime;...
+      'stop',  time.inf_date, @isdatetime;...
       'data_dir', gravity.parameters('aux_dir'),  @(i) ischar(i) && exist(i,'dir')~=0;
     },...
   },varargin{:});
+  %some default parameters
+  t_idx=1;
+  s_idx=3;
+  e_idx=5;
+  CommentStyle='*';
+  datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f';
   %parse dependent arguments (can be over-written)
-%       'url',['ftp://podaac.jpl.nasa.gov/allData/grace/docs/',v.version,'_C20_SLR.txt'],             @(i) ischar(i);...
-  v=varargs.wrap('sources',{v,...
-    {...
-      'file',fullfile(v.data_dir,[v.version,'_C20_SLR.txt']),                                       @(i) ischar(i);...
-      'url',['https://podaac-w10n.jpl.nasa.gov/w10n/allData/grace/docs/',v.version,'_C20_SLR.txt'], @(i) ischar(i);...
-    },...
-  },varargin{:});
+  v.version=upper(v.version);
+  switch v.version
+    case 'TN-07'
+      datfil=[v.version,'_C20_SLR.txt'];
+      daturl=['ftp://podaac.jpl.nasa.gov/allData/grace/docs/',datfil]; %NOTICE: this no longer works
+    case 'TN-11'
+      datfil=[v.version,'_C20_SLR.txt'];
+%       daturl=['https://podaac-w10n.jpl.nasa.gov/w10n/allData/grace/docs/',datfil];
+      daturl=['https://podaac-tools.jpl.nasa.gov/drive/files/allData/grace/docs/',datfil];
+      datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
+    case 'CSR-RL06'
+      datfil='C20_RL06.txt';
+      daturl=['http://download.csr.utexas.edu/pub/slr/degree_2/',datfil];
+      datfmt='%10.4f%19.10f%8.4f%8.4f%8.4f%16.4f%16.4f';
+      CommentStyle='#';
+      s_idx=2;
+      e_idx=4;
+    case 'TN-14'
+      datfil=[v.version,'_C30_C20_GSFC_SLR.txt'];
+      daturl=['https://podaac-tools.jpl.nasa.gov/drive/files/allData/grace/docs/',datfil];
+      datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
+    case 'GSFC'
+      datfil='GSFC_SLR_C20_GSM_replacement.txt';
+      daturl=['https://neptune.gsfc.nasa.gov/uploads/images_db/',datfil];
+    case 'GSFC-7DAY'
+      datfil='GSFC_SLR_C20_7day.txt';
+      daturl='personal communication: email of 25/11/2019 from bryant.d.loomis@nasa.gov';
+      datfmt='%10.4f%23.13f';
+      t_idx=1;
+      s_idx=2;
+      e_idx=0;
+    otherwise
+      error(['Cannot handle version ''',v.version,'''.'])
+  end
+  v=varargs.wrap('sources',{v,{...
+        'file',fullfile(v.data_dir,datfil),  @(i) ischar(i);...
+        'url',daturl,                         @(i) ischar(i);...
+      }},varargin{:});
   switch lower(v.mode)
   case 'data_file'
     t=v.file;
   case 'read'
     %download data, if not already
-    if isempty(dir(v.file))
+    if ~file.exist(v.file)
       GetGRACEC20('mode','set','version',v.version,'data_dir',v.data_dir);
     end
-    [t,s,e,d]=GetGRACEC20('mode','get');
+    [t,s,e,d]=GetGRACEC20('mode','get','version',v.version,'file',v.file,'start',v.start,'stop',v.stop);
   case 'reload'
     %refresh data
     GetGRACEC20('mode','set','version',v.version,'data_dir',v.data_dir);
@@ -3017,31 +3155,55 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       error([mfilename,': cannot open the data file ''',v.file,'''.'])
     end
     %default descriptor
-    d=['Monthly estimates of C20 from 5 SLR satellites based on GRACE ',v.version];
+    d=['C20 time series, version ',v.version];
     %get header info
-    found=false;
+    switch v.version
+    case {'GSFC-7day','CSR-RL06'}
+      found=true;
+    otherwise
+      found=false;
+    end
     c=0;
     while ~found
       c=c+1;
       line=fgetl(fid);
-      found=strcmp(line,'PRODUCT:');
-      if str.contains(line,'TITLE:')
-        d=strtrim(strrep(line,'TITLE:',''));
+      if line<0
+        error(['Could not find keyword PRODUCT in data file ',v.file])
+      end
+      found=any(str.contains(line,{'PRODUCT:','Product:'}));
+      if any(str.contains(line,{'TITLE:','Title:'}))
+        d=strtrim(str.clean(line,{'TITLE:','Title:'}));
       end
       if str.contains(line,'UPDATE HISTORY:')
+        d=strjoin({d,strtrim(strrep(line,'UPDATE HISTORY:',''))},newline);
+      end
+      if str.contains(line,'Data span:')
         d=strjoin({d,strtrim(strrep(line,'UPDATE HISTORY:',''))},newline);
       end
     end
 %     str.say('read through ',c,'header lines')
     %read the data
-    dat=textscan(fid,'%7.1f%10.4f%22.13f%8.4f%8.4f%8.1f%10.4f','CommentStyle','*');
+    dat=textscan(fid,datfmt,'CommentStyle',CommentStyle);
     %close the file
     fclose(fid);
     % outputs
-    t=datetime(dat{1},'ConvertFrom','modifiedjuliandate');
+    switch v.version
+    case {'GSFC-7day','CSR-RL06'}
+      t=years(dat{t_idx})+datetime('0000-01-01 00:00:00');
+    otherwise
+      t=datetime(dat{t_idx},'ConvertFrom','modifiedjuliandate');
+    end
+    % enforce start/stop
+    idx=t>=v.start & t<=v.stop;
+    t=t(idx);
+    %inform
     str.say('start/stop of',d,':',t(1),t(end))
-    s=dat{3};
-    e=dat{5}*1e-10;
+    s=dat{s_idx}(idx);
+    if e_idx>0
+      e=dat{e_idx}(idx)*1e-10;
+    else
+      e=zeros(size(s));
+    end
   case 'set'
     fid=file.open(v.file,'w+');
     t=webread(v.url);
@@ -3052,32 +3214,32 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     error([mfilename,': unknown mode ''',v.mode,'''.'])
   end
 end
-function out=GRACEC20_periods(version,descriptor)
-  switch version
-  case 'TN-07'
-    error('implementation needed!')
-  case 'TN-11'
-    if str.contains(descriptor,'May 10, 2019')
-      out=[...
-        3.652426000000e+02;...
-        1.826213000000e+02;...
-        3.840000000000e+03;...
-        1.920000000000e+03;...
-        8.533333333333e+02;...
-        1.097142857143e+03;...
-        5.485714285714e+02;...
-        1.536000000000e+03;...
-        2.648275862069e+02;...
-        2.327272727273e+02;...
-      ];
-      return
-    else
-      %this was relevant to the version previous to the one above
-      out=[365.2426 182.6213 7936 992 566.85714 1984 91.218391 881.77778 721.45455 ...
-        214.48649 1587.2 529.06667 377.90476 122.09231 661.33333 273.65517 330.66667];
-    end
-  otherwise
-    error(['Cannot handle version ''',version,'''.'])
-  end
-end
+% function out=GRACEC20_periods(version,descriptor)
+%   switch version
+%   case 'TN-07'
+%     error('implementation needed!')
+%   case 'TN-11'
+%     if str.contains(descriptor,'May 10, 2019')
+%       out=[...
+%         3.652426000000e+02;...
+%         1.826213000000e+02;...
+%         3.840000000000e+03;...
+%         1.920000000000e+03;...
+%         8.533333333333e+02;...
+%         1.097142857143e+03;...
+%         5.485714285714e+02;...
+%         1.536000000000e+03;...
+%         2.648275862069e+02;...
+%         2.327272727273e+02;...
+%       ];
+%       return
+%     else
+%       %this was relevant to the version previous to the one above
+%       out=[365.2426 182.6213 7936 992 566.85714 1984 91.218391 881.77778 721.45455 ...
+%         214.48649 1587.2 529.06667 377.90476 122.09231 661.33333 273.65517 330.66667];
+%     end
+%   otherwise
+%     error(['Cannot handle version ''',version,'''.'])
+%   end
+% end
 
