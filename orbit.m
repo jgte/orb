@@ -521,7 +521,7 @@ classdef orbit
           %check if mat file is already available
           [d,f]=fileparts(file_list{i});
           mat_file=fullfile(d,[f,'.mat']);
-          if isempty(dir(mat_file))
+          if ~file.exist(mat_file)
             % load ascii data
             obj_now=orbit.load_ascii(file_list{i},'asciiformat',format);
             if ~isempty(obj_now)

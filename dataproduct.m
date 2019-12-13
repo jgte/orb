@@ -215,7 +215,7 @@ classdef dataproduct
       files=obj.file(p.Results.mode,varargin{:},'discover',true);
       %loop over all files and delete them
       for i=1:numel(files)
-        if ~isempty(dir(files{i}))
+        if file.exist(files{i})
           disp(['deleting ',files{i},'...'])
           com=['rm -vr ',p.Results.rm_args,' ',files{i}];
           if system(com)==0
@@ -344,7 +344,7 @@ classdef dataproduct
       if any(~obj.isfile,varargin{:})
         f=obj.file(varargin{:});
         for i=1:numel(f)
-          if isempty(dir(f))
+          if ~file.exist(f)
             msg=[': for product ',obj.name,', could not find the following file: ',f];
             if numel(f)>1
               error([msg,', ',str.th(i),' of ',num2str(numel(f)),').'])

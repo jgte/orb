@@ -32,7 +32,7 @@ classdef csr
     function log(msg)
       logname=fullfile(fileparts(mfilename),'import_calpar.log');
       if ~exist('msg','var')
-        if ~isempty(dir(logname))
+        if file.exist(logname)
           system(['mv -v ',logname,' ',strrep(logname,'.log',''),'.',datestr(datetime('now'),30),'.log']);
         end
       else
@@ -137,7 +137,7 @@ classdef csr
          plot_dir=fullfile(plot_dir,['debug_plots_',mode],csr.gitversion);
       end
       %create dir for plots
-      if isempty(dir(plot_dir)); mkdir(plot_dir); end
+      if ~exist(plot_dir,'dir'); file.mkdir(plot_dir); end
       %get dates of plots
       ssl=csr.debug_parameters;
       %outputs
@@ -1996,7 +1996,7 @@ classdef csr
               ]),'.')...
             }];
             filename=dn.file(filename_args{:});
-            if isempty(dir(filename))
+            if ~exist.file(filename)
               %make sure there is data
               if any(cell2mat(obj.vector_method_tr('all','nr_valid'))>1)
                 %increment output counter
@@ -2932,7 +2932,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         system(['mv -fv ',fullfile(datadir,'*.mat'),' ',fullfile(datadir,'to-delete')])
       case {'debug_plots_import_calpar','debug_plots_calpar'}
         plot_dir=fullfile('plot',lower(mode),csr.gitversion);
-        if ~isempty(dir(plot_dir))
+        if exist(plot_dir,'dir')
           [status,result]=system(['rm -fvr "',plot_dir,'"']);
           assert(status==0,['error removing ',mode,': ',result])
         end

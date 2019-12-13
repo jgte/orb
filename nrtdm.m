@@ -92,7 +92,7 @@ classdef nrtdm
         file=nrtdm_convert(obj.metadata,t,varargin{:});
         i=i+1;
         %only save if file exists
-        if isempty(dir(file))
+        if ~file.exist(file)
           daily{i}='';
         else
           %save converted matlab data file

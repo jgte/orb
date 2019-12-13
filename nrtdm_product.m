@@ -75,7 +75,7 @@ classdef nrtdm_product
     function out=get.file(obj)
       if (obj.debug); disp(['start:',current_method]); end
       out=fullfile(nrtdm.config_dir,[obj.category,'.products.txt']);
-      if isempty(dir(out))
+      if ~exist(out,'file')
         error([mfilename,': Cannot find metadata files ''',out,'''.'])
       end
       if (obj.debug); disp(['end  :',current_method,':',out]); end
