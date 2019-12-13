@@ -47,6 +47,8 @@ classdef simpletimeseries < simpledata
     start
     stop
     tsys
+    first
+    last
   end
   methods(Static)
     function out=parameters(varargin)
@@ -1323,8 +1325,14 @@ classdef simpletimeseries < simpledata
     function out=get.start(obj)
       out=obj.t(1);
     end
+    function out=get.first(obj)
+      out=obj.t_masked([],'start');
+    end
     function out=get.stop(obj)
       out=obj.t(obj.length);
+    end
+    function out=get.last(obj)
+      out=obj.t_masked([],'stop');
     end
     function obj=set.start(obj,start)
       if isempty(start) || ...                                        %ignore empty inputs
