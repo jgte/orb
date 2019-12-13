@@ -93,10 +93,24 @@ classdef str
       %branch on scalar type
       switch class(in)
       case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double'}
-        try
-          out=num2str(in,fmt);
-        catch
-          out=num2str(in);
+        %expcial formatting
+        switch fmt
+        case 'latex'
+          out=num2str(in,'%g');
+          char_list={'e','E','d','D'};idx=[];
+          for c=char_list
+            idx=strfind(out,c{1});
+            if ~isempty(idx); break; end
+          end
+          if ~isempty(idx)
+            out=['$',out(1:idx-1),'\times 10^{',out(idx+1:end),'}$'];
+          end
+        otherwise
+          try
+            out=num2str(in,fmt);
+          catch
+            out=num2str(in);
+          end
         end
       case 'logical'
         if in, out='T';
