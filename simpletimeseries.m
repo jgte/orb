@@ -173,12 +173,17 @@ classdef simpletimeseries < simpledata
       tdiff=simpletimeseries.timescale(diff(in));
       %large jumps produce erroneous results, so get rid of those first
       while std(tdiff)~=0 && max(tdiff)/mean(tdiff)>p.Results.max_mean_ratio
+        %save stats
+        stdtdiff=std(tdiff);
+        ratiotdiff=max(tdiff)/mean(tdiff);
+        %remove large gaps
+        tdiff=simpledata.rm_outliers(tdiff,varargin{:});
         %send feedback
         if p.Results.disp_flag
-          disp([mfilename,': removing large gaps, since max(delta t) is ',num2str(max(diff(tdiff))),...
-            ' and is ',num2str(max(diff(tdiff))/mean(diff(tdiff))),' times larger than mean(delta).'])
+          disp([mfilename,': removed ',num2str(sum(isnan(tdiff))),' large gaps, since ',...
+            'std(delta t) is ',num2str(stdtdiff),' and ',...
+            'max(delta t) is ',num2str(ratiotdiff),' times larger than mean(delta).'])
         end
-        tdiff=simpledata.rm_outliers(tdiff,varargin{:});
         %remove nans
         tdiff=tdiff(~isnan(tdiff));
       end
