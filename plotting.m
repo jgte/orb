@@ -691,22 +691,18 @@ classdef plotting
         out.title_handle=[];
         title('')
       else
-        %suppress some parts, if requested
-        title_str=setdiff(strsplit(v.plot_title,{' '}),v.plot_title_suppress,'stable');
-        %add prefix and suffix
-        title_str=strjoin([{v.plot_title_prefix};title_str(:);{v.plot_title_suffix}],' ');
-        %propagate
-        v.plot_title=title_str;
-        %replace explicit strings
-        if ~isempty(v.plot_title_replace)
-          v.plot_title=str.rep(v.plot_title,v.plot_title_replace{:});
+        if str.default(v.plot_title)
+          title_str=v.plot_title_default;
+        else
+          title_str=v.plot_title;
         end
-        %clean up the tile put it there
-        out.title_handle=title(out.axis_handle,str.clean(v.plot_title,'title'));
+        %operate and put it there
+        out.plot_title=plotting.title_replace_clean(varargin{:},'plot_title',title_str);
+        out.title_handle=title(out.plot_title);
       end
 
       %enforce grid
-      if v.plot_grid
+      if str.logical(v.plot_grid)
         grid(out.axis_handle,'on')
       end
       
@@ -761,7 +757,30 @@ classdef plotting
         %apply the modified colormap
         out.colormap_handle=colormap(out.axis_handle,out.colormap);
       end
-            
+
+      %enforce axis type
+      if str.logical(v.plot_logy)
+        set(gca, 'YScale', 'log')
+      end
+      if str.logical(v.plot_logx)
+        set(gca, 'XScale', 'log')
+      end
+      
+    end
+    function out=title_replace_clean(varargin)
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{plotting.default,{...
+      }},varargin{:});
+      %suppress some parts, if requested
+      out=strsplit(v.plot_title,{' '});
+      %add prefix and suffix
+      out=strjoin([{v.plot_title_prefix};out(:);{v.plot_title_suffix}],' ');
+      %replace explicit strings
+      if ~isempty(v.plot_title_replace)
+        out=str.rep(out,v.plot_title_replace{:});
+      end
+      %clean up the tile 
+      out=str.clean(out,[v.plot_title_suppress(:);{'title'}]);
     end
     function out=legend_replace_clean(varargin)
       % add input arguments and metadata to collection of parameters 'v'
@@ -787,12 +806,7 @@ classdef plotting
         legend_handle=[];
         return
       else
-        %replace explicit strings (keep this before the legend-cleaning bit so the strings make sense outside)
-        if ~isempty(v.plot_legend_replace)
-          v.plot_legend=cellfun(@(i) str.rep(i,v.plot_legend_replace{:}),v.plot_legend,'UniformOutput',false);
-        end
-        %clean legend of _ and remove whatever is given in plot_legend_suppress
-        v.plot_legend=cellfun(@(i) str.clean(i,[v.plot_legend_suppress(:);{'title'}]),v.plot_legend,'UniformOutput',false);
+        v.plot_legend=plotting.legend_replace_clean(varargin{:});
         %maybe there's the need to align words
         if ~isempty(v.plot_legend_align)
           %keywords
@@ -807,8 +821,14 @@ classdef plotting
           I_align=numel(v.plot_legend);
           J_align=numel(v.plot_legend_align_str);
           %handle default right-justify
-          if numel(v.plot_legend_align_right_just)~=J_align+1
-            v.plot_legend_align_right_just=true(1,J_align) && v.plot_legend_align_right_just;
+          switch numel(v.plot_legend_align_right_just)
+          case 1
+            v.plot_legend_align_right_just=true(1,J_align) && str.logical(v.plot_legend_align_right_just);
+          case J_align+1
+            v.plot_legend_align_right_just=transpose(str.logical(v.plot_legend_align_right_just(:)));
+          otherwise
+            error(['plot_legend_align_right_just must have either 1 or ',num2str(numel(J_align+1)),...
+              ' entries, not ',num2str(numel(v.plot_legend_align_right_just)),'.'])
           end
           %align the legend entries
           legend_out=cell(I_align,J_align+1);

@@ -579,19 +579,39 @@ classdef str
       if iscell(in)
         out=cellfun(@(i) str.none(i),in);
         %handle str.none({})
-        if isempty(out); out=true; end
+        if isempty(out); out=false; end
         return
       end
-      %empty also means none (also handles numeric/cell empties)
-      if isempty(in); out=true; return; end
+      %NOTICE: empty does not means none (also handles numeric/cell empties)
+      %This is needed so that default titles can be turned off with 'none' (and friends)
+      %but still plotted when empty.
+      if isempty(in); out=false; return; end
       %first try logical strings (false means none; true means not none)
       try
-        out=~str.logical(in,'logical');
+        out=~str.logical(in);
       catch
         %test common 'none' strings
         out=strcmpi(in,'clean') || ...
             strcmpi(in,'clear') || ...
             strcmpi(in,'none');
+      end
+    end
+    function out=default(in)
+      %vector mode
+      if iscell(in)
+        out=cellfun(@(i) str.none(i),in);
+        %handle str.none({})
+        if isempty(out); out=true; end
+        return
+      end
+      %NOTICE: empty means default (also handles numeric/cell empties)
+      if isempty(in); out=true; return; end
+      %first try logical strings (false means none; true means not none)
+      try
+        out=~str.logical(in);
+      catch
+        %test common 'none' strings
+        out=strcmpi(in,'default');
       end
     end
     %% user feedback
