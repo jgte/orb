@@ -805,10 +805,10 @@ classdef simplegrid < simpletimeseries
       fid=fopen(filename);
       d=textscan(fid,'%f %f %s');
       fclose(fid);
-      out=simplegrid(t,...                      %time
-        double(str.logical(d{3},'logical')),... %map
-        'lon',d{1},...                          %lon
-        'lat',d{2}...                           %lat
+      out=simplegrid(t,...            %time
+        double(str.logical(d{3})),... %map
+        'lon',d{1},...                %lon
+        'lat',d{2}...                 %lat
       );
     end
     %% map add-ons
