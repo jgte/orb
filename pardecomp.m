@@ -223,7 +223,7 @@ classdef pardecomp
           'add_res',   false,       @islogical;...
         },...
       },varargin{:});
-      %init output
+      %init output and copy metadata
       pd_set.metadata=varargs(pd_set.metadata).rm_empty.varargin;
       switch func2str(pd_set.init)
         case 'gravity';obj=eval([func2str(pd_set.init),'.unit(gravity.width2lmax(pd_set.width),''t'',v.time,pd_set.metadata{:},''scale'',0);']);
@@ -231,6 +231,8 @@ classdef pardecomp
       end
       %match epochs (very important and not done with copying the metadata)
       obj.epoch=pd_set.epoch;
+      %update descriptor (not done with copying the metadata)
+      obj.descriptor=pd_set.descriptor; 
       %initialize coefficient containers
       coeffval=zeros(pardecomp.xlength(pd_set.np,pd_set.T),pd_set.width);
       coeffidx=zeros(pardecomp.xlength(pd_set.np,pd_set.T),1);
