@@ -257,7 +257,7 @@ classdef str
     %transforms a matrix into the data part of a latex table
     function out=latex_table(in,fmt)
       assert(numel(size(in))<=2,'Need numeric matrix/vector/scales input')
-      if ~exist('fmt','var'); fmt='%g'; end
+      if ~exist('fmt','var'); fmt='latex'; end
       if ~iscell(fmt) || numel(fmt)~=size(in,2)
         tmp=cell(1,size(in,2));
         tmp(:)={fmt};
