@@ -267,7 +267,7 @@ classdef datanames
       end
     end
     function out=isfile(obj,varargin)
-      out=~isempty(dir(obj.file(varargin{:})));
+      out=file.exist(obj.file(varargin{:}));
     end
     function filecheck(obj,varargin)
       if ~obj.isfile(varargin{:})

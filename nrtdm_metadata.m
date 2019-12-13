@@ -20,7 +20,7 @@ classdef nrtdm_metadata
       );
     end
     function test
-      if isempty(dir(nrtdm_product.config_dir))
+      if ~file.exist(nrtdm_product.config_dir)
         disp([mfilename,':WARNING: cannot find NRTDM config dir: ',nrtdm_product.config_dir,'. Skipping test.'])
         return
       end
@@ -152,8 +152,8 @@ classdef nrtdm_metadata
         data_dir=fullfile(nrtdm.data_dir,extension);
       end      
       parent_dir=fullfile(data_dir,obj.product.str);
-      if isempty(dir(parent_dir))
-        mkdir(parent_dir)
+      if ~file.exist(parent_dir)
+        file.mkdir(parent_dir)
       end
       out=fullfile(parent_dir,[datestr(t_now,'yyyy'), '_',num2str(day(t_now,'dayofyear'),'%03i'),'.',extension]);
     end

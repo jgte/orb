@@ -434,7 +434,7 @@ classdef gravity < simpletimeseries
         mat_filename=[file_name,'.mat'];
       end
       %check if mat file is already available
-      if isempty(dir(mat_filename)) || force
+      if ~file.exist(mat_filename) || force
         switch lower(fmt)
         case 'gsm'
           [m,e]=load_gsm(file_name,time);
