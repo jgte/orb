@@ -1,6 +1,6 @@
-plot_product: true
+submetadata: swarm.sh.gswarm.rl01.submetadata
 method: gswarm.plot_catchments
-model_types: [signal]
+
 sources: [ #remember that plots with multiple sources pick the start/stop from the first source
   gracefo.sh.rl06.csr,
   swarm.sh.gswarm.rl01,
@@ -10,30 +10,29 @@ sources: [ #remember that plots with multiple sources pick the start/stop from t
 
 
 stats_relative_to: grace.sh.rl06.csr
-explicit_fields: true
-storage_period: direct
+
+
 
 
 #plotting
-plot_xdateformat: yy/mm
-plot_outlier: 0
+
+
 plot_legend_suppress: [smoothed,res,v01,v02,v03,v04,v05,v06,v07,v08,v09,v10,gswarm,sh,signal,GSWARM,SH,SIGNAL]
 plot_title_suppress: [gswarm,sh,signal,smoothed,res,GSWARM,SH,SIGNAL]
+plot_legend_replace: ['asu ifg','asu','osu aiub','osu',]
+
 plot_functional: eqwh
-plot_legend_replace: [
-  'asu ifg','asu',
-  'osu aiub','osu',
-]
+
+
+
 plot_colormap: jetzero
-plot_save_data: yes
 
 
 
-plot_pause_on_save: false
-plot_visible: false
+
+
 
 #plot ops
-plot_legend_include_smoothing: false
 plot_poly_range: [1,0.3]
 plot_std_range: 0.3
 
@@ -61,3 +60,4 @@ plot_parametric_timestep_units: days
 plot_smoothing_method: gauss
 # plot_smoothing_degree: [750e3,750e3,1000e3,1000e3]
 plot_smoothing_degree: [750e3,750e3]
+plot_legend_include_smoothing: false
