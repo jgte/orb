@@ -363,28 +363,55 @@ classdef pardecomp
     function out=table(pd_set,varargin)
       v=varargs.wrap('sources',{...
         {...
-          'tabw',     20,    @(i) isnumeric(i) && isscalar(i);...
-          'time_unit',@years,@(i) isa(i,'function_handle');...
+          'tabw',          20, @(i) isnumeric(i) && isscalar(i);...
+          'time_unit', @years, @(i) isa(i,'function_handle');...
+          'tablify',     true, @islogical;...
+          'latex_table',false, @islogical;...
+          'cols',           1, @isnumeric;...
         }},...
       varargin{:});
       ps=0;pc=0;c=0;
-      out=cell(pd_set.np+numel(pd_set.T),1);
+      if v.tablify
+        out=cell(pd_set.np+numel(pd_set.T),1);
+      else
+        out=cell(pd_set.np+numel(pd_set.T),2+numel(v.cols));
+      end
+      if v.latex_table
+        assert(~v.tablify,'options ''tablify'' and ''table_table'' cannot both be true')
+        c=c+1;
+        out(c,1:2)={'Component',['Period [',func2str(v.time_unit),']']};
+        for colsi=1:numel(v.cols)
+%           out{c,colsi+2}=['Value ',num2str(v.cols(colsi))];
+          out{c,colsi+2}='Value';
+        end
+      end
       for i=pardecomp.xnames(pd_set.np,pd_set.T)
         c=c+1;
         s=pardecomp.xstr(i{1});
+        name=s;
         switch s
           case 'sine'
             ps=ps+1;
             sec=seconds(pardecomp.from_timescaled( pd_set.T(ps),pd_set.timescale ));
-            c1=[s,'(',num2str(v.time_unit(sec)),')'];
+            period=num2str(v.time_unit(sec));
           case 'cosine'
             pc=pc+1;
             sec=seconds(pardecomp.from_timescaled( pd_set.T(pc),pd_set.timescale ));
-            c1=[s,'(',num2str(v.time_unit(sec)),')'];
+            period=num2str(v.time_unit(sec));
           otherwise
-            c1=s;
+            period='-';
         end            
-        out{c}=str.tablify(v.tabw,c1,pd_set.(i{1}).y);
+        if v.tablify
+          out{c}=str.tablify(v.tabw,name,period,pd_set.(i{1}).y(v.cols));
+        else
+          out(c,1:2)={name,period};
+          for colsi=1:numel(v.cols)
+            out{c,colsi+2}=pd_set.(i{1}).y(v.cols(colsi));
+          end
+        end
+      end
+      if v.latex_table
+        out=str.latex_table(out);
       end
     end
     %% testing
