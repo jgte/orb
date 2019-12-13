@@ -18,7 +18,7 @@ classdef nrtdm
   methods(Static)
     function out=nrtdm_dir
       out=getenv('NRTDM');
-      if isempty(dir) || ~exist(out,'dir')
+      if ~exist(out,'dir')
         out=fullfile(getenv('HOME'),'bin','nrtdm');
       end
       assert(exist(out,'dir')~=0,'Cannot find NRTDM dir')
@@ -51,7 +51,7 @@ classdef nrtdm
         data_dir=nrtdm.data_dir;
       end
       if ~exist(data_dir,'dir')
-        mkdir(data_dir)
+        file.mkdir(data_dir)
       end
       out=fullfile(data_dir,product,...
         [datestr(t_now,'yyyy'), '_',num2str(day(t_now,'dayofyear'),'%03i'),'.',extension]);

@@ -406,7 +406,7 @@ classdef dataproduct
             %check if this submetadatafile has not already been saved
             if ~ismember(submetadatafiles{i},submetadatafilelist)
               %sanity
-              assert(~isempty(dir(submetadatafiles{i})),['Cannot find sub-metadatafile ',submetadatafiles{i},'.'])
+              assert(file.exist(submetadatafiles{i}),['Cannot find sub-metadatafile ',submetadatafiles{i},'.'])
               %increment counter
               c=c+1;
               %add this metadata file to the list

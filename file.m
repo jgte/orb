@@ -35,6 +35,12 @@ classdef file
         frewind(fid);
       end
     end
+    function mkdir(dirname)
+      if ~exist(dirname,'dir')
+        [st,msg]=mkdir(dirname);
+        assert(st,['error creating directory ''',dirname,''': ',msg])
+      end
+    end
     function [fid,filename,close_file]=open(filename,perm)
       if ~exist('perm','var') || isempty(perm)
         perm = 'r';
@@ -50,9 +56,8 @@ classdef file
       else
         %make sure dir exists
         d=fileparts(filename);
-        if ~exist(d,'dir') && isempty(strfind(perm,'r'))
-          [st,msg]=mkdir(d);
-          assert(st,['error creating directory ''',d,''': ',msg])
+        if isempty(strfind(perm,'r'))
+          file.mkdir(d)
         end
         %open the file
         [fid,msg]=fopen(filename,perm);
