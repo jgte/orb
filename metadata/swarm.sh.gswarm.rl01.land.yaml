@@ -1,6 +1,6 @@
-plot_product: true
+submetadata: swarm.sh.gswarm.rl01.submetadata
 method: gswarm.plot_stats
-model_types: [signal]
+
 sources: [ #remember that plots with multiple sources pick the start/stop from the first source
   swarm.sh.gswarm.rl01,
   gracefo.sh.rl06.csr.pd.ts, 
@@ -9,14 +9,14 @@ sources: [ #remember that plots with multiple sources pick the start/stop from t
 
 
 
-stats_relative_to: grace.sh.rl06.csr.pd.ts
-explicit_fields: true
-storage_period: direct
+stats_relative_to: gracefo.sh.rl06.csr.pd.ts
+
+
 plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common time domain
 
 #plotting
-plot_xdateformat: yy/mm
-plot_outlier: 0
+
+
 plot_legend_suppress: [sh,GSWARM,gswarm,GSwarm,signal,RL06,CSR,RL01]
 plot_title_suppress:  [sh,GSWARM,gswarm,GSwarm,signal,RL06,CSR,RL01]
 plot_legend_replace: [SWARM,Swarm,PD TS,model]
@@ -27,14 +27,14 @@ plot_rms_caxis: [0,0.01]
 plot_corrcoeff_caxis: [-1,1]
 plot_colormap: jetzero
 plot_legend_box: false
-plot_save_data: yes
+
 plot_signal: true
-plot_pause_on_save: true
-plot_visible: true
-plot_summary: false
+
+
+
 #plot_ops
-plot_min_degree: 2
-plot_max_degree: 20
+
+
 
 
 #plot_spatial_stats
