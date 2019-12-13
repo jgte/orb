@@ -1,6 +1,6 @@
 import_dir: <getenv('HOME')>/data/grace/L2/JPL/RL05.1/
 model_types: [signal,error]
-wilcarded_filename: 'GSM-2_*.gsm'
+wildcarded_filename: 'GSM-2_*.gsm'
 model_format: gsm
 date_parser: gravity.parse_epoch_grace
 storage_period: yearly

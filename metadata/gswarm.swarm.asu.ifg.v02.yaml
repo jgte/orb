@@ -1,7 +1,7 @@
 import_dir: <getenv('HOME')>/data/gswarm/asu/gravity
 model_types: [signal,error]
 #the trailing wildcard here is needed to pick data that has not been decompressed
-wilcarded_filename: GSWARM_GF_SABC_ASU_*_02_IFG.gfc*
+wildcarded_filename: GSWARM_GF_SABC_ASU_*_02_IFG.gfc*
 model_format: gfc
 date_parser: gravity.parse_epoch_gswarm
 submetadata: [model.processing.submetadata,model.plotting.submetadata]

@@ -1,7 +1,7 @@
 import_dir: <gravity.scriptdir>/aux
 method: gswarm.load_models
 model_types: [signal,error]
-wilcarded_filename: eigen-6c4.gfc
+wildcarded_filename: eigen-6c4.gfc
 model_format: gfc
 date_parser: static
 use_GRACE_C20: false

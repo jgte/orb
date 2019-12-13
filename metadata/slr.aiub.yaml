@@ -1,6 +1,6 @@
 import_dir: <getenv('HOME')>/data/SLR/aiub
 model_types: [signal]
-wilcarded_filename: 'AIUB-SLR_*_1010.gfc'
+wildcarded_filename: 'AIUB-SLR_*_1010.gfc'
 model_format: gfc
 date_parser: gravity.parse_epoch_aiub_slr
 method:  gswarm.load_models

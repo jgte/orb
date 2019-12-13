@@ -1,6 +1,6 @@
 import_dir: <getenv('HOME')>/data/grace/L2/GFZ/RL05
 model_types: [signal,error]
-wilcarded_filename: GSM-2_*.gsm
+wildcarded_filename: GSM-2_*.gsm
 model_format: gsm
 date_parser: gravity.parse_epoch_grace
 submetadata: [model.processing.submetadata,model.plotting.submetadata]

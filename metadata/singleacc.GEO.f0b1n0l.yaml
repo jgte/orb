@@ -1,7 +1,7 @@
 import_dir: <getenv('HOME')>/data/singleacc/GEO
 model_types: [signal]
 scenarios: [d0b1n0l0,f0b1n0l0,f0b1n0l1,f0b1n0l2,f0b1n0l3,f0b1n0l4,f0b1n0l5,f0b1n0l6,f0b1n0l7,f0b1n0l8]
-wilcarded_filename: '*.GEO.*'
+wildcarded_filename: '*.GEO.*'
 model_format: csr
 date_parser: gravity.parse_epoch_csr
 method:  gswarm.load_project_models

@@ -12,7 +12,7 @@ f0b1n0l0,f0b1n0l4,f0b1n0l8,
 lowest,consistent,UD,
 f0b000l9u,f0b000l93
 ]
-wilcarded_filename: '*.GEO.*'
+wildcarded_filename: '*.GEO.*'
 model_format: csr
 date_parser: gravity.parse_epoch_csr
 method:  gswarm.load_project_models

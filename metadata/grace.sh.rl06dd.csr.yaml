@@ -1,6 +1,6 @@
 import_dir: <getenv('HOME')>/data/csr/RL06DD
 model_types: [signal]
-wilcarded_filename: '*.GEO.*'
+wildcarded_filename: '*.GEO.*'
 model_format: csr
 date_parser: gravity.parse_epoch_csr
 storage_period: yearly
