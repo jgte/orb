@@ -378,6 +378,21 @@ classdef varargs < dynamicprops
         out=obj.S(i);
       end
     end
+    function out=subset(obj,name_part)
+      %dup the object
+      out=dup(obj);
+      %get the parameters
+      p=out.Parameters;
+      %get the indexes of the parameters to keep
+      idx_to_keep=cellfun(@(i) str.contains(i,name_part),p);
+      %check if there's anything to delete
+      if sum(~idx_to_keep)>0
+        %trim S
+        out.S=out.S(idx_to_keep);
+        %delete the properties 
+        rmprops(out,p{~idx_to_keep});
+      end
+    end
     %% set methods
     function obj=set(obj,Snew)
       %input checking
