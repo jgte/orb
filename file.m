@@ -688,6 +688,12 @@ classdef file
         out=fileinfo.datenum;
       end
     end
+    function out=datetime(in)
+      out=datetime(file.datenum(in),'ConvertFrom','datenum');
+    end
+    function out=datestr(in)
+      out=datestr(file.datetime(in));
+    end
     function [newest_file,newest_date]=newest(in,varargin)
       newest_date=0;
       if ~iscellstr(in)
