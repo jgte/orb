@@ -931,6 +931,25 @@ classdef plotting
         'FontName',v.plot_legend_fontname...
         )
     end
+    function save(filename,varargin)
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{plotting.default,{...
+        'fig_handle',  gcf,  @(i) ~isempty(i) && ishandle(i);...
+      }},varargin{:});
+      if str.logical(v.plot_pause_on_save); keyboard; end
+      [p,n,e]=fileparts(filename);
+      if strcmp(e,'.') || isempty(e)
+        e=['.',strrep(v.plot_save_ext,'.','')];
+      end
+      if str.logical(v.plot_save_mkdir)
+        file.mkdir(p)
+      end
+      if str.logical(v.plot_save_fig)
+        saveas(v.fig_handle,fullfile(p,n),'fig')
+      end
+      saveas(v.fig_handle,fullfile(p,[n,e]))
+      str.say('Plotted',fullfile(p,[n,e]))
+    end
     %% nice plotting stuff
     function out=hist(x,varargin)
       p=inputParser; p.KeepUnmatched=true;
