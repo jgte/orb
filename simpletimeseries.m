@@ -1218,6 +1218,7 @@ classdef simpletimeseries < simpledata
       %here and not through the function defined there
       out=obj.istavail(obj.x2t(x));
     end
+    %NOTICE: to check for identical time domain, use obj.istequal (defined below)
     function obj=set.t_formatted(obj,t_now)
       [obj.t,format_now]=time.ToDateTime(t_now,obj.format);
       if ~strcmp(format_now,format_in)
@@ -1230,6 +1231,7 @@ classdef simpletimeseries < simpledata
       out=time.FromDateTime(obj.t,obj.format);
     end
     function out=t_masked(obj,mask,mode)
+      %NOTICE: do not use obj.t_masked(end), it is bugged. Use obj.t_masked([],'stop') instead
       if ~exist('mask','var') || isempty(mask)
         mask=obj.mask;
       end
@@ -1237,6 +1239,9 @@ classdef simpletimeseries < simpledata
         mode='all';
       end
       out=obj.t(mask);
+      if isempty(out)
+        out=time.zero_date;
+      end
       switch mode
       case 'start'; out=out(1);
       case 'stop';  out=out(end);
