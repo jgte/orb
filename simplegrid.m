@@ -669,6 +669,13 @@ classdef simplegrid < simpletimeseries
       elseif simplegrid.matrix_valid(si)
         fmt='matrix';
       else
+        for i={'list','vecmat','flatlist','matrix'}
+          try
+            simplegrid.([i{1},'_check'])(si)
+          catch ME
+            disp(ME.message)
+          end
+        end
         error([mfilename,': cannot handle the format of inputs'])
       end
       % convert to requested type
@@ -677,18 +684,27 @@ classdef simplegrid < simpletimeseries
     %% constructors
     function obj=unit(n_lon,n_lat,varargin)
       p=inputParser;
-      p.addRequired( 'n_lon',  @(i) isscalar(i) && isnumeric(i));
-      p.addRequired( 'n_lat',  @(i) isscalar(i) && isnumeric(i));
+      p.addRequired( 'n_lon',  @(i) isnumeric(i));
+      p.addRequired( 'n_lat',  @(i) isnumeric(i));
       p.addParameter('scale',1,@(i) isscalar(i) && isnumeric(i));
       p.addParameter('bias', 0,@(i) isscalar(i) && isnumeric(i));
       p.addParameter('t',datetime('now'),@(i) isdatetime(i));
       p.parse(n_lon,n_lat,varargin{:});
       %initialize with unitary grid
-      obj=simplegrid(...
-        p.Results.t,...
-        ones(p.Results.n_lat,p.Results.n_lon,numel(p.Results.t))*p.Results.scale+p.Results.bias,...
-        varargin{:}...
-      );
+      if isscalar(p.Results.n_lat) && isscalar(p.Results.n_lon)
+        obj=simplegrid(...
+          p.Results.t,...
+          ones(p.Results.n_lat,p.Results.n_lon,numel(p.Results.t))*p.Results.scale+p.Results.bias,...
+          varargin{:}...
+        );
+      else
+        obj=simplegrid(...
+          p.Results.t,...
+          ones(numel(p.Results.n_lat),numel(p.Results.n_lon),numel(p.Results.t))*p.Results.scale+p.Results.bias,...
+          'lat',p.Results.n_lat,'lon',p.Results.n_lon,...
+          varargin{:}...
+        );
+      end
     end
     % Creates a random model with mean 0 and std 1
     function obj=unit_randn(n_lon,n_lat,varargin)
