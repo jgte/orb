@@ -862,5 +862,18 @@ classdef time
         year(fix_idx)=year(fix_idx)-time.millennium;
       end
     end
+    %% operations
+    function out=union(time_domains,time_step)
+      switch class(time_domains)
+        case 'cell'
+          mint=cellfun(@(i) i(1),  time_domains,'UniformOutput',false);mint=min([mint{:}]);
+          maxt=cellfun(@(i) i(end),time_domains,'UniformOutput',false);maxt=max([maxt{:}]);
+          out=mint:time_step:maxt;
+        case 'datetime'
+          out=time_domains(1):time_step:time_domains(end);
+        otherwise
+          error(['Cannot handle input ''time_domains'' of class ''',class(time_domains),'''.'])
+      end
+    end
   end
 end
