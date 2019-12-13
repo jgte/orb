@@ -123,7 +123,7 @@ classdef datastorage
       %parse optional arguments
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('info_methods',{'size','nr_gaps','start','stop'}, @(i) ischar(i) || iscellstr(i));
+      p.addParameter('info_methods',{'size','nr_gaps','start','stop','first','last'}, @(i) ischar(i) || iscellstr(i));
       p.addParameter('tab',[32,20], @(i) isnumeric(i));
       p.parse(varargin{:});
       %show header
