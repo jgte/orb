@@ -1539,41 +1539,56 @@ classdef simplegrid < simpletimeseries
       case 'deep ocean'
         obj=obj.spatial_mask('ocean','buffer',1000e3);
         return
-      end
-      %handle optionals
-      v=varargs.wrap('sources',{{...
-        'buffer',   0, @(i) isnumeric(i) && isscalar(i);...
-        'cutoff', 0.1,@(i) (isnumeric(i) && isscalar(i)) || isempty(i);... %NOTICE: this value seems to work well
-      }},varargin{:});
-      %retrieve the land mask
-      spmask=simplegrid.landmask(obj.lon,obj.lat,varargin{:});
-      %apply buffer
-      if v.buffer~=0
-        spmask=spmask.sh(simplegrid.sh_lmax(obj.lon,obj.lat)...
-        ).scale(abs(v.buffer),'gauss'...
-        ).grid(varargin{:}...
-        ).spatial_interp(obj.lon,obj.lat...
-        );
-        obj.descriptor=[num2str(v.buffer*1e-3),'km buffered ',mode,' areas of ',obj.descriptor];
-      else
-        obj.descriptor=[mode,' areas of ',obj.descriptor];
-      end
-      %enforce cutoff
-      if ~isempty(v.cutoff)
-         y_now=spmask.y;
-         switch lower(mode)
-         case 'land';  if v.buffer>0; idx=y_now>1-v.cutoff; else idx=y_now>v.cutoff; end
-         case 'ocean'; if v.buffer<0; idx=y_now>1-v.cutoff; else idx=y_now>v.cutoff; end
-         end
-         y_now(idx)=1;
-         y_now(~idx)=0;
-         spmask=spmask.assign(y_now);
-      end
-      %enforce mode
-      switch lower(mode)
-      case 'land';  %do nothing
-      case 'ocean'; spmask=spmask.assign(1-spmask.y);
-      otherwise; error(['Cannot handle the spatial mask ''',mode,'''.'])
+      case {'land','ocean'}
+        %handle optionals
+        v=varargs.wrap('sources',{{...
+          'buffer',   0, @(i) isnumeric(i) && isscalar(i);...
+          'cutoff', 0.1,@(i) (isnumeric(i) && isscalar(i)) || isempty(i);... %NOTICE: this value seems to work well
+        }},varargin{:});
+        %retrieve the land mask
+        spmask=simplegrid.landmask(obj.lon,obj.lat,varargin{:});
+        %apply buffer
+        if v.buffer~=0
+          spmask=spmask.sh(simplegrid.sh_lmax(obj.lon,obj.lat)...
+          ).scale(abs(v.buffer),'gauss'...
+          ).grid(varargin{:}...
+          ).spatial_interp(obj.lon,obj.lat...
+          );
+          obj.descriptor=[num2str(v.buffer*1e-3),'km buffered ',mode,' areas of ',obj.descriptor];
+        else
+          obj.descriptor=[mode,' areas of ',obj.descriptor];
+        end
+        %enforce cutoff
+        if ~isempty(v.cutoff)
+           y_now=spmask.y;
+           switch lower(mode)
+           case 'land';  if v.buffer>0; idx=y_now>1-v.cutoff; else idx=y_now>v.cutoff; end
+           case 'ocean'; if v.buffer<0; idx=y_now>1-v.cutoff; else idx=y_now>v.cutoff; end
+           end
+           y_now(idx)=1;
+           y_now(~idx)=0;
+           spmask=spmask.assign(y_now);
+        end
+        %enforce mode
+        switch lower(mode)
+        case 'land';  %do nothing
+        case 'ocean'; spmask=spmask.assign(1-spmask.y);
+        otherwise; error(['Cannot handle the spatial mask ''',mode,'''.'])
+        end
+      case {'tropical','non-tropical','polar','non-polar'}
+        spmask=simplegrid.unit(obj.lon,obj.lat,varargin{:});
+        latmask=true(size(obj.lat));
+        switch lower(mode)
+        case 'tropical'    ;latmask(abs(obj.lat)> 23.43671)=false;
+        case 'non-tropical';latmask(abs(obj.lat)< 23.43671)=false;
+        case 'polar'       ;latmask(abs(obj.lat)< 60      )=false;
+        case 'non-polar'   ;latmask(abs(obj.lat)> 60      )=false;
+        end
+        spmap=spmask.map;
+        spmap(~latmask,:)=0;
+        spmask.map=spmap;
+      otherwise
+        error(['Unknown spatial mask with name ''',mode,'''.'])
       end
       %apply mask
       obj=obj.*spmask;
