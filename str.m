@@ -455,8 +455,14 @@ classdef str
         end
       end
     end
-    function out=contains(str,pattern) %TODO: this may be duplicate with MATLAB's contains, not sure
-      out=~isempty(regexp(str,['.*',pattern,'.*'],'once'));
+    function out=contains(in,pattern) %TODO: this may be duplicate with MATLAB's contains, not sure
+      if iscellstr(pattern)
+        out=cellfun(@(i) str.contains(in,i),pattern);
+      elseif ischar(pattern)
+        out=~isempty(regexp(in,['.*',pattern,'.*'],'once'));
+      else
+        error(['Cannot handle input ''pattern'' of class ',class(pattern),'.'])
+      end
     end
     function io=trunc(io,n,default)
       if isempty(io)
