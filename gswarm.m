@@ -2152,7 +2152,26 @@ classdef gswarm
         'data_dir',    file.unresolve_home('~/data/gswarm/analyses/data/')...
       };
     end
-    function d=precombval(varargin)      
+    function get_input_data
+      system('~/data/grace/download-l2.sh CSR 06')
+      system('~/data/gswarm/rsync.remote2local.sh --exclude=analyses/')
+    end
+    function c20model(plot_dir)
+      %document the C20 model
+      filename=fullfile(plot_dir,'C20.png');
+      if ~exist(filename,'file')
+        %need to be sure grace model is available
+        datastorage('debug',true,...
+          'start',datetime('2002-04-01'),...
+          'stop', datetime('2019-09-30') ... #NOTICE: this date defines the model; if it changes, the model needs to be recomputed
+        ).init('gracefo.sh.rl06.csr.pd.ts',gswarm.analyses_dirs{:});
+        plotting.figure;
+        gravity.graceC20('mode','model-plot','version','TN-11');
+        plotting.save(filename)
+      end
+      gravity.graceC20('mode','model-list-tex','version','TN-11')
+    end
+    function d=precombval(varargin)
       %NOTICE: this method produced the plots in ~/data/gswarm/analyses/precombval-<date>
       %        needed to produce the pre-combination report in ~/data/gswarm/analyses/precombval-<date>/report
       v=varargs.wrap('sources',{....
@@ -2160,28 +2179,15 @@ classdef gswarm
           'date',      datestr(now,'yyyy-mm-dd'), @isdatetime;...
           'force',     false,                     @islogical;... %this affects datastorage.init
           'nodata',     true,                     @islogical;... %NOTICE: consider turning this off to update all input data
+          'c20model',   true,                     @islogical;... 
         },... 
       },varargin{:});
+      %get input data
+      if ~v.nodata;gswarm.get_input_data; end
       %get plot_dir
       plot_dir=file.unresolve_home(['~/data/gswarm/analyses/precombval-',v.date,'/']);
-      %get input data
-      if ~v.nodata
-        system('~/data/grace/download-l2.sh CSR 06')
-        system('~/data/gswarm/rsync.remote2local.sh --exclude=analyses/')
-      end
-%       %need to be sure grace model is available
-%       datastorage('debug',true,...
-%         'start',datetime('2002-04-01'),...
-%         'stop', datetime('2019-09-30') ... #NOTICE: this date defines the model; if it changes, the model needs to be recomputed
-%       ).init('gracefo.sh.rl06.csr.pd.ts',gswarm.analyses_dirs{:});
-      %document the C20 model
-      filename=fullfile(plot_dir,'C20.png');
-      if ~exist(filename,'file')
-        plotting.figure;
-        gravity.graceC20('mode','model-plot','version','TN-11');
-        plotting.save(filename)
-      end
-      gravity.graceC20('mode','model-list-tex','version','TN-11')
+      %ensure C20 model is available
+      if v.c20model; gswarm.c20model(plot_dir); end
       %process
       d=gswarm.production(...
         'start',     datetime('2016-01-01'),...
@@ -2194,22 +2200,24 @@ classdef gswarm
         gswarm.analyses_dirs{:},...
         'plot_dir',plot_dir...
       );
-    
     end
     function d=validation(varargin)
-      %NOTICE: this method produced the plots in ~/data/gswarm/analyses/<date>
-      %        needed to produce the signal content report on ~/data/gswarm/analyses/<date>/report (needs to be revised)
+      %NOTICE: this method produced the plots in ~/data/gswarm/analyses/validation-<date>
+      %        needed to produce the signal content report on ~/data/gswarm/analyses/validation-<date>/report
       v=varargs.wrap('sources',{....
         {...
           'date',      datestr(now,'yyyy-mm-dd'), @ischar;...
           'force',     false,                     @islogical;... %this affects datastorage.init
         },... 
       },varargin{:});
+      %get plot_dir
+      plot_dir=file.unresolve_home(['~/data/gswarm/analyses/validation-',v.date,'/']);
       %process
       d=gswarm.production(...
         'start',     datetime('2013-11-01'),...
-        'stop',      datetime('2019-06-30'),... %NEEDS UPDATING: use the last month of the Swarm data (needed for correct title)
-        'inclusive', true,...    %TODO: revise this: this can be false, because the GRACE data is only used to derive grace.sh.rl06.csr.ld.ts, separately 
+        'stop',      datetime('2019-09-30'),... %NEEDS UPDATING: use the last month of the Swarm data (needed for correct title)
+        'inclusive', true,...     %TODO: revise this: this can be false, because the GRACE data is only used to derive grace.sh.rl06.csr.ld.ts, separately 
+        'force',     v.force,...  %NOTICE: gracefo.sh.rl06.csr.ld.ts has metadata never_force set as true (usually!) so this as false will only reload the Swarm individual models
         'products',  {...
           'gswarm.swarm.validation.land';...
           'gswarm.swarm.validation.ocean';...
@@ -2220,7 +2228,7 @@ classdef gswarm
           'gswarm.swarm.validation.pardecomp';...
         },...
         gswarm.analyses_dirs{:},...
-        'plot_dir',    file.unresolve_home(['~/data/gswarm/analyses/validation-',v.date,'/'])...
+        'plot_dir',plot_dir...
       );
     end
     function d=production(varargin)
