@@ -1,0 +1,6 @@
+method: arithmetic
+operation: minus
+sources: [swarm.sh.gswarm.rl01.tn11m/signal,grace.sh.rl06.csr.pd.ts.tn11m]
+source_fields_from: grace.sh.rl06.csr.pd.ts.tn11m
+operation_order: [1,2]
+storage_period: yearly 

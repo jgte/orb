@@ -1,0 +1,61 @@
+plot_product: true
+method: gswarm.plot_stats
+model_types: [signal]
+sources: [ #remember that plots with multiple sources pick the start/stop from the first source
+  swarm.sh.gswarm.rl01,
+  gracefo.sh.rl06.csr.pd.ts, 
+  gracefo.sh.rl06.csr,
+]
+
+
+
+stats_relative_to: gracefo.sh.rl06.csr.pd.ts
+explicit_fields: true
+storage_period: direct
+plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common time domain
+
+#plotting
+plot_xdateformat: yy/mm
+plot_outlier: 0
+plot_legend_suppress: [sh,GSWARM,gswarm,GSwarm,signal,RL06,CSR,RL01]
+plot_title_suppress:  [sh,GSWARM,gswarm,GSwarm,signal,RL06,CSR,RL01]
+plot_legend_replace: [SWARM,Swarm,PD TS,model,GRACEFO,GRACE]
+plot_title_replace:  [SWARM,Swarm,PD TS,model,GRACEFO,GRACE]
+plot_functional: eqwh
+plot_std_caxis: [0,0.01]
+plot_rms_caxis: [0,0.01]
+plot_corrcoeff_caxis: [-1,1]
+plot_colormap: jetzero
+plot_legend_box: false
+plot_save_data: yes
+plot_signal: true
+plot_pause_on_save: true
+plot_visible: true
+plot_summary: false
+#plot_ops
+plot_min_degree: 2
+plot_max_degree: 20
+
+
+#plot_spatial_stats
+plot_spatial_mask: non-tropical
+plot_derived_quantity: [cumdas]
+plot_type: line
+plot_spatial_stat_list: [diff]
+
+# plot_temporal_stats 
+# NOTICE: plot_temp_stat_list and plot_temp_stat_title both be declared and agree
+plot_temp_stat_list: [none] #[corrcoeff,rms,std]
+plot_temp_stat_title: [none] #[temporal corr. coeff.,temporal RMS,temporal STD]
+
+# plot_low_degrees (don't plot anything)
+degrees: -1
+orders: -1
+
+#plot_ops
+plot_smoothing_method: gauss
+plot_smoothing_degree: [750e3,750e3,750e3]
+plot_legend_include_smoothing: false
+
+plot_title: none
+plot_legend_sorting: none
