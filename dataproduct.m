@@ -52,7 +52,7 @@ classdef dataproduct
       end
     end
     function out=packagedir
-      out=fullfile(simpledata.scriptdir,'packages');
+      out=fullfile(dataproduct.scriptdir,'packages');
     end
     function out=parse_commands(in)
       %sanity
