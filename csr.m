@@ -30,7 +30,7 @@ classdef csr
       assert(status==0,[mfilename,': could not determine git time tag'])
     end
     function log(msg)
-      logname=fullfile(fileparts(mfilename),'import_calpar.log');
+      logname=fullfile(fileparts(mfilename),'log','import_calpar.log');
       if ~exist('msg','var')
         if file.exist(logname)
           system(['mv -v ',logname,' ',strrep(logname,'.log',''),'.',datestr(datetime('now'),30),'.log']);
