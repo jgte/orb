@@ -632,8 +632,14 @@ classdef file
       [~,sn]=fileparts(source);
       target=file.resolve_home(fullfile(target,sn));
       if ~exist(target,'file')
-        [status,result]=system(['ln -sv ',source,' ',target]);
-        out=(status==0);
+        %avoid circular links
+        if strcmp(which(source),which(target))
+          result=['circular linking ',source,' to ',target,' is ilegal'];
+          out=false;
+        else
+          [status,result]=system(['ln -sv ',source,' ',target]);
+          out=(status==0);
+        end
         if ~out
           disp(['WARNING: problem linking ',source,' to ',target,':',newline,result])
         else
