@@ -9,3 +9,4 @@ reference/
 nohup.out
 *.tex
 logs/
+project.yaml
