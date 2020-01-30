@@ -164,7 +164,7 @@ classdef structs
       end
       %sort if requested
       if sorted_flag
-        [~,sort_idx]=sort(cellfun(@(i) cells.flatten(i),out,'UniformOutput',false));
+        [~,sort_idx]=sort(cells.flatten(out));
         out=out(sort_idx);
       end
     end
