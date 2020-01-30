@@ -3,7 +3,7 @@
 function mlab
 {
   #define default arguments
-  local DEFAULT_ARGS=(-nouserjavapath -nosplash -timing)
+  local DEFAULT_ARGS=(-nouserjavapath -nosplash)
   [[   "${@/desktop/}" == "$@" ]] && DEFAULT_ARGS+=(-nodesktop)
   [[ ! "${@/timing/}"  == "$@" ]] && DEFAULT_ARGS+=(-timing)
   
@@ -56,11 +56,11 @@ function mlab
       [[ "${@/nodebug/}" == "$@" ]] && echo "startup script (from conflicting matlab dirs) : ${MATLAB_STARTUP_LIST[$(( ${#MATLAB_STARTUP_LIST[@]}-1 ))]}"
     fi
   fi
-
+  
   #run startup script(s)
   for i in ${MATLAB_STARTUP_LIST[@]}
   do
-    MATLAB_SUP+=" run $i;"
+    MATLAB_SUP+=" run('$i');"
   done
 
   #clean up the trash
