@@ -1,4 +1,4 @@
-name: legacy
+name: test
 stopiferror: true
 stopifwarning: false
 recycle: on
