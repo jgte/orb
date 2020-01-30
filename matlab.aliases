@@ -4,7 +4,8 @@ function mlab
 {
   #define default arguments
   local DEFAULT_ARGS=(-nouserjavapath -nosplash -timing)
-  [[ "${@/desktop/}" == "$@" ]] && DEFAULT_ARGS+=(-nodesktop)
+  [[   "${@/desktop/}" == "$@" ]] && DEFAULT_ARGS+=(-nodesktop)
+  [[ ! "${@/timing/}"  == "$@" ]] && DEFAULT_ARGS+=(-timing)
   
   #get matlab executable
   local MATLAB_EXE="$(which matlab 2> /dev/null)"
