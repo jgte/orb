@@ -82,6 +82,7 @@ classdef str
       assert(ischar(join_char),['Input ''join_char'' must of class ''char'', not ''',class(join_char),'''.'])
       %handle non-scalar quantities
       %NOTICE: don't use isscalar here because it will pick the size method in objects and return false
+      %TODO: this breaks with non-scalar structures
       if numel(in)>1
         out=cell(size(in));
         for i=1:numel(in)
@@ -199,6 +200,9 @@ classdef str
         end
         %propagate
         in=out;
+      else
+        rows=size(in,1);
+        cols=ones(1,rows)*size(in,2);
       end
       %loop over columns
       for i=1:size(in,2)
