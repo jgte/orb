@@ -8,3 +8,4 @@ log/
 reference/
 nohup.out
 *.tex
+logs/
