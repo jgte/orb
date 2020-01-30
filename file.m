@@ -4,6 +4,7 @@ classdef file
     dateplaceholder='DATE_PLACEHOLDER';
     archivedfilesext={'.gz','.gzip','.z','.zip','.tgz','.tar.gz','.tar'};
     homes={...
+      '~';...
       '/home1/00767/byaa676';...
       '/Users/teixeira';...
     };
@@ -33,12 +34,6 @@ classdef file
         fclose(fid);
       else
         frewind(fid);
-      end
-    end
-    function mkdir(dirname)
-      if ~exist(dirname,'dir')
-        [st,msg]=mkdir(dirname);
-        assert(st,['error creating directory ''',dirname,''': ',msg])
       end
     end
     function [fid,filename,close_file]=open(filename,perm)
@@ -207,6 +202,19 @@ classdef file
       [fid,~,close_file]=file.open(filename,'w');
       %save the string
       out=fprintf( fid, '%s', str);
+      %close the file (if fid not given)
+      if close_file, fclose(fid); end
+    end
+    %quick-loading str from filename
+    function str=strload(filename)
+      %input sanity
+      if ~exist('filename','var') || isempty(filename)
+        error([mfilename,': need filename.'])
+      end
+      %open the file if needed
+      [fid,~,close_file]=file.open(filename,'r');
+      %save the string
+      str=fscanf( fid, '%s');
       %close the file (if fid not given)
       if close_file, fclose(fid); end
     end
@@ -574,36 +582,7 @@ classdef file
         end
       end
     end
-    %% general utils
-    function io=ensure_scalar(io,force)
-      %convert to string if requested
-      if iscellstr(io)
-        if force
-          assert(numel(io)==1,['If ''scalar_as_strings'' is true, then results must be scalar, not with length ',...
-            num2str(numel(io)),'.'])
-          io=io{1};
-        end
-      elseif ischar(io)
-        %do nothing
-      else
-        error(['Cannot handle inputs of class ''',class(io),'''.'])
-      end
-    end
-    function out=ensuredir(filename,file_flag)
-      if ~exist('file_flag','var') || isempty(file_flag)
-        file_flag=true;
-      end
-      if file_flag
-        d=fileparts(filename);
-      else
-        d=filename;
-      end
-      if ~isempty(d) && ~exist(d,'dir')
-        out=mkdir(d);
-      else
-        out=true;
-      end
-    end
+    %% CLI interfaces
     function [out,s]=find(varargin)
       com=['find ',strjoin(str.clean(varargin,'regex'),' ')];
       [s,r]=system(com);
@@ -628,6 +607,88 @@ classdef file
         out=cells.rm_empty(strsplit(r,newline));
         out=cellfun(@(i) strsplit(i),out,'UniformOutput',false);
         out=cellfun(@(i) i{2:end},   out,'UniformOutput',false);
+      end
+    end
+    function st=mkdir(dirname,disp_flag)
+      if ~exist('disp_flag','var') || isempty(disp_flag)
+        disp_flag=false;
+      end
+      dirname=file.resolve_home(dirname);
+      if ~exist(dirname,'dir')
+        [st,msg]=mkdir(dirname);
+        assert(st,['error creating directory ''',dirname,''': ',msg])
+        if disp_flag
+          disp(['NOTICE: created dir: ',dirname])
+        end
+      else
+        st=true;
+      end
+    end
+    function out=ln(source,target,disp_flag)
+      if ~exist('disp_flag','var') || isempty(disp_flag)
+        disp_flag=false;
+      end
+      source=file.resolve_home(source);
+      [~,sn]=fileparts(source);
+      target=file.resolve_home(fullfile(target,sn));
+      if ~exist(target,'file')
+        [status,result]=system(['ln -sv ',source,' ',target]);
+        out=(status==0);
+        if ~out
+          disp(['WARNING: problem linking ',source,' to ',target,':',newline,result])
+        else
+          if disp_flag
+            disp(['NOTICE: linked ',source,' to ',target])
+          end
+        end
+      else
+        out=false;
+        if disp_flag
+          disp(['WARNING: cannot link ',source,' to ',target,'; the latter exists'])
+        end
+      end
+    end
+    function result=ls(in,ls_flags)
+      if ~exist('ls_flags','var') || isempty(ls_flags)
+        ls_flags='';
+      end
+      in=file.resolve_home(in);
+      [status,result]=system(['ls ',ls_flags,' ',in,]);
+      out=(status==0);
+      if ~out
+        disp(['WARNING: problem issueing command ''ls ',ls_flags,' ',in,''':',newline,result])
+      else
+        result=result(1:end-1);
+      end      
+    end
+    %% general utils
+    function io=ensure_scalar(io,force)
+      %convert to string if requested
+      if iscellstr(io)
+        if force
+          assert(numel(io)==1,['If ''scalar_as_strings'' is true, then results must be scalar, not with length ',...
+            num2str(numel(io)),'.'])
+          io=io{1};
+        end
+      elseif ischar(io)
+        %do nothing
+      else
+        error(['Cannot handle inputs of class ''',class(io),'''.'])
+      end
+    end
+    function out=ensuredir(filename,file_flag)
+      if ~exist('file_flag','var') || isempty(file_flag)
+        file_flag=true;
+      end
+      if file_flag
+        d=fileparts(filename);
+      else
+        d=filename;
+      end
+      if ~isempty(d)
+        out=file.mkdir(d);
+      else
+        out=true;
       end
     end
     function count=length(filename)
