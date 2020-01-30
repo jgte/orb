@@ -86,6 +86,7 @@ dir_list={'data','metadata'};
 for i=1:numel(dir_list)
   %make sure this directory is there
   if ~file.exist(fullfile(local_here,dir_list{i}))
+    
     %build possible dir location name
     linked_dirs={};
     %check for PROJECT-defined dirs
@@ -93,7 +94,7 @@ for i=1:numel(dir_list)
       linked_dirs{end+1}=PROJECT.([dir_list{i},'_dir']); %#ok<SAGROW>
     end
     %append frequent locations
-    linked_dirs{end+1}={fullfile(getenv('HOME'),dir_list{i})}; %#ok<SAGROW>
+    linked_dirs{end+1}=fullfile(getenv('HOME'),dir_list{i}); %#ok<SAGROW>
     %init success flag
     linked_flag=false;
     %loop over possible locations
