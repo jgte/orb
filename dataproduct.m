@@ -38,6 +38,10 @@ classdef dataproduct
   properties(Dependent)
     name
     codename
+    mdfile
+  end
+  properties (GetAccess=private)
+    mdfilei
   end
   methods(Static)
     function out=parameters(varargin)
@@ -157,16 +161,11 @@ classdef dataproduct
         out=cellfun(@dataproduct,in,'UniformOutput',false);
       end
     end
-    function out=mdfile_static(dn,metadata_dir)
-      assert(exist(metadata_dir,'dir')~=0,[mfilename,': ',...
-        'cannot find metadata dir ''',metadata_dir,'''.'])
-      % build filename and add path
-      out=fullfile(metadata_dir,[dn.name,'.yaml']);
-    end
   end
   methods
     %% constructor
     function obj=dataproduct(in,varargin)
+      global PROJECT
       % trivial call (all other classes are handled in datanames)
       if isa(in,'dataproduct')
         obj=in;
@@ -179,25 +178,37 @@ classdef dataproduct
       p.addParameter('metadata_from', '',@(i) isstruct(i));
       %create argument object, declare and parse parameters, save them to obj
       [~,p,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{dataproduct.parameters('obj')},varargin{:});
+      %patching project name, if available
+      if isfield (PROJECT,'name')
+        obj.metadata_dir=fullfile(obj.metadata_dir,PROJECT.name);
+      end
+      %sanity
+      assert(file.exist(obj.metadata_dir),[mfilename,': ',...
+        'cannot find metadata dir ''',obj.metadata_dir,'''.'])
       % call superclass constructor
       if ~isempty(p.Results.field_path)
         obj.dataname=datanames(in,p.Results.field_path);
       else
         obj.dataname=datanames(in);
       end
-      % make sure metadata file exists
-      if ~obj.ismdfile
-        %if there's no metadatafile, let's assume there's field_path in 'in' and start digging
-        in_split=strsplit(obj.name,file.build_element_char);
-        for i=numel(in_split):-1:2
-          dn_now=datanames(strjoin(in_split(1:i-1),file.build_element_char),in_split(i:end));
-          if exist(dataproduct.mdfile_static(dn_now,obj.metadata_dir),'file')~=0
-            %found it!
-            str.say('NOTICE: could not find metadata of product ',obj.dataname.str,...
-              ' but found metadata of product ',dn_now.str,' (using the latter).')
-            obj.dataname=dn_now;
-          end
-        end
+      %get the metadata name
+      metadataname=strsplit(obj.name,file.build_element_char);
+      %save mdfile
+      obj.mdfile=strjoin(metadataname,file.build_element_char);
+      %make sure it exists, if not start digging parent metadata names 
+      %NOTICE: this facility is probably unused, not sure what it is for
+      while ~obj.ismdfile && numel(metadataname)>0
+        %ditch last part of metadata name
+        metadataname(end)=[];
+        %try this metadata name
+        obj.mdfile=strjoin(metadataname,file.build_element_char);
+      end
+      %really need that metadata
+      obj.mdfile_check;
+      %inform if the metadata file had to be dug up
+      if numel(strsplit(obj.name,file.build_element_char))~=numel(metadataname)
+        str.say('NOTICE: could not find metadata of product ',obj.dataname.str,...
+          ' but found metadata of product ',strjoin(metadataname,file.build_element_char),' (using the latter).')
       end
       % load metadata
       obj=obj.mdload(p.Results.metadata_from);
@@ -366,14 +377,22 @@ classdef dataproduct
       out=obj.dataname.str;
     end
     %% metadata file
-    function out=mdfile(obj)
-      assert(logical(exist(obj.metadata_dir,'dir')),[mfilename,': ',...
-        'cannot find metadata dir ''',obj.metadata_dir,'''.'])
+    function out=get.mdfile(obj)
       % build filename and add path
-      out=dataproduct.mdfile_static(obj.dataname,obj.metadata_dir);
+      out=obj.mdfilei;
+    end
+    function obj=set.mdfile(obj,metadataname)
+      %NOTICE: although metadataname is (usually) obj.dataname.name, don't
+      %        set obj.dataname explicity to metadataname, e.g.:
+      %        obj.dataname=datanames(metadataname);
+      %        It's healthy to keep the mdfile and dataname members disconnected.
+      %NOTICE: don't check for the existence of the metadata file, that is
+      %        done at init
+      % build filename and add path
+      obj.mdfilei=fullfile(obj.metadata_dir,[metadataname,'.yaml']);
     end
     function out=ismdfile(obj)
-      out=exist(obj.mdfile,'file')~=0;
+      out=file.exist(obj.mdfile);
     end
     function mdfile_check(obj)
       assert(obj.ismdfile,[mfilename,': ',...
