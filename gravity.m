@@ -58,7 +58,6 @@ classdef gravity < simpletimeseries
                   200    -0.007], @(i) isnumeric(i) && size(i,2)==2;...     % Love numbers ?http://dx.doi.org/10.1029/98JB02844
         'origin',      'unknown', @(i) ischar(i);...                        % (arbitrary string)
         'functional',   'nondim', @(i) ischar(i) && any(strcmp(i,gravity.functionals)); %see above
-        'aux_dir', fullfile(gravity.scriptdir,'aux'), @(i) ischar(i);...
         'zf_love', 0.30190,       @(i) isnumeric(i) && isscalar(i);...      % zero frequency Love number: reported in IERS2003 Section 6.3 as "k20"
         'pt_factor',1.391413e-08, @(i) isnumeric(i) && isscalar(i);...      % permanent tide factor: reported in IERS2003 Section 6.3 as "A0*H0", (4.4228e-8)*(0.31460)
     };
@@ -1030,7 +1029,7 @@ classdef gravity < simpletimeseries
     end
     function [m,e]=ggm05g(datafile)
       if ~exist('datafile','var') || isempty(datafile)
-        datafile=fullfile(fileparts(which(mfilename)),'aux','ggm05g.gfc.txt');
+        datafile=fullfile(file.orbdir('aux'),'ggm05g.gfc.txt');
       end
       [m,e]=gravity.load(datafile,'gfc');
     end
@@ -2507,7 +2506,7 @@ function [m,e]=load_gsm(filename,time)
      end
      %handle yaml headers
      if str.contains(s,'End of YAML header')
-       addpath(fullfile(gravity.packagedir,'yamlmatlab'));
+       addpath(fullfile(file.orbdir('packages'),'yamlmatlab'));
        %rewind
        frewind(fid)
        %build header strings
@@ -3086,7 +3085,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       'mode',         'read', @ischar;...
       'start',time.zero_date, @isdatetime;...
       'stop',  time.inf_date, @isdatetime;...
-      'data_dir', gravity.parameters('aux_dir'),  @(i) ischar(i) && exist(i,'dir')~=0;
+      'data_dir', file.orbdir('aux'),  @(i) ischar(i) && exist(i,'dir')~=0;
     },...
   },varargin{:});
   %some default parameters

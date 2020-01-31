@@ -81,7 +81,7 @@ end
 %% project dirs 
 
 %define relevant directories
-dir_list={'data','metadata'};
+dir_list={'data','plot','metadata'};
 %loop over them
 for i=1:numel(dir_list)
   %make sure this directory is there

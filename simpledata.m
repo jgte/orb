@@ -48,15 +48,6 @@
       if isempty(v); v=varargs(simpledata.parameter_list); end
       out=v.picker(varargin{:});
     end
-    function out=scriptdir
-      out=fileparts(which(mfilename));
-      if isempty(out)
-        out='.';
-      end
-    end
-    function out=packagedir
-      out=fullfile(simpledata.scriptdir,'packages');
-    end
     function out=valid_x(x)
       out=(isnumeric(x) && ~isempty(x) && isvector(x)) || simpletimeseries.valid_t(x);
     end
