@@ -12,6 +12,46 @@ classdef file
     build_element_char='.';
   end
   methods(Static)
+    %% dir management
+    %returns the directory this script, or 'scriptname', sits in 
+    %uses the which command so it must be in matlab's path to work as expected
+    function out=scriptdir(scriptname)
+      if ~exist('scriptname','var') || isempty(scriptname)
+        scriptname = mfilename;
+      end
+      out=fileparts(which(scriptname));
+      if isempty(out)
+        out='.';
+      end
+    end
+    %appends file.scriptdir (with no arguments, i.e. the dir of file.m) to scriptname
+    function out=orbscriptpath(scriptname)
+      out=fullfile(file.scriptdir,scriptname);
+    end
+    %returns the path of orb directories, which are by default sitting on the same dir
+    %as this script; typical dirs are: aux, packages, metadata, data, plot (the latter 2 are not in git)
+    function out=orbdir(type)
+      global PROJECT
+      if isfield(PROJECT,[type,'_dir'])
+        out=PROJECT.([type,'_dir']);
+        if isfield(PROJECT,'dir')
+          %NOTICE: file.absolutepath handles the case out is already absolute
+          out=file.absolutepath(out,PROJECT.dir);
+        else
+          %NOTICE: file.absolutepath defaults to file.scriptdir if no 2nd arg given
+          out=file.absolutepath(out);
+        end
+      else
+        out=file.orbscriptpath(type);
+      end
+      %special cases
+      switch type
+      case 'metadata'
+        if isfield(PROJECT,'name')
+          out=fullfile(out,PROJECT.name);
+        end
+      end
+    end
     %% file IO utils
     function valid=isfid(fid)
       %https://www.mathworks.com/matlabcentral/newsreader/view_thread/85047
@@ -720,6 +760,17 @@ classdef file
       end
       out = char(java.io.File(filename).getCanonicalPath());
     end
+    function out=absolutepath(relativepath,root)
+      if ~exist('root','var') || isempty(root)
+        root=file.scriptdir;
+      end
+      %check if this is really a relative path
+      if file.isabsolute(relativepath)
+        out=relativepath;
+      else
+        out=fullfile(root,relativepath);
+      end
+    end
     function out=isabsolute(filename)
       out=filename(1)==filesep;
     end
@@ -733,6 +784,7 @@ classdef file
         io=[io,filesep];
       end
     end
+    %NOTICE: if 'in' is a dangling link, out is false
     function out=exist(in)
       %vector mode
       if iscellstr(in)

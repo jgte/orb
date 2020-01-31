@@ -9,7 +9,7 @@ classdef simpletimeseries < simpledata
       't_tol',     2e-6,                @(i) isnumeric(i) && isscalar(i);...
       'timesystem','utc',               @(i) ischar(i);...
       'debug',     false,               @(i) islogical(i) && isscalar(i);...
-      'data_dir'   fullfule(getenv('HOME'),'data'), @(i) ischar(i);...
+      'data_dir'   file.orbdir('data'), @(i) ischar(i);...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -35,6 +35,7 @@ classdef simpletimeseries < simpledata
     t_tol
     timesystem
     debug
+    data_dir
   end
   %private (visible only to this object)
   properties(GetAccess=private)
@@ -881,7 +882,7 @@ classdef simpletimeseries < simpledata
     end
     function obj=GRACEaltitude(varargin)
       p=inputParser;
-      p.addParameter('datafile',fullfile(simpletimeseries.parameters('data_dir'),'grace','altitude','GRACE.altitude.dat'));
+      p.addParameter('datafile',file.resolve_home(fullfile('~','data','grace','altitude','GRACE.altitude.dat')));
       p.parse(varargin{:});
       obj=simpletimeseries.import(p.Results.datafile,...
         'format','mjd',...

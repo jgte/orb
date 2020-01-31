@@ -5,7 +5,6 @@ classdef simplegrid < simpletimeseries
     parameter_list={...
       'sp_tol',   1e-8,  @(i) isnumeric(i) && isscalar(i);...
       'sp_units', 'deg',@(i) ischar(i);...  %TODO: need to convert non-deg units at input/output (internally deg are expected)
-      'aux_dir',   fullfile(simplegrid.scriptdir,'aux'), @(i) ischar(i);...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -747,8 +746,8 @@ classdef simplegrid < simpletimeseries
       p.addParameter('cutoff',-1, @(i) isscalar(i) && isnumeric(i)); 
       p.parse(lon,lat,varargin{:});
       %load the data
-      fmat=fullfile(simplegrid.parameters('aux_dir'),'landmask.mat');
-      fdat=fullfile(simplegrid.parameters('aux_dir'),'landmask.dat');
+      fmat=fullfile(file.orbdir('aux'),'landmask.mat');
+      fdat=fullfile(file.orbdir('aux'),'landmask.dat');
       if exist(fmat,'file')
         load(fmat,'landmask')
       elseif exist(fdat,'file')
@@ -782,7 +781,7 @@ classdef simplegrid < simpletimeseries
       p.addParameter('cutoff',1.4, @(i) isscalar(i) && isnumeric(i));
       p.parse(lon,lat,varargin{:});
       %load the data
-      fdat=fullfile(simplegrid.parameters('aux_dir'),'wahr.global_ocn_kernel.txt');
+      fdat=fullfile(file.orbdir('aux'),'wahr.global_ocn_kernel.txt');
       oceanmask=gravity.load(fdat,'mod').grid;
       %resample to requested resolution
       if isscalar(lon) && isscalar(lat)
@@ -814,7 +813,7 @@ classdef simplegrid < simpletimeseries
     %% map add-ons
     function h=coast(varargin)
       p=inputParser;
-      p.addParameter('datafile',fullfile(simplegrid.parameters('aux_dir'),'coast.mat'));
+      p.addParameter('datafile',fullfile(file.orbdir('aux'),'coast.mat'));
       p.addParameter('line_color','k',@(i) ischaracter(i));
       p.addParameter('line_width',1.5,  @(i)  isscalar(i) && isnumeric(i));
       p.addParameter('lon',[-180,180],  @(i) ~isscalar(i) && isnumeric(i));

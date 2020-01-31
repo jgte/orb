@@ -2937,7 +2937,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
           assert(status==0,['error removing ',mode,': ',result])
         end
       otherwise
-        dataproduct(mode,'metadata_dir',obj.metadata_dir).rm_data(varargin{:});
+        dataproduct(mode,'metadata_dir',file.orbdir('metadata')).rm_data(varargin{:});
       end
     end
      
