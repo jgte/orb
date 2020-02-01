@@ -669,11 +669,12 @@ classdef file
         disp_flag=false;
       end
       source=file.resolve_home(source);
+      assert(file.exist(source),['Cannot link to ',source,' because it does not exist'])
       [~,sn]=fileparts(source);
       target=file.resolve_home(fullfile(target,sn));
       if ~exist(target,'file')
         %avoid circular links
-        if strcmp(which(source),which(target))
+        if strcmp(file.fullpath(source),file.fullpath(target))
           result=['circular linking ',source,' to ',target,' is ilegal'];
           out=false;
         else

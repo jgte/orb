@@ -86,7 +86,6 @@ dir_list={'data','plot','metadata'};
 for i=1:numel(dir_list)
   %make sure this directory is there
   if ~file.exist(fullfile(local_here,dir_list{i}))
-    
     %build possible dir location name
     linked_dirs={};
     %check for PROJECT-defined dirs
