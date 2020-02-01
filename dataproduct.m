@@ -153,7 +153,6 @@ classdef dataproduct
   methods
     %% constructor
     function obj=dataproduct(in,varargin)
-      global PROJECT
       % trivial call (all other classes are handled in datanames)
       if isa(in,'dataproduct')
         obj=in;
@@ -166,10 +165,6 @@ classdef dataproduct
       p.addParameter('metadata_from', '',@(i) isstruct(i));
       %create argument object, declare and parse parameters, save them to obj
       [~,p,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{dataproduct.parameters('obj')},varargin{:});
-      %patching project name, if available
-      if isfield (PROJECT,'name')
-        obj.metadata_dir=fullfile(obj.metadata_dir,PROJECT.name);
-      end
       %sanity
       assert(file.exist(obj.metadata_dir),[mfilename,': ',...
         'cannot find metadata dir ''',obj.metadata_dir,'''.'])
