@@ -180,7 +180,7 @@ classdef dataproduct
       obj.mdfile=strjoin(metadataname,file.build_element_char);
       %make sure it exists, if not start digging parent metadata names 
       %NOTICE: this facility is probably unused, not sure what it is for
-      while ~obj.ismdfile && numel(metadataname)>0
+      while ~obj.ismdfile && numel(metadataname)>1
         %ditch last part of metadata name
         metadataname(end)=[];
         %try this metadata name
