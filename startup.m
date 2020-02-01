@@ -47,6 +47,9 @@ PROJECT=yaml.ReadYaml(project_filename);
 
 %% options
 
+%define relevant directories
+dir_list={'data','plot','metadata'};
+
 %get metadata entries
 project_entries=fieldnames(PROJECT);
 %make room for user feebdack
@@ -63,9 +66,12 @@ for i=1:size(project_entries,1)
       if PROJECT.stopifwarning; dbstop if warning; end
     case 'recycle'
       recycle(str.logical(PROJECT.recycle,'onoff'))
+      %do nothing (avoids the message on the project fields
     otherwise
-      c=c+1;
-      project_msg(c,:)={project_entries{i},':',str.show(PROJECT.(project_entries{i}))};
+      if ~ismember(project_entries{i},cellfun(@(i) [i,'_dir'],dir_list,'UniformOutput',false))
+        c=c+1;
+        project_msg(c,:)={project_entries{i},':',str.show(PROJECT.(project_entries{i}))};
+      end
   end
 end
 %user feedback, if any
@@ -80,8 +86,6 @@ end
 
 %% project dirs 
 
-%define relevant directories
-dir_list={'data','plot','metadata'};
 %loop over them
 for i=1:numel(dir_list)
   %make sure this directory is there
