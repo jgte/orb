@@ -27,7 +27,7 @@ function result = iter_cell(data, level, addit)
     ii = 1;
     for i = 1:length(data)
         datai = data{i};
-        if yaml.issingleimport(datai)
+        if issingleimport(datai)
             if ~iscell(datai.import)
                 datai.import = {datai.import};
             end;
@@ -53,7 +53,7 @@ function result = iter_struct(data, level, addit)
 end
 
 function result = issingleimport_all(r)
-    result = all(cellfun(@yaml.issingleimport, r));
+    result = all(cellfun(@issingleimport, r));
 end
 
 function result = issingleimport(r)
