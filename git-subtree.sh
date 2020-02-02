@@ -11,7 +11,6 @@ fi
 DIR=$(cd $(dirname $BASH_SOURCE);pwd)
 
 while IFS= read -r line || [[ -n "$line" ]]; do
-  SUBDIR=$(echo $line| awk -F'\\.git' '{print $1}' | awk -F/ '{print $NF}')
   # https://www.yeahshecodes.com/git/a-simple-git-subtree-tutorial
-  $ECHO git subtree $1 --prefix=packages/$SUBDIR $line
+  $ECHO git subtree $1  $line
 done < $DIR/${BASH_SOURCE%.sh}.list
