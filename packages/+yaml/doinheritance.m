@@ -1,7 +1,6 @@
-%==========================================================================
-% Searches through some hierarchy and performs inheritance. Whenever finds
-% struct field named 'parent' it tries to find all points, defined by its
-% content and uses them as the struct ancestors. Example:
+% Searches through some hierarchy and performs inheritance. 
+% Whenever finds struct field named 'parent' it tries to find all points,
+% defined by its content and uses them as the struct ancestors. Example:
 %
 % Given:
 %
@@ -21,8 +20,6 @@
 %
 % Multiple inheritance is allowed using cell array of parent point strings
 % instead of one simple string.
-%
-%==========================================================================
 function result = doinheritance(r, tr)
     if ~exist('tr','var')
         tr = r;

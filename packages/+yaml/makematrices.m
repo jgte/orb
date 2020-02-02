@@ -1,6 +1,4 @@
-%==========================================================================
-% Recursively walks through a Matlab hierarchy and substitutes cell vectors
-% by a matrix when possible.
+% Recursively walks through a Matlab hierarchy and substitutes cell vectors by a matrix when possible.
 % Specifically substitutes cell objects like
 %    
 %   {{1,2,3},{4,5,6}}
@@ -14,7 +12,7 @@
 %
 % Parameter makeords determines whether to convert from cells to normal
 % matrices whenever possible (1) or leave matrices as cells (0).
-%==========================================================================
+
 function result = makematrices(r, makeords)
     result = recurse(r, 0, [], makeords);
 end

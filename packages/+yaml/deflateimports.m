@@ -1,4 +1,3 @@
-%==========================================================================
 % Transforms structures:
 %   - import: A, B
 %   - import: C
@@ -7,7 +6,6 @@
 % into:
 %   - import: A, B, C, D, F, F
 %
-%==========================================================================
 function result = deflateimports(r)
     result = recurse(r, 0, []);
 end
