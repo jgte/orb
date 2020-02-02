@@ -364,6 +364,7 @@ classdef file
       p.addParameter('directories_only',    false, @(i) islogical(i) && isscalar(i));
       p.addParameter('files_only',          false, @(i) islogical(i) && isscalar(i));
       p.addParameter('stop_if_empty',       false, @(i) islogical(i) && isscalar(i));
+      p.addParameter('passtrough_if_empty', false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',   false, @(i) islogical(i) && isscalar(i));
       p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @(i) isnumeric(i) && isscalar(i));
       % parse it
@@ -425,6 +426,10 @@ classdef file
         msg=['found no files named ''',in,'''.'];
         if p.Results.stop_if_empty
           error(msg)
+        end
+        if p.Results.passtrough_if_empty
+          filenames=fullfile(a,f_in);
+          return
         end
         if p.Results.disp
           str.say('stack_delta',p.Results.stack_delta,['WARNING: ',msg])
@@ -608,8 +613,10 @@ classdef file
           end
         end
         switch func2str(f)
-          case 'file.resolve_ext'; io=f(io,'.mat',varargin{:}); 
-          otherwise;               io=f(io,varargin{:});
+          case 'file.resolve_ext';       io=f(io,'.mat',varargin{:}); 
+          %NOTICE: passtrough_if_empty deals with cases that the non-mat is absent but the mat file is available
+          case 'file.resolve_wildcards'; io=f(io,'passtrough_if_empty',true,varargin{:}); 
+          otherwise;                     io=f(io,varargin{:});
         end
         if p.Results.debug;
           if ischar(io)
