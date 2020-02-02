@@ -1,9 +1,5 @@
-%==========================================================================
-% Walks through a tree structure data. Whenever it finds a structure, which
-% have field named 'import' it assumes that in that field is a cell array
-% and merges all structures found in that array. Parameter verb is used for
-% debugging purposes.
-%==========================================================================
+% Walks through a tree structure data. Whenever it finds a structure, which have field named 'import' it assumes that in that field is a cell array and merges all structures found in that array. 
+% Parameter verb is used for debugging purposes.
 function result = mergeimports(data, verb)
     if ~exist('verb','var')
         verb = 0;

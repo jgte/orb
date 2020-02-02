@@ -1,11 +1,8 @@
-%==========================================================================
-% Reads YAML file, converts YAML sequences to MATLAB cell columns and YAML
-% mappings to MATLAB structs
+% Reads YAML file, converts YAML sequences to MATLAB cell columns and YAML mappings to MATLAB structs
 %
 %  filename ... name of yaml file to be imported
 %  verbose  ... verbosity level (0 or absent = no messages, 
 %                                          1 = notify imports)
-%==========================================================================
 function result = ReadYamlRaw(filename, verbose, nosuchfileaction, treatasdata)
     if ~exist('verbose','var')
         verbose = 0;

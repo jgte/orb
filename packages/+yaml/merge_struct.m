@@ -1,9 +1,5 @@
-
-%--------------------------------------------------------------------------
-% Does merge of two structures. The result is structure which is union of
-% fields of p and s. If there are equal field names in p and s, fields in p
-% are overwriten with their peers from s.
-%
+% Does merge of two structures. The result is structure which is union of fields of p and s.
+% If there are equal field names in p and s, fields in p are overwriten with their peers from s.
 function result = merge_struct(p, s, donotmerge, deep)
     if ~( isstruct(p) && isstruct(s) )
         error('Only structures can be merged.');
