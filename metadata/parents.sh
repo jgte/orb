@@ -1,6 +1,5 @@
 #!/bin/bash -ue
 
-METADATADIR=$(cd $(dirname BASH_SOURCE);pwd)
 DEBUG=false
 
 function echoerr(){ echo $@ 1>&2; }
