@@ -146,7 +146,7 @@ end
 % Transforms Java Date class to MATLAB yaml.DateTime class
 %
 function result = scan_datetime(r)
-    result = yaml.DateTime(r);
+    result = datetime(datenum(yaml.DateTime(r)),'convertfrom','datenum');
 end
 
 %--------------------------------------------------------------------------
