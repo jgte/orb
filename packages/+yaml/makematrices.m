@@ -120,7 +120,7 @@ end
 function result = ismatrixrow(cellvec)
     result = ...
         (isnumeric_all(cellvec) || islogical_all(cellvec) || isstruct_all(cellvec)) && ...
-        issingle_all(cellvec) && ...
+        yaml.issingle_all(cellvec) && ...
         iscompatible_all(cellvec);
 end
 
@@ -142,7 +142,7 @@ end
 %
 %
 function result = issingle_all(cellvec)
-    result = all(cellfun(@issingle, cellvec));
+    result = all(cellfun(@yaml.issingle, cellvec));
 end
 
 %--------------------------------------------------------------------------
