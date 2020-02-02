@@ -4,26 +4,39 @@ disp([datestr(datetime('now'),'yyyy-mm-dd HH:MM:SS'),' - startup.m started'])
 %% setup path
 
 %get dir of this file
-local_here=fileparts(mfilename('fullpath'));
-disp(['NOTICE: startup from : ',local_here])
-% builddir list
-local_dir_list={...
-  local_here;...
-  fullfile(local_here,'packages','yamlmatlab');...
-};
+dirnow=fileparts(mfilename('fullpath'));
+disp(['NOTICE: startup from : ',dirnow])
+addpath(dirnow)
 % add legacy support
 if datetime(version('-date'))<=datetime('2016-02-11')
-  local_dir_list{end+1}=fullfile(local_here,'version_patching');
-end
-%add to path
-for i=1:numel(local_dir_list)
-  if exist(local_dir_list{i},'dir')
-    addpath(local_dir_list{i})
-  end
+  addpath(fullfile(dirnow,'version_patching'));
 end
 %inform user
 pathhead=strsplit(path,':');
 disp(['NOTICE: top 3 entries in path are:',newline,strjoin(pathhead(1:3),newline)])
+
+%% add packages
+
+%define packages dir
+package_dir=fullfile(dirnow,'packages');
+%get list of packages
+package_list=file.find(,'-mindepth 1 -maxdepth 1 -type d');
+for i=1:numel(package_list)
+  %check if this is a matlab package (starts with '+'), see:
+  % https://www.mathworks.com/help/matlab/matlab_oop/scoping-classes-with-packages.html
+  if package_list{i}(1)=='+'
+    %matlab will automaticall add the +<package name> dir to the path
+    addpath(fullfile(dirnow,'packages'),'-end')
+  else
+    %look for all subdirs with .m files
+    mfile_list=file.find(package_list{i},'-type f -name *.m');
+    mfile_dir_list=unique(cellfun(@fileparts,mfile_list,'UniformOutput',false));
+    %add them to the path
+    for j=1:numel(mfile_dir_list)
+      addpath(mfile_dir_list{j},'-end')
+    end    
+  end
+end
 
 %% determine project
 
@@ -32,9 +45,9 @@ global PROJECT;
 %define project yaml filename
 project_filename='project.yaml';
 %check if any project has been defined
-if ~exist(fullfile(local_here,'project.yaml'),'file')
+if ~exist(fullfile(dirnow,'project.yaml'),'file')
   disp([...
-    'NOTICE: could not find any ''',project_filename,''' file in the current directory (',local_here,'). ',newline,...
+    'NOTICE: could not find any ''',project_filename,''' file in the current directory (',dirnow,'). ',newline,...
     'This is most likely because this instance has just been checkout from git.'
   ])
   project_filename='default.yaml';
@@ -89,7 +102,7 @@ end
 %loop over them
 for i=1:numel(dir_list)
   %make sure this directory is there
-  if ~file.exist(fullfile(local_here,dir_list{i}))
+  if ~file.exist(fullfile(dirnow,dir_list{i}))
     %build possible dir location name
     linked_dirs={};
     %check for PROJECT-defined dirs
@@ -103,17 +116,17 @@ for i=1:numel(dir_list)
     %loop over possible locations
     for j=1:numel(linked_dirs)
       %link obvious locations if they exist
-      linked_flag=file.ln(linked_dirs{j},local_here,true);
+      linked_flag=file.ln(linked_dirs{j},dirnow,true);
       if linked_flag; break; end
     end
     %create dir if linking didn't work
     if ~linked_flag
-      file.mkdir(fullfile(local_here,dir_list{i}));
+      file.mkdir(fullfile(dirnow,dir_list{i}));
     end
   end
   %make sure there's a project dir in the metadata
   if strcmp(dir_list{i},'metadata')
-    file.mkdir(fullfile(local_here,dir_list{i},PROJECT.name),true);
+    file.mkdir(fullfile(dirnow,dir_list{i},PROJECT.name),true);
   end
   % user feedback
   disp(['NOTICE: ',str.just(dir_list{i},max(cellfun(@length,dir_list))),...
