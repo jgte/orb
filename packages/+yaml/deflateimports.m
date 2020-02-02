@@ -13,7 +13,7 @@ function result = deflateimports(r)
 end
 
 function result = recurse(data, level, addit)
-    if iscell(data) && ~ismymatrix(data)
+    if iscell(data) && ~yaml.ismymatrix(data)
         result = iter_cell(data, level, addit);
     elseif isstruct(data)
         result = iter_struct(data, level, addit);
@@ -29,7 +29,7 @@ function result = iter_cell(data, level, addit)
     ii = 1;
     for i = 1:length(data)
         datai = data{i};
-        if issingleimport(datai)
+        if yaml.issingleimport(datai)
             if ~iscell(datai.import)
                 datai.import = {datai.import};
             end;
@@ -55,7 +55,7 @@ function result = iter_struct(data, level, addit)
 end
 
 function result = issingleimport_all(r)
-    result = all(cellfun(@issingleimport, r));
+    result = all(cellfun(@yaml.issingleimport, r));
 end
 
 function result = issingleimport(r)
