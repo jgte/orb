@@ -51,7 +51,7 @@ classdef nrtdm
         data_dir=nrtdm.data_dir;
       end
       if ~exist(data_dir,'dir')
-        file.mkdir(data_dir)
+        file.mkdir(data_dir);
       end
       out=fullfile(data_dir,product,...
         [datestr(t_now,'yyyy'), '_',num2str(day(t_now,'dayofyear'),'%03i'),'.',extension]);
