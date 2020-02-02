@@ -943,7 +943,7 @@ classdef plotting
         e=['.',strrep(v.plot_save_ext,'.','')];
       end
       if str.logical(v.plot_save_mkdir)
-        file.mkdir(p)
+        file.mkdir(p);
       end
       if str.logical(v.plot_save_fig)
         saveas(v.fig_handle,fullfile(p,n),'fig')
