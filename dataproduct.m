@@ -383,8 +383,8 @@ classdef dataproduct
     end
     function obj=mdload(obj,metadata)
       if ~exist('metadata','var') || isempty(metadata)
-        %need to read YAML
-        addpath(fullfile(file.orbdir('packages'),'yamlmatlab'));
+        %need to read YAML (load packages dir, inside which the +yaml package sits)
+        addpath(fullfile(file.orbdir('packages')));
         %make sure the metadata files is there
         obj.mdfile_check
         %load metadata
