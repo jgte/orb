@@ -91,7 +91,7 @@ classdef DateTime
         function out = colon(this,step,to)
             vect = [double(this):double(step):double(to)]';
             
-            out =DateTime(vect);
+            out =yaml.DateTime(vect);
         end
         
         function this = vertcat(this,varargin)
@@ -276,7 +276,7 @@ classdef DateTime
             elseif not(isa(val,'DateTime')) && (isa(this,'DateTime'))
                 this.serialDate=o(this.serialDate, val);
             else
-                this.serialDate=DateTime(o(this, val));
+                this.serialDate=yaml.DateTime(o(this, val));
             end
         end
         
