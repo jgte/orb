@@ -1,3 +1,5 @@
+function startup
+
 %% header
 disp([datestr(datetime('now'),'yyyy-mm-dd HH:MM:SS'),' - startup.m started'])
 
@@ -109,21 +111,15 @@ end
 for i=1:numel(dir_list)
   %make sure this directory is there
   if ~file.exist(fullfile(dirnow,dir_list{i}))
-    %build possible dir location name
-    linked_dirs={};
-    %check for PROJECT-defined dirs
-    if isfield(PROJECT,[dir_list{i},'_dir'])
-      linked_dirs{end+1}=PROJECT.([dir_list{i},'_dir']); %#ok<SAGROW>
-    end
-    %append frequent locations
-    linked_dirs{end+1}=fullfile(getenv('HOME'),dir_list{i}); %#ok<SAGROW>
     %init success flag
     linked_flag=false;
-    %loop over possible locations
-    for j=1:numel(linked_dirs)
-      %link obvious locations if they exist
-      linked_flag=file.ln(linked_dirs{j},dirnow,true);
-      if linked_flag; break; end
+    %check for PROJECT-defined dirs
+    if isfield(PROJECT,[dir_list{i},'_dir'])
+      linked_flag=file.ln(PROJECT.([dir_list{i},'_dir']),dirnow,true);
+    end
+    %link frequent locations, unless already done
+    if ~linked_flag
+      linked_flag=file.ln(fullfile(getenv('HOME'),dir_list{i}),dirnow,true);
     end
     %create dir if linking didn't work
     if ~linked_flag
@@ -141,10 +137,6 @@ end
 %relevant user feedback
 disp(['NOTICE: available metadata is : ',newline,file.ls([fullfile('.','metadata',PROJECT.name)],'-lFh')])
 disp(['NOTICE: current project is : ',PROJECT.name])
-
-%% cleanup
-
-clear ans project_entries i c dir_list local_dir_list local_here pathhead project_filename project_msg
 
 %% footer
 
