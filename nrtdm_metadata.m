@@ -153,7 +153,7 @@ classdef nrtdm_metadata
       end      
       parent_dir=fullfile(data_dir,obj.product.str);
       if ~file.exist(parent_dir)
-        file.mkdir(parent_dir)
+        file.mkdir(parent_dir);
       end
       out=fullfile(parent_dir,[datestr(t_now,'yyyy'), '_',num2str(day(t_now,'dayofyear'),'%03i'),'.',extension]);
     end
