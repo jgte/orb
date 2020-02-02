@@ -44,8 +44,8 @@ function stat = test_WY_Universal(path, filename)
     stat.desc = '';
     try
         data = load([path, filesep, filename, '.mat']);
-        WriteYaml('~temporary.yaml',data.testval);
-        ry = ReadYaml('~temporary.yaml');
+        yaml.WriteYaml('~temporary.yaml',data.testval);
+        ry = yaml.ReadYaml('~temporary.yaml');
         if ~isequalwithequalnans(ry, data.testval)
             stat.desc  = 'Wrong values loaded';
             stat.ok = 0;         
