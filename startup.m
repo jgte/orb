@@ -17,26 +17,32 @@ disp(['NOTICE: top 3 entries in path are:',newline,strjoin(pathhead(1:3),newline
 
 %% add packages
 
+%make room for path dirs to be added
+path_dir_list={};
 %define packages dir
 package_dir=fullfile(dirnow,'packages');
 %get list of packages
-package_list=file.find(,'-mindepth 1 -maxdepth 1 -type d');
+package_list=file.find(package_dir,'-mindepth 1 -maxdepth 1 -type d');
+%loop over them
 for i=1:numel(package_list)
+  %get package names
+  [~,package_name]=fileparts(package_list{i});
   %check if this is a matlab package (starts with '+'), see:
   % https://www.mathworks.com/help/matlab/matlab_oop/scoping-classes-with-packages.html
-  if package_list{i}(1)=='+'
+  if package_name(1)=='+'
     %matlab will automaticall add the +<package name> dir to the path
-    addpath(fullfile(dirnow,'packages'),'-end')
+    path_dir_list=[path_dir_list(:);{fullfile(dirnow,'packages')}];
   else
     %look for all subdirs with .m files
     mfile_list=file.find(package_list{i},'-type f -name *.m');
     mfile_dir_list=unique(cellfun(@fileparts,mfile_list,'UniformOutput',false));
-    %add them to the path
-    for j=1:numel(mfile_dir_list)
-      addpath(mfile_dir_list{j},'-end')
-    end    
+    %add them to the list of dirs
+    path_dir_list=[path_dir_list(:);mfile_dir_list(:)];
   end
 end
+%loop over all collected dirs and add them to the path
+cellfun(@(i)addpath(i,'-end'),path_dir_list);
+cellfun(@(i)disp(['NOTICE: added to path dir: ',i]),path_dir_list);
 
 %% determine project
 
