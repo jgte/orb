@@ -1798,6 +1798,23 @@ classdef gswarm
         end
       end
     end
+    function plotdeepoceanmask(l,plotname)
+      a=simplegrid.unit(l*90,l*45);
+      a=a.spatial_mask('deep ocean');
+      c=gray(l*16);
+      c=flipud(c(l*4:l*12,:));
+      plotting.figure;
+      a.imagesc;
+      colormap(c)
+      colorbar off
+      plotting.enforce(v.varargin{:},...
+        'plot_ylabel','none',...
+        'plot_xlabel','none',...
+        'plot_legend_location','none'...
+      );
+      plotting.no_ticks;
+      saveas(gcf,plotname)
+    end
     %% realizations
     function d=paper(varargin)
 %             'swarm.sh.gswarm.rl01.individual';... %figs 6 - 8
@@ -1869,22 +1886,7 @@ classdef gswarm
         saveas(gcf,fullfile(v.work_dir,'figures','TN11.png'))
         gravity.graceC20('mode','model-list')
       case 'deepoceanmask' %fig 1
-        l=4;
-        a=simplegrid.unit(l*90,l*45);
-        a=a.spatial_mask('deep ocean');
-        c=gray(l*16);
-        c=flipud(c(l*4:l*12,:));
-        plotting.figure;
-        a.imagesc;
-        colormap(c)
-        colorbar off
-        plotting.enforce(v.varargin{:},...
-          'plot_ylabel','none',...
-          'plot_xlabel','none',...
-          'plot_legend_location','none'...
-        );
-        plotting.no_ticks;
-        saveas(gcf,fullfile(v.work_dir,'figures','deepoceanmask.png'))
+        gswarm.plotdeepoceanmask(4,fullfile(v.work_dir,'figures','deepoceanmask.png'))
       case {'gracelowdegrees','gracefolowdegrees'} %fig 2
         type=strrep(v.type,'lowdegrees','');
         dirs=gswarm.paper('type','dirs');
