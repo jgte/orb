@@ -35,7 +35,7 @@ function result = merge_struct(p, s, donotmerge, deep)
         %disp(s.(fld));
         %disp('----------');
         if deep == 1 && isfield(result, fld) && isstruct(result.(fld)) && isstruct(s.(fld))
-            result.(fld) = merge_struct(result.(fld), s.(fld), donotmerge, deep);
+            result.(fld) = yaml.merge_struct(result.(fld), s.(fld), donotmerge, deep);
         else
             result.(fld) = s.(fld);
         end;

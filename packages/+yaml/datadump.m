@@ -4,7 +4,7 @@ end
 
 function result = recurse(data, level, addit)
     indent = repmat(' | ',1,level);
-    if iscell(data) && ~ismymatrix(data)
+    if iscell(data) && ~yaml.ismymatrix(data)
         result = iter_cell(data, level, addit);
     elseif isstruct(data)
         result = iter_struct(data, level, addit);

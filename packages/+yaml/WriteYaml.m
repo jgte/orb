@@ -57,7 +57,7 @@ function result = scan(r)
         result = scan_char(r);
     elseif iscell(r)
         result = scan_cell(r);
-    elseif isord(r)
+    elseif yaml.isord(r)
         result = scan_ord(r);
     elseif isstruct(r)
         result = scan_struct(r);                
@@ -65,7 +65,7 @@ function result = scan(r)
         result = scan_numeric(r);
     elseif islogical(r)
         result = scan_logical(r);
-    elseif isa(r,'DateTime')
+    elseif isa(r,'yaml.DateTime')
         result = scan_datetime(r);
     else
         error(['Cannot handle type: ' class(r)]);
@@ -127,13 +127,13 @@ end
 %
 %
 function result = scan_cell(r)
-    if(isrowvector(r))  
+    if(yaml.isrowvector(r))  
         result = scan_cell_row(r);
-    elseif(iscolumnvector(r))
+    elseif(yaml.iscolumnvector(r))
         result = scan_cell_column(r);
-    elseif(ismymatrix(r))
+    elseif(yaml.ismymatrix(r))
         result = scan_cell_matrix(r);
-    elseif(issingle(r));
+    elseif(yaml.issingle(r));
         result = scan_cell_single(r);
     elseif(isempty(r))
         result = java.util.ArrayList();
@@ -146,13 +146,13 @@ end
 %
 %
 function result = scan_ord(r)
-    if(isrowvector(r))
+    if(yaml.isrowvector(r))
         result = scan_ord_row(r);
-    elseif(iscolumnvector(r))
+    elseif(yaml.iscolumnvector(r))
         result = scan_ord_column(r);
-    elseif(ismymatrix(r))
+    elseif(yaml.ismymatrix(r))
         result = scan_ord_matrix(r);
-    elseif(issingle(r))
+    elseif(yaml.issingle(r))
         result = scan_ord_single(r);
     elseif(isempty(r))
         result = java.util.ArrayList();
