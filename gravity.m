@@ -2506,7 +2506,8 @@ function [m,e]=load_gsm(filename,time)
      end
      %handle yaml headers
      if str.contains(s,'End of YAML header')
-       addpath(fullfile(file.orbdir('packages'),'yamlmatlab'));
+       %need to read YAML (load packages dir, inside which the +yaml package sits)
+       addpath(fullfile(file.orbdir('packages')));
        %rewind
        frewind(fid)
        %build header strings
