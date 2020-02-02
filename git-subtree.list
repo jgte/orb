@@ -1,1 +1,1 @@
-https://github.com/jerelbn/yamlmatlab.git master
+--prefix=packages/yamlmatlab/+yaml https://github.com/jerelbn/yamlmatlab.git master
