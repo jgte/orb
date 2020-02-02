@@ -92,7 +92,7 @@ classdef file
         %make sure dir exists
         d=fileparts(filename);
         if isempty(strfind(perm,'r'))
-          file.mkdir(d)
+          file.mkdir(d);
         end
         %open the file
         [fid,msg]=fopen(filename,perm);
@@ -704,6 +704,19 @@ classdef file
       out=(status==0);
       if ~out
         disp(['WARNING: problem issueing command ''ls ',ls_flags,' ',in,''':',newline,result])
+      else
+        result=result(1:end-1);
+      end      
+    end
+    function result=md5(in,md5_flags)
+      if ~exist('ls_flags','var') || isempty(md5_flags)
+        md5_flags='-q';
+      end
+      in=file.resolve_home(in);
+      [status,result]=system(['md5 ',md5_flags,' ',in,]);
+      out=(status==0);
+      if ~out
+        disp(['WARNING: problem issuing command ''md5 ',md5_flags,' ',in,''':',newline,result])
       else
         result=result(1:end-1);
       end      
