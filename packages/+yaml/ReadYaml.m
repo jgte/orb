@@ -1,4 +1,3 @@
-%==========================================================================
 % Actually reads YAML file and transforms it using several mechanisms:
 %
 %   - Transforms mappings and lists into Matlab structs and cell arrays,
