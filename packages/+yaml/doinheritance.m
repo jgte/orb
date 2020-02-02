@@ -12,7 +12,7 @@
 %   s.b.a = 3
 %   s.b.c = 4
 %
-% the result of r = doinheritance(s) is:
+% the result of r = yaml.doinheritance(s) is:
 % 
 %   r.a = 1
 %   r.c = 4
@@ -31,7 +31,7 @@ function result = doinheritance(r, tr)
 end
 
 function result = recurse(data, level, addit)
-    if iscell(data) && ~ismymatrix(data)
+    if iscell(data) && ~yaml.ismymatrix(data)
         result = iter_cell(data, level, addit);
     elseif isstruct(data)
         result = iter_struct(data, level, addit);
@@ -47,8 +47,8 @@ function result = iter_cell(data, level, addit)
     end;
     
     for i = 1:length(data)
-        if isstruct(result{i}) && isfield(result{i}, kwd_parent())
-            result{i} = inherit(result{i}, result{i}.(kwd_parent()), [], addit{1}, {}); % !!!
+        if isstruct(result{i}) && isfield(result{i}, yaml.kwd_parent())
+            result{i} = inherit(result{i}, result{i}.(yaml.kwd_parent()), [], addit{1}, {}); % !!!
         end;
     end;
 end
@@ -62,8 +62,8 @@ function result = iter_struct(data, level, addit)
     
     for i = fields(result)'
         fld = char(i);
-        if isstruct(result.(fld)) && isfield(result.(fld), kwd_parent())
-            result.(fld) = inherit(result.(fld), result.(fld).(kwd_parent()), [], addit{1}, {});
+        if isstruct(result.(fld)) && isfield(result.(fld), yaml.kwd_parent())
+            result.(fld) = inherit(result.(fld), result.(fld).(yaml.kwd_parent()), [], addit{1}, {});
         end;
     end;
 end
@@ -86,12 +86,12 @@ function result = inherit(child, parent_chr, container, oaroot, loc_imported)
             end;
             rethrow(ex);
         end;
-        if isstruct(parentstruct) && isfield(parentstruct, kwd_parent())
+        if isstruct(parentstruct) && isfield(parentstruct, yaml.kwd_parent())
             next_loc_imported = loc_imported;
             next_loc_imported{end + 1} = parent_chr{i};
-            result = merge_struct(inherit(parentstruct, parentstruct.(kwd_parent()), [], oaroot, next_loc_imported), result, {'import'});
+            result = yaml.merge_struct(inherit(parentstruct, parentstruct.(yaml.kwd_parent()), [], oaroot, next_loc_imported), result, {'import'});
         end;
-        result = merge_struct(parentstruct, result, {'import'});
+        result = yaml.merge_struct(parentstruct, result, {'import'});
     end;
 end
 

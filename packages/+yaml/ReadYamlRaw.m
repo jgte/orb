@@ -143,10 +143,10 @@ function result = scan_logical(r)
 end
 
 %--------------------------------------------------------------------------
-% Transforms Java Date class to MATLAB DateTime class
+% Transforms Java Date class to MATLAB yaml.DateTime class
 %
 function result = scan_datetime(r)
-    result = DateTime(r);
+    result = yaml.DateTime(r);
 end
 
 %--------------------------------------------------------------------------
