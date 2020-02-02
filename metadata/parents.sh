@@ -1,5 +1,7 @@
 #!/bin/bash -ue
 
+which niet >& null || pip install niet
+
 DEBUG=false
 
 function echoerr(){ echo $@ 1>&2; }
