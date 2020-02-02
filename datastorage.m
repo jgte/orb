@@ -124,10 +124,12 @@ classdef datastorage
       p=inputParser;
       p.KeepUnmatched=true;
       p.addParameter('info_methods',{'size','nr_gaps','start','stop','first','last'}, @(i) ischar(i) || iscellstr(i));
-      p.addParameter('tab',[32,20], @(i) isnumeric(i));
+      p.addParameter('tab_info_methods',[91,7,20,20,20,20], @(i) isnumeric(i));
+      p.addParameter('tab_product_names',32, @(i) isnumeric(i) && isscalar(i));
       p.parse(varargin{:});
+      tab=[p.Results.tab_product_names,p.Results.tab_info_methods];
       %show header
-      disp(str.tablify(p.Results.tab,'product',p.Results.info_methods))
+      disp(str.tablify(tab,'product',p.Results.info_methods{:}))
       %retrieve global field path list
       obj_list=obj.data_get(dn_list);
       dn_list=obj.data_list(dn_list);
@@ -138,17 +140,18 @@ classdef datastorage
           msg(:)={'-'};
         else
           for m=1:numel(p.Results.info_methods)
+            %NOTICE: 'msg{m}=str.show(' below captures when there's a non-scalar vallue (as is the case with 'size')
             if ismethod(obj_list{i},p.Results.info_methods{m})
-              msg{m}=eval([p.Results.info_methods{m},'(obj_list{i})']);
-					 %any(isprop(...)) catches when obj_list{i} is a string
+              msg{m}=str.show(eval([p.Results.info_methods{m},'(obj_list{i})']));
+					  %NOTICE: any(isprop(...)) catches when obj_list{i} is a string
             elseif any(isprop(obj_list{i},p.Results.info_methods{m}))
-              msg{m}=obj_list{i}.(p.Results.info_methods{m});
+              msg{m}=str.show(obj_list{i}.(p.Results.info_methods{m}));
             else
               msg{m}='N/A';
             end
           end
         end
-        disp(str.tablify(p.Results.tab,dn_list{i}.str,msg))
+        disp(str.tablify(tab,dn_list{i}.str,msg{:}))
       end
     end
     function da(obj,dn_list,varargin)
