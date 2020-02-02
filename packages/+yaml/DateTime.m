@@ -1,7 +1,6 @@
 classdef DateTime
-    % This class enclapsulates date time value but behaves in a very
-    % similar way as typical array of timestamps in datenum format
-  %======================================================================
+    % This class enclapsulates date time value but behaves in a very similar way as typical array of timestamps in datenum format
+    %======================================================================
     %{
 		Copyright (c) 2011
 		This program is a result of a joined cooperation of Energocentrum
