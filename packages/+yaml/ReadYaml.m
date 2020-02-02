@@ -5,13 +5,13 @@
 %     for timestamps uses DateTime class, performs all imports (when it
 %     finds a struct field named 'import' it opens file(s) named in the
 %     field content and substitutes the filename by their content.
-%   - Deflates outer imports into inner imports - see deflateimports(...)
+%   - Deflates outer imports into inner imports - see yaml.deflateimports(...)
 %     for details.
 %   - Merges imported structures with the structure from where the import
 %     was performed. This is actually the same process as inheritance with
 %     the difference that parent is located in a different file.
-%   - Does inheritance - see doinheritance(...) for details.
-%   - Makes matrices from cell vectors - see makematrices(...) for details.
+%   - Does inheritance - see yaml.doinheritance(...) for details.
+%   - Makes matrices from cell vectors - see yaml.makematrices(...) for details.
 %
 % Parameters:
 %   filename         ... name of an input yaml file
@@ -45,8 +45,8 @@ function result = ReadYaml(filename, nosuchfileaction, makeords, treatasdata, di
     end; 
 
     
-    ry = ReadYamlRaw(filename, 0, nosuchfileaction, treatasdata);
-    ry = deflateimports(ry);
+    ry = yaml.ReadYamlRaw(filename, 0, nosuchfileaction, treatasdata);
+    ry = yaml.deflateimports(ry);
     if iscell(ry) && ...
         length(ry) == 1 && ...
         isstruct(ry{1}) && ...
@@ -54,11 +54,11 @@ function result = ReadYaml(filename, nosuchfileaction, makeords, treatasdata, di
         isfield(ry{1},'import')        
         ry = ry{1};
     end;
-    ry = mergeimports(ry);    
-    ry = doinheritance(ry);
-    ry = makematrices(ry, makeords);    
+    ry = yaml.mergeimports(ry);    
+    ry = yaml.doinheritance(ry);
+    ry = yaml.makematrices(ry, makeords);    
     if exist('dictionary','var')
-        ry = dosubstitution(ry, dictionary);
+        ry = yaml.dosubstitution(ry, dictionary);
     end;
     
     result = ry;

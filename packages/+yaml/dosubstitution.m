@@ -9,7 +9,7 @@ function result = dosubstitution(r, dictionary)
 end
 
 function result = recurse(data, level, dictionary)
-    if iscell(data) && ~ismymatrix(data)
+    if iscell(data) && ~yaml.ismymatrix(data)
         result = iter_cell(data, level, dictionary);
     elseif isstruct(data)
         result = iter_struct(data, level, dictionary);

@@ -85,7 +85,7 @@ function result = iter_struct(data, level, addit, verb)
         end;
     end;
     for i = 1:length(collected_imports)
-        result = merge_struct(result, collected_imports{i}, {}, 'deep');
+        result = yaml.merge_struct(result, collected_imports{i}, {}, 'deep');
     end;
     if any(verb == 1); fprintf([indent,'} struct\n']); end; % for debugging
 end
@@ -101,7 +101,7 @@ function result = process_import_field(data)
         collected_nonstruct = {};
         for i = 1:length(data)
             if isstruct(data{i})
-                merged_structs = merge_struct(merged_structs, data{i}, {}, 'deep');
+                merged_structs = yaml.merge_struct(merged_structs, data{i}, {}, 'deep');
             else
                 collected_nonstruct{end+1} = data{i};
             end;
