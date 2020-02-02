@@ -669,7 +669,7 @@ classdef gravity < simpletimeseries
         },...
       },varargin{:});
       switch v.mode
-      case 'C20mean';
+      case 'C20mean'
         out=v.C20mean; 
       case 'model-poly'
         out=2;
@@ -707,6 +707,27 @@ classdef gravity < simpletimeseries
       case 'model-datfile'
         [p,n]=fileparts(GetGRACEC20('mode','data_file','version',v.version));
         out=fullfile(p,[n,'_pd.mat']);
+      case 'model-md5file'
+        [p,n]=fileparts(GetGRACEC20('mode','data_file','version',v.version));
+        out=fullfile(p,[n,'.md5']);
+      case 'model-md5'
+        out=file.md5(GetGRACEC20('mode','data_file',    'version',v.version));
+      case 'model-md5set'
+        out=file.strsave(...
+          gravity.graceC20('mode','model-md5file','version',v.version),...
+          gravity.graceC20('mode','model-md5',    'version',v.version)...
+        );
+      case 'model-md5get'
+        md5file=gravity.graceC20('mode','model-md5file','version',v.version);
+        if ~file.exist(md5file)
+          gravity.graceC20('mode','model-md5set','version',v.version);
+        end
+        out=file.strload(md5file);
+      case 'model-md5check'
+        out=strcmp(...
+          gravity.graceC20('mode','model-md5get','version',v.version),...
+          gravity.graceC20('mode','model-md5',   'version',v.version)...
+        );
       case 'model'
         %loading necessary data
         c20=gravity.graceC20(varargin{:},'mode','read');
@@ -715,13 +736,16 @@ classdef gravity < simpletimeseries
         %check if pdset is already available
         f_pdset=gravity.graceC20(varargin{:},'mode','model-list-datfile');
         f_pd   =gravity.graceC20(varargin{:},'mode','model-datfile');
-        if ~file.exist(f_pdset) || ~file.exist(f_pd) 
+        if ~file.exist(f_pdset) || ~file.exist(f_pd) || ~...
+          gravity.graceC20(varargin{:},'mode','model-md5check')  
           %get the coefficients; NOTICE: always use c20.t so that f_pdset is not dependent on inputs
           [out,pd_set]=c20.parametric_decomposition('np',np,'T',T,...
-            'timescale','days','time',c20.t_domain(days(7))); %#ok<ASGLU>
+            'timescale','days','time',c20.t_domain(days(7))); 
           %save them
           save(f_pdset,'pd_set')
           save(f_pd,      'out')
+          %update md5 of data
+          gravity.graceC20(varargin{:},'mode','model-md5set')  
         else
           load(f_pd,      'out')
         end
@@ -3130,6 +3154,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     otherwise
       error(['Cannot handle version ''',v.version,'''.'])
   end
+  %append v.file and v.url
   v=varargs.wrap('sources',{v,{...
         'file',fullfile(v.data_dir,datfil),  @(i) ischar(i);...
         'url',daturl,                         @(i) ischar(i);...
