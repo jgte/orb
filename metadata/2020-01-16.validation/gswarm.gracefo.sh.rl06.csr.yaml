@@ -6,6 +6,3 @@ date_parser: gravity.parse_epoch_grace
 submetadata: [model.processing.submetadata,model.plotting.submetadata]
 storage_period: yearly
 start: 2002-04-01
-max_degree: 60
-
-never_force: true
