@@ -1,9 +1,10 @@
+
 method: datastorage.pardecomp_join
-sources: [gracefo.sh.rl06.csr.pd]
+sources: [gswarm.gracefo.sh.rl06.csr.pd]
 storage_period: yearly
 polyorder: 1
 start: 2002-01-01
-stop: 2019-12-31
+#NOTICE: no stop date, let it run until the stop defined in project.yaml
 time_step: 7
 time_step_unit: days
 explicit_fields: true
