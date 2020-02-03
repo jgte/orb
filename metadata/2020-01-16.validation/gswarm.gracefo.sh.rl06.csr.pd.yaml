@@ -1,5 +1,5 @@
 method: datastorage.pardecomp_split
-sources: [gracefo.sh.rl06.csr/signal]
+sources: [gswarm.gracefo.sh.rl06.csr/signal]
 storage_period: infinite
 polyorder: 1
 sin_period_unit: days
