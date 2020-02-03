@@ -1691,14 +1691,18 @@ classdef gswarm
       
     end
     %% utils
-    function d=grace_model(varargin)
+    function d=grace_model(stem,varargin)
+      if ~exist('stem','var') || isempty(stem)
+%         stem='grace';
+        stem='gracefo';
+%         stem='gswarm.gracefo';
+      end
       %NOTICE: this function is useful to rebuilt the grace (+ grace-fo) climatological model
-%       stemp='grace';
-      stem='gracefo';
       %end dates change
       switch stem
         case 'grace';  stop=datetime('2017-06-30');
-        case 'gracefo';stop=dateshift(datetime('now'),'end','month');
+        case {'gswarm.gracefo','gracefo'}
+          stop=dateshift(datetime('now'),'end','month');
       end
       v=varargs.wrap('sources',{....
         {...
@@ -1714,6 +1718,7 @@ classdef gswarm
             [stem,'.sh.rl06.csr.pd'];...
             [stem,'.sh.rl06.csr.pd.ts'];...
           },                                      @iscellstr;...
+          'plot_dir',file.orbdir('plot'),         @ischar;...
         },... 
       },varargin{:});
       %create vector with relevant data product
@@ -1731,7 +1736,7 @@ classdef gswarm
       for i=1:numel(p)
         d=d.init(p{i},'force',v.force);
       end
-      %derive data
+      %derived data
       a={
         d.data_get_scalar(p{1}.dataname.append_field_leaf('signal')),'original' ;... 
         pardecomp.join(d.data.([stem,'_sh_rl06_csr_pd'])),           're-modelled' ;...
@@ -1739,21 +1744,28 @@ classdef gswarm
       };
       %plot C20
       if cells.isincluded(v.mode,{'C20','all'})
-        stmn=dataproduct(p{1}).mdget('static_model');
-        stc20=datastorage().init(stmn).data_get_scalar(datanames(stmn).append_field_leaf('signal')).C(2,0);
-        tn=gravity.graceC20('mode','read' ); tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);            
-        plotting.figure;
-        for i=1:size(a,1)
-          a{i,1}.ts_C(2,0).addgaps(days(45)).plot;
+        filename=fullfile(plot_dir,[stem,'.sh.rl06.csr.pd.ts-C20.png']);
+        if ~exist(filename,'file')
+          stmn=dataproduct(p{1}).mdget('static_model');
+          stc20=datastorage().init(stmn).data_get_scalar(datanames(stmn).append_field_leaf('signal')).C(2,0);
+          tn=gravity.graceC20('mode','read' ); tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);            
+          plotting.figure;
+          for i=1:size(a,1)
+            a{i,1}.ts_C(2,0).addgaps(days(45)).plot;
+          end
+          tn.plot('columns',1)
+          %enforce it
+          plotting.enforce(...
+            'plot_legend',[a(:,2);{'TN-11'}],...
+            'plot_ylabel',gravity.functional_label(v.functional),...
+            'plot_title',v.plot_title,...
+            'plot_title_default','C20'...
+          );
+          plotting.save(filename)
+          disp(['plotted ',filename])
+        else
+          disp(['plot already available: ',filename])
         end
-        tn.plot('columns',1)
-        %enforce it
-        plotting.enforce(...
-          'plot_legend',[a(:,2);{'TN-11'}],...
-          'plot_ylabel',gravity.functional_label(v.functional),...
-          'plot_title',v.plot_title,...
-          'plot_title_default','C20'...
-        );
       end
 %this shows an odd-looking parabula
 %       if cells.isincluded(v.mode,{'freq-stats','all'})
@@ -1784,17 +1796,24 @@ classdef gswarm
         end
         %plot spatial stats (TODO: the mean should be zero!)
         for s={'mean','std','rms'}
-          plotting.figure;
-          for i=1:size(a,1)
-            [~,~,ts]=a{i,4}.(s{1})('tot'); ts.addgaps(days(45)).plot;
+          filename=fullfile(plot_dir,[stem,'.sh.rl06.csr.pd.ts-',s,'.png']);
+          if ~exist(filename,'file')
+            plotting.figure;
+            for i=1:size(a,1)
+              [~,~,ts]=a{i,4}.(s{1})('tot'); ts.addgaps(days(45)).plot;
+            end
+            %enforce it
+            plotting.enforce(...
+              'plot_legend',a(:,2),...
+              'plot_ylabel',gravity.functional_label(v.functional),...
+              'plot_title',v.plot_title,...
+              'plot_title_default',['spatial ',s{1}]...
+            );
+            plotting.save(filename)
+            disp(['plotted ',filename])
+          else
+            disp(['plot already available: ',filename])
           end
-          %enforce it
-          plotting.enforce(...
-            'plot_legend',a(:,2),...
-            'plot_ylabel',gravity.functional_label(v.functional),...
-            'plot_title',v.plot_title,...
-            'plot_title_default',['spatial ',s{1}]...
-          );
         end
       end
     end
@@ -2166,20 +2185,11 @@ classdef gswarm
       );
     end
     function d=validation(varargin)
-      %NOTICE: this method produced the plots in ~/data/gswarm/analyses/validation-<date>
-      %        needed to produce the signal content report on ~/data/gswarm/analyses/validation-<date>/report
-      v=varargs.wrap('sources',{....
-        {...
-          'date',      datestr(now,'yyyy-mm-dd'), @ischar;...
-          'force',     false,                     @islogical;... %this affects datastorage.init
-        },... 
-      },varargin{:});
+      %NOTICE: this method produces the plots in the dir defined in the project.yaml file, which are
+      %        needed to produce the pre-combination report in the 'report' dir at the same location,
+      %        usually: ~/data/gswarm/analyses/<date>-validation
       %process
       d=gswarm.production(...
-        'start',     datetime('2013-11-01'),...
-        'stop',      datetime('2019-09-30'),... %NEEDS UPDATING: use the last month of the Swarm data (needed for correct title)
-        'inclusive', true,...     %TODO: revise this: this can be false, because the GRACE data is only used to derive grace.sh.rl06.csr.ld.ts, separately 
-        'force',     v.force,...  %NOTICE: gracefo.sh.rl06.csr.ld.ts has metadata never_force set as true (usually!) so this as false will only reload the Swarm individual models
         'products',  {...
           'gswarm.swarm.validation.land';...
           'gswarm.swarm.validation.ocean';...
@@ -2211,8 +2221,9 @@ classdef gswarm
           'inclusive', true,                        @islogical;...
           'force',     false,                       @islogical;... %this affects datastorage.init
           'force_d',   false,                       @islogical;... %this affects load(datafilename,'d') if force is false
-          'nodata',    true,                        @islogical;... %NOTICE: consider turning this off to update all input data
+          'nodata',    false,                        @islogical;... %NOTICE: consider turning this off to update all input data
           'c20model',  true,                        @islogical;... 
+         'grace_model',true,                        @islogical;... 
         },... 
       },varargin{:});
       %check if all needed arguments are available
@@ -2224,8 +2235,8 @@ classdef gswarm
       if v.c20model; gswarm.c20model(file.orbdir('plot')); end
       %get input data
       if ~v.nodata;gswarm.get_input_data; end
-      %need to be sure grace model is available (NOTICE: define the stop time in the metadata)
-      datastorage('debug',true).init('gracefo.sh.rl06.csr.pd.ts');
+      %need to be sure grace model is available up until the stop time and including all available grace-fo data
+      if v.grace_model; gswarm.grace_model('gswarm.gracefo','stop',v.stop); end
       %create vector with relevant data product
       p=cellfun(@(i) dataproduct(i),v.products,'UniformOutput',false);
       %define data filename
