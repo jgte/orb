@@ -630,13 +630,34 @@ classdef file
       end
     end
     %% CLI interfaces
+    function [out,result]=system(com,disp_flag,stop_if_error)
+      if ~exist('disp_flag','var') || isempty(disp_flag)
+        disp_flag=false;
+      end
+      if ~exist('stop_if_error','var') || isempty(stop_if_error)
+        stop_if_error=false;
+      end
+      [status,result]=system(com);
+      result=str.chomp(result);
+      out=(status==0);
+      if ~out 
+        if stop_if_error
+          error([str.dbstack,result])
+        else
+          disp(['WARNING: problem issuing command ''',com,''':',newline,result])
+        end
+      end
+      if disp_flag
+        disp(result)
+      end
+    end
     function [out,s]=find(varargin)
       com=['find ',strjoin(str.clean(varargin,'regex'),' ')];
-      [s,r]=system(com);
-      if s~=0
-         out={};
-      else
+      [s,r]=file.system(com);
+      if s
         out=cells.rm_empty(strsplit(r,newline));
+      else
+        out={};
       end
     end
     function [out,s]=rsync(from,to,more_args,args)
@@ -647,28 +668,24 @@ classdef file
         args='--archive --hard-links --copy-unsafe-links --recursive --itemize-changes --exclude=._* --exclude=.*';
       end
       assert(~isempty(from) && ~isempty(to),'Inputs ''from'' and ''to'' cannot be empty.')
-      [s,r]=system(['rsync ',args,' ',more_args,' ',from,' ',to]);
-      if s~=0
-        out={};
-      else
+      [s,r]=file.system(['rsync ',args,' ',more_args,' ',from,' ',to]);
+      if s
         out=cells.rm_empty(strsplit(r,newline));
         out=cellfun(@(i) strsplit(i),out,'UniformOutput',false);
         out=cellfun(@(i) i{2:end},   out,'UniformOutput',false);
+      else
+        out={};
       end
     end
-    function st=mkdir(dirname,disp_flag)
+    function out=mkdir(dirname,disp_flag)
       if ~exist('disp_flag','var') || isempty(disp_flag)
         disp_flag=false;
       end
       dirname=file.resolve_home(dirname);
       if ~exist(dirname,'dir')
-        [st,msg]=mkdir(dirname);
-        assert(st,['error creating directory ''',dirname,''': ',msg])
-        if disp_flag
-          disp(['NOTICE: created dir: ',dirname])
-        end
+        out=mkdir(dirname,disp_flag,true);
       else
-        st=true;
+        out=true;
       end
     end
     function out=ln(source,target,disp_flag)
@@ -682,18 +699,10 @@ classdef file
       if ~exist(target,'file')
         %avoid circular links
         if strcmp(file.fullpath(source),file.fullpath(target))
-          result=['circular linking ',source,' to ',target,' is ilegal'];
+          disp(['WARNING: circular linking ',source,' to ',target,' is ilegal'])
           out=false;
         else
-          [status,result]=system(['ln -sv ',source,' ',target]);
-          out=(status==0);
-        end
-        if ~out
-          disp(['WARNING: problem linking ',source,' to ',target,':',newline,result])
-        else
-          if disp_flag
-            disp(['NOTICE: linked ',source,' to ',target])
-          end
+          out=file.system(['ln -sv ',source,' ',target],disp_flag);
         end
       else
         out=false;
@@ -703,17 +712,14 @@ classdef file
       end
     end
     function result=ls(in,ls_flags)
+      if ~exist('in','var') || isempty(in)
+        in=pwd;
+      end
       if ~exist('ls_flags','var') || isempty(ls_flags)
         ls_flags='';
       end
       in=file.resolve_home(in);
-      [status,result]=system(['ls ',ls_flags,' ',in,]);
-      out=(status==0);
-      if ~out
-        disp(['WARNING: problem issueing command ''ls ',ls_flags,' ',in,''':',newline,result])
-      else
-        result=result(1:end-1);
-      end      
+      [~,result]=file.system(['ls ',ls_flags,' ',in,],false);
     end
     function result=md5(in,md5_flags)
       if ~exist('ls_flags','var') || isempty(md5_flags)
