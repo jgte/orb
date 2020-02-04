@@ -479,6 +479,17 @@ classdef str
     function out=iseq(str1,str2)
       out=length(str1)==length(str2) && all(str1==str2);
     end
+    function io=chomp(io)
+      if iscellstr(io)
+        io=cellfun(@(i) str.chomp(i),io,'UniformOutput',false);
+      elseif ischar(io)
+        if io(end)==newline
+          io=io(1:end-1);
+        end
+      else
+        error(['Cannot handle input of class ''',class(io),'''.'])
+      end
+    end
     %% conversion
     %first argument is field width, all remaining inputs are values to print.
     function out=tablify(w,varargin)
