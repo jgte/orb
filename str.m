@@ -639,6 +639,17 @@ classdef str
       end
     end
     %% user feedback
+    function out=dbstack(delta)
+      if ~exist('delta','var') || isempty(delta)
+        delta=0;
+      end
+      s=dbstack(1+delta);
+      if isempty(s)
+        out='';
+      else
+        out=[s(1).name,':',num2str(s(1).line),': '];
+      end
+    end
     function out=say(varargin)
       %default value for internal parameters
       stack_delta=0;
@@ -657,12 +668,7 @@ classdef str
           start_idx=start_idx+2;
         end
       end
-      s=dbstack(1+stack_delta);
-      if isempty(s)
-        out=str.show(cells.rm_empty(varargin(start_idx:end)));
-      else
-        out=[s(1).name,':',num2str(s(1).line),': ',str.show(cells.rm_empty(varargin(start_idx:end)))];
-      end
+      out=[str.dbstack(stack_delta),str.show(cells.rm_empty(varargin(start_idx:end)))];
       if nargout==0
         disp(out);
         clear out
