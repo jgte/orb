@@ -1154,20 +1154,20 @@ classdef datastorage
               case 'gswarm.load_models'
                 obj=gswarm.load_models(obj,product_list{i},varargin{:});
               otherwise
-%               try
+              try
                 obj=ih(obj,product_list{i},varargin{:});
-%               catch ME
-%                 if strcmp( ME.identifier,'MATLAB:UndefinedFunction') && ...
-%                    str.contains(ME.message,func2str(ih)) && ...
-%                    strcmp(cells.first(strsplit(func2str(ih),'.')),'datastorage')
-%                   com=['obj.',cells.last(strsplit(func2str(ih),'.')),'(product_list{i},varargin{:})'];
-%                   disp(com)
-%                   obj=eval(com);
-%                   disp('done!')
-%                 else
-%                   error(ME.message)
-%                 end    
-%               end
+              catch ME
+                if strcmp( ME.identifier,'MATLAB:UndefinedFunction') && ...
+                   str.contains(ME.message,func2str(ih)) && ...
+                   strcmp(cells.first(strsplit(func2str(ih),'.')),'datastorage')
+                  com=['obj.',cells.last(strsplit(func2str(ih),'.')),'(product_list{i},varargin{:})'];
+                  disp(com)
+                  obj=eval(com);
+                  disp('done!')
+                else
+                  error(ME.message)
+                end    
+              end
             end
             obj.log(...
               '@','iter',...
