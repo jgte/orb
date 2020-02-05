@@ -1722,30 +1722,78 @@ classdef gswarm
           'plot_title','',                        @ischar;... %there's a default title
         },... 
       },varargin{:});
+      %this is the root of all files saved in this method
+      fnroot=fullfile(v.plot_dir,[stem,'.sh.rl06.csr.pd.ts-']);
+      modes_plot={'C20.png','mean.png','std.png','rms.png'};
+      modes_data={'d.mat','a.mat','b.mat'};
+      modes_all=[modes_data(:);modes_plot(:)];
+      %unwrap special modes
+      switch cells.scalar(v.mode,'get')
+      case 'all';  v.mode=modes_all;
+      case 'data'; v.mode=modes_data;
+      case 'plot'; v.mode=modes_plot;
+      case 'done'
+        d=true;
+        for i=1:numel(modes_all)
+          d=d && file.exist([fnroot,modes_all{i}]);
+        end
+        return
+      end
       %create vector with relevant data product
       p=cellfun(@(i) dataproduct(i),v.products,'UniformOutput',false);
       %one does not usually want to ignore an explicit force flag, so be sure that failsafes are off
       p=cellfun(@(i) i.mdset('never_force',false,'always_force',false),p,'UniformOutput',false);
-      %may need to init grace climatological model if force is true (this needs to be done separately from the Swarm processing
-      %because otherwise the Swarm period is what is used in the regression: no bueno)
-      d=datastorage(...
-        'inclusive',true,...
-        'start',v.start,...
-        'stop', v.stop,...
-        'debug',v.debug...
-      );
-      for i=1:numel(p)
-        d=d.init(p{i},'force',v.force);
+      %compute climatological model
+      if cells.isincluded(v.mode,{'d.mat'})
+        filename=[fnroot,'d.mat'];
+        if ~file.exist(filename)
+          %may need to init grace climatological model if force is true 
+          %this needs to be done separately from the Swarm processing because 
+          %otherwise the Swarm period is what is used in the regression: no bueno)
+          d=datastorage(...
+            'inclusive',true,...
+            'start',v.start,...
+            'stop', v.stop,...
+            'debug',v.debug...
+          );
+          for i=1:numel(p)
+            d=d.init(p{i},'force',v.force);
+          end
+          save(filename,'d'); disp(['saved ',filename])
+        else
+          load(filename,'d'); disp(['loaded ',filename])
+        end
       end
-      %derived data
-      a={
-        d.data_get_scalar(p{1}.dataname.append_field_leaf('signal')),'original' ;... 
-   pardecomp.join(d.data.(p{2}.codename)),                           're-modelled' ;...
-        d.data_get_scalar(p{3}),                                     'model' ;...
-      };
+      %assemble derived data
+      if cells.isincluded(v.mode,{'a.mat'})
+        filename=[fnroot,'a.mat'];
+        if ~file.exist(filename)
+          a={
+            d.data_get_scalar(p{1}.dataname.append_field_leaf('signal')),'original' ;... 
+       pardecomp.join(d.data.(p{2}.codename)),                           're-modelled' ;...
+            d.data_get_scalar(p{3}),                                     'model' ;...
+          };
+          save(filename,'a'); disp(['saved ',filename])
+        else
+          load(filename,'a'); disp(['loaded ',filename])
+        end
+      end
+      %detrend derived data
+      if cells.isincluded(v.mode,{'b.mat'})
+        filename=[fnroot,'b.mat'];
+        if ~file.exist(filename)
+          b=a;
+          for i=1:size(b,1)
+            b{i,4}=b{i,1}.scale(v.functional,'functional').detrend.grid;
+          end
+          save(filename,'b'); disp(['saved ',filename])
+        else
+          load(filename,'b'); disp(['loaded ',filename])
+        end
+      end
       %plot C20
-      if cells.isincluded(v.mode,{'C20','all'})
-        filename=fullfile(v.plot_dir,[stem,'.sh.rl06.csr.pd.ts-C20.png']);
+      if cells.isincluded(v.mode,{'C20.png'})
+        filename=[fnroot,'C20.png'];
         if ~exist(filename,'file')
           stmn=dataproduct(p{1}).mdget('static_model');
           stc20=datastorage().init(stmn).data_get_scalar(datanames(stmn).append_field_leaf('signal')).C(2,0);
@@ -1791,22 +1839,20 @@ classdef gswarm
 %             'plot_ylabel',gravity.functional_label(v.functional));
 %         end
 %       end
-      if cells.isincluded(v.mode,{'spatial-stats','all'})
-        for i=1:size(a,1)
-          a{i,4}=a{i,1}.scale(v.functional,'functional').detrend.grid;
-        end
-        %plot spatial stats (TODO: the mean should be zero!)
-        stats={'mean','std','rms'};
-        for s=1:numel(stats)
-          filename=fullfile(v.plot_dir,[stem,'.sh.rl06.csr.pd.ts-',stats{s},'.png']);
+
+      %plot spatial stats (TODO: the mean should be zero! )
+      stats={'mean','std','rms'};
+      for s=1:numel(stats)
+        if cells.isincluded(v.mode,[stats{s},'.png'])
+          filename=[fnroot,stats{s},'.png'];
           if ~exist(filename,'file')
             plotting.figure;
-            for i=1:size(a,1)
-              [~,~,ts]=a{i,4}.(stats{s})('tot'); ts.addgaps(days(45)).plot;
+            for i=1:size(b,1)
+              [~,~,ts]=b{i,4}.(stats{s})('tot'); ts.addgaps(days(45)).plot;
             end
             %enforce it
             plotting.enforce(...
-              'plot_legend',a(:,2),...
+              'plot_legend',b(:,2),...
               'plot_ylabel',gravity.functional_label(v.functional),...
               'plot_title',v.plot_title,...
               'plot_title_default',['spatial ',stats{s}]...
@@ -2165,15 +2211,21 @@ classdef gswarm
       file.system('~/data/grace/download-l2.sh CSR 06',true);
       file.system('~/data/gswarm/rsync.remote2local.sh --exclude=analyses/',true);
     end
-    function c20model(plot_dir)
+    function out=c20model(mode,plot_dir)
       %document the C20 model
-      filename=fullfile(plot_dir,'C20.png');
-      if ~exist(filename,'file')
-        plotting.figure;
-        gravity.graceC20('mode','model-plot','version','TN-11');
-        plotting.save(filename)
+      switch mode
+      case 'done'
+        out=file.exist(gswarm.c20model('filename',plot_dir));
+      case 'filename'
+        out=fullfile(plot_dir,'C20.png');
+      case 'plot'
+        if ~gswarm.c20model('done',plot_dir)
+          plotting.figure;
+          gravity.graceC20('mode','model-plot','version','TN-11');
+          plotting.save(gswarm.c20model('filename',plot_dir))
+        end
+        gravity.graceC20('mode','model-list-tex','version','TN-11')
       end
-      gravity.graceC20('mode','model-list-tex','version','TN-11')
     end
     function d=precombval(varargin)
       %NOTICE: this method produces the plots in the dir defined in the project.yaml file, which are
@@ -2233,12 +2285,16 @@ classdef gswarm
       for i=1:numel(required_args)
         assert(~isempty(v.(required_args{i})),['need argument ''',required_args{i},'''.'])
       end
-      %ensure C20 model is available
-      if v.c20model; gswarm.c20model(file.orbdir('plot')); end
       %get input data
       if ~v.nodata;gswarm.get_input_data; end
+      %ensure C20 model is available
+      if v.c20model && ~gswarm.c20model('done',file.orbdir('plot'))
+        gswarm.c20model('plot',file.orbdir('plot'));
+      end
       %need to be sure grace model is available up until the stop time and including all available grace-fo data
-      if v.grace_model; gswarm.grace_model('gswarm.gracefo','stop',v.stop); end
+      if v.grace_model && ~gswarm.grace_model('gswarm.gracefo','mode','done')
+        gswarm.grace_model('gswarm.gracefo','stop',v.stop);
+      end
       %create vector with relevant data product
       p=cellfun(@(i) dataproduct(i),v.products,'UniformOutput',false);
       %define data filename
