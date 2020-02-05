@@ -3,8 +3,8 @@ classdef simplegrid < simpletimeseries
   properties(Constant)
     %default value of some internal parameters
     parameter_list={...
-      'sp_tol',   1e-8,  @(i) isnumeric(i) && isscalar(i);...
-      'sp_units', 'deg',@(i) ischar(i);...  %TODO: need to convert non-deg units at input/output (internally deg are expected)
+      'sp_tol',   1e-8,  @num.isscalar;...
+      'sp_units', 'deg',@ischar;...  %TODO: need to convert non-deg units at input/output (internally deg are expected)
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -683,11 +683,11 @@ classdef simplegrid < simpletimeseries
     %% constructors
     function obj=unit(n_lon,n_lat,varargin)
       p=inputParser;
-      p.addRequired( 'n_lon',  @(i) isnumeric(i));
-      p.addRequired( 'n_lat',  @(i) isnumeric(i));
-      p.addParameter('scale',1,@(i) isscalar(i) && isnumeric(i));
-      p.addParameter('bias', 0,@(i) isscalar(i) && isnumeric(i));
-      p.addParameter('t',datetime('now'),@(i) isdatetime(i));
+      p.addRequired( 'n_lon',  @isnumeric);
+      p.addRequired( 'n_lat',  @isnumeric);
+      p.addParameter('scale',1,@num.isscalar);
+      p.addParameter('bias', 0,@num.isscalar);
+      p.addParameter('t',datetime('now'),@isdatetime);
       p.parse(n_lon,n_lat,varargin{:});
       %initialize with unitary grid
       if isscalar(p.Results.n_lat) && isscalar(p.Results.n_lon)
@@ -708,11 +708,11 @@ classdef simplegrid < simpletimeseries
     % Creates a random model with mean 0 and std 1
     function obj=unit_randn(n_lon,n_lat,varargin)
       p=inputParser;
-      p.addRequired( 'n_lon',  @(i) isscalar(i) && isnumeric(i));
-      p.addRequired( 'n_lat',  @(i) isscalar(i) && isnumeric(i));
-      p.addParameter('scale',1,@(i) isscalar(i) && isnumeric(i));
-      p.addParameter('bias', 0,@(i) isscalar(i) && isnumeric(i));
-      p.addParameter('t',datetime('now'),@(i) isdatetime(i));
+      p.addRequired( 'n_lon',  @num.isscalar);
+      p.addRequired( 'n_lat',  @num.isscalar);
+      p.addParameter('scale',1,@num.isscalar);
+      p.addParameter('bias', 0,@num.isscalar);
+      p.addParameter('t',datetime('now'),@isdatetime);
       p.parse(n_lon,n_lat,varargin{:});
       %initialize with random grid
       obj=simplegrid(...
@@ -722,11 +722,11 @@ classdef simplegrid < simpletimeseries
     end
     function obj=slanted(n_lon,n_lat,varargin)
       p=inputParser;
-      p.addRequired( 'n_lon',  @(i) isscalar(i) && isnumeric(i));
-      p.addRequired( 'n_lat',  @(i) isscalar(i) && isnumeric(i));
-      p.addParameter('scale',1,@(i) isscalar(i) && isnumeric(i));
-      p.addParameter('bias', 0,@(i) isscalar(i) && isnumeric(i));
-      p.addParameter('t',datetime('now'),@(i) isdatetime(i));
+      p.addRequired( 'n_lon',  @num.isscalar);
+      p.addRequired( 'n_lat',  @num.isscalar);
+      p.addParameter('scale',1,@num.isscalar);
+      p.addParameter('bias', 0,@num.isscalar);
+      p.addParameter('t',datetime('now'),@isdatetime);
       p.parse(n_lon,n_lat,varargin{:});
       %initialize grid with sum of lon and lat in degrees
       [lon_map,lat_map]=meshgrid(simplegrid.lon_default(p.Results.n_lon),simplegrid.lat_default(p.Results.n_lat));
@@ -739,11 +739,11 @@ classdef simplegrid < simpletimeseries
     %NOTICE: inpupts lon and lat can be scalar (domain size) or vectors (domain entries)
     function obj=landmask(lon,lat,varargin)
       p=inputParser;p.KeepUnmatched=true;p.PartialMatching=false; p.CaseSensitive=true;
-      p.addRequired( 'lon',  @(i) isnumeric(i));
-      p.addRequired( 'lat',  @(i) isnumeric(i));
-      p.addParameter('t',     datetime('now'),@(i) isdatetime(i));
+      p.addRequired( 'lon',  @isnumeric);
+      p.addRequired( 'lat',  @isnumeric);
+      p.addParameter('t',     datetime('now'),@isdatetime);
       %values higher than this cuttoff are land, lower are ocean; negative values leave the interpolation unchanged
-      p.addParameter('cutoff',-1, @(i) isscalar(i) && isnumeric(i)); 
+      p.addParameter('cutoff',-1, @num.isscalar); 
       p.parse(lon,lat,varargin{:});
       %load the data
       fmat=fullfile(file.orbdir('aux'),'landmask.mat');
@@ -775,10 +775,10 @@ classdef simplegrid < simpletimeseries
     end
     function obj=oceanmask(lon,lat,varargin)
       p=inputParser;p.KeepUnmatched=true;
-      p.addRequired( 'lon',  @(i) isnumeric(i));
-      p.addRequired( 'lat',  @(i) isnumeric(i));
-      p.addParameter('t',     datetime('now'),@(i) isdatetime(i));
-      p.addParameter('cutoff',1.4, @(i) isscalar(i) && isnumeric(i));
+      p.addRequired( 'lon',  @isnumeric);
+      p.addRequired( 'lat',  @isnumeric);
+      p.addParameter('t',     datetime('now'),@isdatetime);
+      p.addParameter('cutoff',1.4, @num.isscalar);
       p.parse(lon,lat,varargin{:});
       %load the data
       fdat=fullfile(file.orbdir('aux'),'wahr.global_ocn_kernel.txt');
@@ -814,10 +814,10 @@ classdef simplegrid < simpletimeseries
     function h=coast(varargin)
       p=inputParser;
       p.addParameter('datafile',fullfile(file.orbdir('aux'),'coast.mat'));
-      p.addParameter('line_color','k',@(i) ischaracter(i));
-      p.addParameter('line_width',1.5,  @(i)  isscalar(i) && isnumeric(i));
-      p.addParameter('lon',[-180,180],  @(i) ~isscalar(i) && isnumeric(i));
-      p.addParameter('lat',[ -90, 90],  @(i) ~isscalar(i) && isnumeric(i));
+      p.addParameter('line_color','k',@ischar);
+      p.addParameter('line_width',1.5,  @num.isscalar);
+      p.addParameter('lon',[-180,180],  @(i) ~num.isscalar(i));
+      p.addParameter('lat',[ -90, 90],  @(i) ~num.isscalar(i));
       p.parse(varargin{:});
       coast = load(p.Results.datafile);
       keep_idx=find(...
@@ -885,8 +885,8 @@ classdef simplegrid < simpletimeseries
     function catchment=catchment_plot(catchment,varargin)
       v=varargs.wrap('sources',{....
         {...
-          'plot_parametric_components',{},   @(i) iscellstr(i);...
-          'parametric_components_line_fmt',{'--'},@(i) isstring(i);...
+          'plot_parametric_components',{},   @iscellstr;...
+          'parametric_components_line_fmt',{'--'},@ischar;...
           'plot_lines_over_gaps_narrower_than', days(120), @isduration;...
           'time',[],@isdatetime;...
         },...
@@ -1047,8 +1047,8 @@ classdef simplegrid < simpletimeseries
       p.KeepUnmatched=true;
       p.addRequired('t',  @(i) ischar(i) || isnumeric(i) || isdatetime(i)); %this can be char, double or datetime
       p.addRequired('map',@(i) isnumeric(i) || iscell(i));
-      p.addParameter('lat',simplegrid.lat_default(size(map,1)), @(i) isnumeric(i));
-      p.addParameter('lon',simplegrid.lon_default(size(map,2)), @(i) isnumeric(i));
+      p.addParameter('lat',simplegrid.lat_default(size(map,1)), @isnumeric);
+      p.addParameter('lon',simplegrid.lon_default(size(map,2)), @isnumeric);
       %create argument object, declare and parse parameters, save them to obj
       v=varargs.wrap('parser',p,'sources',{simplegrid.parameters('obj')},'mandatory',{t,map},varargin{:});
       % retrieve structure with list
@@ -1541,8 +1541,8 @@ classdef simplegrid < simpletimeseries
       case {'land','ocean'}
         %handle optionals
         v=varargs.wrap('sources',{{...
-          'buffer',   0, @(i) isnumeric(i) && isscalar(i);...
-          'cutoff', 0.1,@(i) (isnumeric(i) && isscalar(i)) || isempty(i);... %NOTICE: this value seems to work well
+          'buffer',   0, @num.isscalar;...
+          'cutoff', 0.1,@(i) (num.isscalar(i)) || isempty(i);... %NOTICE: this value seems to work well
         }},varargin{:});
         %retrieve the land mask
         spmask=simplegrid.landmask(obj.lon,obj.lat,varargin{:});
@@ -1826,7 +1826,7 @@ classdef simplegrid < simpletimeseries
     function compatible(obj1,obj2,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('skip_par_check',{''},@(i) iscellstr(i))
+      p.addParameter('skip_par_check',{''},@iscellstr)
       p.parse(varargin{:});
       %call mother routine
       compatible@simpledata(obj1,obj2,varargin{:});
@@ -1879,15 +1879,15 @@ classdef simplegrid < simpletimeseries
     function out=imagesc(obj,varargin)
       v=varargs.wrap('sources',{{...
       't',obj.t_masked([],'start'), @(i) simpletimeseries.valid_t(i);...
-      'center_resample',      true, @(i) islogical(i);...
-      'show_coast',           true, @(i) islogical(i);...
-      'show_colorbar',        true, @(i) islogical(i);...
-      'plot_spatial_step',       0, @(i) isnumeric(i)&&isscalar(i);...
-      'cb_loc',     'SouthOutside', @(i) ischar(i);...
-      'cb_title',               '', @(i) ischar(i);...
-      'bias',                    0, @(i) isscalar(i) && isnumeric(i);...
-      'boxes',                  {}, @(i) iscell(i);...
-      'boxes_fmt',         {'r--'}, @(i) iscellstr(i);...
+      'center_resample',      true, @islogical;...
+      'show_coast',           true, @islogical;...
+      'show_colorbar',        true, @islogical;...
+      'plot_spatial_step',       0, @num.isscalar;...
+      'cb_loc',     'SouthOutside', @ischar;...
+      'cb_title',               '', @ischar;...
+      'bias',                    0, @num.isscalar;...
+      'boxes',                  {}, @iscell;...
+      'boxes_fmt',         {'r--'}, @iscellstr;...
       }},varargin{:});
       %interpolate at the requested time and 
       obj_interp=obj.interp(v.t);

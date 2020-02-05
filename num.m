@@ -1,6 +1,10 @@
 classdef num
   methods(Static)
     %% utils
+    %checks for scalar numerics
+    function out=isscalar(in)
+      out=isnumeric(in) && isscalar(in);
+    end
     % converts cell array to numeric array if all entries are numeric
     function inout=cell(inout)
       if iscell(inout) && all(cellfun(@isnumeric,inout))
@@ -482,10 +486,10 @@ classdef num
         {...
           't',         [], @(i) (isnumeric(i) && isvector(i) && all(size(i)==size(t)) && ~any(isnan(i))) || isempty(i) ;...
           'y',         [], @(i) (isnumeric(i) && isvector(i) && all(size(i)==size(t)) && ~any(isnan(i))) || isempty(i) ;...
-          'polynomial', 2,                               @(i) (isnumeric(i) && isscalar(i)) || isempty(i);...
+          'polynomial', 2,                               @(i) (num.isscalar(i)) || isempty(i);...
           'sinusoidal',[2*min(diff(t)),(t(end)-t(1))/2], @(i) isnumeric(i) || isempty(i);...
-          't0',        [],                               @(i) isnumeric(i) && isscalar(i);...
-          'mode',      'pd_struct',                      @(i) ischar(i);...
+          't0',        [],                               @num.isscalar;...
+          'mode',      'pd_struct',                      @ischar;...
           'x',         [],                               @(i) isnumeric(i) || isempty(i);...
           'pd_struct', [],                               @(i) isstruct(i)  || isempty(i);...
         },...
@@ -512,11 +516,11 @@ classdef num
       p.addRequired( 't', @(i)  isnumeric(i) && isvector(i) && size(i,2)==1          && ~any(isnan(i)) );
       p.addRequired( 'y', @(i) (isnumeric(i) && isvector(i) && all(size(i)==size(t)) && ~any(isnan(i))) || isempty(i) );
       %number of polynomial coefficients (not order): 1 constant, 2 constant+linear, 3 constant+linear+quadratic, etc
-      p.addParameter('polynomial',2,                                @(i) (isnumeric(i) && isscalar(i)) || isempty(i)); 
+      p.addParameter('polynomial',2,                                @(i) (num.isscalar(i)) || isempty(i)); 
       %sinusoidal periods (in implicit units):
       p.addParameter('sinusoidal',[2*min(diff(t)),(t(end)-t(1))/2], @(i) isnumeric(i) || isempty(i));
-      p.addParameter('t0',        t(1),                             @(i) isnumeric(i) && isscalar(i));
-      p.addParameter('mode',      'pd_struct',                      @(i) ischar(i));
+      p.addParameter('t0',        t(1),                             @num.isscalar);
+      p.addParameter('mode',      'pd_struct',                      @ischar);
       %these parameters are only valid for the "model" mode.
       p.addParameter('x',         [],                               @(i) isnumeric(i) || isempty(i));
       p.addParameter('pd_struct', [],                               @(i) isstruct(i)  || isempty(i));
@@ -635,13 +639,13 @@ classdef num
       % input parsing
       p=inputParser; p.KeepUnmatched=true;
       p.addRequired( 'fun',                   @(i) isa(i,'function_handle'));
-      p.addRequired( 'xrange',                @(i) isnumeric(i));
-      p.addParameter('searchspace', 'linear', @(i) ischar(i));
-      p.addParameter('searchlen',numel(x)*10, @(i) isnumeric(i));
-      p.addParameter('interpmethod','spline', @(i) ischar(i));
-      p.addParameter('plot',           false, @(i) islogical(i));
-      p.addParameter('enforce_scalar', false, @(i) islogical(i));
-      p.addParameter('vectorize',     false, @(i) islogical(i));
+      p.addRequired( 'xrange',                @isnumeric);
+      p.addParameter('searchspace', 'linear', @ischar);
+      p.addParameter('searchlen',numel(x)*10, @isnumeric);
+      p.addParameter('interpmethod','spline', @ischar);
+      p.addParameter('plot',           false, @islogical);
+      p.addParameter('enforce_scalar', false, @islogical);
+      p.addParameter('vectorize',     false, @islogical);
       p.parse(fun,x,varargin{:})
       %define search space
       switch p.Results.searchspace
@@ -689,16 +693,16 @@ classdef num
       % input parsing
       p=inputParser; p.KeepUnmatched=true;
       p.addRequired( 'fun',                   @(i) isa(i,'function_handle'));
-      p.addRequired( 'x_upper',               @(i) isnumeric(i));
-      p.addRequired( 'x_lower',               @(i) isnumeric(i));
-      p.addParameter('searchspace', 'linear', @(i) ischar(i));
-      p.addParameter('searchlen',        100, @(i) isnumeric(i));
-      p.addParameter('searchlenmaxfactor',2e10,@(i) isnumeric(i));
-      p.addParameter('searchiter',         0, @(i) isnumeric(i));
-      p.addParameter('searchiter_counter', 0, @(i) isnumeric(i));
-      p.addParameter('searchpdf',     'rand', @(i) ischar(i));
-      p.addParameter('searchshrinkfactor', 2, @(i) isnumeric(i));
-      p.addParameter('vectorize',      false, @(i) islogical(i));
+      p.addRequired( 'x_upper',               @isnumeric);
+      p.addRequired( 'x_lower',               @isnumeric);
+      p.addParameter('searchspace', 'linear', @ischar);
+      p.addParameter('searchlen',        100, @isnumeric);
+      p.addParameter('searchlenmaxfactor',2e10,@isnumeric);
+      p.addParameter('searchiter',         0, @isnumeric);
+      p.addParameter('searchiter_counter', 0, @isnumeric);
+      p.addParameter('searchpdf',     'rand', @ischar);
+      p.addParameter('searchshrinkfactor', 2, @isnumeric);
+      p.addParameter('vectorize',      false, @islogical);
       p.parse(fun,x_upper,x_lower,varargin{:})
       %sanity
       assert(numel(x_upper)==numel(x_lower),...

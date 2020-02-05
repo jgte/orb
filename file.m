@@ -300,7 +300,7 @@ classdef file
     function [filenames,no_change_flag]=resolve_ext(in,ext,varargin)
       p=inputParser; p.KeepUnmatched=true;
       p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i)); 
-      p.addRequired( 'ext',                           @(i) ischar(i)                  ); 
+      p.addRequired( 'ext',                           @ischar); 
       p.addParameter('prefer_non_ext_files',   false, @(i) islogical(i) && isscalar(i));
       p.addParameter('prefer_ext_files',       false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',      false, @(i) islogical(i) && isscalar(i));
@@ -366,7 +366,7 @@ classdef file
       p.addParameter('stop_if_empty',       false, @(i) islogical(i) && isscalar(i));
       p.addParameter('passtrough_if_empty', false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',   false, @(i) islogical(i) && isscalar(i));
-      p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @(i) isnumeric(i) && isscalar(i));
+      p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
       % parse it
       p.parse(in,varargin{:});
       %reduce scalar cell to char (avoids infinite loops with vector mode)
@@ -468,7 +468,7 @@ classdef file
       p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i)); 
       p.addParameter('prefer_compressed_files',false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',      false, @(i) islogical(i) && isscalar(i));
-      p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @(i) isnumeric(i) && isscalar(i));
+      p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
       p.parse(in,varargin{:})
       %reduce scalar
       in=cells.scalar(in);
@@ -555,8 +555,8 @@ classdef file
       p.addParameter( 'start',       time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
       p.addParameter( 'stop',        time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
       p.addParameter( 'period',      days(1),                      @(i) isscalar(i) && isduration(i));
-      p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @(i) ischar(i));
-      p.addParameter( 'only_existing',true,                        @(i) islogical(i));
+      p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @ischar);
+      p.addParameter( 'only_existing',true,                        @islogical);
       p.addParameter( 'scalar_as_strings',false,                   @(i) islogical(i) && isscalar(i));
       p.parse(in,varargin{:})
       %reduce scalar
@@ -1016,9 +1016,9 @@ function filenames=unwrap_old(in,varargin) %used to be simpletimeseries.unwrap_d
   p.addParameter( 'start',       time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
   p.addParameter( 'stop',        time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
   p.addParameter( 'period',      days(1),                      @(i) isscalar(i) && isduration(i));
-  p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @(i) ischar(i));
-  p.addParameter( 'only_existing',true,                        @(i) islogical(i));
-  p.addParameter( 'stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @(i) isnumeric(i) && isscalar(i));
+  p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @ischar);
+  p.addParameter( 'only_existing',true,                        @islogical);
+  p.addParameter( 'stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
   p.parse(in,varargin{:})
   %parse wildcards and handle .mat files
   in=file.wildcard(in,varargin{:});
@@ -1133,7 +1133,7 @@ function [filenames,wildcarded_flag]=wildcard_old(in,varargin)
   p.addParameter('directories_only',    false, @(i) islogical(i) && isscalar(i));
   p.addParameter('files_only',          false, @(i) islogical(i) && isscalar(i));
   p.addParameter('stop_if_empty',       false, @(i) islogical(i) && isscalar(i));
-  p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @(i) isnumeric(i) && isscalar(i));
+  p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
   % parse it
   p.parse(in,varargin{:});
   %reduce scalar cell to char (avoids infinite loops with vector mode)

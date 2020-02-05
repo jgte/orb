@@ -212,16 +212,16 @@ classdef datanames
       p.KeepUnmatched=true;
       p.addParameter('start',     datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',      datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('ext',       '',              @(i) ischar(i));
-      p.addParameter('dir',       '',              @(i) ischar(i));
-      p.addParameter('timestamp',         false,   @(i) islogical(i));
-      p.addParameter('keeptsplaceholder', false,   @(i) islogical(i));
-      p.addParameter('ensure_dir',        true,    @(i) islogical(i));
+      p.addParameter('ext',       '',              @ischar);
+      p.addParameter('dir',       '',              @ischar);
+      p.addParameter('timestamp',         false,   @islogical);
+      p.addParameter('keeptsplaceholder', false,   @islogical);
+      p.addParameter('ensure_dir',        true,    @islogical);
       p.addParameter('remove_part',       '',      @(i) ischar(i) || iscellstr(i));
       p.addParameter('prefix',            '',      @(i) ischar(i) || iscellstr(i));
       p.addParameter('suffix',            '',      @(i) ischar(i) || iscellstr(i));
-      p.addParameter('sub_dirs',          'none',  @(i) ischar(i));
-      p.addParameter('add_field_path',    false,   @(i) islogical(i));
+      p.addParameter('sub_dirs',          'none',  @ischar);
+      p.addParameter('add_field_path',    false,   @islogical);
       % parse it
       p.parse(varargin{:});
       %propagate dataname to filename

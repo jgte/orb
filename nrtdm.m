@@ -157,10 +157,10 @@ function outfile=nrtdm_convert(metadata,t,varargin)
   p=inputParser;
   p.KeepUnmatched=true;
   % optional arguments
-  p.addParameter('nrtdm_args','',@(i)ischar(i));
-  p.addParameter('data_dir',  nrtdm.data_dir,  @(i)ischar(i));
-  p.addParameter('config_dir',nrtdm.config_dir,@(i)ischar(i));
-  p.addParameter('debug',false,@(i)islogical(i));
+  p.addParameter('nrtdm_args','',@ischar);
+  p.addParameter('data_dir',  nrtdm.data_dir,  @ischar);
+  p.addParameter('config_dir',nrtdm.config_dir,@ischar);
+  p.addParameter('debug',false,@islogical);
   % parse it
   p.parse(varargin{:});
 
