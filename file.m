@@ -646,9 +646,10 @@ classdef file
         else
           disp(['WARNING: problem issuing command ''',com,''':',newline,result])
         end
-      end
-      if disp_flag
-        disp(result)
+      else
+        if disp_flag
+          disp(result)
+        end
       end
     end
     function [out,s]=find(varargin)
@@ -683,9 +684,19 @@ classdef file
       end
       dirname=file.resolve_home(dirname);
       if ~exist(dirname,'dir')
-        out=mkdir(dirname,disp_flag,true);
+        [out,msg]=mkdir(dirname);
+        if disp_flag
+          if out
+            disp(['Created directory: ',dirname])
+          else
+            disp(['WARNING: could not create directory: ',dirname,':',newline,msg])            
+          end
+        end
       else
         out=true;
+        if disp_flag
+          disp(['Directory already available: ',dirname])
+        end
       end
     end
     function out=ln(source,target,disp_flag)
