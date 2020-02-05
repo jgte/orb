@@ -124,7 +124,7 @@ classdef datastorage
       p=inputParser;
       p.KeepUnmatched=true;
       p.addParameter('info_methods',{'size','nr_gaps','start','stop','first','last'}, @(i) ischar(i) || iscellstr(i));
-      p.addParameter('tab_info_methods',[91,7,20,20,20,20], @(i) isnumeric(i));
+      p.addParameter('tab_info_methods',[12,7,20,20,20,20], @(i) isnumeric(i));
       p.addParameter('tab_product_names',32, @(i) isnumeric(i) && isscalar(i));
       p.parse(varargin{:});
       tab=[p.Results.tab_product_names,p.Results.tab_info_methods];
