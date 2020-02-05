@@ -602,10 +602,21 @@ classdef str
       case 'yesno';     if in; out='yes';  else out='no';   end
       case 'logical';   out=in;
       otherwise
-        idx=strfind(mode,'-');
-        assert(~isempty(idx),['Unknown mode ''',mode,'''.'])
+        assert(contains(mode,'-'),['Unknown mode ''',mode,'''.'])
         mode=strsplit(mode,'-');
-        if in; out=mode{1}; else out=mode{2}; end
+        if in
+          out=mode{1};
+        else
+          out=mode{2};
+        end
+      end
+    end
+    function out=islogical(in)
+      try
+        str.logical(in);
+        out=true;
+      catch
+        out=false;
       end
     end
     %returns true of 'in' means 'none'
