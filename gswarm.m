@@ -1719,6 +1719,7 @@ classdef gswarm
             [stem,'.sh.rl06.csr.pd.ts'];...
           },                                      @iscellstr;...
           'plot_dir',file.orbdir('plot'),         @ischar;...
+          'plot_title','',                        @ischar;... %there's a default title
         },... 
       },varargin{:});
       %create vector with relevant data product
@@ -1739,12 +1740,12 @@ classdef gswarm
       %derived data
       a={
         d.data_get_scalar(p{1}.dataname.append_field_leaf('signal')),'original' ;... 
-        pardecomp.join(d.data.([stem,'_sh_rl06_csr_pd'])),           're-modelled' ;...
+   pardecomp.join(d.data.(p{2}.codename)),                           're-modelled' ;...
         d.data_get_scalar(p{3}),                                     'model' ;...
       };
       %plot C20
       if cells.isincluded(v.mode,{'C20','all'})
-        filename=fullfile(plot_dir,[stem,'.sh.rl06.csr.pd.ts-C20.png']);
+        filename=fullfile(v.plot_dir,[stem,'.sh.rl06.csr.pd.ts-C20.png']);
         if ~exist(filename,'file')
           stmn=dataproduct(p{1}).mdget('static_model');
           stc20=datastorage().init(stmn).data_get_scalar(datanames(stmn).append_field_leaf('signal')).C(2,0);
@@ -1795,19 +1796,20 @@ classdef gswarm
           a{i,4}=a{i,1}.scale(v.functional,'functional').detrend.grid;
         end
         %plot spatial stats (TODO: the mean should be zero!)
-        for s={'mean','std','rms'}
-          filename=fullfile(plot_dir,[stem,'.sh.rl06.csr.pd.ts-',s,'.png']);
+        stats={'mean','std','rms'};
+        for s=1:numel(stats)
+          filename=fullfile(v.plot_dir,[stem,'.sh.rl06.csr.pd.ts-',stats{s},'.png']);
           if ~exist(filename,'file')
             plotting.figure;
             for i=1:size(a,1)
-              [~,~,ts]=a{i,4}.(s{1})('tot'); ts.addgaps(days(45)).plot;
+              [~,~,ts]=a{i,4}.(stats{s})('tot'); ts.addgaps(days(45)).plot;
             end
             %enforce it
             plotting.enforce(...
               'plot_legend',a(:,2),...
               'plot_ylabel',gravity.functional_label(v.functional),...
               'plot_title',v.plot_title,...
-              'plot_title_default',['spatial ',s{1}]...
+              'plot_title_default',['spatial ',stats{s}]...
             );
             plotting.save(filename)
             disp(['plotted ',filename])
@@ -2160,8 +2162,8 @@ classdef gswarm
       cts.export(strjoin({f,v.functional,'quality','dat'},'.'),'ascii')
     end
     function get_input_data
-      system('~/data/grace/download-l2.sh CSR 06')
-      system('~/data/gswarm/rsync.remote2local.sh --exclude=analyses/')
+      file.system('~/data/grace/download-l2.sh CSR 06',true);
+      file.system('~/data/gswarm/rsync.remote2local.sh --exclude=analyses/',true);
     end
     function c20model(plot_dir)
       %document the C20 model
@@ -2221,7 +2223,7 @@ classdef gswarm
           'inclusive', true,                        @islogical;...
           'force',     false,                       @islogical;... %this affects datastorage.init
           'force_d',   false,                       @islogical;... %this affects load(datafilename,'d') if force is false
-          'nodata',    false,                        @islogical;... %NOTICE: consider turning this off to update all input data
+          'nodata',    false,                       @islogical;... %NOTICE: consider turning this off to update all input data
           'c20model',  true,                        @islogical;... 
          'grace_model',true,                        @islogical;... 
         },... 
