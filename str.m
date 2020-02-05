@@ -396,8 +396,8 @@ classdef str
     function out=just(in,len,varargin)
       % parse mandatory arguments
       p=inputParser;
-      p.addRequired( 'in',           @(i) ischar(i) || is);
-      p.addRequired( 'len',          @(i) isfinite(i));
+      p.addRequired( 'in',           @ischar);
+      p.addRequired( 'len',          @isfinite);
       p.addParameter('just','center',@(i) any(strcmp(i,{'left','center','right'})));
       p.parse(in,len,varargin{:});
       %truncate 'in' if needed
@@ -699,9 +699,9 @@ classdef str
     function log(filename,msg,varargin)
       % parse mandatory arguments
       p=inputParser;
-      p.addRequired( 'filename',    @(i) ischar(i));
+      p.addRequired( 'filename',    @ischar);
       p.addRequired( 'msg',         @(i) iscellstr(i) || ischar(i));
-      p.addParameter('clear',false, @(i) islogical(i));
+      p.addParameter('clear',false, @islogical);
       p.parse(filename,msg,varargin{:});
       if p.Results.clear && exist(filename,'file')
         delete(filename)

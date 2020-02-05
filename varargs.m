@@ -7,7 +7,7 @@ classdef varargs < dynamicprops
       'validation',@(i)true...
     );
     template_validation={...
-      @(i) ischar(i);...
+      @ischar;...
       @(i) true;...
       @(i) isa(i, 'function_handle');...
     };
@@ -147,9 +147,9 @@ classdef varargs < dynamicprops
       pn.KeepUnmatched=true;
       pn.PartialMatching=false;
       pn.addParameter('parser',    inputParser, @(i) isa(i,'inputParser'));
-      pn.addParameter('mandatory', {}, @(i) iscell(i));
+      pn.addParameter('mandatory', {}, @iscell);
       pn.addParameter('sources',   {}, @(i) all(cellfun(@(j) varargs.isvarargs(j),i)));
-      pn.addParameter('sinks',     {}, @(i) iscell(i));
+      pn.addParameter('sinks',     {}, @iscell);
       pn.parse(varargin{:});
       %clean varargin
       varargin=cells.vararginclean(varargin,pn.Parameters);

@@ -162,7 +162,7 @@ classdef dataproduct
       p=inputParser;
       p.KeepUnmatched=true;
       p.addParameter('field_path',    '',@(i) ischar(i) || iscell(i));
-      p.addParameter('metadata_from', '',@(i) isstruct(i));
+      p.addParameter('metadata_from', '',@isstruct);
       %create argument object, declare and parse parameters, save them to obj
       [~,p,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{dataproduct.parameters('obj')},varargin{:});
       %sanity
@@ -201,8 +201,8 @@ classdef dataproduct
     function obj=rm_data(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('rm_args',[], @(i) ischar(i));
-      p.addParameter('mode','data', @(i) ischar(i));
+      p.addParameter('rm_args',[], @ischar);
+      p.addParameter('mode','data', @ischar);
       % parse it
       p.parse(varargin{:});
       %get list of files
@@ -247,10 +247,10 @@ classdef dataproduct
       p.KeepUnmatched=true;
       p.addParameter('start',     datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',      datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('start_timestamp_only', true, @(i) islogical(i))
-      p.addParameter('use_storage_period',   true, @(i) islogical(i))
-      p.addParameter('discover',            false, @(i) islogical(i))
-      p.addParameter('no_extension',        false, @(i) islogical(i))
+      p.addParameter('start_timestamp_only', true, @islogical);
+      p.addParameter('use_storage_period',   true, @islogical);
+      p.addParameter('discover',            false, @islogical);
+      p.addParameter('no_extension',        false, @islogical);
       % parse it
       p.parse(varargin{:});
       % retrive arguments for this file type
@@ -454,8 +454,8 @@ classdef dataproduct
     function out=mdget(obj,metadatafieldname,varargin)
       p=inputParser;
       p.addRequired( 'metadatafieldname',            @(i) ischar(i) || iscell(i));
-      p.addParameter('return_empty_if_missing',false,@(i) islogical(i));
-      p.addParameter('always_cell_array',      false,@(i) islogical(i));
+      p.addParameter('return_empty_if_missing',false,@islogical);
+      p.addParameter('always_cell_array',      false,@islogical);
       %if both 'default' and 'default_varargin' are given, the former takes precedence (but never over the metadata)
       p.addParameter('default',                '',   @(i) true); %anything goes
       p.addParameter('default_varargin',       {},   @(i) iscell(i) || isstruct(i));

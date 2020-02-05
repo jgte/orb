@@ -316,8 +316,8 @@ classdef segmentedfreqseries < simplefreqseries
     function out=op(obj,operation,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'operation',                   @(i) ischar(i));
-      p.addParameter('idx',        1:numel(obj.seg),@(i) isnumeric(i))
+      p.addRequired( 'operation',                   @ischar);
+      p.addParameter('idx',        1:numel(obj.seg),@isnumeric)
       p.addParameter('self_assign',false,           @(i) islogical(i) && isscalar(i))
       % parse it
       p.parse(operation,varargin{:});

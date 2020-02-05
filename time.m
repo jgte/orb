@@ -365,7 +365,7 @@ classdef time
       p=inputParser;
       p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
       p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
-      p.addRequired( 'period',  @(i) isduration(i));
+      p.addRequired( 'period',  @isduration);
       p.parse(start,stop,period)
       switch period
       case days(1)
