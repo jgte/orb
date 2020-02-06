@@ -483,7 +483,7 @@ classdef str
       if iscellstr(io)
         io=cellfun(@(i) str.chomp(i),io,'UniformOutput',false);
       elseif ischar(io)
-        if io(end)==newline
+        if ~isempty(io) && io(end)==newline
           io=io(1:end-1);
         end
       else
