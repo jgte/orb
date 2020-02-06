@@ -766,9 +766,9 @@ classdef file
         case 'date'
           git_com=[git_com,' log -1 --format=%cd --date=iso-local ',f];
         case {'status','st','add'}
-          git_com=[git_com,' ',mode,' ',f];
+          git_com=[git_com,' ',mode,' ',fullfile(d,f)];
         case {'commit','ci'}
-          git_com=[git_com,' ',mode,' ',f,' -m "',commit_msg,'"'];
+          git_com=[git_com,' ',mode,' -m "',commit_msg,'"'];
         case 'push'
           git_com=[git_com,' ',mode];
         case 'isuptodate'
@@ -780,7 +780,7 @@ classdef file
           error(['Cannot handle git command ''',mode,'''.'])
       end
       %git it
-      [~,out]=file.system(git_com);
+      [~,out]=file.system(git_com,false,false);
       %pre-pend directory report
       out=['Result of "',git_com,'" is:',newline,out];
     end
