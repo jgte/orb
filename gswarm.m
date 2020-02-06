@@ -2280,13 +2280,16 @@ classdef gswarm
           'gswarm.swarm.validation.pardecomp';...
         }...
       );
+      %export quality metrics
+      gswarm.quality
     end
     function d=production(varargin)
+      %need global project variable (forces the user to think about the context of this analysis)
+      global PROJECT
+
       %NOTICE: this method expects some input arguments, notably:
       % - products (cellstr)
       
-      %need global project variable (forces the user to think about the context of this analysis)
-      global PROJECT
       %parse input args
       %NOTICE: gracefo.sh.rl06.csr.ld.ts has metadata never_force set as true (usually!)
       %        so 'force' as true will only reload the Swarm individual models
@@ -2301,7 +2304,7 @@ classdef gswarm
           'inclusive', true,                        @islogical;...
           'force',     false,                       @islogical;... %this affects datastorage.init
           'force_d',   false,                       @islogical;... %this affects load(datafilename,'d') if force is false
-          'nodata',    false,                       @islogical;... %NOTICE: consider turning this off to update all input data
+          'nodata',    false,                       @islogical;... %NOTICE: consider turning this on to update all input data
           'c20model',  true,                        @islogical;... 
          'grace_model',true,                        @islogical;... 
         },... 
