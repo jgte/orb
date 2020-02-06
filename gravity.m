@@ -772,8 +772,8 @@ classdef gravity < simpletimeseries
         load(f,'pd_set')
         %output it
         switch v.mode
-          case 'model-list';     out=pardecomp.table(pd_set,'tablify',true); %#ok<NODEF>
-          case 'model-list-tex'; out=pardecomp.table(pd_set,'tablify',false,'latex_table',true); %#ok<NODEF>
+          case 'model-list';     out=pardecomp.table(pd_set,'tablify',true);
+          case 'model-list-tex'; out=pardecomp.table(pd_set,'tablify',false,'latex_table',true);
         end       
       case 'model-plot'
         %retrieve the orignal data
