@@ -1629,8 +1629,10 @@ classdef gswarm
       norm_stats=zeros(v.pod.source.n,5,numel(v.catchment_list));
       for j=1:numel(v.catchment_list)
         %build filename
+        %NOTICE: the name of the tex file cannot be the same as the name of the plots (latex doesn't like it for some reason)
+        %        that's why there's the 'stats' particle below
         filename=file.build(v.pod.file_root,...
-          v.plot_functional,'catch',v.pod.file_smooth,strsplit(v.catchment_list{j},' '),'tex'...
+          v.plot_functional,'catch',v.pod.file_smooth,strsplit(v.catchment_list{j},' '),'stats','tex'...
         );
         %plot only if not done yet
         if str.logical(v.plot_force) || ~file.exist(filename)
