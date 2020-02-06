@@ -377,7 +377,7 @@ classdef pardecomp
         out=cell(pd_set.np+numel(pd_set.T),2+numel(v.cols));
       end
       if v.latex_table
-        assert(~v.tablify,'options ''tablify'' and ''table_table'' cannot both be true')
+        assert(~v.tablify,'options ''tablify'' and ''latex_table'' cannot both be true')
         c=c+1;
         out(c,1:2)={'Component',['Period [',func2str(v.time_unit),']']};
         for colsi=1:numel(v.cols)
