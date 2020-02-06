@@ -745,6 +745,45 @@ classdef file
         result=result(1:end-1);
       end      
     end
+    function out=git(mode,filename,commit_msg)
+      if ~exist('filename','var') || isempty(filename)
+        filename=[mfilename('fullpath'),'.m'];
+      end
+      if ~exist('commit_msg','var') || isempty(commit_msg)
+        commit_msg=['updated ',filename];
+      end
+      %check if this is a directory
+      if ~exist(filename,'dir')~=0
+        [d,f,e]=fileparts(filename);
+        if isempty(d); d='./'; end
+        f=[f,e];
+      else
+        d=filename;
+        f='';
+      end
+      git_com=['git -C ',d];
+      switch mode
+        case 'date'
+          git_com=[git_com,' log -1 --format=%cd --date=iso-local ',f];
+        case {'status','st','add'}
+          git_com=[git_com,' ',mode,' ',f];
+        case {'commit','ci'}
+          git_com=[git_com,' ',mode,' ',f,' -m "',commit_msg,'"'];
+        case 'push'
+          git_com=[git_com,' ',mode];
+        case 'isuptodate'
+          out=str.contains(...
+            file.git('status',filename),'nothing to commit, working tree clean'...
+          );
+          return
+        otherwise
+          error(['Cannot handle git command ''',mode,'''.'])
+      end
+      %git it
+      [~,out]=file.system(git_com);
+      %pre-pend directory report
+      out=['Result of "',git_com,'" is:',newline,out];
+    end
     %% general utils
     function io=ensure_scalar(io,force)
       %convert to string if requested
