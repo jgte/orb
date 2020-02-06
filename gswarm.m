@@ -2231,8 +2231,16 @@ classdef gswarm
           gravity.graceC20('mode','model-plot','version','TN-11');
           plotting.save(gswarm.c20model('filename',plot_dir))
         end
-        gravity.graceC20('mode','model-list-tex','version','TN-11')
-      end
+      case 'latex'
+        filename=strrep(gswarm.c20model('filename',plot_dir),'.png','.tex');
+        out=gravity.graceC20('mode','model-list-tex','version','TN-11');
+        if ~file.exist(filename)
+          file.strsave(filename,out);
+          disp(['Saved C20 coefficients to ',filename])
+        end
+      otherwise
+        error(['Unknown mode ''',mode,'''.'])  
+      end        
     end
     function d=precombval(varargin)
       %NOTICE: this method produces the plots in the dir defined in the project.yaml file, which are
@@ -2297,6 +2305,7 @@ classdef gswarm
       %ensure C20 model is available
       if v.c20model && ~gswarm.c20model('done',file.orbdir('plot'))
         gswarm.c20model('plot',file.orbdir('plot'));
+        gswarm.c20model('latex',file.orbdir('plot'));
       end
       %need to be sure grace model is available up until the stop time and including all available grace-fo data
       if v.grace_model && ~gswarm.grace_model('gswarm.gracefo','mode','done')
