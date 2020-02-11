@@ -53,6 +53,8 @@ classdef plotting
         'plot_save_mkdir',    true,       @str.islogical;... 
         'plot_save_ext',     'png',       @ischar;... 
         'plot_dir',file.orbdir('plot'),   @ischar;...
+        'plot_save_data',    'yes',       @str.islogical;... %NOTICE: can be 'force' to recompute plot data (discards existing plot data)
+        'plot_force',        false,       @str.islogical;... %NOTICE: this turns plot_save_data to 'force' if true (and force re-plotting, but needs to be implemented where needed)
     };
   end
   methods(Static)
@@ -277,7 +279,6 @@ classdef plotting
       set(lines(2),'Color',get(lines(1),'Color'))
       if nargout>0; out=lines(1); end
     end
-
 %     function line_color_reorder(order,axis_handle)
 %       if ~exist('axis_handle','var') || isempty(axis_handle)
 %         axis_handle = gca;
@@ -950,6 +951,27 @@ classdef plotting
       end
       saveas(v.fig_handle,fullfile(p,[n,e]))
       str.say('Plotted',fullfile(p,[n,e]))
+    end
+    function [loaddata,savedata]=forcing(varargin)
+      % add input arguments and metadata to collection of parameters 'v'
+      v=varargs.wrap('sources',{plotting.default,{...
+      }},varargin{:});
+      %don't save data by default
+      savedata=false;
+      %override plot_save_data when force is true
+      if v.force; v.plot_save_data='force'; end
+      %check if loading the data is possible
+      try
+        loaddata=str.logical(v.plot_save_data);
+      catch
+        switch lower(v.plot_save_data) 
+        case 'force'
+          loaddata=false;
+          savedata=true;
+        otherwise
+          error(['Cannot handle parameter ''plot_save_data'' with value ''',v.plot_save_data,'''.'])
+        end
+      end
     end
     %% nice plotting stuff
     function out=hist(x,varargin)
