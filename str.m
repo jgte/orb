@@ -596,10 +596,10 @@ classdef str
       end
       %then convert to requested mode
       switch lower(mode)
-      case 'truefalse'; if in; out='true'; else out='false';end
-      case 'tf';        if in; out='T';    else out='F';    end
-      case 'onoff';     if in; out='on';   else out='off';  end
-      case 'yesno';     if in; out='yes';  else out='no';   end
+      case 'truefalse'; if in; out='true'; else; out='false';end
+      case 'tf';        if in; out='T';    else; out='F';    end
+      case 'onoff';     if in; out='on';   else; out='off';  end
+      case 'yesno';     if in; out='yes';  else; out='no';   end
       case 'logical';   out=in;
       otherwise
         assert(contains(mode,'-'),['Unknown mode ''',mode,'''.'])
