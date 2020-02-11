@@ -344,34 +344,18 @@ classdef gswarm
           'plot_smoothing_degree', [] ,@num.isscalar;...
           'plot_smoothing_method', '' ,@ischar;...
           'plot_spatial_mask', 'none' ,@iscellstr;...
-          'plot_save_data',      'no' ,@str.islogical;... %NOTICE: can be 'force' to skip reloading existing data
           'stats_relative_to', 'none' ,@ischar;...
           'model_types',        {'*'} ,@iscellstr;...
           'plot_lines_over_gaps_narrower_than',days(120),@isduration;...
           'plot_time_domain_source',0 ,@num.isscalar;...
-          'force',              false ,@str.islogical;... %NOTICE: this turns plot_save_data to 'force' if true
         },...
         product.args({'stats_relative_to','model_types'}),...
         product.plot_args...
       },varargin{:});
-      %don't save data by default
-      savedata=false;
-      %override plot_save_data when force is true
-      if v.force; v.plot_save_data='force'; end
-      %check if loading the data is possible
-      try
-        loaddata=str.logical(v.plot_save_data);
-      catch
-        switch lower(v.plot_save_data) 
-        case 'force'
-          loaddata=false;
-          savedata=true;
-        otherwise
-          error(['Cannot handle parameter ''plot_save_data'' with value ''',v.plot_save_data,'''.'])
-        end
-      end
-      %first build data filename; TODO: this datafilename is messed up, the smoothing only
-      %appears as 'gauss'
+      %retrieve load/saving of plotdata: handles plot_force and plot_save_data
+      [loaddata,savedata]=plotting.forcing(v.varargin{:});
+      %first build data filename; 
+      %TODO: this datafilename is messed up, the smoothing only appears as 'gauss'
       datafilename=obj.plotdatafilename(product);
       %check if data is to be loaded
       if loaddata
@@ -379,7 +363,7 @@ classdef gswarm
         if ~isempty(datafilename) && file.exist(datafilename)
           str.say('Loading plot data from ',datafilename)
           load(datafilename,'out')
-          pod=out; %#ok<NODEF>
+          pod=out;
           %we're done
           return
         else
@@ -579,7 +563,7 @@ classdef gswarm
       %save data if requested
       if savedata
         str.say('Saving plot data to ',datafilename)
-        out=pod; %#ok<NASGU>
+        out=pod;
         save(datafilename,'out');  
       end
       %start/stop
@@ -631,7 +615,7 @@ classdef gswarm
         o=orders(i);
         filename=file.build(v.pod.file_root,['C',num2str(d),',',num2str(o)],v.pod.file_smooth,'png');
         %plot only if not done yet
-        if str.logical(v.plot_force) || ~file.exist(filename)
+        if ~file.exist(filename,v.plot_force)
           %build legend string
           legend_str=cell(1,v.pod.source.n);
           trivial_idx=true(size(legend_str));
@@ -765,7 +749,7 @@ classdef gswarm
             file.build(v.pod.file_root,[v.plot_derived_quantity{qi},'_summary'],v.pod.file_smooth,'png');...
           };
           %prepare plot data only if needed
-          if str.logical(v.plot_force) || any(~file.exist(filenames)) 
+          if any(~file.exist(filenames,v.plot_force)) 
             %build data array
             y=zeros(numel(v.pod.t),numel(v.pod.mod.res));
             for di=1:numel(v.pod.mod.res)
@@ -833,7 +817,7 @@ classdef gswarm
           %% plot diff rms (only if not done yet)
 
           fn_idx=1;
-          if str.logical(v.plot_force) || ~file.exist(filenames{fn_idx})
+          if ~file.exist(filenames{fn_idx},v.plot_force)
             %plot it
             plotting.figure(v.varargin{:});
             switch v.plot_type
@@ -867,7 +851,7 @@ classdef gswarm
           %% plot cumulative diff rms (only if not done yet)
 
           fn_idx=2;
-          if str.logical(v.plot_force) || (~file.exist(filenames{fn_idx}) && numel(yc_sorted)>1 && v.plot_summary)
+          if ~file.exist(filenames{fn_idx},v.plot_force) && numel(yc_sorted)>1 && v.plot_summary
             %plot it
             plotting.figure(v.varargin{:});
             grey=[0.5 0.5 0.5];
@@ -917,7 +901,7 @@ classdef gswarm
             'start',v.pod.t(i),'stop',v.pod.t(i),...
             'suffix',file.build('drms',v.pod.file_smooth)...
           ),'get');
-          if str.logical(v.plot_force) || ~file.exist(filename)
+          if ~file.exist(filename,v.plot_force)
             plotting.figure(v.varargin{:});
             for j=1:numel(dat)
               dat{j}.plot('mode','drms','functional',v.plot_functional);
@@ -1013,7 +997,7 @@ classdef gswarm
             {v.plot_temp_stat_list{s},'triang'},v.pod.source.file_smooth{i},strsplit(v.pod.mod.names{i},' '),'png'...
           );
           %plot only if not done yet
-          if str.logical(v.plot_force) || ~file.exist(filename)
+          if ~file.exist(filename,v.plot_force)
             plotting.figure(v.varargin{:});
             if isfield(v.pod.mod,'ref')
               %compute the requested stat between this model and mod_ref
@@ -1061,7 +1045,7 @@ classdef gswarm
           file.build(v.pod.file_root,{v.plot_temp_stat_list{s},'dmean_summary'},v.pod.file_smooth,'png');...
         };
         %prepare plot data only if needed
-        if str.logical(v.plot_force) || any(~file.exist(filenames))
+        if any(~file.exist(filenames,v.plot_force))
           %init plot counter and data container
           d=zeros(numel(v.pod.mod.dat),v.pod.mod.dat{1}.lmax+1);
           %loop over all sources
@@ -1140,7 +1124,7 @@ classdef gswarm
         %% plot degree-mean/mean corr coeff (only if not done yet)
         
         fn_idx=1;
-        if str.logical(v.plot_force) || ~file.exist(filenames{fn_idx})
+        if ~file.exist(filenames{fn_idx},v.plot_force)
           %need to adapt y label for correlation coefficients
           switch v.plot_temp_stat_list{s}
           case 'corrcoeff'
@@ -1173,7 +1157,7 @@ classdef gswarm
         %% plot cumulative degree-mean/mean corr coeff stat  (only if not done yet)
         
         fn_idx=2;
-        if str.logical(v.plot_force) || ~file.exist(filenames{fn_idx}) && numel(dc_sorted)>1 && v.plot_summary
+        if ~file.exist(filenames{fn_idx},v.plot_force) && numel(dc_sorted)>1 && v.plot_summary
           %need to adapt some plotting aspects to correlation coefficients
           switch v.plot_temp_stat_list{s}
           case 'corrcoeff'
@@ -1240,7 +1224,7 @@ classdef gswarm
           v.plot_functional,'std',v.pod.source.file_smooth{i},strsplit(v.pod.source.names{i},' '),'png'...
         );
         %plot only if not done yet
-        if str.logical(v.plot_force) || ~file.exist(filename)
+        if ~file.exist(filename,v.plot_force)
           plotting.figure(v.varargin{:});
           v.pod.source.dat{i}.scale(v.plot_functional,'functional').grid('spatial_step',v.plot_spatial_step).stats('mode','std').imagesc(...
             'boxes',v.catchment_list,...
@@ -1286,12 +1270,10 @@ classdef gswarm
           'timescale',                               'years' , @ischar;...
           't0',                        datetime('2000-01-01'), @isdatetime;...
           'plot_spatial_step',                              1, @num.isscalar;...
-          'plot_save_data',                             'yes', @str.islogical;...
           'plot_catchment_list',simplegrid.catchment_list(:,1),@iscellstr; ....
           'plot_catchment_boxes',                       false, @islogical; ....
           'plot_std_colormap',                       'parula', @ischar;...
           'plot_std_range'                                inf, @num.isscalar;...
-          'plot_force',                                 false, @islogical;...
         },...
         product.args...
       },varargin{:});
@@ -1304,19 +1286,10 @@ classdef gswarm
         },...
         v...
       },varargin{:});
+      %operate
       if isempty(v.pod); v.pod=gswarm.plot_ops(obj,product,v.varargin{:}); end
-      
-      %check if loading the data is possible
-      try
-        loaddata=str.logical(v.plot_save_data);
-      catch
-        switch lower(v.plot_save_data)
-        case 'force'
-          loaddata=false;
-        otherwise
-          error(['Cannot handle parameter ''plot_save_data'' with value ''',v.plot_save_data,'''.'])
-        end
-      end
+      %retrieve load/saving of plotdata: handles plot_force and plot_save_data
+      loaddata=plotting.forcing(v.varargin{:});
       %init data container  
       v.pod.pd=cell(size(v.pod.source.dat));
       
@@ -1360,7 +1333,7 @@ classdef gswarm
             v.plot_functional,par_name,v.pod.source.file_smooth{i},strsplit(v.pod.source.names{i},' '),'png'...
           );
           %plot only if not done yet
-          if str.logical(v.plot_force) || ~file.exist(filename)
+          if ~file.exist(filename,v.plot_force)
             a=v.pod.pd{i}.(par_name).scale(...
               v.plot_functional,'functional'...
             ).grid('spatial_step',v.plot_spatial_step);
@@ -1397,7 +1370,7 @@ classdef gswarm
             v.plot_functional,{'a',j},v.pod.source.file_smooth{i},strsplit(v.pod.source.names{i},' '),'png'...
           );
           %plot only if not done yet
-          if str.logical(v.plot_force) || ~file.exist(filename)
+          if ~file.exist(filename,v.plot_force)
             %get the sine and cosine terms in the form of grids
             s=v.pod.pd{i}.(['s',num2str(j)]).scale(v.plot_functional,'functional').grid('spatial_step',v.plot_spatial_step);
             c=v.pod.pd{i}.(['c',num2str(j)]).scale(v.plot_functional,'functional').grid('spatial_step',v.plot_spatial_step);
@@ -1428,7 +1401,7 @@ classdef gswarm
             v.plot_functional,{'f',j},v.pod.source.file_smooth{i},strsplit(v.pod.source.names{i},' '),'png'...
           );
           %plot only if not done yet
-          if str.logical(v.plot_force) || ~file.exist(filename)
+          if ~file.exist(filename,v.plot_force)
             %get the sine and cosine terms in the form of grids
             s=v.pod.pd{i}.(['s',num2str(j)]).grid('spatial_step',v.plot_spatial_step);
             c=v.pod.pd{i}.(['c',num2str(j)]).grid('spatial_step',v.plot_spatial_step);
@@ -1470,7 +1443,6 @@ classdef gswarm
         {...
           'plot_functional',                           'eqwh', @gravity.isfunctional;...
           'plot_spatial_step',                              1, @num.isscalar;...
-          'plot_save_data',                             'yes', @str.islogical;...
           'catchment_list',    simplegrid.catchment_list(:,1), @iscellstr; ....
           'parametric_decomposition',                    true, @islogical;... %do pardecomp on the catchment timeseries
           'polyorder',                                      2, @num.isscalar;...
@@ -1486,7 +1458,6 @@ classdef gswarm
           'plot_legend_include_smoothing',              false, @islogical;...
           'plot_line_colormap',                      'spiral', @ischar;...
           'plot_lines_over_gaps_narrower_than',     days(120), @isduration;...
-          'plot_force',                                 false, @islogical;...
         },...
         product.args...
       },varargin{:});
@@ -1497,19 +1468,10 @@ classdef gswarm
           'pod',[],@isstruct;...
         }...
       },varargin{:});
+      %operate
       if isempty(v.pod); v.pod=gswarm.plot_ops(obj,product,v.varargin{:}); end
-  
-      %check if loading the data is possible
-      try
-        loaddata=str.logical(v.plot_save_data);
-      catch
-        switch lower(v.plot_save_data)
-        case 'force'
-          loaddata=false;
-        otherwise
-          error(['Cannot handle parameter ''plot_save_data'' with value ''',v.plot_save_data,'''.'])
-        end
-      end
+      %retrieve load/saving of plotdata: handles plot_force and plot_save_data
+      loaddata=plotting.forcing(v.varargin{:});
       %support legacy
       if isfield(v.pod.source,'dat')
         sfn='dat';
@@ -1580,7 +1542,7 @@ classdef gswarm
           v.plot_functional,'catch',v.pod.file_smooth,strsplit(v.catchment_list{j},' '),'png'...
         );
         %plot only if not done yet
-        if str.logical(v.plot_force) || ~file.exist(filename)
+        if ~file.exist(filename,v.plot_force)
           plotting.figure(v.varargin{:});
           legend_str=cell(1,v.pod.source.n);
           %the default color scheme for lines only has a limited number of entries, so to
@@ -1635,7 +1597,7 @@ classdef gswarm
           v.plot_functional,'catch',v.pod.file_smooth,strsplit(v.catchment_list{j},' '),'stats','tex'...
         );
         %plot only if not done yet
-        if str.logical(v.plot_force) || ~file.exist(filename)
+        if ~file.exist(filename,v.plot_force)
           %show some stats, if parametric decomposition was made
           if isfield(v.pod.catch{1,j},'pws')
             latex_data=cell(v.pod.source.n,6);
@@ -1915,15 +1877,13 @@ classdef gswarm
           'start', datetime('2013-09-01'), @isdatestime;...
           'stop',  datetime('2019-09-30'), @isdatestime;...
           'type',                      '', @ischar;...
-          'plot_save_data',          true, @str.islogical;... %can be 'force'
           'work_dir',fullfile(getenv('HOME'),'cloud','Work','articles','2019-04.gswarm',c20opt), @ischar;...
           'plot_fontsize_axis',  28      , @num.isscalar;...
           'plot_fontsize_title', 32      , @num.isscalar;...
           'plot_fontsize_label', 28      , @num.isscalar;...
           'plot_fontsize_legend',28      , @num.isscalar;...
           'plot_title',            'none', @ischar;...
-          'force',                   false, @islogical;...
-          'plot_force',              false, @islogical;... %this will also force reloading the plot data
+          'force',                  false, @islogical;... %NOTICE: this affects datastorage.init
           'products',{...
             'swarm.sh.gswarm.rl01.catchments';...
           }, @iscellstr;
@@ -1932,7 +1892,6 @@ classdef gswarm
       switch v.type
       case ''
         dirs=gswarm.paper('type','dirs');
-        if v.plot_force; v.plot_save_data='force';end
         d=datastorage(...
           'start',v.start,...
           'stop', v.stop,...
@@ -2039,7 +1998,6 @@ classdef gswarm
         end
       case 'smooth750'
         dirs=gswarm.paper('type','dirs');
-        if v.plot_force; v.plot_save_data='force';end
         d=datastorage(...
           'start',datetime('2002-04-01'),...
           'stop', v.stop,...
@@ -2053,7 +2011,6 @@ classdef gswarm
         );
       case 'tropics'
         dirs=gswarm.paper('type','dirs');
-        if v.plot_force; v.plot_save_data='force';end
         d=datastorage(...
           'start',v.start,...
           'stop', v.stop,...
