@@ -109,33 +109,35 @@ end
 
 %loop over them
 for i=1:numel(dir_list)
+  %define target
+  target_dir=fullfile(dirnow,dir_list{i});
   %make sure this directory is there
-  if ~file.exist(fullfile(dirnow,dir_list{i}))
+  if ~file.exist(target_dir)
     %init success flag
     linked_flag=false;
     %check for PROJECT-defined dirs
     if isfield(PROJECT,[dir_list{i},'_dir'])
-      linked_flag=file.ln(PROJECT.([dir_list{i},'_dir']),dirnow,true);
+      linked_flag=file.ln(PROJECT.([dir_list{i},'_dir']),target_dir,true);
     end
     %link frequent locations, unless already done
     if ~linked_flag
-      linked_flag=file.ln(fullfile(getenv('HOME'),dir_list{i}),dirnow,true);
+      linked_flag=file.ln(fullfile(getenv('HOME'),dir_list{i}),target_dir,true);
     end
     %create dir if linking didn't work
     if ~linked_flag
-      file.mkdir(fullfile(dirnow,dir_list{i}));
+      file.mkdir(target_dir);
     end
   end
   %make sure there's a project dir in the metadata
   if strcmp(dir_list{i},'metadata')
-    file.mkdir(fullfile(dirnow,dir_list{i},PROJECT.name),true);
+    file.mkdir(fullfile(target_dir,PROJECT.name),true);
   end
   % user feedback
   disp(['NOTICE: ',str.just(dir_list{i},max(cellfun(@length,dir_list))),...
     ' dir is : ',file.ls(fullfile('.',dir_list{i}),'-ldFh')])
 end
 %relevant user feedback
-disp(['NOTICE: available metadata is : ',newline,file.ls([fullfile('.','metadata',PROJECT.name)],'-lFh')])
+disp(['NOTICE: available metadata is : ',newline,file.ls(fullfile('.','metadata',PROJECT.name),'-lFh')])
 disp(['NOTICE: current project is : ',PROJECT.name])
 
 %% footer
