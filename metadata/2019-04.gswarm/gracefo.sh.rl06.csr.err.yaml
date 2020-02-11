@@ -1,0 +1,7 @@
+method: arithmetic
+operation: minus
+#NOTICE: the reason for subtracting GRACE/GRACE-FO from  the GRACE-only climatological model is so that the residual includes data after 2017
+sources: [gracefo.sh.rl06.csr/signal,grace.sh.rl06.csr.pd.ts] 
+source_fields_from: grace.sh.rl06.csr.pd.ts
+operation_order: [1,2]
+storage_period: yearly 
