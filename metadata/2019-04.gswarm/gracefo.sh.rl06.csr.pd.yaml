@@ -13,4 +13,4 @@ plot_title_suppress: [gswarm,smoothed,res,signal,sh]
 plot_colormap: jetzero
 plot_poly_range: [1,0.3]
 
-# never_force: true 
+never_force: true 
