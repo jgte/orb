@@ -862,19 +862,32 @@ classdef file
       end
     end
     %NOTICE: if 'in' is a dangling link, out is false
-    function out=exist(in,force)
+    function out=exist(in,force,disp_flag)
       if ~exist('force','var') || isempty(force)
         force=false;
       end
+      if ~exist('disp_flag','var') || isempty(disp_flag)
+        disp_flag=false;
+      end
       %vector mode
       if iscellstr(in)
-        out=cellfun(@file.exist,in,force);
+        out=cellfun(@(i)file.exist(i,force,disp_flag),in);
       elseif ischar(in)
-        
         %NOTICE: exist returns 7 if in 1st input is a dir and 2nd input is 'file' or 'dir'
         %        but returns 2 if 1st input is a dir only if 2nd input is 'file' (returns 0 if it is 'dir')
         %        so using 'file' captures both cases
-        out= ~str.islogical(force) && exist(file.resolve_home(in),'file')~=0;
+        out= ~str.logical(force) && exist(file.resolve_home(in),'file')~=0;
+        if disp_flag
+          if exist(file.resolve_home(in),'file')~=0
+            if str.logical(force)
+              str.say('stack_delta',1,'file exists but force is true',in)
+            else
+              str.say('stack_delta',1,'file exists',in)
+            end
+          else
+            str.say('stack_delta',1,'file does not exist',in)
+          end
+        end
       else
         error(['Cannot handle inputs of class ',class(in),'.'])
       end
