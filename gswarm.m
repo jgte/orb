@@ -2200,22 +2200,27 @@ classdef gswarm
       file.system('~/data/grace/download-l2.sh CSR 06',true);
       file.system('~/data/gswarm/rsync.remote2local.sh --exclude=analyses/',true);
     end
-    function out=c20model(mode,plot_dir)
+    function out=c20model(mode,plot_dir,version)
+      if ~exist('version','var') || isempty(version)
+        version='TN-11';
+      end
       %document the C20 model
       switch mode
       case 'done'
         out=file.exist(gswarm.c20model('filename',plot_dir));
       case 'filename'
-        out=fullfile(plot_dir,'C20.png');
+        out=fullfile(plot_dir,strjoin({'C20',version,'png'},'.'));
       case 'plot'
         if ~gswarm.c20model('done',plot_dir)
           plotting.figure;
-          gravity.graceC20('mode','model-plot','version','TN-11');
+          out=gravity.graceC20('mode','model-plot','version',version);
           plotting.save(gswarm.c20model('filename',plot_dir))
+        else
+          out=[];
         end
       case 'latex'
         filename=strrep(gswarm.c20model('filename',plot_dir),'.png','.tex');
-        out=gravity.graceC20('mode','model-list-tex','version','TN-11');
+        out=gravity.graceC20('mode','model-list-tex','version',version);
         if ~file.exist(filename)
           file.strsave(filename,out);
           disp(['Saved C20 coefficients to ',filename])
