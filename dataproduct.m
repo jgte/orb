@@ -141,18 +141,22 @@ classdef dataproduct
         end
       end
     end
-    function out=array(in)
+    function out=array(in,varargin)
       assert(iscell(in),[mfilename,': cannot handle input ''in'' of class ',class(in),', expecting a cell array.'])
       if isempty(in)
         out={};
       else
-        out=cellfun(@dataproduct,in,'UniformOutput',false);
+        in=cells.scalar(in,'set');
+        out=cellfun(@(i)dataproduct(i,varargin{:}),in,'UniformOutput',false);
       end
     end
   end
   methods
     %% constructor
     function obj=dataproduct(in,varargin)
+      %sanity
+      assert(~isempty(in),'cannot handle empty input ''in''.')
+      assert(isscalar(in)||ischar(in),'cannot handle non-scalar inputs; consider using dataproduct.array')
       % trivial call (all other classes are handled in datanames)
       if isa(in,'dataproduct')
         obj=in;
@@ -432,13 +436,9 @@ classdef dataproduct
     end
     function obj=mdmerge(obj,new_metadata)
       obj.metadata=structs.copy(new_metadata,obj.metadata);
-      %need to translate scalar sources
-      if isfield(obj.metadata,'sources') && ischar(obj.metadata.sources)
-        obj.metadata.sources={obj.metadata.sources};
-      end
-      %translate sources as strings to datanames (the 'sources' metadata field could have been updated)
-      for i=1:obj.nr_sources
-        obj.metadata.sources{i}=datanames(obj.metadata.sources{i});
+      %need to translate sources: from char to scalar cellstr and convert them to datanames
+      if isfield(obj.metadata,'sources')
+        obj.metadata.sources=datanames.array(obj.metadata.sources);
       end
     end
     %% metadata fields
