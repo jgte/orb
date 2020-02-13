@@ -1,4 +1,4 @@
-import_dir: <gravity.scriptdir>/aux
+import_dir: <file.scriptdir>/aux
 method: gswarm.load_models
 model_types: [signal,error]
 wildcarded_filename: GGM05C.gfc
