@@ -19,7 +19,7 @@ classdef datanames
         out={};
       else
         in=cells.scalar(in,'set');
-        out=cellfun(@(i)dataproduct(i,varargin{:}),in,'UniformOutput',false);
+        out=cellfun(@(i)datanames(i,varargin{:}),in,'UniformOutput',false);
       end
 %       assert(iscell(in),[mfilename,': cannot handle input ''in'' of class ',class(in),', expecting a cell array.'])
 %       if isempty(in)
