@@ -1165,7 +1165,10 @@ classdef datastorage
                   obj=eval(com);
                   disp('done!')
                 else
-                  error(ME.message)
+                  str.say(ME.stack(1).name,...
+                    'failed, error at',file.basename(ME.stack(1).file),...
+                    'line',ME.stack(1).line,':',ME.message)
+                  error(['Failed to init product ''',product_list{i}.name,'''.'])
                 end    
               end
             end
