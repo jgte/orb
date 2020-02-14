@@ -998,6 +998,10 @@ classdef file
         io=cells.scalar(io,'get');
       end
     end
+    function out=basename(in)
+      [~,f,e]=fileparts(in);
+      out=[f,e];
+    end
   end
 end
 
