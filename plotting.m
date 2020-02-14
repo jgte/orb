@@ -959,7 +959,7 @@ classdef plotting
       %don't save data by default
       savedata=false;
       %override plot_save_data when force is true
-      if v.force; v.plot_save_data='force'; end
+      if v.plot_force; v.plot_save_data='force'; end
       %check if loading the data is possible
       try
         loaddata=str.logical(v.plot_save_data);
