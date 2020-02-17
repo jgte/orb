@@ -7,6 +7,6 @@ version: '61'
 plot_columns: [1,2,3]
 plot_autoscale: true
 plot_automean: true
-plot_outlier: 3
+plot_outlier_iter: 3
 plot_zeromean: true
 plot_title_suppress: [grace,csr]

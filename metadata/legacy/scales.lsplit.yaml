@@ -6,7 +6,7 @@ method: scales.lsplit
 storage_period: yearly
 model_types: [signal]
 lsplit: 15
-plot_outlier: 1
+plot_outlier_iter: 1
 plot_automean: false
 plot_autoscale: false
 plot_xdateformat: yy

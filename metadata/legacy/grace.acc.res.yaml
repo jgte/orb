@@ -5,7 +5,7 @@ sources: [grace.acc.mod.nrtdm,grace.acc.l1b.csr,grace.acc.calmod.csr_direct,grac
 source_fields_from: grace.acc.calmod.csr_direct
 operation_order: [1,2]
 plot_columns: [1,2,3]
-plot_outlier: 1
+plot_outlier_iter: 1
 plot_normalize: true
 plot_zeromean: true
 plot_column_names: [X-axis,Y-axis,Z-axis]

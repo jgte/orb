@@ -16,7 +16,7 @@ plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common 
 
 #plotting
 plot_xdateformat: yy/mm
-plot_outlier: 0
+plot_outlier_iter: 0
 plot_legend_suppress: [sh,GSWARM,gswarm,GSwarm,signal,RL06,CSR,RL01]
 plot_title_suppress:  [sh,GSWARM,gswarm,GSwarm,signal,RL06,CSR,RL01]
 plot_legend_replace: [SWARM,Swarm,PD TS,model,GRACEFO,GRACE]

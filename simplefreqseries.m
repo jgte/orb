@@ -124,7 +124,7 @@ classdef simplefreqseries < simpletimeseries
 
       %despiking
       
-      [d,s]=a.despike(5e-7,'nSigma',1);
+      [d,s]=a.despike(5e-7,'outlier_sigma',1);
       figure
       subplot(2,1,1)
       a.plot('columns',1)
@@ -560,7 +560,6 @@ classdef simplefreqseries < simpletimeseries
       p.KeepUnmatched=true;
       % add stuff as needed
       p.addRequired('cutoff',                           @(i) isnumeric(i) && numel(i)==1);
-      p.addParameter('outlier_sigma',obj.outlier_sigma, @isnumeric);
       p.addParameter('debug_plot',false,                @(i) islogical(i) && isscalar(i));
       % parse it
       p.parse(cutoff,varargin{:});
@@ -570,8 +569,8 @@ classdef simplefreqseries < simpletimeseries
       smoothed=obj.bandpass('Wn',[0,cutoff],varargin{:});
       % get high-frequency signal
       highfreq=obj-smoothed;
-      % find outliers in high-frequency signal
-      [despiked,spikes]=highfreq.outlier(p.Results.nSigma);
+      % find outliers in high-frequency signal (handles outlier_iter, outlier_sigma and detrend options)
+      [despiked,spikes]=highfreq.outlier(varargin{:});
       spikes=spikes.psd_init;
       % restore smoothed signal
       despiked=despiked+smoothed;

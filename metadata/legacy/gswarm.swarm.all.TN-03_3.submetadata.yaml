@@ -15,7 +15,7 @@ explicit_fields: true
 storage_period: direct
 
 #plotting
-plot_outlier: 0
+plot_outlier_iter: 0
 plot_xdateformat: yy/mm
 plot_legend_suppress: [GSWARM,SH]
 plot_title_suppress: [GSWARM,SH]

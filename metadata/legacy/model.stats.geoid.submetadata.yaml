@@ -3,6 +3,6 @@ method: gswarm.stats
 plot_derived_quantity: cumdrms
 functional: geoid
 stats: [mean,std,max,min]
-stats_outlier: 0
+stats_outlier_iter: 0
 stats_period: <seconds(inf)>
 stats_overlap: <seconds(0)>

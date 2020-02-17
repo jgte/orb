@@ -5,7 +5,7 @@ stats_relative_to: gswarm.grace.gfz.rl05
 explicit_fields: true
 storage_period: direct
 model_types: [signal]
-plot_outlier: 1
+plot_outlier_iter: 1
 plot_xdateformat: yy/mm
 plot_legend_suppress: [gswarm,swarm,vce]
 plot_title_suppress: [gswarm]

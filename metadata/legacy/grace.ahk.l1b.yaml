@@ -6,6 +6,6 @@ storage_period: daily
 plot_columns: [1,2,3,4]
 plot_autoscale: false
 plot_automean: true
-plot_outlier: 3
+plot_outlier_iter: 3
 plot_zeromean: true
 plot_title_suppress: [grace]

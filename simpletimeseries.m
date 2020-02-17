@@ -1695,13 +1695,13 @@ classdef simpletimeseries < simpledata
       %merge the two objects
       obj=obj.augment(obj_new);
     end
-    function [obj_clean,obj_outlier]=despike(obj,n,nSigma)
+    function [obj_clean,obj_outlier]=despike(obj,n,varargin)
       %get medianed timeseries
       obj_median=obj.median(n);
       %compute residual to median
       obj_res=obj-obj_median;
       %remove outliers from residual
-      [obj_res_clean,obj_res_outlier]=obj_res.outlier(nSigma);
+      [obj_res_clean,obj_res_outlier]=obj_res.outlier(varargin{:});
       %restore median
       obj_clean=obj_median+obj_res_clean;
       obj_outlier=obj_median+obj_res_outlier;

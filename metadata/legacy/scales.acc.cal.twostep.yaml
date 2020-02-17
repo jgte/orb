@@ -6,7 +6,7 @@ storage_period: daily
 plot_columns: [1,2,3]
 plot_autoscale: false
 plot_automean: false
-plot_outlier: 0
+plot_outlier_iter: 0
 plot_zeromean: true
 plot_xdateformat: mm/dd
 plot_title_suppress: [grace,acc,calmod,csr,scales]
