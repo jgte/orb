@@ -13,7 +13,7 @@ explicit_fields: true
 storage_period: direct
 
 #plotting
-plot_outlier: 0
+plot_outlier_iter: 0
 plot_xdateformat: yy/mm
 plot_functional: eqwh
 plot_legend_suppress: [smoothed,res,v01,v02,v03,v04,v05,v06]

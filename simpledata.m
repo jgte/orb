@@ -719,7 +719,7 @@
 
       i=i+1;h{i}=figure('visible','off');
       a.plot('columns', 1,'line',{'x-'});
-      [a,o]=a.outlier(2);
+      [a,o]=a.outlier('outlier_iter',2);
       a.plot(...
         'columns', 1,...
         'masked',true,...
@@ -945,23 +945,19 @@
     function out=stats(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('mode',         'struct',          @ischar);
-      p.addParameter('frmt',         '%-16.3g',         @ischar);
-      p.addParameter('tab',          8,                 @isscalar);
-      p.addParameter('minlen',       2,                 @isscalar);
-      p.addParameter('outlier',      0,                 @isfinite);
-      p.addParameter('outier_sigma', obj.outlier_sigma, @isnumeric);
-      p.addParameter('columns',      1:obj.width,       @(i) isnumeric(i) || iscell(i));
+      p.addParameter('mode',          'struct',          @ischar);
+      p.addParameter('frmt',          '%-16.3g',         @ischar);
+      p.addParameter('tab',           8,                 @isscalar);
+      p.addParameter('minlen',        2,                 @isscalar);
+      p.addParameter('columns',       1:obj.width,       @(i) isnumeric(i) || iscell(i));
       p.addParameter('struct_fields',...
         {'min','max','mean','std','rms','meanabs','stdabs','rmsabs','length','gaps','norm'},...
         @(i) iscellstr(i)...
       )
       % parse it
       p.parse(varargin{:});
-      %remove outliers
-      for c=1:p.Results.outlier
-        obj=obj.outlier(p.Results.outlier_sigma);
-      end
+      %detrend and remove outliers (if there inclinded according to outlier_iter, outlier_sigma and detrend)
+      obj=obj.outlier(varargin{:});
       %trivial call
       switch p.Results.mode
       case {'min','max','mean','std','rms','meanabs','stdabs','rmsabs'}
@@ -1070,9 +1066,6 @@
       p.addParameter('mode',       'struct', @ischar);
       p.addParameter('minlen',            2, @isscalar);
       p.addParameter('columns', 1:min([obj1.width,obj2.width]), @(i) isnumeric(i) || iscell(i));
-      p.addParameter('outlier',           0, @isfinite);
-      p.addParameter('outlier_sigma',...
-     simpledata.parameters('outlier_sigma'), @num.isscalar);
       p.addParameter('struct_fields',...
         {'cov','corrcoef','length','rms'},...
         @(i) iscellstr(i)...
@@ -1083,11 +1076,9 @@
       compatible(obj1,obj2,varargin{:})
       %need to make the mask match to make sure x_masked is common
       [obj1,obj2]=obj1.mask_match(obj2,'x-domain discrepancy, interpolate objects before calling this method');
-      %remove outliers
-      for i=1:p.Results.outlier
-        obj1=obj1.outlier(p.Results.outlier_sigma);
-        obj2=obj2.outlier(p.Results.outlier_sigma);
-      end
+      %detrend and remove outliers (if there inclinded according to outlier_iter, outlier_sigma and detrend)
+      obj1=obj1.outlier(varargin{:});
+      obj2=obj2.outlier(varargin{:});
       %trivial call
       switch p.Results.mode
       case {'cov','corrcoef'}
@@ -1648,19 +1639,20 @@
       %propagate the data
       obj=obj.assign(y_polyfitted,'x',x_out);
     end
-    function obj=detrend(obj,mode)
+    function obj=detrend(obj,mode,disp)
       if ~exist('mode','var') || isempty(mode)
         mode='linear';
       end
-      if ~isempty(strfind(mode,'poly'))
-        %determine polynomial order to be fitted
-        o=str2double(strrep(mode,'poly',''));
-        %polyfit the data
-        obj_polyfitted=obj.polyfit(o);
-        %subtract polyfitted data from input data
-        obj=obj-obj_polyfitted;
-        %we're done
+      if ~exist('disp','var') || isempty(disp)
+        disp=true;
+      end
+      %trivial call
+      if isempty(mode)
         return
+      end
+      %inform user
+      if disp
+        str.say(mode,'detrending of',obj.descriptor)
       end
       switch mode
       case 'cubic'
@@ -1679,38 +1671,80 @@
       case 'constant'
         obj.y(obj.mask,:)=detrend(obj.y_masked,'constant');
       otherwise
-        error([mfilename,': unknown mode ''',mode,'''.'])
+        if contains(mode,'poly')
+          %determine polynomial order to be fitted
+          o=str2double(strrep(mode,'poly',''));
+          %polyfit the data
+          obj_polyfitted=obj.polyfit(o);
+          %subtract polyfitted data from input data
+          obj=obj-obj_polyfitted;
+        else
+          error([mfilename,': unknown mode ''',mode,'''.'])
+        end
       end
       % sanitize
       obj.check_sd
     end
-    function [obj,outliers]=outlier(obj,outlier_sigma)
+    %NOTICE: also does detrending (defaults to none) because that operation is often needed to isolated outliers
+    function [obj,outliers]=outlier(obj,varargin)
+      v=varargs.wrap('sources',{....
+        {...
+          'outlier_sigma',    obj.outlier_sigma, @isnumeric;...
+          'outlier_iter',     1,                 @isfinite;...
+          'detrend',         '',                 @ischar;...
+          'disp_flag',     true,                 @islogical;...
+        },...
+      },varargin{:});
+      %handle iterative outlier removal and trivial call
+      switch v.outlier_iter
+      case 0
+        %maybe detrending is requested anyway
+        obj=obj.detrend(v.detrend,v.disp_flag);
+        outliers=[];
+        return;
+      case 1
+      % do nothing
+      otherwise
+        %optional outputs: do things quicker if the value of the outliers is not needed.
+        if nargout>1        
+          outliers=cell(1,v.outlier_iter);
+          for i=1:v.outlier_iter
+            [obj,outliers{i}]=obj.outlier(varargin{:},'outlier_iter',1);
+          end 
+        else
+          for i=1:v.outlier_iter
+            obj=obj.outlier(varargin{:},'outlier_iter',1);
+          end 
+        end            
+        return
+      end
       %handle inputs
-      if ~exist('outlier_sigma','var') || isempty(outlier_sigma)
-        outlier_sigma=obj.outlier_sigma;
+      if isscalar(v.outlier_sigma)
+        v.outlier_sigma=v.outlier_sigma*ones(1,obj.width);
+      else
+        assert(numel(v.outlier_sigma) ~= obj.width,...
+          ['input <outlier_sigma> must have the same number of entries as data width (',...
+          num2str(obj.witdh),'), not ',num2str(numel(v.outlier_sigma)),'.']...
+        )
       end
-      if ~isnumeric(outlier_sigma)
-        error([mfilename,': input <outlier_sigma> must be numeric, not ',class(outlier_sigma),'.'])
-      end
-      if isscalar(outlier_sigma)
-        outlier_sigma=outlier_sigma*ones(1,obj.width);
-      elseif numel(outlier_sigma) ~= obj.width
-        error([mfilename,': input <outlier_sigma> must have the same number of entries as data width (',...
-          num2str(obj.witdh),'), not ',num2str(numel(outlier_sigma)),'.'])
+      %detrend data, handles the 'detrend' option internally
+      obj=obj.detrend(v.detrend,v.disp_flag);
+      %inform user
+      if v.disp_flag
+        str.say('removing outliers larger than ',v.outlier_sigma,'-STD from',obj.descriptor)
       end
       %create tmp container
       y_data=zeros(obj.length,obj.width);
       if nargout>1; y_outliers=zeros(size(y_data)); end
-      %loop over data width, do things quicker if the value of the outliers
-      %is not needed.
+      %loop over data width, do things quicker if the value of the outliers is not needed.
       if nargout>1
         for i=1:obj.width 
-          [y_data(:,i),idx]=simpledata.rm_outliers(obj.y(:,i),'outlier_sigma',outlier_sigma(i),'outlier_value',0);
+          [y_data(:,i),idx]=simpledata.rm_outliers(obj.y(:,i),'outlier_sigma',v.outlier_sigma(i),'outlier_value',0);
           y_outliers(idx,i)=obj.y(idx,i);
         end
       else
         for i=1:obj.width
-          y_data(:,i)=simpledata.rm_outliers(obj.y(:,i),'outlier_sigma',outlier_sigma(i),'outlier_value',0);
+          y_data(:,i)=simpledata.rm_outliers(obj.y(:,i),'outlier_sigma',v.outlier_sigma(i),'outlier_value',0);
         end
       end
       %sanity
@@ -2530,15 +2564,15 @@
     function out=plot(obj,varargin)
       v=varargs.wrap('sources',{....
         {...
-          'columns',    1:obj.width,@(i)isnumeric(i) || iscell(i);...
-          'line'   ,    {},         @iscell;...
-          'color',      {},         @iscell;...
-          'zeromean',   false,      @(i)islogical(i) && isscalar(i);...
-          'normalize',  false,      @(i)islogical(i) && isscalar(i);...
-          'outlier',    0,          @(i)isfinite(i)  && isscalar(i);...
-          'title',      '',         @ischar;...
-          'smooth_span',0,          @(i)isfinite(i)  && isscalar(i) && i>=0;...
-          'scale',      1,          @(i)all(isfinite(i));...
+          'columns',      1:obj.width,@(i)isnumeric(i) || iscell(i);...
+          'line'   ,      {},         @iscell;...
+          'color',        {},         @iscell;...
+          'zeromean',     false,      @(i)islogical(i) && isscalar(i);...
+          'normalize',    false,      @(i)islogical(i) && isscalar(i);...
+          'outlier_iter', 0,          @(i)isfinite(i)  && isscalar(i);...
+          'title',        '',         @ischar;...
+          'smooth_span',  0,          @(i)isfinite(i)  && isscalar(i) && i>=0;...
+          'scale',        1,          @(i)all(isfinite(i));...
         },...
       },varargin{:});
       % type conversions

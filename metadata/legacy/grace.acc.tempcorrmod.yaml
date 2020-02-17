@@ -6,7 +6,7 @@ plot_columns: [1,2,3]
 plot_column_together: false
 plot_autoscale: false
 plot_automean: true
-plot_outlier: 0
+plot_outlier_iter: 0
 plot_zeromean: true
 plot_title_suppress: [grace,acc,csr]
 plot_column_names: [X-axis,Y-axis,Z-axis]

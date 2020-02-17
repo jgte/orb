@@ -2,12 +2,12 @@ method: datastorage.stats
 storage_period: global
 sources: [grace.calpar_csr]
 stats: [mean,std,rms,length]
-stats_outlier: 0
+stats_outlier_iter: 0
 stats_period: <years(1)/12>
 stats_overlap: <seconds(0)>
 plot_columns: [1]
 plot_autoscale: true
 plot_automean: true
-plot_outlier: 3
+plot_outlier_iter: 3
 plot_zeromean: false
 plot_title_suppress: [grace,calpar_csr_stats]

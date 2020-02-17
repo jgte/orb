@@ -15,7 +15,7 @@ skip_dataname: d31z0
 explicit_fields: true
 storage_period: global
 model_types: [signal]
-plot_outlier: 1
+plot_outlier_iter: 1
 plot_automean: true
 plot_autoscale: true
 plot_xdateformat: yy

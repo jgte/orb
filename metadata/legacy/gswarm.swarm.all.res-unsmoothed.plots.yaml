@@ -16,7 +16,7 @@ plot_derived_quantity: cumdrms
 explicit_fields: true
 storage_period: direct
 model_types: [signal]
-plot_outlier: 1
+plot_outlier_iter: 1
 plot_xdateformat: yy/mm
 plot_functional: geoid
 plot_legend_suppress: [smoothed,res]
