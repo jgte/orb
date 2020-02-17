@@ -2003,7 +2003,7 @@ classdef gravity < simpletimeseries
       end
     end
     %cumulative degree RMS
-    function [d,ts]=cumdrms(obj)
+    function [d,ts]=cumdrms(obj,l)
       if ~exist('l','var') || isempty(l)
         l=obj.lmax;
       end
