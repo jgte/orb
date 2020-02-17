@@ -580,10 +580,8 @@ classdef str
         in=(in~=seconds(0));
       case 'char'
         switch lower(in)
-        case {'true','t','on','yes'}
-          in=true;
-        case {'false','f','off','no'}
-          in=false;
+        case {'true' ,'t','on' ,'yes'}; in=true;
+        case {'false','f','off','no' }; in=false;
         otherwise
           error(['Cannot understand logical string ''',in,'''.'])
         end
