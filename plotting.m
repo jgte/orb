@@ -44,7 +44,7 @@ classdef plotting
         'plot_autoscale_factor', 4,       @num.isscalar;...
         'plot_automean',     false,       @str.islogical;... %middle-point of y axis is derived from the data (in plotting.enforce)
         'plot_zeromean',     false,       @str.islogical;... %mean of data is removed before plotting (in simpledata.plot)
-        'plot_outlier',          0,       @num.isscalar;...
+        'plot_outlier_iter',     0,       @num.isscalar;...
         'plot_caxis',   [-inf,inf],       @(i) isnumeric(i) && numel(i)==2;...
         'plot_logy',         false,       @str.islogical;... 
         'plot_logx',         false,       @str.islogical;... 
@@ -634,7 +634,8 @@ classdef plotting
         end
       end
       % enforce auto-scale and/or auto-mean
-      if v.plot_automean || v.plot_autoscale || v.plot_outlier>0
+      % TODO: add detrending here (to go along plot_outlier_iter, as is done in simpledata.outlier)
+      if v.plot_automean || v.plot_autoscale || v.plot_outlier_iter>0
         %gather plotted data
         dat=cell(size(line_handles));
         for i=1:numel(line_handles)
@@ -644,7 +645,7 @@ classdef plotting
         dat=[dat{:}];
         dat=dat(~isnan(dat(:)));
         %remove outliers before computing axis limits (if requested)
-        for c=1:v.plot_outlier
+        for c=1:v.plot_outlier_iter
           dat=simpledata.rm_outliers(dat);
         end
         dat=dat(~isnan(dat(:)));
