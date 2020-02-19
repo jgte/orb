@@ -12,15 +12,15 @@ sources: [ #remember that plots with multiple sources pick the start/stop from t
 stats_relative_to: none
 
 
-plot_time_domain_source: 2 #options are: idx of source or 0, meaning the common time domain
+plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common time domain
 
 #plotting
 
 
 plot_legend_suppress: [sh,GSWARM,gswarm,GSwarm,signal,RL06,CSR,RL01]
 plot_title_suppress:  [sh,GSWARM,gswarm,GSwarm,signal,RL06,CSR,RL01]
-plot_legend_replace: [ERR,diff w.r.t GRACE model,SWARM,Swarm,PD TS,model]
-plot_title_replace:  [ERR,diff w.r.t GRACE model,SWARM,Swarm,PD TS,model]
+plot_legend_replace: [ERR,diff w.r.t GRACE model,SWARM,Swarm,PD TS,model,GRACEFO,GRACE]
+plot_title_replace:  [ERR,diff w.r.t GRACE model,SWARM,Swarm,PD TS,model,GRACEFO,GRACE]
 plot_functional: eqwh
 plot_std_caxis: [0,0.05]
 plot_rms_caxis: [0,0.05]
