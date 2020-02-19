@@ -672,7 +672,7 @@ classdef str
     end
     function out=say(varargin)
       %default value for internal parameters
-      stack_delta=0;
+      stack_delta=1;
       %loop control
       start_idx=1;
       start_idx_old=0;
