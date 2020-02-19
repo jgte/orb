@@ -957,7 +957,9 @@
       % parse it
       p.parse(varargin{:});
       %detrend and remove outliers (if there inclinded according to outlier_iter, outlier_sigma and detrend)
-      obj=obj.outlier(varargin{:});
+      %NOTICE: need to set 'outlier_iter' to 0, otherwise the default in obj.outlier is used in the (common)
+      %        case varargin{:} is omissive in the value of this option.
+      obj=obj.outlier('outlier_iter',0,varargin{:});
       %trivial call
       switch p.Results.mode
       case {'min','max','mean','std','rms','meanabs','stdabs','rmsabs'}
@@ -1077,8 +1079,10 @@
       %need to make the mask match to make sure x_masked is common
       [obj1,obj2]=obj1.mask_match(obj2,'x-domain discrepancy, interpolate objects before calling this method');
       %detrend and remove outliers (if there inclinded according to outlier_iter, outlier_sigma and detrend)
-      obj1=obj1.outlier(varargin{:});
-      obj2=obj2.outlier(varargin{:});
+      %NOTICE: need to set 'outlier_iter' to 0, otherwise the default in obj.outlier is used in the (common)
+      %        case varargin{:} is omissive in the value of this option.
+      obj1=obj1.outlier('outlier_iter',0,varargin{:});
+      obj2=obj2.outlier('outlier_iter',0,varargin{:});
       %trivial call
       switch p.Results.mode
       case {'cov','corrcoef'}
