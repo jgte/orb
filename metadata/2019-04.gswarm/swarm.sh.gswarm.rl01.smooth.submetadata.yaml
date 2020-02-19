@@ -58,4 +58,4 @@ plot_smoothing_method: gauss
 plot_legend_include_smoothing: false
 
 # plot_title: none
-
+plot_detrended: linear
