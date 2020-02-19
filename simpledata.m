@@ -1735,7 +1735,7 @@
       obj=obj.detrend(v.detrend,v.disp_flag);
       %inform user
       if v.disp_flag
-        str.say('removing outliers larger than ',v.outlier_sigma,'-STD from',obj.descriptor)
+        str.say('removing outliers larger than ',mean(v.outlier_sigma),'-STD from',obj.descriptor)
       end
       %create tmp container
       y_data=zeros(obj.length,obj.width);
