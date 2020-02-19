@@ -1,0 +1,12 @@
+submetadata: swarm.sh.gswarm.rl01.smooth.submetadata
+plot_smoothing_degree: [750e3,750e3,750e3]
+plot_logy: false
+sources: [ #remember that plots with multiple sources pick the start/stop from the first source
+  swarm.sh.gswarm.rl01,
+  grace.sh.rl06.csr.pd.ts, 
+  gracefo.sh.rl06.csr,
+]
+stats_relative_to: grace.sh.rl06.csr.pd.ts
+plot_spatial_mask: non-tropical
+plot_temp_stat_list: [none] #[corrcoeff,rms,std]
+plot_temp_stat_title: [none] #[temporal corr. coeff.,temporal RMS,temporal STD]
