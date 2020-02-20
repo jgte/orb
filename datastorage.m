@@ -1027,6 +1027,7 @@ classdef datastorage
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
     %% datatype initialization
+    %NOTICE: do not pass default values through varargin because they will override the metadata of product
     function obj=init(obj,id,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -1038,8 +1039,6 @@ classdef datastorage
       %update start/stop if given in inputs
       obj=obj.startstop_update(varargin{:});
       obj.log('@','in','id',id,'varargin',varargin,'start',obj.start,'stop',obj.stop)
-%       % load the metadata for this product
-%       obj=obj.product_set(id,varargin{:});
       %retrieve product info
       product=obj.product_get(id,varargin{:});
       obj.log('@','in','product',product,'product start',product.start,'product stop',product.stop)
