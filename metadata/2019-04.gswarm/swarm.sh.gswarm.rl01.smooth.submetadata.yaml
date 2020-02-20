@@ -39,7 +39,7 @@ plot_logy: true
 
 #plot_spatial_stats
 plot_spatial_mask: none
-plot_derived_quantity: [cumdas]
+plot_derived_quantity: [cumdas,gridmean]
 plot_type: line
 plot_spatial_stat_list: [diff]
 
@@ -58,4 +58,4 @@ plot_smoothing_method: gauss
 plot_legend_include_smoothing: false
 
 # plot_title: none
-plot_detrended: linear
+plot_detrended: none

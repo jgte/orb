@@ -1,7 +1,8 @@
-submetadata: swarm.sh.gswarm.rl01.smooth-ocean.submetadata
+submetadata: swarm.sh.gswarm.rl01.smooth.submetadata
 plot_smoothing_degree: [1500e3,1500e3,1500e3]
 plot_logy: false
+plot_temp_stat_list: [none] #[corrcoeff,rms,std]
+plot_temp_stat_title: [none] #[temporal corr. coeff.,temporal RMS,temporal STD]
 plot_std_caxis: [0,0.001]
 plot_rms_caxis: [0,0.001]
 plot_spatial_mask: deep ocean
-plot_derived_quantity: [cumdas,gridmean]
