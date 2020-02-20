@@ -2007,7 +2007,7 @@ classdef gswarm
           out=[];
         end
       case 'TN11'                 %checking only (not used anymore)
-        plotfilename=fullfile(v.work_dir,'figures','checks','C20.TN11.png');
+        plotfilename=fullfile(v.figures_dir,'checks','C20.TN11.png');
         if ~file.exist(plotfilename)
           gravity.graceC20('mode','model-plot',...
             v.varargin{:},'start',time.zero_date,'stop',datetime('2019-10-31'))
@@ -2017,8 +2017,8 @@ classdef gswarm
         else
           out=[];
         end
-      case 'deepoceanmask'        %fig:method:deepoceanmass
-        plotfilename=fullfile(v.work_dir,'figures','deepoceanmask.png');
+      case 'deepoceanmask'        
+        plotfilename=fullfile(v.figures_dir,'deepoceanmask.png');
         if ~file.exist(plotfilename,v.plot_force,true)
           gswarm.plotdeepoceanmask(4,plotfilename)
         end
@@ -2026,7 +2026,7 @@ classdef gswarm
       %NOTICE: the flag force will recompute the *timeseries* of the parametric decomposition even if never_force is true
       %NOTICE: use 'type','pd' if you want to recompute the parametric decomposition (consider 'force',true)
       case {'gracelowdegrees',...
-            'gracefolowdegrees'}  %fig:method:climatmod
+            'gracefolowdegrees'}  
         %resolve internal type
         type=strrep(v.type,'lowdegrees','');
         %define relevant products (the first product is assumed to have the 'signal' field)
@@ -2040,7 +2040,7 @@ classdef gswarm
         p=cellfun(@(i) i.mdset('never_force',false,'always_force',false),p,'UniformOutput',false);
         %build plot name list
         plotfilenames=arrayfun(@(i) fullfile(...
-          v.work_dir,'figures',[type,'.C',num2str(i),'0.png']...
+          v.figures_dir,[type,'.C',num2str(i),'0.png']...
         ),degree_list,'UniformOutput',false);
         %check if plots are already there
         if all(file.exist(plotfilenames,v.plot_force,true))
@@ -2104,7 +2104,7 @@ classdef gswarm
          order_list=zeros(size(degree_list));
         %build plot name
         plotfilenames=arrayfun(...
-          @(i,j) fullfile(v.work_dir,'figures','checks',['grace.vs.gracefo.pd.C',num2str(i),num2str(j),'.png']),...
+          @(i,j) fullfile(v.figures_dir,'checks',['grace.vs.gracefo.pd.C',num2str(i),num2str(j),'.png']),...
         degree_list,order_list,'UniformOutput',false);
         %check if plots are already there
         if ~all(file.exist(plotfilenames,v.plot_force,true))
@@ -2209,7 +2209,7 @@ classdef gswarm
             'plot_ylabel',gravity.functional_label(functional),...
             'plot_legend',legend_str...
           );
-          plotting.save(fullfile(v.work_dir,'figures','checks','cumdas.ts.pre.vs.post.spatial-masking.png'));
+          plotting.save(fullfile(v.figures_dir,'checks','cumdas.ts.pre.vs.post.spatial-masking.png'));
         
           str.say('Plotting tropical vs non-tropical')
           plotting.figure; hold on
