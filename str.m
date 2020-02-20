@@ -83,7 +83,13 @@ classdef str
       %handle non-scalar quantities
       %NOTICE: don't use isscalar here because it will pick the size method in objects and return false
       %TODO: this breaks with non-scalar structures
-      if numel(in)>1
+      switch numel(in)
+      case 0
+        out='';
+        return
+      case 1
+        % do nothing
+      otherwise
         out=cell(size(in));
         for i=1:numel(in)
           out{i}=str.show(in(i),fmt,join_char);
