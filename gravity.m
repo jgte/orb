@@ -976,28 +976,28 @@ classdef gravity < simpletimeseries
     function out=gauss_smoothing_type(in)
       % This is a weak criteria but will work as long as there's no need
       % to smooth at degrees larger than 10000 or radii smaller than 10km.
-      if round(sum(in>10e3));
-        out='rad';
+      if round(sum(in>10e3))
+        out='radius';
       else
         out='deg';
       end      
     end
     function out=gauss_smoothing_degree_translate(in)
       switch gravity.gauss_smoothing_type(in)
-      case 'rad'; out=gravity.gauss_smoothing_degree(in);
-      case 'deg'; out=in;
+      case 'radius'; out=gravity.gauss_smoothing_degree(in);
+      case 'deg'   ; out=in;
       end
     end
     function out=gauss_smoothing_name(in)
       switch gravity.gauss_smoothing_type(in)
-      case 'rad';
+      case 'radius'
         %NOTICE: this test should be to see if in is zero but that is assumed to refer to degrees
         if isfinite(in)
           out=[num2str(in/1e3),'km'];
         else
           out='no';
         end
-      case 'deg';
+      case 'deg'
         %NOTICE: this test should only be to see if in is inf but zero is assumed to refer to degrees
         %        even if in practice is always refers to radius
         if isfinite(in) && in~=0
@@ -1778,6 +1778,8 @@ classdef gravity < simpletimeseries
         [mfilename,': found NaNs in the output. Debug needed!'])
     end
     function s=scale_trunc(obj,fwhm_degree)
+      % translate smoothing radius to degree (criteria inside) 
+      fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
       %https://en.wikipedia.org/wiki/Gaussian_function#Properties
       s=[ones(1,min([fwhm_degree+1,obj.lmax+1])),zeros(1,obj.lmax-fwhm_degree)];
 %       find(abs(s-0.5)==min(abs(s-0.5)))
