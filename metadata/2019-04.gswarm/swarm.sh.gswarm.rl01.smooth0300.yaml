@@ -1,0 +1,5 @@
+submetadata: swarm.sh.gswarm.rl01.smooth.submetadata
+plot_smoothing_degree: [300e3,300e3,300e3]
+plot_logy: false
+plot_temp_stat_list: [none] #[corrcoeff,rms,std]
+plot_temp_stat_title: [none] #[temporal corr. coeff.,temporal RMS,temporal STD]

@@ -1,0 +1,5 @@
+submetadata: swarm.sh.gswarm.rl01.smooth.submetadata
+plot_smoothing_degree: [750e3,750e3,750e3]
+plot_logy: false
+start: 2002-04-01 
+plot_time_domain_source: 2
