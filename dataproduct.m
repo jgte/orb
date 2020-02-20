@@ -425,12 +425,13 @@ classdef dataproduct
           break
         end
       end
-      %save submetadatafilelist (if there were any submetadatafile)
+      %if there is metadata, do some more stuff 
       if ~isempty(submetadatafilelist)
+        %re-load metadata so that any metadata in the main metadata file over-writes that in the sub-metadata files
+        obj=obj.mdmerge(metadata);
+        %save submetadatafilelist (deletes the original submetadata field, but updates any deep dependencies)
         obj.metadata.(obj.submetadataname)=submetadatafilelist;
       end
-      %re-load metadata so that any metadata in the main metadata file over-writes that in the sub-metadata files
-      obj=obj.mdmerge(metadata);
       %parse commands (if any)
       obj.metadata=dataproduct.parse_commands(obj.metadata);
     end
