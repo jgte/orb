@@ -58,4 +58,4 @@ orders: -1
 plot_legend_include_smoothing: false
 
 # plot_title: none
-plot_detrended: none
+plot_detrended: linear
