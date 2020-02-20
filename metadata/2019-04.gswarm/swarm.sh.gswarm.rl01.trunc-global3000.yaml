@@ -1,0 +1,3 @@
+submetadata: swarm.sh.gswarm.rl01.smooth.submetadata
+plot_smoothing_degree: [3000e3,3000e3,3000e3]
+plot_smoothing_method: trunc
