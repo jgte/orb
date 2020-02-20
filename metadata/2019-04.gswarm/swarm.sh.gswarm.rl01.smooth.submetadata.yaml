@@ -34,8 +34,8 @@ plot_signal: true
 
 #plot_ops
 
-plot_max_degree: 40
-plot_logy: true
+
+plot_logy: false
 
 #plot_spatial_stats
 plot_spatial_mask: none
@@ -45,8 +45,8 @@ plot_spatial_stat_list: [diff]
 
 # plot_temporal_stats 
 # NOTICE: plot_temp_stat_list and plot_temp_stat_title both be declared and agree
-plot_temp_stat_list: [rms] #[corrcoeff,rms,std]
-plot_temp_stat_title: [temporal RMS] #[temporal corr. coeff.,temporal RMS,temporal STD]
+plot_temp_stat_list: [none] #[corrcoeff,rms,std]
+plot_temp_stat_title: [none] #[temporal corr. coeff.,temporal RMS,temporal STD]
 
 # plot_low_degrees (don't plot anything)
 degrees: -1
