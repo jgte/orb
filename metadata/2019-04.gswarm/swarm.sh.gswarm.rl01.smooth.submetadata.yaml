@@ -53,7 +53,7 @@ degrees: -1
 orders: -1
 
 #plot_ops
-plot_smoothing_method: gauss
+# plot_smoothing_method: gauss
 # plot_smoothing_degree: [1500e3,1500e3,1500e3]
 plot_legend_include_smoothing: false
 

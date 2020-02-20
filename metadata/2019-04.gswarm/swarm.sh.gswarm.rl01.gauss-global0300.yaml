@@ -1,2 +1,3 @@
 submetadata: swarm.sh.gswarm.rl01.smooth.submetadata
 plot_smoothing_degree: [300e3,300e3,300e3]
+plot_smoothing_method: gauss
