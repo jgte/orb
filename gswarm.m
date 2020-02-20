@@ -1965,6 +1965,7 @@ classdef gswarm
           'gracelowdegrees';...   %fig:method:climatmod
           'individual';...        %fig:res:ind:cumdrms
         },'UniformOutput',false);
+      %NOTICE: spline-* and trunc-* smoothing methods have been retired to issues/smoothing-methods
       case {'gauss-global','spline-global','trunc-global'}
         out=cellfun(@(i) gswarm.paper(varargin{:},'type',i),{...
           [v.type,'0300'];...

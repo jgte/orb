@@ -1,4 +1,0 @@
-submetadata: swarm.sh.gswarm.rl01.smooth.submetadata
-plot_smoothing_degree: [3000e3,3000e3,3000e3]
-plot_spatial_mask: land
-plot_smoothing_method: spline
