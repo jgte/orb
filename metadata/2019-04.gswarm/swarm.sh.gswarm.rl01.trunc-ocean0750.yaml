@@ -1,0 +1,6 @@
+submetadata: swarm.sh.gswarm.rl01.smooth.submetadata
+plot_smoothing_degree: [750e3,750e3,750e3]
+plot_std_caxis: [0,0.001]
+plot_rms_caxis: [0,0.001]
+plot_spatial_mask: deep ocean
+plot_smoothing_method: trunc
