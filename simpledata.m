@@ -1651,7 +1651,7 @@
         disp=true;
       end
       %trivial call
-      if isempty(mode)
+      if isempty(mode) || str.none(mode)
         return
       end
       %inform user
