@@ -2,8 +2,15 @@
 
 # renames data and metadata
 
-METADATADIR=$(cd $(dirname BASH_SOURCE);pwd)
-DATADIR=$(cd $METADATADIR/../data/;pwd)
+DIRPROJECT=$(cd $(dirname BASH_SOURCE)/..;pwd)
+DATADIR=$(cd $DIRPROJECT/data/;pwd)
+PLOTDIR=$(cd $DIRPROJECT/plot/;pwd)
+[ -e $DIRPROJECT/project.yaml ] \
+&& PROJECT_METADATA=$DIRPROJECT/project.yaml \
+|| PROJECT_METADATA=$DIRPROJECT/default.yaml
+METADATADIR=$DIRPROJECT
+METADATADIR+="/$(awk '/metadata_dir:/ {print $2}' $PROJECT_METADATA)"
+METADATADIR+="/$(awk '/name:/         {print $2}' $PROJECT_METADATA)"
 RETIREDIR='retired'
 OBSOLETEDIR='obsolete'
 
@@ -42,16 +49,15 @@ elif [ $(echo "$METADATA_OLD" | wc -l) -gt 1 ]; then
   exit 3
 fi
 
-# if [ -z "$ECHO" ]
-# then
-#   read -p "Renaming $(basename $METADATA_OLD) to $(basename $METADATA_NEW)? [Y/n]" ANSWER
-#   if [ "$ANSWER" == "N" ] || [ "$ANSWER" == "n" ]
-#   then
-#     echo "Nothing done..."
-#     exit
-#   fi
-# fi
-
+if [ -z "$ECHO" ]
+then
+  read -p "Renaming $(basename $METADATA_OLD) to $(basename $METADATA_NEW)? [Y/n]" ANSWER
+  if [ "$ANSWER" == "N" ] || [ "$ANSWER" == "n" ]
+  then
+    echo "Nothing done..."
+    exit
+  fi
+fi
 
 #define the old and new metadata roots
 MTDR_OLD=$(basename ${METADATA_OLD/.yaml})
@@ -63,22 +69,23 @@ then
   exit 3
 fi
 
-#make new data dir
-$ECHO mkdir -p $DATADIR/$MTDR_NEW
-
-#rename all files in this new dir
-for j in $(find $DATADIR/$MTDR_OLD -name $MTDR_OLD\* -not -type d || echo "NOTICE: no data found for $MTDR_OLD, ignoring data move" 1>&2)
+for dir in $DATADIR $PLOTDIR
 do
-  #rename data 
-  $ECHO mv -v $j $DATADIR/$MTDR_NEW/$(basename ${j//$MTDR_OLD/$MTDR_NEW})
+  #make new data dir
+  $ECHO mkdir -p $dir/$MTDR_NEW
+  #rename all files in this new dir
+  for j in $(find $dir/$MTDR_OLD -name $MTDR_OLD\* -not -type d || echo "NOTICE: no data found for $MTDR_OLD, ignoring data move" 1>&2)
+  do
+    #rename data 
+    $ECHO mv -v $j $dir/$MTDR_NEW/$(basename ${j//$MTDR_OLD/$MTDR_NEW})
+  done
+  #remove old dir
+  $ECHO rmdir $dir/$MTDR_OLD || echo "NOTICE: no data found for $MTDR_OLD, ignoring dir delete" 1>&2
 done
 
 #rename metadata
 $ECHO mv -v $METADATA_OLD $METADATA_NEW
 
-#remove old dir
-rmdir $DATADIR/$MTDR_OLD || echo "NOTICE: no data found for $MTDR_OLD, ignoring dir delete" 1>&2
-
 #check for references to this metadata in remaining metadata files
-OUT=$(grep -l $(basename ${MTDR_OLD/.yaml}) *.yaml)
+OUT=$(grep -l $(basename ${MTDR_OLD/.yaml}) $METADATADIR/*.yaml)
 [ -z "$OUT" ] || file-find-replace.sh -from=$MTDR_OLD -to=$MTDR_NEW $OUT
