@@ -1725,7 +1725,7 @@ classdef gswarm
       %build filename
       filename=file.build(v.pod.file_root,'all_catchments.tex');
       %compute stats for all catchments, if any was computed
-      if ~all(norm_stats(i)==0)
+      if ~all(norm_stats(i,:)==0)
         latex_data=cell(v.pod.source.n,4);
         latex_idx=[NaN,3,5,6]-1;
         for i=1:v.pod.source.n
