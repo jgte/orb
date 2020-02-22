@@ -1,0 +1,19 @@
+submetadata: swarm.sh.gswarm.rl01.plot.submetadata
+
+#this was how things were done before the first review round
+# sources: [ 
+#   swarm.sh.gswarm.rl01.err,
+#   grace.sh.rl06.csr.pd.ts,
+#   gracefo.sh.rl06.csr.err,
+# ]
+# stats_relative_to: none
+# plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common time domain
+
+#remember that plots with multiple sources pick the start/stop from the first source
+sources: [ 
+  swarm.sh.gswarm.rl01,
+  swarm.sh.gswarm.rl01.res.gracefo.sh.rl06.csr,
+  gracefo.sh.rl06.csr,
+]
+stats_relative_to: none
+plot_time_domain_source: 3 #options are: idx of source or 0, meaning the common time domain

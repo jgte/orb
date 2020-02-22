@@ -1,0 +1,7 @@
+method: arithmetic
+operation: minus
+#NOTICE: the time domain comes from the first source
+sources: [gracefo.sh.rl06.csr/signal,swarm.sh.gswarm.rl01/signal]
+source_fields_from: gracefo.sh.rl06.csr
+operation_order: [2,1]
+storage_period: yearly 
