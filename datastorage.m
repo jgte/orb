@@ -1155,6 +1155,9 @@ classdef datastorage
                   str.say(ME.stack(1).name,...
                     'failed, error at',file.basename(ME.stack(1).file),...
                     'line',ME.stack(1).line,':',ME.message)
+                  for j=2:numel(ME.stack)
+                    str.say(file.basename(ME.stack(j).file),':',ME.stack(j).name,'line',ME.stack(j).line)
+                  end
                   error(['Failed to init product ''',product_list{i}.name,'''.'])
                 end    
               end
