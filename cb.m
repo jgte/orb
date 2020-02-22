@@ -142,7 +142,7 @@ classdef cb
 
       % get the colormap and current axes
       %NOTICE: do not give any argument to colormap, this only works in gca
-      cm=colormap;
+      cm=colormap(gca);
       ca=caxis(gca);
 
       % get the step size of the colorbar
