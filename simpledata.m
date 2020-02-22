@@ -2605,8 +2605,8 @@
         % define a working mask
         out.mask{i}=true(size(obj.mask));
         % remove outliers if requested
-        if v.outlier>0
-          for c=1:v.outlier
+        if v.outlier_iter>0
+          for c=1:v.outlier_iter
              [y_plot,outlier_idx]=simpledata.rm_outliers(y_plot);
              %update the mask with the detected outliers
              out.mask{i}(outlier_idx)=false;
