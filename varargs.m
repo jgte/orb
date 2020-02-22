@@ -439,7 +439,7 @@ classdef varargs < dynamicprops
         new_parameter=false;
       end
       %add dynamic names
-      for i=1:numel(idx);
+      for i=1:numel(idx)
         name=obj.S(idx(i)).name;
         if new_parameter 
           assert(~obj.isdynamic_defined(name),['Cannot handle parameter with name ''',name,...
