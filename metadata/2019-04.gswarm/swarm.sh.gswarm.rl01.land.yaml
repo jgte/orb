@@ -1,4 +1,4 @@
-submetadata: swarm.sh.gswarm.rl01.submetadata
+submetadata: swarm.sh.gswarm.rl01.plot.submetadata
 method: gswarm.plot_stats
 
 sources: [ #remember that plots with multiple sources pick the start/stop from the first source

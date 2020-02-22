@@ -1,53 +1,49 @@
-submetadata: swarm.sh.gswarm.rl01.submetadata
-method: gswarm.plot_stats
-
-sources: [ #remember that plots with multiple sources pick the start/stop from the first source
+submetadata: swarm.sh.gswarm.rl01.plot.submetadata
+#remember that plots with multiple sources pick the start/stop from the first source
+sources: [ 
   swarm.sh.gswarm.rl01,
+  gracefo.sh.rl06.csr,
   grace.sh.rl06.csr.pd.ts,
-  grace.sh.rl06.csr,
 ]
-
-
-
 stats_relative_to: grace.sh.rl06.csr.pd.ts
 
-
-plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common time domain
-
 #plotting
-
-
-plot_legend_suppress: [sh,GSWARM,GSwarm,SIGNAL,RL06,CSR,RL01]
-plot_title_suppress:  [sh,GSWARM,GSwarm,SIGNAL,RL06,CSR,RL01]
-plot_legend_replace: [ERR,diff w.r.t GRACE model,SWARM,Swarm,PD TS,model]
-plot_title_replace:  [ERR,diff w.r.t GRACE model,SWARM,Swarm,PD TS,model]
 plot_functional: nondim
 plot_std_caxis: [0,1e-10]
 plot_rms_caxis: [0,1e-10]
 plot_corrcoeff_caxis: [-1,1]
 plot_colormap: jetzero
 plot_legend_box: false
-
-
-
-
-
-#plot_ops
-
 plot_max_degree: 12
+plot_smoothing_method: none
+plot_detrended: linear #does not affect plot_low_degrees, nor corrcoeff in plot_temporal_stats
+
+# #NOTICE: replacing is done before suppressing (on capitalized product names)
+# plot_legend_replace: [
+#   SIGNAL,Swarm,
+#   SWARM,Swarm,
+#   GRACEFO,GRACE,
+#   RES,diff. wrt,
+# ]
+# plot_title_replace:  [
+#   SIGNAL,Swarm,
+#   SWARM,Swarm,
+#   GRACEFO,GRACE,
+#   RES,diff. wrt,
+# ]
+# #NOTICE: suppressing is done after replacing
+# plot_legend_suppress: [RL06,CSR]
+# plot_title_suppress:  [RL06,CSR]
 
 
 #plot_spatial_stats
 plot_spatial_mask: none
-plot_derived_quantity: [cumdas]
-plot_type: line
-plot_spatial_stat_list: [none]
+plot_spatial_stat_list: [none] #diff, monthly, none
 
 # plot_temporal_stats 
-# NOTICE: plot_temp_stat_list and plot_temp_stat_title both be declared and agree
 plot_temp_stat_list: [corrcoeff,rms] #[corrcoeff,rms,std]
 plot_temp_stat_title: [temporal corr. coeff.,temporal RMS] #[temporal corr. coeff.,temporal RMS,temporal STD]
 
 # plot_low_degrees 
-degrees: [2,3,4,5,6]
-orders: [inf,inf,inf,inf,inf]
+degrees: [2,2, 2, 2, 5,3,4,5]
+orders:  [2,1,-1,-2,-1,0,0,0]
