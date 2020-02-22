@@ -773,7 +773,7 @@ classdef gswarm
           %prepare plot data only if needed
           if any(~file.exist(filenames,v.plot_force)) 
             %build data array (number of rows is short by one if v.plot_signal && stats_relative_to)
-            y=zeros(numel(v.pod.t),numel(v.pod.mod.res));
+            y=cell(1,numel(v.pod.mod.res));t=cell(size(y));yc=zeros(size(y));
             for di=1:numel(v.pod.mod.res)+1
               %branch to retrieve data that the stats are derived relative to
               switch di
@@ -791,19 +791,24 @@ classdef gswarm
                   v.pod.t,...                            %interp to common time domain 
                   'interp_over_gaps_narrower_than',...   %and remove lines connecting over large gaps
                   v.plot_lines_over_gaps_narrower_than...
+                ).add_expl_gaps(...                     %add explicit gaps: catches the case when v.pod.t is implicitly gapped
+                  v.plot_lines_over_gaps_narrower_than...
                 ).scale(...
                   v.plot_functional,'functional'...      %scale to functional
                 ).outlier(...                            %maybe detrend and remove outliers, depends on value of :
                   'outlier_iter',v.plot_outlier_iter,... % - handled inside the obj.outlier method
-                       'detrend',v.plot_detrended...     % - handled inside the obj.detrend method (called by obj.outlier)
-                ).(...  
-                  v.plot_derived_quantity{qi}...         %compute derived quantity
+                       'detrend',plot_detrended...       % - handled inside the obj.detrend method (called by obj.outlier)
                 );
+              %save time
+              t{di}=tmp.t;
+              tmp=tmp.(...  
+                v.plot_derived_quantity{qi}...         %compute derived quantity
+              );
               %propagate relevant data point
-              y(:,di)=tmp(:,end);
+              y{di}=tmp(:,end);
+              %average it
+              yc(di)=sum(y{di},1,'omitnan')./sum(~isnan(y{di}));
             end
-            %average it
-            yc=sum(y,1,'omitnan')./sum(~isnan(y));
             %sort it (if requested)
             switch v.plot_legend_sorting
             case {'ascend','descend'};   [yc_sorted,idx]=sort(yc,'ascend');
@@ -811,7 +816,7 @@ classdef gswarm
             otherwise
               error(['Cannot handle ''plot_legend_sorting'' with value ''',v.plot_legend_sorting,'''.'])
             end
-            y_sorted=y(:,idx);
+            y_sorted=y(idx);
             %build legend
             legend_str=upper(v.pod.mod.names);
             if v.plot_legend_include_smoothing
@@ -837,38 +842,51 @@ classdef gswarm
             legend_str=legend_str(idx);
             %truncate it
             if v.plot_max_nr_lines < numel(idx)
-                y_sorted=  y_sorted(:,1:v.plot_max_nr_lines);
-               yc_sorted= yc_sorted(  1:v.plot_max_nr_lines);
-              legend_str=legend_str(  1:v.plot_max_nr_lines);
-                     idx=idx(         1:v.plot_max_nr_lines);
+                y_sorted=  y_sorted(1:v.plot_max_nr_lines);
+               yc_sorted= yc_sorted(1:v.plot_max_nr_lines);
+              legend_str=legend_str(1:v.plot_max_nr_lines);
+                     idx=idx(       1:v.plot_max_nr_lines);
             end
             %trim nans for plotting
-            plot_idx=any(num.trim_NaN(y_sorted),2);
-            y_sorted=y_sorted(plot_idx,:);
-            t_sorted=v.pod.t(plot_idx);
+            t_sorted=cell(size(y_sorted));
+            for di=1:numel(y_sorted)
+              plot_idx=any(num.trim_NaN(y_sorted{di}),2);
+              y_sorted{di}=y_sorted{di}(plot_idx);
+              t_sorted{di}=t{di}(plot_idx);
+            end
             %compute abs value in case of log scale
             if str.logical(v.plot_logy)
-              y_sorted=abs(y_sorted);
+              y_sorted=cellfun(@abs,y_sorted,'UniformOutput',false);
+            end
+            %plot abs value for gridmean
+            switch v.plot_derived_quantity{qi}
+            case 'gridmean'
+              y_sorted=cellfun(@abs,y_sorted,'UniformOutput',false);
+            otherwise
+              %do nothing
             end
           end
+         
 
-          %% plot diff rms (only if not done yet)
+          %% plot diff rms
 
           fn_idx=1;
           if ~file.exist(filenames{fn_idx},v.plot_force)
             %plot it
-            plotting.figure(v.varargin{:});
-            switch v.plot_type
-            case 'bar';   bar(t_sorted,y_sorted,'EdgeColor','none');
-            case 'line'; plot(t_sorted,y_sorted,'Marker','o');
+            plotting.figure(v.varargin{:}); hold on
+            for di=1:numel(y_sorted)
+              switch v.plot_type
+              case 'bar';   bar(t_sorted{di},y_sorted{di},'EdgeColor','none');
+              case 'line'; plot(t_sorted{di},y_sorted{di},'Marker','o');
+              end
             end
             %deal with legend stats
             if v.plot_show_legend_stats
-              for i=1:numel(legend_str)
-                legend_str{i}=[legend_str{i},...
-                     ' ',num2str(mean(y_sorted(~isnan(y_sorted(:,i)),i)),2),...
-                 ' +/- ',num2str( std(y_sorted(~isnan(y_sorted(:,i)),i)),2),...
-              ' \Sigma=',num2str( sum(y_sorted(~isnan(y_sorted(:,i)),i)),2)];
+              for di=1:numel(legend_str)
+                legend_str{di}=[legend_str{di},...
+                     ' ',num2str(mean(y_sorted{di}(~isnan(y_sorted{di}))),2),...
+                 ' +/- ',num2str( std(y_sorted{di}(~isnan(y_sorted{di}))),2),...
+              ' \Sigma=',num2str( sum(y_sorted{di}(~isnan(y_sorted{di}))),2)];
               end
             end
             %enforce it
@@ -876,7 +894,7 @@ classdef gswarm
               'plot_legend',legend_str,...
               'plot_ylabel',gravity.functional_label(v.plot_functional),...
               'plot_xdate',true,...
-              'plot_xlimits',[t_sorted(1),t_sorted(end)+days(1)],...
+              'plot_xlimits',[min(cellfun(@(i) i(1),t_sorted)),max(cellfun(@(i) i(end),t_sorted))+days(1)],...
               'plot_line_color_order',idx,...
               'plot_title',v.plot_title,...
               'plot_title_default',str.show({'RMS diff.',v.pod.title_wrt,title_suffix})...
