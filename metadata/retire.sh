@@ -2,12 +2,6 @@
 
 # Retiring data/metadata means it is no longer to be used in any way, forever (i.e. it is safe to delete)
 
-#TODO: 
-# - make this read the project.yaml file
-# - separate the options from the metadata file parts (do some testing)
-# - implement the copy and delete option (in addition to mv)
-# - implement sink dir option (defaults to something)
-
 METADATA_EXT=yaml
 
 DIRPROJECT=$(cd $(dirname BASH_SOURCE)/..;pwd)
@@ -34,11 +28,11 @@ ARGS=()
 for i in $@
 do 
   case $i in 
-    -echo)                    ECHO=echo  ;;
-    -verbose)              VERBOSE=true  ;;
-    -back)                    BACK=true  ;;
+    -echo|echo)                    ECHO=echo  ;;
+    -verbose|verbose)              VERBOSE=true  ;;
+    -back|back)                    BACK=true  ;;
     -no-delete|-keep|-copy) DELETE=false ;;
-    -retired-dir=*)  RETIREDIR=${i/-retired-dir=} ;;
+    -retired-dir=*|-retire-dir=*)  RETIREDIR=${i/-retired-dir=} ;;
     -ignore-dirs=*) IGNOREDIRS=${i/-ignore-dirs=}; IGNOREDIRS=(${IGNOREDIRS//,/ }) ;;
     *) ARGS+=($i) ;;
   esac
@@ -46,11 +40,8 @@ done
 
 #define copy/move operation
 $DELETE \
-&& OP="mv" \
-|| OP="cp -a"
-
-#enforce verbosity
-$VERBOSE && OP+=" -v"
+&& OP="mv -v" \
+|| OP="cp -av"
 
 $VERBOSE && echo "\
 ECHO       : $ECHO
