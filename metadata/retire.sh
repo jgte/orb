@@ -1,4 +1,4 @@
-#!/bin/bash -u
+#!/bin/bash -ue
 
 # Retiring data/metadata means it is no longer to be used in any way, forever (i.e. it is safe to delete)
 
@@ -25,13 +25,19 @@ DELETE=true
 RETIREDIR=$PWD/retired
 IGNOREDIRS=(obsolete retired to-delete)
 ARGS=()
+INCLUDE_DATA=true
+INCLUDE_PLOT=true
+INCLUDE_META=true
 for i in $@
 do 
   case $i in 
-    -echo|echo)                    ECHO=echo  ;;
-    -verbose|verbose)              VERBOSE=true  ;;
-    -back|back)                    BACK=true  ;;
-    -no-delete|-keep|-copy) DELETE=false ;;
+    -echo|echo)             ECHO=echo          ;;
+    -verbose|verbose)       VERBOSE=true       ;;
+    -back|back)             BACK=true          ;;
+    -no-data)               INCLUDE_DATA=false ;;
+    -no-plot|-no-plots)     INCLUDE_PLOT=false ;;
+    -no-metadata)           INCLUDE_META=false ;;
+    -no-delete|-keep|-copy) DELETE=false       ;;
     -retired-dir=*|-retire-dir=*)  RETIREDIR=${i/-retired-dir=} ;;
     -ignore-dirs=*) IGNOREDIRS=${i/-ignore-dirs=}; IGNOREDIRS=(${IGNOREDIRS//,/ }) ;;
     *) ARGS+=($i) ;;
@@ -120,10 +126,9 @@ do
   fi
 done
 #create sinks if they don't exist
-for i in $SINK_METADIR $SINK_DATADIR $SINK_PLOTDIR
-do
-  [ -d "$i" ] || mkdir -p $i
-done
+$INCLUDE_META && [ ! -d "$SINK_METADIR" ] && $ECHO mkdir -p $SINK_METADIR
+$INCLUDE_DATA && [ ! -d "$SINK_DATADIR" ] && $ECHO mkdir -p $SINK_DATADIR
+$INCLUDE_PLOT && [ ! -d "$SINK_PLOTDIR" ] && $ECHO mkdir -p $SINK_PLOTDIR
 
 for i in "${ARGS[@]}"
 do 
@@ -148,23 +153,29 @@ do
       do
         $VERBOSE && echo "----- moving metadata file: $(basename $j)"
         #move metadata file
-        $ECHO $OP $j $SINK_METADIR || exit $?
-        #gather source data dirs
-        DATA_LIST=$(find $SOURCE_DATADIR/ -type d -name $(basename ${j/.$METADATA_EXT}))
+        $INCLUDE_META && $ECHO $OP $j $SINK_METADIR
         #move data dirs
-        for k in $DATA_LIST
-        do
-          $VERBOSE && echo "----- moving data dir: $(basename $k)"
-          $ECHO $OP $k $SINK_DATADIR || exit $?
-        done
-        #gather source plot dirs
-        PLOT_LIST=$(find $SOURCE_PLOTDIR/ -type d -name $(basename ${j/.$METADATA_EXT}))
-        #move data dirs
-        for k in $PLOT_LIST
-        do
-          $VERBOSE && echo "----- moving plot dir: $(basename $k)"
-          $ECHO $OP $k $SINK_PLOTDIR || exit $?
-        done
+        if $INCLUDE_DATA 
+        then
+          #gather source data dirs
+          DATA_LIST=$(find $SOURCE_DATADIR/ -type d -name $(basename ${j/.$METADATA_EXT}))
+          for k in $DATA_LIST
+          do
+            $VERBOSE && echo "----- moving data dir: $(basename $k)"
+            $ECHO $OP $k $SINK_DATADIR || exit $?
+          done
+        fi
+        #move PLOT dirs
+        if $INCLUDE_PLOT
+        then
+          #gather source plot dirs
+          PLOT_LIST=$(find $SOURCE_PLOTDIR/ -type d -name $(basename ${j/.$METADATA_EXT}))
+          for k in $PLOT_LIST
+          do
+            $VERBOSE && echo "----- moving plot dir: $(basename $k)"
+            $ECHO $OP $k $SINK_PLOTDIR || exit $?
+          done
+        fi
       done
       if ! $BACK; then
         #check for references to this metadata in remaining metadata files
