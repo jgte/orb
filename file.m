@@ -253,7 +253,7 @@ classdef file
       end
       %open the file if needed
       [fid,~,close_file]=file.open(filename,'r');
-      %save the string
+      %load the string
       str=fscanf( fid, '%s');
       %close the file (if fid not given)
       if close_file, fclose(fid); end
