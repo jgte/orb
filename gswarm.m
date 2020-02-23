@@ -1862,7 +1862,7 @@ classdef gswarm
             'plot_title',v.plot_title,...
             'plot_title_default','C20'...
           );
-          plotting.save(filename)
+          plotting.save(filename,v.varargin{:})
           disp(['plotted ',filename])
         else
           disp(['plot already available: ',filename])
@@ -1909,7 +1909,7 @@ classdef gswarm
               'plot_title',v.plot_title,...
               'plot_title_default',['spatial ',stats{s}]...
             );
-            plotting.save(filename)
+            plotting.save(filename,v.varargin{:})
             disp(['plotted ',filename])
           else
             disp(['plot already available: ',filename])
@@ -2034,7 +2034,7 @@ classdef gswarm
         if ~file.exist(plotfilename)
           plotting.figure;
           out=gravity.graceC20('mode','plot','version',gswarm.paper('type','C20-source'));
-          plotting.save(plotfilename);
+          plotting.save(plotfilename,v.varargin{:});
         else
           out=[];
         end
@@ -2045,7 +2045,7 @@ classdef gswarm
           version_list={'GSFC-7day','TN-11','TN-11-model'};
           gravity.graceC20('mode','plot-all','version',version_list);
           plotting.enforce('plot_legend',version_list);
-          plotting.save(plotfilename);
+          plotting.save(plotfilename,v.varargin{:});
         else
           out=[];
         end
@@ -2056,7 +2056,7 @@ classdef gswarm
             v.varargin{:},'start',time.zero_date,'stop',datetime('2019-10-31'))
           if str.none(v.plot_title); title(''); end
           %gravity.graceC20('mode','model-list')
-          plotting.save(plotfilename);
+          plotting.save(plotfilename,v.varargin{:});
         else
           out=[];
         end
