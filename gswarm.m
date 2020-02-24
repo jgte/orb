@@ -1999,7 +1999,8 @@ classdef gswarm
 %           'gauss-land0750';...    %fig:res:comb:land:cumdrms,fig:res:comb:land:rms_dmean
 %           'gauss-ocean3000';...   %fig:res:comb:ocean:cumdrms,fig:res:comb:ocean:rms_dmean
 %           'lowdeg';...            %fig:res:signal:lowdeg:{corrswarm,corrgrace,rmsswarm,C*}
-%           'catchments';...          %fig:res:signal:*,fig:res:signal:var:{swarm,grace}
+%           'partitioning';...      %fig:res:comb:partitioning
+%           'catchments';...        %fig:res:signal:*,fig:res:signal:var:{swarm,grace}
         out=cellfun(@(i) gswarm.paper(varargin{:},'type',i),{...
           'individual';...        %fig:res:ind:cumdrms, fig:res:ind:rms_dmean, fig:res:ind:corrcoeff_dmean
         },'UniformOutput',false);
@@ -2174,7 +2175,7 @@ classdef gswarm
             saveas(gcf,plotfilenames{i})
           end
         end
-      case 'partitioning'            %checking only
+      case 'partitioning'         %checking only
         functional='eqwh';
         gap_size=days(120);
         filenameroot=fullfile(v.figures_dir,'checks','partitioning');
