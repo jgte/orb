@@ -2301,8 +2301,9 @@ classdef gravity < simpletimeseries
           out.xlabel='SH order';
           ylabel(out.ylabel)
           xlabel(out.xlabel)
+          %TODO: merge this with a to-be-implemented plotting.colormap
           if ~isempty(v.colormap)
-            colormap(v.colormap)
+            colormap(gca,v.colormap)
           end
           cb.nan;
           out.cb=colorbar;
