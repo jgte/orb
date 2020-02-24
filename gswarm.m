@@ -2018,10 +2018,12 @@ classdef gswarm
           'TN11';...
           'tropics';...
           'smooth750.complete';...%used to confirm that detrending is a good idea
+          'formerr';...
         },'UniformOutput',false);        
       case 'all'
 %           'deepoceanmask';...     %fig:method:deepoceanmass
 %           'gracelowdegrees';...   %fig:method:climatmod
+%           'individual';...        %fig:res:ind:cumdrms, fig:res:ind:rms_dmean, fig:res:ind:corrcoeff_dmean
 %           'gauss-global0750';...  %fig:res:comb:750
 %           'gauss-global1500';...  %fig:res:comb:1500
 %           'gauss-ocean0750';...   %fig:res:comb:ocean:cumdrms,fig:res:comb:ocean:rms_dmean
@@ -2029,9 +2031,8 @@ classdef gswarm
 %           'gauss-ocean3000';...   %fig:res:comb:ocean:cumdrms,fig:res:comb:ocean:rms_dmean
 %           'lowdeg';...            %fig:res:signal:lowdeg:{corrswarm,corrgrace,rmsswarm,C*}
 %           'partitioning';...      %fig:res:comb:partitioning
-%           'catchments';...        %fig:res:signal:*,fig:res:signal:var:{swarm,grace}
         out=cellfun(@(i) gswarm.paper(varargin{:},'type',i),{...
-          'individual';...        %fig:res:ind:cumdrms, fig:res:ind:rms_dmean, fig:res:ind:corrcoeff_dmean
+          'catchments';...        %fig:res:signal:*,fig:res:signal:var:{swarm,grace}
         },'UniformOutput',false);
       case 'gauss'
         out=cellfun(@(i) gswarm.paper(varargin{:},'type',i),...
@@ -2204,7 +2205,7 @@ classdef gswarm
             saveas(gcf,plotfilenames{i})
           end
         end
-      case 'partitioning'         %checking only
+      case 'partitioning'         
         functional='eqwh';
         gap_size=days(120);
         filenameroot=fullfile(v.figures_dir,'checks','partitioning');
