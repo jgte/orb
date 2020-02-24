@@ -9,7 +9,7 @@ stats_relative_to: gracefo.sh.rl06.csr
 
 #plot ops
 plot_poly_range: [1,0.3]
-plot_std_range: 0.3
+plot_std_range: 0.2
 
 catchment_list: [
   'Amazon',
