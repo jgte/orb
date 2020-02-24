@@ -95,15 +95,15 @@ classdef cb
           gap_idx_nr=ceil(gap*NELEM);
 
           %building index vectors
-          gap_idx_lower=zero_idx-gap_idx_nr;
-          gap_idx_upper=zero_idx+gap_idx_nr;
+          gap_idx_lower=max(zero_idx-gap_idx_nr,1);
+          gap_idx_upper=min(zero_idx+gap_idx_nr,NELEM);
 
           for i=1:3
-              if gap_idx_lower > 0
+              if gap_idx_lower < zero_idx
                  new(gap_idx_lower:zero_idx,i)=interp1([gap_idx_lower,zero_idx],[new(gap_idx_lower,i), 1],...
                      gap_idx_lower:zero_idx,'linear');
               end
-              if gap_idx_upper > 0
+              if gap_idx_upper > zero_idx
                  new(zero_idx:gap_idx_upper,i)=interp1([zero_idx,gap_idx_upper],[1,new(gap_idx_upper,i)],...
                      zero_idx:gap_idx_upper,'linear');
               end
