@@ -308,7 +308,7 @@ classdef gswarm
     end
     function obj=stats(obj,product,varargin)
       %retrieve relevant parameters
-      derived_quantity=product.mdget('plot_derived_quantity');
+      derived_quantity=product.mdget('plot_spatial_diff_quantity');
       functional      =product.mdget('functional');
       stats           =product.mdget('stats');
       stats_outlier_iter=product.mdget('stats_outlier_iter');
@@ -714,7 +714,7 @@ classdef gswarm
           'plot_monthly_error',    false, @islogical;...
           'plot_show_legend_stats',false, @islogical;...
           'plot_max_nr_lines',        20, @num.isscalar;...
-          'plot_derived_quantity',     {'cumdas','gridmean'}, @(i) all(cellfun(@(j) ismethod(gravity.unit(1),j),i));...
+          'plot_spatial_diff_quantity',     {'cumdas','gridmean'}, @(i) all(cellfun(@(j) ismethod(gravity.unit(1),j),i));...
           'plot_spatial_stat_list',    {'diff','monthly'}, @iscellstr; ... TODO: corr
           'plot_legend_include_smoothing',          false, @islogical;...
           'plot_lines_over_gaps_narrower_than', days(120), @isduration;...
@@ -753,10 +753,10 @@ classdef gswarm
       if cells.isincluded(v.plot_spatial_stat_list,'diff')
         
         %loop over all requested derived quantities
-        for qi=1:numel(v.plot_derived_quantity)
+        for qi=1:numel(v.plot_spatial_diff_quantity)
           
           %do not detrend for gridmean
-          switch v.plot_derived_quantity{qi}
+          switch v.plot_spatial_diff_quantity{qi}
           case 'gridmean'
             plot_detrended='none';
           otherwise
@@ -767,8 +767,8 @@ classdef gswarm
 
           %build filenames
           filenames={...
-            file.build(v.pod.file_root, v.plot_derived_quantity{qi},            v.pod.file_smooth,'png');...
-            file.build(v.pod.file_root,[v.plot_derived_quantity{qi},'_summary'],v.pod.file_smooth,'png');...
+            file.build(v.pod.file_root, v.plot_spatial_diff_quantity{qi},            v.pod.file_smooth,'png');...
+            file.build(v.pod.file_root,[v.plot_spatial_diff_quantity{qi},'_summary'],v.pod.file_smooth,'png');...
           };
           %prepare plot data only if needed
           if any(~file.exist(filenames,v.plot_force)) 
@@ -802,7 +802,7 @@ classdef gswarm
               %save time
               t{di}=tmp.t;
               tmp=tmp.(...  
-                v.plot_derived_quantity{qi}...         %compute derived quantity
+                v.plot_spatial_diff_quantity{qi}...         %compute derived quantity
               );
               %propagate relevant data point
               y{di}=tmp(:,end);
@@ -859,7 +859,7 @@ classdef gswarm
               y_sorted=cellfun(@abs,y_sorted,'UniformOutput',false);
             end
             %plot abs value for gridmean
-            switch v.plot_derived_quantity{qi}
+            switch v.plot_spatial_diff_quantity{qi}
             case 'gridmean'
               y_sorted=cellfun(@abs,y_sorted,'UniformOutput',false);
             otherwise

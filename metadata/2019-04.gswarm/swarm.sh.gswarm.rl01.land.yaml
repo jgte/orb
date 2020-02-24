@@ -39,7 +39,7 @@ plot_signal: true
 
 #plot_spatial_stats
 plot_spatial_mask: land
-plot_derived_quantity: [gridmean,cumdas]
+plot_spatial_diff_quantity: [gridmean,cumdas]
 plot_type: line
 plot_spatial_stat_list: [diff]
 
