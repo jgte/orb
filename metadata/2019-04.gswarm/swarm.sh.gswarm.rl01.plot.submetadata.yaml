@@ -58,7 +58,7 @@ plot_title: none
 
 #plot_spatial_stats
 plot_spatial_mask: none
-plot_derived_quantity: [cumdas,gridmean]
+plot_spatial_diff_quantity: [cumdas,gridmean]
 plot_type: line
 plot_spatial_stat_list: [diff]
 
