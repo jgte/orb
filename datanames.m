@@ -245,8 +245,12 @@ classdef datanames
         filename=[filename,obj.field_path];
       end
       %add prefix and suffix (if non-empty)
-      if ~isempty(p.Results.prefix); filename=[{p.Results.prefix},filename]; end
-      if ~isempty(p.Results.suffix); filename{end+1}=p.Results.suffix; end
+      if ~isempty(p.Results.prefix)
+        filename=[{strip(p.Results.prefix,file.build_element_char)},filename];
+      end
+      if ~isempty(p.Results.suffix)
+        filename{end+1}=strip(p.Results.suffix,file.build_element_char);
+      end
       %add time stamp placeholder
       filename{end+1}='<TIMESTAMP>';
       %add extension
