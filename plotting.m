@@ -974,6 +974,14 @@ classdef plotting
         end
       end
     end
+    function [axis_handle,l,w]=subplot(i,n)
+      l=floor(sqrt(n)); w=ceil(n/l);
+      if 1<=i && i<=n
+        axis_handle=subplot(l,w,i);
+      else
+        axis_handle=[];
+      end
+    end
     %% nice plotting stuff
     function out=hist(x,varargin)
       p=inputParser; p.KeepUnmatched=true;
