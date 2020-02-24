@@ -27,6 +27,8 @@ plot_title_replace:  [
   PD TS,model,
   GRACEFO,GRACE,
   RES,diff. wrt,
+  AIUB AIUB V01,AIUB,
+  IFG IFG V03,IFG,
   ASU IFG,ASU,
   OSU AIUB,OSU
 ]

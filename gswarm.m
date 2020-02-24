@@ -714,7 +714,8 @@ classdef gswarm
           'plot_monthly_error',    false, @islogical;...
           'plot_show_legend_stats',false, @islogical;...
           'plot_max_nr_lines',        20, @num.isscalar;...
-          'plot_spatial_diff_quantity',     {'cumdas','gridmean'}, @(i) all(cellfun(@(j) ismethod(gravity.unit(1),j),i));...
+          'plot_spatial_diff_quantity',{'cumdas','gridmean'}, @(i) all(cellfun(@(j) ismethod(gravity.unit(1),j),i));...
+          'plot_spatial_monthly_quantity',{'das','triang'}, @iscellstr;...
           'plot_spatial_stat_list',    {'diff','monthly'}, @iscellstr; ... TODO: corr
           'plot_legend_include_smoothing',          false, @islogical;...
           'plot_lines_over_gaps_narrower_than', days(120), @isduration;...
@@ -934,10 +935,11 @@ classdef gswarm
         end
       end
       
-      %% epoch-wise degree amplitude plots 
+      %% epoch-wise plots 
             
       %check if this plot is requested
       if cells.isincluded(v.plot_spatial_stat_list,'monthly')
+        title_suffix=strjoin({v.pod.title_masking,v.pod.title_smooth},' ');
         for i=1:numel(v.pod.t)
           %gather models valid now
           dat    =cellfun(@(j) j.interp(v.pod.t(i)),v.pod.source.dat,'UniformOutput',false);
@@ -950,45 +952,72 @@ classdef gswarm
           if all(~dat_idx); continue;end
           %reduce data
           dat=dat(dat_idx);
-          dat_error=dat_error(dat_idx);
-          legend_str=v.pod.source.names(dat_idx);
-          %build filename
-          filename=cells.scalar(product.file('plot',...
-            'start',v.pod.t(i),'stop',v.pod.t(i),...
-            'suffix',file.build('drms',v.pod.file_smooth)...
-          ),'get');
-          if ~file.exist(filename,v.plot_force)
-            plotting.figure(v.varargin{:});
-            for j=1:numel(dat)
-              dat{j}.plot('mode','drms','functional',v.plot_functional);
-            end
-            %enforce it
-            product.enforce_plot(v.varargin{:},...
-              'plot_legend',legend_str,...
-              'plot_ylabel',gravity.functional_label(v.plot_functional),...
-              'plot_colormap','jet',...
-              'plot_title',v.plot_title,...
-              'plot_title_default',str.show({datestr(v.pod.t(i),'yyyy-mm'),'degree-RMS',title_suffix})...
-            );
-            if v.plot_monthly_error
-              %get previous lines
-              lines_before=findobj(gca,'Type','line');
-              %plot errors
-              for j=1:numel(dat)
-                dat_error{j}.plot('mode','drms','functional',v.plot_functional,'line','--');
+          if v.plot_monthly_error
+            dat_error=dat_error(dat_idx);
+          end
+          legend_str=upper(v.pod.source.names(dat_idx));
+          %loop over all requested derived quantities
+          for qi=1:numel(v.plot_spatial_monthly_quantity)
+            %build filename
+            filename=file.build(...
+              v.pod.file_root,v.plot_spatial_monthly_quantity{qi},...
+               datestr(v.pod.t(i),'YYYYmmdd'),v.pod.file_smooth,'png');...
+            if ~file.exist(filename,v.plot_force)
+              %branch on the type of plot
+              switch v.plot_spatial_monthly_quantity{qi}
+              case 'drms'
+                plotting.figure(v.varargin{:});
+                for j=1:numel(dat)
+                  dat{j}.plot('mode',v.plot_spatial_monthly_quantity{qi},'functional',v.plot_functional);
+                end
+                %enforce it
+                product.enforce_plot(v.varargin{:},...
+                  'plot_legend',legend_str,...
+                  'plot_ylabel',gravity.functional_label(v.plot_functional),...
+                  'plot_colormap','jet',...
+                  'plot_title',v.plot_title,...
+                  'plot_title_default',str.show({datestr(v.pod.t(i),'yyyy-mm'),'degree-RMS',title_suffix})...
+                );
+                if v.plot_monthly_error
+                  %get previous lines
+                  lines_before=findobj(gca,'Type','line');
+                  %plot errors
+                  for j=1:numel(dat)
+                    dat_error{j}.plot('method',v.plot_spatial_monthly_quantity{qi},'functional',v.plot_functional,'line','--');
+                  end
+                  %get all lines
+                  lines_all=findobj(gca,'Type','line');
+                  %set consistent line clours
+                  for j=1:numel(dat)
+                    set(lines_all(j),'Color',get(lines_before(j),'Color'),'LineWidth',v.plot_line_width)
+                  end
+                  axis auto
+                  title(str.show({datestr(v.pod.t(i),'yyyy-mm'),'degree-RMS ',title_suffix}))
+                end
+              case {'triang','trianglog10'}
+                [~,l,w]=plotting.subplot(0,numel(dat));
+                plotting.figure(v.varargin{:},...
+                  'plot_size',200+[0,0,21,9]*30.*[1 1 w l]);
+                for j=1:numel(dat)
+                  plotting.subplot(j,numel(dat));
+                  dat{j}.plot('method',v.plot_spatial_monthly_quantity{qi},...
+                    'colormap',str.clean(v.plot_colormap,{'opt','zero'}),... %TODO: fix this once plotting.colormap is implemented and used in gravity.plot
+                    'functional',v.plot_functional...
+                  );
+                  %enforce it
+                  product.enforce_plot(v.varargin{:},...
+                    'plot_colormap','none',...
+                    'plot_title',v.plot_title,...
+                    'plot_title_default',str.show({legend_str{j},datestr(v.pod.t(i),'yyyy-mm'),title_suffix})...
+                  );
+                end
+              otherwise
+                error(['Cannot handle plot_spatial_monthly_quantity as ''',v.plot_spatial_monthly_quantity{qi},'''.'])
               end
-              %get all lines
-              lines_all=findobj(gca,'Type','line');
-              %set consistent line clours
-              for j=1:numel(dat)
-                set(lines_all(j),'Color',get(lines_before(j),'Color'),'LineWidth',v.plot_line_width)
-              end
-              axis auto
-              title(str.show({datestr(v.pod.t(i),'yyyy-mm'),'degree-RMS ',title_suffix}))
+              plotting.save(filename,v.varargin{:})
+            else
+              disp(['NOTICE: plot already available: ',filename])
             end
-            plotting.save(filename,v.varargin{:})
-          else
-            disp(['NOTICE: plot already available: ',filename])
           end
         end
       end
@@ -2298,6 +2327,8 @@ classdef gswarm
         out=d;
       case 'res'                  %processing only (called implicitly where relevant)
         out=gswarm.paper(varargin{:},'type','res.gracefo.sh.rl06.csr');
+      case 'formerr'              %checking only
+        out=gswarm.paper(varargin{:},'type','individual.formerr');
       otherwise 
         out=gswarm.paper(...
           'type','process',...
