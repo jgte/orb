@@ -2845,7 +2845,7 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
           strcmp(header.errors,'calibrated') || ...
           strcmp(header.errors,'calibrated_and_formal'))
         ei.C(n,m)=x(5);
-        ei.C(n,m)=x(6);
+        ei.S(n,m)=x(6);
       end
     elseif strcmp(s(1:3),'gfc')
       mi.C(n,m)=x(3);
@@ -2854,7 +2854,7 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
           strcmp(header.errors,'calibrated') || ...
           strcmp(header.errors,'calibrated_and_formal'))
         ei.C(n,m)=x(5);
-        ei.C(n,m)=x(6);
+        ei.S(n,m)=x(6);
       end
       i_gfc=i_gfc+1;
     elseif strcmp(s(1:4),'trnd') || strcmp(s(1:3),'dot')
