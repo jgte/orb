@@ -7,10 +7,10 @@ plot_signal: true
 plot_summary: false
 plot_save_data: yes
 #check plots before saving
-plot_visible: false
-plot_pause_on_save: false
-# plot_visible: true
-# plot_pause_on_save: true
+# plot_visible: false
+# plot_pause_on_save: false
+plot_visible: true
+plot_pause_on_save: true
 #NOTICE: replacing is done before suppressing (on capitalized product names)
 plot_legend_replace: [
   ERR,diff w.r.t GRACE model,
