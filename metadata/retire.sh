@@ -38,7 +38,7 @@ do
     -no-plot|-no-plots)     INCLUDE_PLOT=false ;;
     -no-metadata)           INCLUDE_META=false ;;
     -no-delete|-keep|-copy) DELETE=false       ;;
-    -retired-dir=*|-retire-dir=*)  RETIREDIR=${i/-retired-dir=} ;;
+    -retired-dir=*)  RETIREDIR=${i/-retired-dir=} ;;
     -ignore-dirs=*) IGNOREDIRS=${i/-ignore-dirs=}; IGNOREDIRS=(${IGNOREDIRS//,/ }) ;;
     *) ARGS+=($i) ;;
   esac
@@ -75,18 +75,17 @@ fi
 if [ ${#IGNOREDIRS[@]} -gt 0 ]
 then
   FIND_ARGS_SKIP_DIRS=()
-  GREP_ARGS_SKIP_DIRS=()
   for i in "${IGNOREDIRS[@]}"
   do
-    FIND_ARGS_SKIP_DIRS+=("-not -wholename \*$i\*")
-    GREP_ARGS_SKIP_DIRS+=(" | grep -v '/$i/'")
+    FIND_ARGS_SKIP_DIRS+=("-not -wholename *$i*")
   done
   FIND_ARGS_SKIP_DIRS="${FIND_ARGS_SKIP_DIRS[@]}"
-  GREP_ARGS_SKIP_DIRS="${GREP_ARGS_SKIP_DIRS[@]}"
 else
   FIND_ARGS_SKIP_DIRS=
-  GREP_ARGS_SKIP_DIRS=
 fi
+$VERBOSE && echo "\
+FIND_ARGS_SKIP_DIRS : ${FIND_ARGS_SKIP_DIRS[@]}
+"
 
 #build and create sink dirs
 SINK_METADIR=$RETIREDIR/metadata/$(echo "$SOURCE_METADIR" | awk -F/ '{print $NF}')
@@ -106,7 +105,6 @@ then
   SOURCE_DATADIR=$TMP_DATADIR
   SOURCE_PLOTDIR=$TMP_PLOTDIR
 fi
-
 $VERBOSE && echo "\
 SINK_METADIR   : $SINK_METADIR
 SINK_DATADIR   : $SINK_DATADIR
@@ -148,7 +146,7 @@ do
     ;;
     *)
       $VERBOSE && echo "----- handling metadata filename part: $i"
-      METADATA_LIST=$(find $SOURCE_METADIR/ $FIND_ARGS_SKIP_DIRS -name \*$i\*)
+      METADATA_LIST=$(find $SOURCE_METADIR/ ${FIND_ARGS_SKIP_DIRS[@]} -name \*$i\*)
       for j in $METADATA_LIST
       do
         $VERBOSE && echo "----- moving metadata file: $(basename $j)"
@@ -158,7 +156,7 @@ do
         if $INCLUDE_DATA 
         then
           #gather source data dirs
-          DATA_LIST=$(find $SOURCE_DATADIR/ -type d -name $(basename ${j/.$METADATA_EXT}))
+          DATA_LIST=$(find $SOURCE_DATADIR/ ${FIND_ARGS_SKIP_DIRS[@]} -type d -name $(basename ${j/.$METADATA_EXT}))
           for k in $DATA_LIST
           do
             $VERBOSE && echo "----- moving data dir: $(basename $k)"
@@ -169,7 +167,7 @@ do
         if $INCLUDE_PLOT
         then
           #gather source plot dirs
-          PLOT_LIST=$(find $SOURCE_PLOTDIR/ -type d -name $(basename ${j/.$METADATA_EXT}))
+          PLOT_LIST=$(find $SOURCE_PLOTDIR/ ${FIND_ARGS_SKIP_DIRS[@]} -type d -name $(basename ${j/.$METADATA_EXT}))
           for k in $PLOT_LIST
           do
             $VERBOSE && echo "----- moving plot dir: $(basename $k)"
