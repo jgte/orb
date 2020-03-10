@@ -2340,7 +2340,7 @@ classdef gswarm
     %% Swarm-ITT
     function d=quality(varargin)
       global PROJECT
-      %NOTICE: this is used to produce the plots in ~/data/gswarm/dissemination
+      %NOTICE: this is used to produce the plots in ~/data/gswarm/dissemination/quality
       %WORKFLOW: 
       % - you need to delete the last data file of (if not run from a dedicated dir):
       %   - swarm.sh.gswarm.rl01
