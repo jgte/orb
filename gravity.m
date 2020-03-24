@@ -3142,6 +3142,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
 %       daturl=['https://podaac-w10n.jpl.nasa.gov/w10n/allData/grace/docs/',datfil];
       daturl=['https://podaac-tools.jpl.nasa.gov/drive/files/allData/grace/docs/',datfil];
       datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
+      t_idx=[1 6];
     case 'CSR-RL06'
       datfil='C20_RL06.txt';
       daturl=['http://download.csr.utexas.edu/pub/slr/degree_2/',datfil];
@@ -3232,9 +3233,9 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     % outputs
     switch v.version
     case {'GSFC-7day','CSR-RL06'}
-      t=years(dat{t_idx})+datetime('0000-01-01 00:00:00');
+      t=years(mean([dat{t_idx}],2))+datetime('0000-01-01 00:00:00');
     otherwise
-      t=datetime(dat{t_idx},'ConvertFrom','modifiedjuliandate');
+      t=datetime(mean([dat{t_idx}],2),'ConvertFrom','modifiedjuliandate');
     end
     % enforce start/stop
     idx=t>=v.start & t<=v.stop;
