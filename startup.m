@@ -113,15 +113,21 @@ for i=1:numel(dir_list)
   target_dir=fullfile(dirnow,dir_list{i});
   %make sure this directory is there
   if ~file.exist(target_dir)
-    %init success flag
+    %init loop vars
     linked_flag=false;
+    source_dir={};
     %check for PROJECT-defined dirs
     if isfield(PROJECT,[dir_list{i},'_dir'])
-      linked_flag=file.ln(PROJECT.([dir_list{i},'_dir']),target_dir,true);
+      source_dir{end+1}=PROJECT.([dir_list{i},'_dir']); %#ok<AGROW>
     end
-    %link frequent locations, unless already done
-    if ~linked_flag
-      linked_flag=file.ln(fullfile(getenv('HOME'),dir_list{i}),target_dir,true);
+    %try linking frequent locations
+    source_dir{end+1}=fullfile(getenv('HOME'),dir_list{i}); %#ok<AGROW>
+    %loop over source locations
+    for j=1:numel(source_dir)
+      %link them, unless already done
+      if ~linked_flag && file.exist(source_dir{j})
+        linked_flag=file.ln(source_dir{j},dirnow,true);
+      end
     end
     %create dir if linking didn't work
     if ~linked_flag
