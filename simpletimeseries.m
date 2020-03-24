@@ -1203,6 +1203,10 @@ classdef simpletimeseries < simpledata
         step_now=obj.step;
       end
       out=transpose(obj.start:step_now:obj.stop);
+      %make sure out includes obj.stop (hopefully patched with NaNs later)
+      if out(end)<obj.stop
+        out(end+1)=out(end)+step_now;
+      end
     end
     function out=ishomogeneous(obj)
       htd=obj.t_domain;
