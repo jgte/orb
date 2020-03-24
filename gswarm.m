@@ -2496,7 +2496,7 @@ classdef gswarm
         );
         saveas(gcf,fn)
         str.say(' --- Exporting  the time series:')
-        cts.export(strrep(fn,'.png','.dat'))
+        cts.export(strrep(fn,'.png','.dat'),'ascii')
       end
       
       %save new data in git
