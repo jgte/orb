@@ -891,10 +891,17 @@ classdef simplegrid < simpletimeseries
           'time',[],@isdatetime;...
         },...
       },varargin{:});
+      %add gaps (trivial call handled inside)
+      if isempty(v.time)
+        ct=catchment.ws.addgaps(v.plot_lines_over_gaps_narrower_than);
+      else
+        %align with requested time domain
+        ct=catchment.ws.interp(v.time,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than);
+      end
       %plot it; NOTICE: for plots with more than 7 lines, matlab's default color scheme is
       %too short, so you need to externally define a colormap and, for each line, pass the
       %argument pair: 'color',[x,y,z] (which is handled in simpledata.plot)
-      catchment.plot=catchment.ws.addgaps(v.plot_lines_over_gaps_narrower_than).plot(varargin{:}); %
+      catchment.plot=ct.plot(varargin{:});
       %add parametric decompositions (if requested)
       if isfield(catchment,'pws')
         %accumulate components to plot
@@ -912,7 +919,7 @@ classdef simplegrid < simpletimeseries
           catchment.pwst_val.(v.plot_parametric_components{i})=catchment.pws.(v.plot_parametric_components{i}).y_masked;
         end
         %plot it
-        catchment.pwst.plot('line',v.parametric_components_line_fmt)
+        catchment.pwst.plot(varargin{:},'line',v.parametric_components_line_fmt)
         %copy the color from the last line (and get its handle)
         llh=plotting.line_color_set_last;
         %don't show this line in the legend
