@@ -2577,6 +2577,7 @@
           'title',        '',         @ischar;...
           'smooth_span',  0,          @(i)isfinite(i)  && isscalar(i) && i>=0;...
           'scale',        1,          @(i)all(isfinite(i));...
+          'masked',       false,      @(i)islogical(i) && isscalar(i);...
         },...
       },varargin{:});
       % type conversions
@@ -2625,6 +2626,10 @@
           i2=max([obj.length-span, ceil(obj.length/2)]);
           out.mask{i}(1 :i1 )=false;
           out.mask{i}(i2:end)=false;
+        end
+        % skip showing explicit gaps
+        if v.masked
+          out.mask{i}=out.mask{i} & obj.mask;
         end
         %derive bias and amplitude
         if v.zeromean || v.normalize
