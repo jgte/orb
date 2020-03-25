@@ -133,7 +133,7 @@ classdef pardecomp
           % TODO: the latter needs checking
           d(i)=pardecomp(...
             t_pd,y_pd(:,i),varargin{:}...
-          ).lsq;
+          ).lsq; %#ok<AGROW>
           if ~v.quiet; s=time.progress(s,i); end
         end
       end
@@ -167,7 +167,7 @@ classdef pardecomp
         c=c+2;
         %reconstruct the time domain in the default timescale
         x_now=pardecomp.from_timescaled(d(1).t,v.timescale);
-        %make sure time domains is not borked
+        %make sure time domain is not borked
         assert(all(simpledata.isx('==',obj.x_masked,x_now)),['time domain discrepancy in ',o.descriptor])
         %save timeseries represented by each coefficient
         o=init(obj.t_masked,num.struct_deal(d,['y',coeffnames{j}(1)],[],i));
@@ -191,6 +191,8 @@ classdef pardecomp
         'descriptor',obj.descriptor,...
         'timescale',v.timescale,...
         pd_args{:});
+      %this is the abcissae defined in obj, excluding gaps    
+      pd_set.t_masked=obj.t_masked;
       %save residuals
       o=init(obj.t_masked,num.struct_deal(d,'yr',[],1));
       o=o.copy_metadata(obj);
