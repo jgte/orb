@@ -12,31 +12,29 @@ sources: [
 
 #plot_ops
 plot_max_degree: 20
+
+#smoothing
 plot_smoothing_degree: 750e3
 plot_smoothing_method: gauss
+plot_legend_location: eastoutside
+plot_legend_include_smoothing: false
 
 # plot_parametric_decomposition
-plot_poly_range: [0.2,0.1]
-plot_amplitude_range: [0.1,0.01]
+parametric_decomposition: true
 polyorder: 1
 polynames: [constant,linear]
-sin_period: [1, 0.5]
-sin_period_unit: years
+t0: 2014-07-01
+sin_period: [365.2426,182.6213]
+sin_period_unit: days
 sin_names: [yearly,semi-yearly]
 timescale: years
-t0: 2014-07-01
+plot_parametric_components: [p0,p1]
+plot_parametric_timestep_value: 7
+plot_parametric_timestep_units: days
+plot_parametric_t_masked: true
 
+plot_poly_range: [1,0.3]
+plot_amplitude_range: [0.1,0.01]
+plot_std_range: 0.5
 
 #TODO: fix line colors, legend location, values of p0
-
-
-
-
-#plotting
-plot_colormap: jetzero
-plot_poly_range: [1,0.3]
-plot_amplitude_range: [0.01,0.002]
-plot_std_range: 0.5
-pardecomp_catchments: true
-plot_pardecomp_catchments: [p0,p1]
-plot_legend_location: eastoutside
