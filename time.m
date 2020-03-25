@@ -131,6 +131,13 @@ classdef time
         rand(n,3)*60 ...
       ]))),'ConvertFrom','datenum')+years(2000);
     end
+    function out=domain(start,stop,step)
+      out=transpose(start:step:stop);
+      %make sure out includes obj.stop (hopefully patched with NaNs later)
+      if out(end)<stop
+        out(end+1)=out(end)+step;
+      end
+    end
     %% auto time/duration/strings
     function out=scale(in)
       out=find(in<=time.magnt_list,1,'first');
