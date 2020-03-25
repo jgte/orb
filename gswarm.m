@@ -2620,7 +2620,7 @@ classdef gswarm
       case 'done'
         out=file.exist(gswarm.c20model('filename',plot_dir));
       case 'filename'
-        out=fullfile(plot_dir,strjoin({'C20',version,'png'},'.'));
+        out=fullfile(plot_dir,['C20_',version,'.png']);
       case 'plot'
         if ~gswarm.c20model('done',plot_dir)
           plotting.figure;
