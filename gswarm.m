@@ -2670,8 +2670,8 @@ classdef gswarm
       % 7. go through the report and update any %NEEDS UPDATING lines, if needed
       % 8. compare this report with the previous
       % 9. run publish.sh [echo]
-      %10. put the data into aristarchos (also remove --dry-run, as usual):
-      %   ~/data/gswarm/rsync.local2remote.sh --delete --dry-run
+      %10. put the data into aristarchos (remove --dry-run, as usual):
+      %   ~/data/gswarm/rsync.local2remote.sh --delete --exclude-from=$HOME/data/gswarm/rsync.exclude.thumb --dry-run
       %11. email the report to colleagues
       
       %TODO on next release(s):
