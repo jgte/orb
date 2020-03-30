@@ -2658,6 +2658,8 @@ classdef gswarm
       
       %NOTICE: workflow to produce the validation report:
       % 1. plug the thumb drive in (no need to mount-disk.sh)
+      % 2. go to ~/data/gswarm/analyses/report-validation/report and make sure everything 
+      %    is in synch.sh
       % 2. create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh validation
       % 3. cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and 
       %    update the stop_date in project.yaml to the last day of the last available model
@@ -2665,11 +2667,12 @@ classdef gswarm
       % 4. fire up matlab and run the gswarm.validation method (check if all products are 
       %    being used, some may be commented)
       % 5. update the orb git repo of the new validation dir (if changes to the code were made)
+      % 7. go through the report and update all %NEEDS UPDATING lines (some are automatically 
+      %    updated by new-analysis.sh)
+      % 8. compile it and compare this report with the previous one
+      % 9. run publish.sh [echo]
       % 6. go to the report dir in the new validation dir and make sure everything is in 
       %    synch.sh (don't synch %NEEDS UPDATING lines)
-      % 7. go through the report and update any %NEEDS UPDATING lines, if needed
-      % 8. compare this report with the previous
-      % 9. run publish.sh [echo]
       %10. put the data into aristarchos (remove --dry-run, as usual):
       %   ~/data/gswarm/rsync.local2remote.sh --delete --exclude-from=$HOME/data/gswarm/rsync.exclude.thumb --dry-run
       %11. email the report to colleagues
