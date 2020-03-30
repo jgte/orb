@@ -2657,16 +2657,22 @@ classdef gswarm
       %        usually: ~/data/gswarm/analyses/<date>-validation
       
       %NOTICE: workflow to produce the validation report:
-      % 1. update the stop_date in project.yaml to the last day of the last available model
-      % 2. run this method (check if all products commented below are being used)
-      % 3. go to the last valiation report dir and make sure everything is in synch.sh (don't synch %NEEDS UPDATING lines)
-      % 4. run ~/data/gswarm/analyses/new-analysis.sh validation
-      % 5. go through the report and update any %NEEDS UPDATING lines, if needed
-      % 6. compare this report with the previous
-      % 7. run publish.sh
-      % 8. commit changes in the orb dir
-      % 9. connect the data drive and run ~/media/data/data/rsync.thumb.sh reverse (--dry-run it first, as usual; consider --delete if relevant)
-      
+      % 1. plug the thumb drive in (no need to mount-disk.sh)
+      % 2. create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh validation
+      % 3. cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and 
+      %    update the stop_date in project.yaml to the last day of the last available model
+      %    (the new-analysis.sh script automatically updated that to today but that's no bueno)
+      % 4. fire up matlab and run the gswarm.validation method (check if all products are 
+      %    being used, some may be commented)
+      % 5. update the orb git repo of the new validation dir (if changes to the code were made)
+      % 6. go to the report dir in the new validation dir and make sure everything is in 
+      %    synch.sh (don't synch %NEEDS UPDATING lines)
+      % 7. go through the report and update any %NEEDS UPDATING lines, if needed
+      % 8. compare this report with the previous
+      % 9. run publish.sh [echo]
+      %10. put the data into aristarchos (also remove --dry-run, as usual):
+      %   ~/media/data/data/gswarm/rsync.local2remote.sh --delete --dry-run
+      %11. email the report to colleagues
       
       %TODO on next release(s):
       % - remove trends from gswarm.swarm.validation.maps (also plot trends)
@@ -2686,7 +2692,7 @@ classdef gswarm
         varargin{:}...
       );
       %export quality metrics
-%       gswarm.quality(varargin{:});
+      gswarm.quality(varargin{:});
     end
     function d=production(varargin)
       %need global project variable (forces the user to think about the context of this analysis)
