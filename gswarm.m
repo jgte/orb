@@ -2660,22 +2660,22 @@ classdef gswarm
       % 1. plug the thumb drive in (no need to mount-disk.sh)
       % 2. go to ~/data/gswarm/analyses/report-validation/report and make sure everything 
       %    is in synch.sh
-      % 2. create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh validation
-      % 3. cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and 
+      % 3. create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh validation
+      % 4. cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and 
       %    update the stop_date in project.yaml to the last day of the last available model
       %    (the new-analysis.sh script automatically updated that to today but that's no bueno)
-      % 4. fire up matlab and run the gswarm.validation method (check if all products are 
+      % 5. fire up matlab and run the gswarm.validation method (check if all products are 
       %    being used, some may be commented)
-      % 5. update the orb git repo of the new validation dir (if changes to the code were made)
+      % 6. update the orb git repo of the new validation dir (if changes to the code were made)
       % 7. go through the report and update all %NEEDS UPDATING lines (some are automatically 
       %    updated by new-analysis.sh)
       % 8. compile it and compare this report with the previous one
       % 9. run publish.sh [echo]
-      % 6. go to the report dir in the new validation dir and make sure everything is in 
+      %10. go to the report dir in the new validation dir and make sure everything is in 
       %    synch.sh (don't synch %NEEDS UPDATING lines)
-      %10. put the data into aristarchos (remove --dry-run, as usual):
+      %11. put the data into aristarchos (remove --dry-run, as usual):
       %   ~/data/gswarm/rsync.local2remote.sh --delete --exclude-from=$HOME/data/gswarm/rsync.exclude.thumb --dry-run
-      %11. email the report to colleagues
+      %12. email the report to colleagues
       
       %TODO on next release(s):
       % - remove trends from gswarm.swarm.validation.maps (also plot trends)
