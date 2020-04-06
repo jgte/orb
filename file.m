@@ -843,13 +843,13 @@ classdef file
       end
       %check if this is really a relative path
       if file.isabsolute(relativepath)
-        out=relativepath;
+        out=file.fullpath(relativepath);
       else
         out=fullfile(root,relativepath);
       end
     end
     function out=isabsolute(filename)
-      out=filename(1)==filesep;
+      out=filename(1)==filesep || filename(1)=='~';
     end
     function io=trailing_filesep(io)
       if iscellstr(io)
