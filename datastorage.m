@@ -89,7 +89,7 @@ classdef datastorage
       %clean up empty cells
       msg=cells.rm_empty(msg);
       %show the debug message
-      str.say('stack_delta',1,strjoin(msg,', '))
+      str.say('stack_delta',2,strjoin(msg,', '))
     end
     %% dataname operations (done at the root level of the obj.data structure)
     function obj=data_init(obj)
