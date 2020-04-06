@@ -87,7 +87,12 @@ function mlab
     ;;
     *)
       #run it
-      $ECHO $MATLAB_EXE ${DEFAULT_ARGS[@]} -r "$MATLAB_SUP"
+      if [[   "${@/desktop/}" == "$@" ]]
+      then
+        $ECHO $MATLAB_EXE ${DEFAULT_ARGS[@]} -r "$MATLAB_SUP"
+      else
+        $ECHO $MATLAB_EXE ${DEFAULT_ARGS[@]} -r "$MATLAB_SUP" &
+      fi
     ;;
   esac
 }
