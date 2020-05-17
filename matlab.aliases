@@ -48,13 +48,13 @@ function mlab
   CONFLICTING_STARTUP_DIRS=~/.matlab/matlab.startup.dirs
   if [ ! -e "$PWD/startup.m" ] && [ -e "$CONFLICTING_STARTUP_DIRS" ]
   then
-    find $(cat $CONFLICTING_STARTUP_DIRS | sed 's:~:'$HOME':g') -maxdepth 1 -name startup.m -print0 2> /dev/null | while IFS= read -r -d '' file; do
-      MATLAB_STARTUP_LIST+=($file)
+     while IFS= read -r -d '' file; do
+      MATLAB_STARTUP_LIST+=("$file")
       #debug
       [[ "${@/nodebug/}" == "$@" ]] && echo "startup script (from conflicting matlab dirs) : $file"
-    done
+    done < <(find $(cat $CONFLICTING_STARTUP_DIRS | sed 's:~:'$HOME':g') -maxdepth 1 -name startup.m -print0 2> /dev/null)
   fi
-  
+
   #run startup script(s)
   for i in "${MATLAB_STARTUP_LIST[@]}"
   do
