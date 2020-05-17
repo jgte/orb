@@ -46,19 +46,17 @@ function mlab
   #check for directories that may have startup scripts, which are exclusive (i.e. only one of these is run)
   #define these in the CONFLICTING_STARTUP_DIRS file
   CONFLICTING_STARTUP_DIRS=~/.matlab/matlab.startup.dirs
-  if [ ! -e $PWD/startup.m ] && [ -e "$CONFLICTING_STARTUP_DIRS" ]
+  if [ ! -e "$PWD/startup.m" ] && [ -e "$CONFLICTING_STARTUP_DIRS" ]
   then
-    local CONFLICTING_MATLAB_STARTUP="$(find $(cat $CONFLICTING_STARTUP_DIRS | sed 's:~:'$HOME':g') -maxdepth 1 -name startup.m 2> /dev/null)"
-    if [ ! -z "$CONFLICTING_MATLAB_STARTUP" ]
-    then
-      MATLAB_STARTUP_LIST+=($(ls -t $CONFLICTING_MATLAB_STARTUP | head -n1))
+    find $(cat $CONFLICTING_STARTUP_DIRS | sed 's:~:'$HOME':g') -maxdepth 1 -name startup.m -print0 2> /dev/null | while IFS= read -r -d '' file; do
+      MATLAB_STARTUP_LIST+=($file)
       #debug
-      [[ "${@/nodebug/}" == "$@" ]] && echo "startup script (from conflicting matlab dirs) : ${MATLAB_STARTUP_LIST[$(( ${#MATLAB_STARTUP_LIST[@]}-1 ))]}"
-    fi
+      [[ "${@/nodebug/}" == "$@" ]] && echo "startup script (from conflicting matlab dirs) : $file"
+    done
   fi
   
   #run startup script(s)
-  for i in ${MATLAB_STARTUP_LIST[@]}
+  for i in "${MATLAB_STARTUP_LIST[@]}"
   do
     MATLAB_SUP+=" run('$i');"
   done
