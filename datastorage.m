@@ -1154,7 +1154,7 @@ classdef datastorage
                    str.contains(ME.message,func2str(ih)) && ...
                    strcmp(cells.first(strsplit(func2str(ih),'.')),'datastorage')
                   com=['obj.',cells.last(strsplit(func2str(ih),'.')),'(product_list{i},varargin{:})'];
-                  disp(com)
+                  obj.log('@','eval','evaluating',com)
                   obj=eval(com);
                   disp('done!')
                 else
