@@ -748,6 +748,7 @@ classdef gravity < simpletimeseries
           %update md5 of data
           gravity.graceC20(varargin{:},'mode','model-md5set')  
         else
+          load(f_pdset,'pd_set')
           load(f_pd,      'out')
         end
         %handle different time domains
@@ -757,8 +758,8 @@ classdef gravity < simpletimeseries
         if time.isinf( v.stop );  v.stop=v.time(end); end
         %enforce start/stop
         v.time=v.time(v.time>=v.start & v.time<=v.stop);
-        %interpolate if needed
-        out=out.interp(v.time);
+        %evaluate model at requested time domain
+        out=pardecomp.join( pd_set,'time',v.time);
       case 'model-list-datfile'
         [p,n]=fileparts(GetGRACEC20('mode','data_file'));
         out=fullfile(p,[n,'_pdset.mat']);
