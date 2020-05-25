@@ -1951,7 +1951,7 @@ classdef gswarm
         if ~file.exist(filename)
           a={
             d.data_get_scalar(p{1}.dataname.append_field_leaf('signal')),'original' ;... 
-       pardecomp.join(d.data.(p{2}.codename)),                           're-modelled' ;...
+       pardecomp.join(d.data.(p{2}.codename)),                           're-modelled' ;... %mode evaluated at original t
             d.data_get_scalar(p{3}),                                     'model' ;...
           };
           save(filename,'a'); disp(['saved ',filename])
@@ -2608,6 +2608,7 @@ classdef gswarm
       
     end
     function get_input_data
+      %NOTICE: the download-l2.sh script iterates over specific years (currently 2020)
       file.system('~/data/grace/download-l2.sh CSR 06',true);
       file.system(strjoin({...
         '~/data/gswarm/rsync.remote2local.sh',...
@@ -2622,7 +2623,10 @@ classdef gswarm
     end
     function out=c20model(mode,plot_dir,version)
       if ~exist('version','var') || isempty(version)
-        version='TN-11';
+        %NOTICE: TN-11 seems to remain outdated since the end of 2019
+        %version='TN-11'; 
+        %NOTICE: this needs to be in agreement with model.processing.submetadata.yaml
+        version='TN-14';
       end
       %document the C20 model
       switch mode
@@ -2673,8 +2677,19 @@ classdef gswarm
       % 4. cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and 
       %    update the stop_date in project.yaml to the last day of the last available model
       %    (the new-analysis.sh script automatically updated that to today but that's no bueno)
-      % 5. fire up matlab and run the gswarm.validation method (check if all products are 
-      %    being used, some may be commented)
+      % 5. fire up matlab and run the gswarm.validation method:
+      %     5.1: check if all products are being used, some may be commented
+      %     5.2: check if the 'nodata' option is false:
+      %         5.2.1: the the swarm data is downloaded from aristarchos (need ~/data/gswarm/rsync.remote2local.sh)
+      %         5.2.2: the GRACE data is downloaded from PODACC (need ~/data/grace/download-l2.sh, which
+      %                iterates over specific years, currently 2020)
+      %     5.4: check that the C20 data is updated and the model evaluated at the last 3 months
+      %     5.5: keep an eye the last epoch of the data as it is being loaded, it has to be the
+      %          same as the last available month; otherwise the analysis is incomplete
+      %     5.6: things that may go wrong:
+      %         5.6.1: the C20 data is not up-to-date
+      %         5.6.2: IfG releases a new version of their models and the metadata was not updated to that
+      %         5.6.3: AIUB names the modes incorrectly or does not compress them
       % 6. update the orb git repo of the new validation dir (if changes to the code were made)
       % 7. go through the report and update all %NEEDS UPDATING lines (some are automatically 
       %    updated by new-analysis.sh)
