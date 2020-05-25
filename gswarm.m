@@ -872,7 +872,7 @@ classdef gswarm
           end
          
 
-          %% plot diff rms
+          %% plot diff cumdas/gridmean
 
           fn_idx=1;
           if ~file.exist(filenames{fn_idx},v.plot_force)
@@ -893,6 +893,14 @@ classdef gswarm
               ' \Sigma=',num2str( sum(y_sorted{di}(~isnan(y_sorted{di}))),2)];
               end
             end
+            %deal with title prefix
+            switch v.plot_spatial_diff_quantity{qi}
+            case 'gridmean'; title_prefix='Mean diff.';
+            case 'cumdas';   title_prefix='RMS diff.';
+            otherwise
+              error(['cannot handle plot_spatial_diff_quantity with value ''',...
+                v.plot_spatial_diff_quantity{qi},'''.'])
+            end
             %enforce it
             product.enforce_plot(v.varargin{:},...
               'plot_legend',legend_str,...
@@ -901,7 +909,7 @@ classdef gswarm
               'plot_xlimits',[min(cellfun(@(i) i(1),t_sorted)),max(cellfun(@(i) i(end),t_sorted))+days(1)],...
               'plot_line_color_order',idx,...
               'plot_title',v.plot_title,...
-              'plot_title_default',str.show({'RMS diff.',v.pod.title_wrt,title_suffix})...
+              'plot_title_default',str.show({title_prefix,v.pod.title_wrt,title_suffix})...
             );
             plotting.save(filenames{fn_idx},v.varargin{:})
           else
