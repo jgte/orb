@@ -118,13 +118,14 @@ classdef gswarm
             end
             %parse using a model or the original data
             if contains(v.use_GRACE_C20,'-model')
-              mode='model';
+              c20mode='model';
               v.use_GRACE_C20=strrep(v.use_GRACE_C20,'-model','');
             else
-              mode='interp';
+              c20mode='interp';
             end
             %get C20 timeseries, interpolated to current time domain
-            c20=gravity.graceC20('version',v.use_GRACE_C20,'mode',mode,'time',mod.t);
+            c20=gravity.graceC20('version',v.use_GRACE_C20,'mode',c20mode,'time',mod.t);
+            
   %         figure
   %         plot(c20.x_masked,c20.y_masked([],1),'x-','MarkerSize',10,'LineWidth',4), hold on
   %         plot(c20.x,spline(c20.x_masked,c20.y_masked([],1),c20.x),'o-','MarkerSize',10,'LineWidth',2)
