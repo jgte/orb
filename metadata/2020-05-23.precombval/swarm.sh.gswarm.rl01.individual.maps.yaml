@@ -1,0 +1,27 @@
+method: gswarm.plot_maps
+submetadata: swarm.sh.gswarm.rl01.submetadata
+sources: [
+  gswarm.swarm.aiub.aiub.v01,
+  gswarm.swarm.asu.ifg.v02,
+  gswarm.swarm.ifg.ifg.v03,
+  gswarm.swarm.osu.aiub.v02,
+  gswarm.gracefo.sh.rl06.csr.pd.ts,
+  gswarm.gracefo.sh.rl06.csr,
+]
+stats_relative_to: none
+plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common time domain
+
+plot_legend_suppress: [SH,GSWARM,V01,V02,V03]
+plot_title_suppress:  [SH,GSWARM,V01,V02,V03]
+plot_legend_replace: [GRACEFO SH RL06 CSR PD TS,GRACE model,ASU IFG,ASU,OSU AIUB,OSU,'diff w.r.t. GRACE model','']
+plot_title_replace:  [GRACEFO SH RL06 CSR PD TS,GRACE model,ASU IFG,ASU,OSU AIUB,OSU,'diff w.r.t. GRACE model','']
+plot_functional: eqwh
+
+#plot_ops
+plot_max_degree: 20
+plot_smoothing_degree: 750e3
+plot_smoothing_method: gauss
+
+plot_colormap: jetzero
+plot_caxis: [-0.5,0.5]
+plot_time: [-2,-3,-4] #index -1 is the extremity (gap by definition)
