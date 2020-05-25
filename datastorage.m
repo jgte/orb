@@ -543,7 +543,10 @@ classdef datastorage
       old_start=obj.starti;
       %check if updating is needed
       if isempty(obj.starti) || start==obj.start_criteria({obj.starti,start})
-        obj.log('@','start update','from',obj.starti,'to',start)
+        %don't report routine inits
+        if ~time.iszero(start)
+          obj.log('@','start update','from',obj.starti,'to',start)
+        end
         %update internal record
         obj.starti=start;
       end
@@ -558,7 +561,10 @@ classdef datastorage
       old_stop=obj.stopi;
       %update if needed
       if isempty(obj.stopi) || stop==obj.stop_criteria({obj.stopi,stop})
-        obj.log('@','stop update','from',obj.stopi,'to',stop)
+        %don't report routine inits
+        if ~time.isinf(stop)
+          obj.log('@','stop update','from',obj.stopi,'to',stop)
+        end
         %update internal record
         obj.stopi=stop;
       end
