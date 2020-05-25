@@ -107,7 +107,7 @@ classdef time
       case 'cell'
         out=cellfun(@time.iszero,in);
       otherwise
-        out=(time.mutate(in)==time.inf_date);
+        out=abs(time.mutate(in)<time.inf_date)<0.5;
       end
     end
     function out=isfinite(in)
