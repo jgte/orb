@@ -3259,10 +3259,14 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       e=zeros(size(s));
     end
   case 'set' %download the data
-    fid=file.open(v.file,'w+');
-    t=webread(v.url);
-    fprintf(fid,'%s',t);
-    fclose(fid);
+    if url.is(v.url)
+      fid=file.open(v.file,'w+');
+      t=webread(v.url);
+      fprintf(fid,'%s',t);
+      fclose(fid);
+    else
+      t=[];
+    end
     s=[];e=[];d=[];
   otherwise
     error([mfilename,': unknown mode ''',v.mode,'''.'])
