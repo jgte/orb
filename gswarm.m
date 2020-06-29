@@ -2660,7 +2660,7 @@ classdef gswarm
           if model
             out=gravity.graceC20('mode','model-plot','version',version);
           else
-            out=gravity.graceC20('mode','plot-all','version',unique({'GSFC-7DAY','GSFC','TN-14',upper(version)}));
+            out=gravity.graceC20('mode','plot-all','version',unique({'GSFC-7DAY','GSFC','TN-14','TN-11',upper(version)}));
           end
           plotting.save(gswarm.c20model('filename',plot_dir))
         else
