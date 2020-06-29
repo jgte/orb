@@ -2550,9 +2550,12 @@ classdef gswarm
           tn=gravity.graceC20('mode','read','version',strrep(C20_name,'-model',''));
           tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);            
           tn.plot('columns',1);
-          tm=gravity.graceC20('mode','model','time',gm.t,'version',strrep(C20_name,'-model',''));
-          tm=tm.addgaps(days(45))-stc20(1);
-          tm.plot('columns',1);
+          if contains(C20_name,'-model')
+            tm=gravity.graceC20('mode','model','time',gm.t,'version',strrep(C20_name,'-model',''));
+            tm=tm.addgaps(days(45))-stc20(1);
+            tm.plot('columns',1);
+          end
+          %NOTICE: if C20_name does not contain '-model', there are more legend entries than plotted lines
           plotting.enforce('plot_legend',{...
             str.rep(swp.legend{1},'C2,0','Swarm (repl.)');...
             str.rep(gsp.legend{1},'C2,0','GRACE data');...
