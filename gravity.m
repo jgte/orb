@@ -706,28 +706,28 @@ classdef gravity < simpletimeseries
 %         b=file.strsave(f,s);
 %         str.say('Written',b,'bytes of data to file:',newline,f,newline,'related to the periods of:',newline,c20.descriptor);
       case 'model-datfile'
-        [p,n]=fileparts(GetGRACEC20('mode','data_file','version',v.version));
+        [p,n]=fileparts(GetGRACEC20(varargin{:},'mode','data_file'));
         out=fullfile(p,[n,'_pd.mat']);
       case 'model-md5file'
-        [p,n]=fileparts(GetGRACEC20('mode','data_file','version',v.version));
+        [p,n]=fileparts(GetGRACEC20(varargin{:},'mode','data_file'));
         out=fullfile(p,[n,'.md5']);
       case 'model-md5'
-        out=file.md5(GetGRACEC20('mode','data_file',    'version',v.version));
+        out=file.md5(GetGRACEC20(varargin{:},'mode','data_file'));
       case 'model-md5set'
         out=file.strsave(...
-          gravity.graceC20('mode','model-md5file','version',v.version),...
-          gravity.graceC20('mode','model-md5',    'version',v.version)...
+          gravity.graceC20(varargin{:},'mode','model-md5file'),...
+          gravity.graceC20(varargin{:},'mode','model-md5')...
         );
       case 'model-md5get'
-        md5file=gravity.graceC20('mode','model-md5file','version',v.version);
+        md5file=gravity.graceC20(varargin{:},'mode','model-md5file');
         if ~file.exist(md5file)
-          gravity.graceC20('mode','model-md5set','version',v.version);
+          gravity.graceC20(varargin{:},'mode','model-md5set');
         end
         out=file.strload(md5file);
       case 'model-md5check'
         out=strcmp(...
-          gravity.graceC20('mode','model-md5get','version',v.version),...
-          gravity.graceC20('mode','model-md5',   'version',v.version)...
+          gravity.graceC20(varargin{:},'mode','model-md5get'),...
+          gravity.graceC20(varargin{:},'mode','model-md5')...
         );
       case 'model'
         %loading necessary data
@@ -761,7 +761,7 @@ classdef gravity < simpletimeseries
         %evaluate model at requested time domain
         out=pardecomp.join( pd_set,'time',v.time);
       case 'model-list-datfile'
-        [p,n]=fileparts(GetGRACEC20('mode','data_file'));
+        [p,n]=fileparts(GetGRACEC20(varargin{:},'mode','data_file'));
         out=fullfile(p,[n,'_pdset.mat']);
       case {'model-list','model-list-tex'}
         %check if pdset is already available
@@ -3187,7 +3187,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   case 'reload'
     %refresh data
     GetGRACEC20('mode','set','version',v.version,'data_dir',v.data_dir);
-    [t,s,e,d]=GetGRACEC20('mode','get');
+    [t,s,e,d]=GetGRACEC20('mode','get','version',v.version,'file',v.file,'start',v.start,'stop',v.stop);
   case 'plot'
     %NOTICE: this is a low-level plot, without much features
     [t,s,e,d]=GetGRACEC20(varargin{:},'mode','read');
