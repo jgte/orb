@@ -3187,14 +3187,12 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   switch lower(v.mode)
   case 'data_file'
     t=v.file;
-  case 'read'
-    %download data, if not already
+  case 'read' %'set' if not already, then 'get'
     if ~file.exist(v.file)
       GetGRACEC20('mode','set','version',v.version,'data_dir',v.data_dir);
     end
     [t,s,e,d]=GetGRACEC20('mode','get','version',v.version,'file',v.file,'start',v.start,'stop',v.stop);
-  case 'reload'
-    %refresh data
+  case 'reload' %'set' then 'get'
     GetGRACEC20('mode','set','version',v.version,'data_dir',v.data_dir);
     [t,s,e,d]=GetGRACEC20('mode','get','version',v.version,'file',v.file,'start',v.start,'stop',v.stop);
   case 'plot'
@@ -3203,7 +3201,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     plotting.figure;
     plot(t ,s ,'o-','MarkerSize',4), hold on
     plotting.enforce('plot_title',d,'plot_legend_location','none')
-  case 'get'
+  case 'get' %read the downloaded data
     %open the file
     fid=file.open(v.file);
     %sanity
@@ -3260,7 +3258,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     else
       e=zeros(size(s));
     end
-  case 'set'
+  case 'set' %download the data
     fid=file.open(v.file,'w+');
     t=webread(v.url);
     fprintf(fid,'%s',t);
