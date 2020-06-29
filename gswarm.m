@@ -2631,7 +2631,7 @@ classdef gswarm
         %NOTICE: TN-11 seems to remain outdated since the end of 2019
         %version='TN-11'; 
         %NOTICE: this needs to be in agreement with model.processing.submetadata.yaml
-        version=dataproduct('model.processing.submetadata.yaml').metadata.use_GRACE_C20;
+        version=dataproduct('model.processing.submetadata').metadata.use_GRACE_C20;
       end
       %document the C20 model
       switch mode
