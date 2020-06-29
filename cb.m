@@ -376,7 +376,7 @@ classdef cb
           colormap(new)
       end
     end
-    function resampled=opt(old,axis_h)
+    function resampled=opt(old,axis_h,data)
       % PLOT_COLORBAR_OPT(OLD,AXIS_H) compresses the color range of the <old>
       % colormap around the data regions where there is highest data density. If
       % ignored, the input <old> defaults to the current colormap.
@@ -422,17 +422,20 @@ classdef cb
 
       %% building colormap that shows variability best
 
-      %getting data
-      data=[];
-      h=get(gca,'Children');
-      for i=1:length(h)
-         switch get(h(i),'Type')
-             case {'image','surface'}
-%                  disp(['Found data of ',get(h(i),'Type'),'.'])
-                 data=get(h(i),'CData');
-                 break
-         end
+      if ~exist('data','var') || isempty(data)
+        %getting data
+        data=[];
+        h=get(gca,'Children');
+        for i=1:length(h)
+           switch get(h(i),'Type')
+               case {'image','surface'}
+  %                  disp(['Found data of ',get(h(i),'Type'),'.'])
+                   data=get(h(i),'CData');
+                   break
+           end
+        end
       end
+      
       %bug trap
       if isempty(data)
           error([mfilename,': could not find useful data in the current plot to make colormap.'])
