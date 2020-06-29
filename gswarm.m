@@ -2633,6 +2633,8 @@ classdef gswarm
         %NOTICE: this needs to be in agreement with model.processing.submetadata.yaml
         version=dataproduct('model.processing.submetadata').metadata.use_GRACE_C20;
       end
+      %check if this is a C20 model 
+      model=contains(version,'-model');
       %document the C20 model
       switch mode
       case 'done'
@@ -2645,17 +2647,26 @@ classdef gswarm
         if ~gswarm.c20model('done',plot_dir)
           %this updates the models, make sure it has recent-enough data
           gravity.graceC20('mode','set','version',version);
-          out=gravity.graceC20('mode','model-plot','version',version);
+          if model
+            out=gravity.graceC20('mode','model-plot','version',version);
+          else
+            out=gravity.graceC20('mode','plot-all','version',unique({'GSFC-7DAY','GSFC','TN-14',upper(version)}));
+          end
           plotting.save(gswarm.c20model('filename',plot_dir))
         else
           out=[];
         end
       case 'latex'
         filename=strrep(gswarm.c20model('filename',plot_dir),'.png','.tex');
-        out=gravity.graceC20('mode','model-list-tex','version',version);
-        if ~file.exist(filename)
-          file.strsave(filename,out);
-          disp(['Saved C20 coefficients to ',filename])
+        if model
+          out=gravity.graceC20('mode','model-list-tex','version',version);
+          if ~file.exist(filename)
+            file.strsave(filename,out);
+            disp(['Saved C20 coefficients to ',filename])
+          end
+        else
+          file.strsave(filename,'');
+          disp(['Saved empty string (',version,' is not a C20 model) to ',filename])
         end
       otherwise
         error(['Unknown mode ''',mode,'''.'])  
