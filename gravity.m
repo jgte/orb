@@ -3168,7 +3168,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
     case 'GSFC'
       datfil='GSFC_SLR_C20_GSM_replacement.txt';
-      daturl=['https://neptune.gsfc.nasa.gov/uploads/images_db/',datfil];
+      daturl=['https://earth.gsfc.nasa.gov/sites/default/files/neptune/images_db/',datfil];
     case 'GSFC-7DAY'
       datfil='GSFC_SLR_C20_7day.txt';
       daturl='personal communication: email from bryant.d.loomis@nasa.gov';
