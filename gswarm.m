@@ -2441,7 +2441,7 @@ classdef gswarm
     function d=quality(varargin)
       global PROJECT
       %NOTICE: this is used to produce the plots in ~/data/gswarm/dissemination/quality
-      %WORKFLOW: 
+      %workflow: 
       % - you need to delete the last data file of (if not run from a dedicated dir):
       %   - swarm.sh.gswarm.rl01
       %   - swarm.sh.gswarm.rl01.err
@@ -2673,37 +2673,39 @@ classdef gswarm
       %        needed to produce the pre-combination report in the 'report' dir at the same location,
       %        usually: ~/data/gswarm/analyses/<date>-validation
       
-      %NOTICE: workflow to produce the validation report:
-      % 1. plug the thumb drive in (no need to mount-disk.sh)
-      % 2. go to ~/data/gswarm/analyses/report-validation/report and make sure everything 
-      %    is in synch.sh
-      % 3. create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh validation
-      % 4. cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and 
-      %    update the stop_date in project.yaml to the last day of the last available model
-      %    (the new-analysis.sh script automatically updated that to today but that's no bueno)
-      % 5. fire up matlab and run the gswarm.validation method:
-      %     5.1: check if all products are being used, some may be commented
-      %     5.2: check if the 'nodata' option is false:
-      %         5.2.1: the the swarm data is downloaded from aristarchos (need ~/data/gswarm/rsync.remote2local.sh)
-      %         5.2.2: the GRACE data is downloaded from PODACC (need ~/data/grace/download-l2.sh, which
-      %                iterates over specific years, currently 2020)
-      %     5.4: check that the C20 data is updated and the model evaluated at the last 3 months
-      %     5.5: keep an eye the last epoch of the data as it is being loaded, it has to be the
-      %          same as the last available month; otherwise the analysis is incomplete
-      %     5.6: things that may go wrong:
-      %         5.6.1: the C20 data is not up-to-date
-      %         5.6.2: IfG releases a new version of their models and the metadata was not updated to that
-      %         5.6.3: AIUB names the modes incorrectly or does not compress them
-      % 6. update the orb git repo of the new validation dir (if changes to the code were made)
-      % 7. go through the report and update all %NEEDS UPDATING lines (some are automatically 
-      %    updated by new-analysis.sh)
-      % 8. compile it and compare this report with the previous one
-      % 9. run publish.sh [echo]
-      %10. go to the report dir in the new validation dir and make sure everything is in 
-      %    synch.sh (don't synch %NEEDS UPDATING lines)
-      %11. put the data into aristarchos (remove --dry-run, as usual):
-      %   ~/data/gswarm/rsync.local2remote.sh --delete --exclude-from=$HOME/data/gswarm/rsync.exclude.thumb --dry-run
-      %12. email the report to colleagues
+      %WORKFLOW Workflow of the validation report:
+      %WORKFLOW 1.  plug the thumb drive in (no need to mount-disk.sh)
+      %WORKFLOW 2.  go to ~/data/gswarm/analyses/report-validation/report and make sure everything 
+      %WORKFLOW     is in synch.sh
+      %WORKFLOW 3.  create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh validation
+      %WORKFLOW 4.  cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and 
+      %WORKFLOW     update the stop_date in project.yaml to the last day of the last available model
+      %WORKFLOW     (the new-analysis.sh script automatically updated that to today but that's no bueno)
+      %WORKFLOW 5.  fire up matlab and run the gswarm.validation method:
+      %WORKFLOW     5.1: check if all products are being used, some may be commented
+      %WORKFLOW     5.2: check if the 'nodata' option is false:
+      %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need ~/data/gswarm/rsync.remote2local.sh)
+      %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need ~/data/grace/download-l2.sh, which
+      %WORKFLOW                iterates over specific years, currently 2020)
+      %WORKFLOW     5.4: check that the C20 data is updated and the model evaluated at the last 3 months
+      %WORKFLOW         5.4.1: Don't forget to ask Bryant Loomis for the updated weekly C20 data, and save it
+      %WORKFLOW                as ~/data/gswarm/analyses/<date>-validation/orb/aux/GSFC_SLR_C20_7day.txt
+      %WORKFLOW     5.5: keep an eye the last epoch of the data as it is being loaded, it has to be the
+      %WORKFLOW          same as the last available month; otherwise the analysis is incomplete
+      %WORKFLOW     5.6: things that may go wrong:
+      %WORKFLOW         5.6.1: the C20 data is not up-to-date
+      %WORKFLOW         5.6.2: IfG releases a new version of their models and the metadata was not updated to that
+      %WORKFLOW         5.6.3: AIUB names the modes incorrectly or does not compress them
+      %WORKFLOW 6.  update the orb git repo of the new validation dir (if changes to the code were made)
+      %WORKFLOW 7.  go through the report and update all %NEEDS UPDATING lines (some are automatically 
+      %WORKFLOW     updated by new-analysis.sh)
+      %WORKFLOW 8.  compile it and compare this report with the previous one
+      %WORKFLOW 9.  run publish.sh [echo]
+      %WORKFLOW 10. go to the report dir in the new validation dir and make sure everything is in 
+      %WORKFLOW     synch.sh (don't synch %NEEDS UPDATING lines)
+      %WORKFLOW 11. put the data into aristarchos (remove --dry-run, as usual):
+      %WORKFLOW    ~/data/gswarm/rsync.local2remote.sh --delete --exclude-from=$HOME/data/gswarm/rsync.exclude.thumb --dry-run
+      %WORKFLOW 12. email the report to colleagues
       
       %TODO on next release(s):
       % - remove trends from gswarm.swarm.validation.maps (also plot trends)
