@@ -729,6 +729,9 @@ classdef str
       fprintf(fid,[strjoin(msg,'\n'),'\n']);
       fclose(fid);
     end
+    function out=quote(in)
+      out=['''',in,''''];
+    end
     %% under development
 %     function out=fmt_f2c(in)
 %       %split input fortran format string into a cell
