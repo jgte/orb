@@ -866,7 +866,7 @@ classdef gravity < simpletimeseries
           'plot_legend',version_list,...
           'plot_xlabel','none')
         title(['mean C_{20}: ',num2str(v.C20mean,'%e')]);
-        d=dat_list;
+        out=dat_list;
       otherwise
         %call mother routine
         try
