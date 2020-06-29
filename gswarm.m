@@ -1978,7 +1978,8 @@ classdef gswarm
         if ~exist(filename,'file')
           stmn=dataproduct(p{1}).mdget('static_model');
           stc20=datastorage().init(stmn).data_get_scalar(datanames(stmn).append_field_leaf('signal')).C(2,0);
-          tn=gravity.graceC20('mode','read' ); tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);            
+          tn=gravity.graceC20('mode','read');
+          tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);            
           plotting.figure;
           for i=1:size(a,1)
             a{i,1}.ts_C(2,0).addgaps(days(45)).plot;
@@ -2505,7 +2506,7 @@ classdef gswarm
           plotting.figure(varargin{:});
           grs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).plot('zeromean',true);
           grm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).plot('zeromean',true);
-          tn=gravity.graceC20.plot('columns',1,'zeromean',true,'version',C20_name);
+          tn=gravity.graceC20('version',C20_name).plot('columns',1,'zeromean',true);
           plotting.enforce('plot_legend',{...
             str.rep(grs.legend{1},'C2,0','GRACE data');...
             str.rep(grm.legend{1},'C2,0','GRACE model');...
@@ -2546,18 +2547,18 @@ classdef gswarm
           sw=d.data_get_scalar(p.swm.dataname).ts_C(2,0).addgaps(days(45)); swp=sw.plot;
           gs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).addgaps(days(45)); gsp=gs.plot;
           gm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).addgaps(days(45)); gmp=gm.plot;
-          tn=gravity.graceC20('mode','read','version',C20_name);
+          tn=gravity.graceC20('mode','read','version',strrep(C20_name,'-model',''));
           tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);            
-          tnp=tn.plot('columns',1);
+          tn.plot('columns',1);
           tm=gravity.graceC20('mode','model','time',gm.t,'version',strrep(C20_name,'-model',''));
           tm=tm.addgaps(days(45))-stc20(1);
-          tmp=tm.plot('columns',1);
+          tm.plot('columns',1);
           plotting.enforce('plot_legend',{...
             str.rep(swp.legend{1},'C2,0','Swarm (repl.)');...
             str.rep(gsp.legend{1},'C2,0','GRACE data');...
             str.rep(gmp.legend{1},'C2,0','GRACE model (p12)');...
-            str.rep(tnp.legend{1},'C20',C20_name);...
-            [C20_name,' model (p22)',tmp.legend{1}];...
+            strrep(C20_name,'-model','');...
+            C20_name;...
           },'plot_title','C20','plot_ylabel','non-dim');
           saveas(gcf,fn{1})
           str.say('plotted',fn{1})
