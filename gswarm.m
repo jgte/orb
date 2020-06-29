@@ -2730,7 +2730,7 @@ classdef gswarm
       %WORKFLOW 10. go to the report dir in the new validation dir and make sure everything is in 
       %WORKFLOW     synch.sh (don't synch %NEEDS UPDATING lines)
       %WORKFLOW 11. put the data into aristarchos (remove --dry-run, as usual):
-      %WORKFLOW    ~/data/gswarm/rsync.local2remote.sh --delete --exclude-from=$HOME/data/gswarm/rsync.exclude.thumb --dry-run
+      %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
       %WORKFLOW 12. email the report to colleagues
       
       %TODO on next release(s):
