@@ -2501,7 +2501,7 @@ classdef gswarm
           plotting.figure(varargin{:});
           grs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).plot('zeromean',true);
           grm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).plot('zeromean',true);
-          tn=gravity.graceC20.plot('columns',1,'zeromean',true);
+          tn=gravity.graceC20.plot('columns',1,'zeromean',true,'version',C20_name);
           plotting.enforce('plot_legend',{...
             str.rep(grs.legend{1},'C2,0','GRACE data');...
             str.rep(grm.legend{1},'C2,0','GRACE model');...
@@ -2542,9 +2542,11 @@ classdef gswarm
           sw=d.data_get_scalar(p.swm.dataname).ts_C(2,0).addgaps(days(45)); swp=sw.plot;
           gs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).addgaps(days(45)); gsp=gs.plot;
           gm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).addgaps(days(45)); gmp=gm.plot;
-          tn=gravity.graceC20('mode','read' ); tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);            
+          tn=gravity.graceC20('mode','read','version',C20_name);
+          tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);            
           tnp=tn.plot('columns',1);
-          tm=gravity.graceC20('mode','model','time',gm.t);tm=tm.addgaps(days(45))-stc20(1);
+          tm=gravity.graceC20('mode','model','time',gm.t,'version',strrep(C20_name,'-model',''));
+          tm=tm.addgaps(days(45))-stc20(1);
           tmp=tm.plot('columns',1);
           plotting.enforce('plot_legend',{...
             str.rep(swp.legend{1},'C2,0','Swarm (repl.)');...
