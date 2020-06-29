@@ -669,6 +669,15 @@ classdef gravity < simpletimeseries
           'C20mean',-4.8416945732000E-04, @isscalar;...
         },...
       },varargin{:});
+      %parse using a model or the original data
+      if contains(v.version,'-model')
+        new_mode=[strrep(v.mode,'model-',''),'-model'];
+        new_version=strrep(v.version,'-model','');
+        str.say('WARNING: over-writing input mode',str.quote(v.mode),'with',str.quote(new_mode),...
+          'since input version is',str.quote(v.version),', now passed along as',str.quote(new_version),'.')
+        out=gravity.graceC20(varargin{:},'mode',new_mode,'version',new_version);
+        return
+      end
       switch v.mode
       case 'C20mean'
         out=v.C20mean; 
@@ -729,7 +738,7 @@ classdef gravity < simpletimeseries
           gravity.graceC20(varargin{:},'mode','model-md5get'),...
           gravity.graceC20(varargin{:},'mode','model-md5')...
         );
-      case 'model'
+      case {'model','get-model','set-model','read-model','reload-model'}
         %loading necessary data
         c20=gravity.graceC20(varargin{:},'mode','read');
          np=gravity.graceC20(varargin{:},'mode','model-poly');
@@ -777,7 +786,7 @@ classdef gravity < simpletimeseries
           case 'model-list';     out=pardecomp.table(pd_set,'tablify',true);
           case 'model-list-tex'; out=pardecomp.table(pd_set,'tablify',false,'latex_table',true);
         end       
-      case 'model-plot'
+      case {'model-plot','plot-model'}
         %retrieve the orignal data
         c20o=gravity.graceC20(varargin{:},'mode','read');
         %resample to a finer time domain
