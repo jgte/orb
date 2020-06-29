@@ -1,7 +1,7 @@
 Title: NASA GSFC SLR C20 and C30 solutions
 Version: 2 (see Notes)
-Date created: 27 Apr 2020
-Data span: 4 Apr 2002 - 1 Mar 2020 (beginning of solution)
+Date created: 22 May 2020
+Data span: 4 Apr 2002 - 1 Apr 2020 (beginning of solution)
 Authors: B.D. Loomis and K.E. Rachlin
 Contact: bryant.d.loomis@nasa.gov
 Description:
@@ -218,3 +218,4 @@ Product:
 58849.0 2020.0000  -4.8416964330954E-04 -1.8599  0.1746   9.5714943936299E-07 -0.1532  0.2820 58880.0 2020.0847
 58880.0 2020.0847  -4.8416965738410E-04 -2.0006  0.1967   9.5718014944914E-07  0.1539  0.2837 58909.0 2020.1639
 58909.0 2020.1639  -4.8416963719004E-04 -1.7987  0.1804   9.5721250015046E-07  0.4774  0.2890 58940.0 2020.2486
+58940.0 2020.2486  -4.8416960788629E-04 -1.5057  0.1641   9.5721818390034E-07  0.5343  0.2273 58970.0 2020.3306
