@@ -3132,9 +3132,11 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   e_idx=5;
   CommentStyle='*';
   datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f';
-  %parse dependent arguments (can be over-written)
+  %upper-case version name 
   v.version=upper(v.version);
-  switch v.version
+  %parse dependent arguments (can be over-written)
+  %(NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
+  switch upper(v.version)
     case 'TN-07'
       datfil=[v.version,'_C20_SLR.txt'];
       daturl=['ftp://podaac.jpl.nasa.gov/allData/grace/docs/',datfil]; %NOTICE: this no longer works
@@ -3160,7 +3162,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       daturl=['https://neptune.gsfc.nasa.gov/uploads/images_db/',datfil];
     case 'GSFC-7DAY'
       datfil='GSFC_SLR_C20_7day.txt';
-      daturl='personal communication: email of 25/11/2019 from bryant.d.loomis@nasa.gov';
+      daturl='personal communication: email from bryant.d.loomis@nasa.gov';
       datfmt='%10.4f%23.13f';
       t_idx=1;
       s_idx=2;
@@ -3201,9 +3203,9 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     end
     %default descriptor
     d=['C20 time series, version ',v.version];
-    %get header info
-    switch v.version
-    case {'GSFC-7day','CSR-RL06'}
+    %get header info (NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
+    switch upper(v.version)
+    case {'GSFC-7DAY','CSR-RL06'}
       found=true;
     otherwise
       found=false;
@@ -3231,9 +3233,9 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     dat=textscan(fid,datfmt,'CommentStyle',CommentStyle);
     %close the file
     fclose(fid);
-    % outputs
-    switch v.version
-    case {'GSFC-7day','CSR-RL06'}
+    % outputs (NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
+    switch upper(v.version)
+    case {'GSFC-7DAY','CSR-RL06'}
       t=years(mean([dat{t_idx}],2))+datetime('0000-01-01 00:00:00');
     otherwise
       t=datetime(mean([dat{t_idx}],2),'ConvertFrom','modifiedjuliandate');
