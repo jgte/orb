@@ -2701,7 +2701,7 @@ classdef gswarm
       
       %WORKFLOW Workflow of the validation report:
       %WORKFLOW 1.  plug the thumb drive in (no need to mount-disk.sh)
-      %WORKFLOW 2.  go to ~/data/gswarm/analyses/report-validation/report and make sure everything 
+      %WORKFLOW 2.  go to ~/data/gswarm/analyses/report-validation/report and make sure everything
       %WORKFLOW     is in synch.sh
       %WORKFLOW 3.  create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh validation
       %WORKFLOW 4.  cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and 
@@ -2710,7 +2710,7 @@ classdef gswarm
       %WORKFLOW 5.  fire up matlab and run the gswarm.validation method:
       %WORKFLOW     5.1: check if all products are being used, some may be commented
       %WORKFLOW     5.2: check if the 'nodata' option is false:
-      %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need ~/data/gswarm/rsync.remote2local.sh)
+      %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need ~/data/gswarm/rsync.remote2local-subset.sh)
       %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need ~/data/grace/download-l2.sh, which
       %WORKFLOW                iterates over specific years, currently 2020)
       %WORKFLOW     5.4: check that the C20 data is updated and the model evaluated at the last 3 months
@@ -2732,13 +2732,32 @@ classdef gswarm
       %WORKFLOW 11. put the data into aristarchos (remove --dry-run, as usual):
       %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
       %WORKFLOW 12. email the report to colleagues
+      %WORKFLOW     
+      %WORKFLOW     (wait for email reponses)
+      %WORKFLOW     
+      %WORKFLOW 13. make sure data is in aristarchos (remove --dry-run, as usual):
+      %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
+      %WORKFLOW 14. login to aristarchos and:  
+      %WORKFLOW     cd /home/gswarm/data/dissemination
+      %WORKFLOW     tail *list && ./op.sh get-L1B-GPS get-L1B-ATT force && tail *list
+      %WORKFLOW     ./op.sh update-source update-raw
+      %WORKFLOW     ./op.sh make -val=yyyy-mm (run this for as many months as needed)
+      %WORKFLOW     [...]
+      %WORKFLOW     follow the instructions, additional commands needed. 
+      %WORKFLOW     
+      %WORKFLOW     After sending the email to ESA and ICGEM (as reported in the instructions):
+      %WORKFLOW 15  update the dissemination dir git repo: 
+      %WORKFLOW     git st && git add *; git ci -m 'added new models'
+      %WORKFLOW 16. update local data (remove --dry-run, as usual):
+      %WORKFLOW     ~/data/gswarm/rsync.remote2local-subset.sh --delete --dry-run
+      %WORKFLOW 17. plug in the data disk, mount it and sync the thumbs drive:
+      %WORKFLOW     mount-disk.sh data
+      %WORKFLOW     ~/media/data/data/rsync.thumb.sh reverse --dry-run 
       
       %TODO on next release(s):
       % - remove trends from gswarm.swarm.validation.maps (also plot trends)
       % - ensure EWH axis are consistent for global, land and ocean plots
             
-      %NOTICE: workflow to disseminate the models is in op.sh
-
       %produce plots for the report
       d=gswarm.production(...
         'products',  {...
