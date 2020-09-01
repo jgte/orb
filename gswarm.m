@@ -2645,14 +2645,18 @@ classdef gswarm
       end
       %check if this is a C20 model 
       model=contains(version,'-model');
+      plotfile=fullfile(plot_dir,['C20_',version,'.png']);
       %document the C20 model
       switch mode
       case 'done'
-        out=file.exist(gswarm.c20model('filename',plot_dir));
+        out=file.exist(plotfile);
+        if model
+          out=out && file.exist(strrep(plotfile,'.png','.tex'));
+        end
       case 'clear'
         out=delete(gswarm.c20model('filename',plot_dir));
       case 'filename'
-        out=fullfile(plot_dir,['C20_',version,'.png']);
+        out=plotfile;
       case 'plot'
         if ~gswarm.c20model('done',plot_dir)
           %this updates the coefficient time series, to make sure it has recent-enough data
@@ -2669,16 +2673,16 @@ classdef gswarm
           out=[];
         end
       case 'latex'
-        filename=strrep(gswarm.c20model('filename',plot_dir),'.png','.tex');
+        latexfile=strrep(plotfile,'.png','.tex');
         if model
           out=gravity.graceC20('mode','model-list-tex','version',version);
-          if ~file.exist(filename)
-            file.strsave(filename,out);
-            disp(['Saved C20 coefficients to ',filename])
+          if ~file.exist(latexfile)
+            file.strsave(latexfile,out);
+            disp(['Saved C20 coefficients to ',latexfile])
           end
         else
-          file.strsave(filename,'');
-          disp(['Saved empty string (',version,' is not a C20 model) to ',filename])
+          file.strsave(latexfile,'');
+          disp(['Saved empty string (',version,' is not a C20 model) to ',latexfile])
         end
       otherwise
         error(['Unknown mode ''',mode,'''.'])  
