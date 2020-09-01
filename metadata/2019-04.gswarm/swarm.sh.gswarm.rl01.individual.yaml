@@ -1,0 +1,6 @@
+submetadata: swarm.sh.gswarm.rl01.sources-individual.submetadata
+plot_smoothing_method: gauss
+plot_smoothing_degree: [750e3,750e3,750e3,750e3,750e3]
+plot_legend_include_smoothing: false
+plot_temp_stat_list: [corrcoeff,rms] #[corrcoeff,rms,std]
+plot_temp_stat_title: [temporal corr. coeff.,temporal RMS] #[temporal corr. coeff.,temporal RMS,temporal STD]

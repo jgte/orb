@@ -95,15 +95,15 @@ classdef cb
           gap_idx_nr=ceil(gap*NELEM);
 
           %building index vectors
-          gap_idx_lower=zero_idx-gap_idx_nr;
-          gap_idx_upper=zero_idx+gap_idx_nr;
+          gap_idx_lower=max(zero_idx-gap_idx_nr,1);
+          gap_idx_upper=min(zero_idx+gap_idx_nr,NELEM);
 
           for i=1:3
-              if gap_idx_lower > 0
+              if gap_idx_lower < zero_idx
                  new(gap_idx_lower:zero_idx,i)=interp1([gap_idx_lower,zero_idx],[new(gap_idx_lower,i), 1],...
                      gap_idx_lower:zero_idx,'linear');
               end
-              if gap_idx_upper > 0
+              if gap_idx_upper > zero_idx
                  new(zero_idx:gap_idx_upper,i)=interp1([zero_idx,gap_idx_upper],[1,new(gap_idx_upper,i)],...
                      zero_idx:gap_idx_upper,'linear');
               end
@@ -142,7 +142,7 @@ classdef cb
 
       % get the colormap and current axes
       %NOTICE: do not give any argument to colormap, this only works in gca
-      cm=colormap;
+      cm=colormap(gca);
       ca=caxis(gca);
 
       % get the step size of the colorbar
@@ -376,7 +376,7 @@ classdef cb
           colormap(new)
       end
     end
-    function resampled=opt(old,axis_h)
+    function resampled=opt(old,axis_h,data)
       % PLOT_COLORBAR_OPT(OLD,AXIS_H) compresses the color range of the <old>
       % colormap around the data regions where there is highest data density. If
       % ignored, the input <old> defaults to the current colormap.
@@ -422,17 +422,20 @@ classdef cb
 
       %% building colormap that shows variability best
 
-      %getting data
-      data=[];
-      h=get(gca,'Children');
-      for i=1:length(h)
-         switch get(h(i),'Type')
-             case {'image','surface'}
-%                  disp(['Found data of ',get(h(i),'Type'),'.'])
-                 data=get(h(i),'CData');
-                 break
-         end
+      if ~exist('data','var') || isempty(data)
+        %getting data
+        data=[];
+        h=get(gca,'Children');
+        for i=1:length(h)
+           switch get(h(i),'Type')
+               case {'image','surface'}
+  %                  disp(['Found data of ',get(h(i),'Type'),'.'])
+                   data=get(h(i),'CData');
+                   break
+           end
+        end
       end
+      
       %bug trap
       if isempty(data)
           error([mfilename,': could not find useful data in the current plot to make colormap.'])

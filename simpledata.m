@@ -3,16 +3,16 @@
   properties(Constant,GetAccess=private)
     %NOTE: edit this if you add a new parameter
     parameter_list={...
-      'x_tol',        1e-6,     @(i) isnumeric(i) && isscalar(i);...
-      'peeklength',   10,       @(i) isnumeric(i) && isscalar(i);...
-      'peekwidth',    10,       @(i) isnumeric(i) && isscalar(i);...
-      'labels',       {''},     @(i) iscell(i);...
-      'y_units',      {''},     @(i) iscellstr(i);...
-      'x_units',      '',       @(i) ischar(i);...
-      'descriptor',   '',       @(i) ischar(i);...
+      'x_tol',        1e-6,     @num.isscalar;...
+      'peeklength',   10,       @num.isscalar;...
+      'peekwidth',    10,       @num.isscalar;...
+      'labels',       {''},     @iscell;...
+      'y_units',      {''},     @iscellstr;...
+      'x_units',      '',       @ischar;...
+      'descriptor',   '',       @ischar;...
       'plot_zeros',   true,     @(i) islogical(i) && isscalar(i);...
-      'invalid',      999999999,@(i) isnumeric(i) && isscalar(i);...
-      'outlier_sigma',4,        @(i) isnumeric(i) && isscalar(i);...
+      'invalid',      999999999,@num.isscalar;...
+      'outlier_sigma',4,        @num.isscalar;...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -293,10 +293,10 @@
       % Handle Inputs
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'in',                       @(i) isnumeric(i));
+      p.addRequired( 'in',                       @isnumeric);
       p.addParameter('outlier_sigma',...
-         simpledata.parameters('outlier_sigma'), @(i) isnumeric(i) &&  isscalar(i));
-      p.addParameter('outlier_value', nan,       @(i) isnumeric(i) &&  isscalar(i));
+         simpledata.parameters('outlier_sigma'), @num.isscalar);
+      p.addParameter('outlier_value', nan,       @num.isscalar);
       % parse it
       p.parse(in,varargin{:});
       %assume there are no outliers
@@ -375,7 +375,7 @@
     function out=vmean(obj_list,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'obj_list', @(i) iscell(i))
+      p.addRequired( 'obj_list', @iscell);
       p.addParameter('weights',ones(size(obj_list))/numel(obj_list),@(i) isnumeric(i) && all(size(obj_list)==size(i)))
       p.parse(obj_list,varargin{:})
       out=obj_list{1}.*p.Results.weights(1);
@@ -386,7 +386,7 @@
     function out=vtimes(obj_list1,obj_list2)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'obj_list1', @(i) iscell(i))
+      p.addRequired( 'obj_list1', @iscell);
       p.addRequired( 'obj_list2', @(i) iscell(i) && all(size(obj_list1)==size(obj_list2)) )
       p.parse(obj_list1,obj_list2)
       out=cell(size(obj_list1));
@@ -397,7 +397,7 @@
     function out=vscale(obj_list,scales)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'obj_list', @(i) iscell(i))
+      p.addRequired( 'obj_list', @iscell);
       p.addRequired( 'scales',   @(i) isnumeric(i) && all(numel(obj_list)==numel(scales)) )
       p.parse(obj_list,scales)
       out=cell(size(obj_list));
@@ -408,7 +408,7 @@
     function out=vsqrt(obj_list)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'obj_list', @(i) iscell(i))
+      p.addRequired( 'obj_list', @iscell);
       p.parse(obj_list)
       out=cell(size(obj_list));
       for i=1:numel(obj_list)
@@ -719,7 +719,7 @@
 
       i=i+1;h{i}=figure('visible','off');
       a.plot('columns', 1,'line',{'x-'});
-      [a,o]=a.outlier(2);
+      [a,o]=a.outlier('outlier_iter',2);
       a.plot(...
         'columns', 1,...
         'masked',true,...
@@ -800,8 +800,8 @@
       p.addRequired( 'y'          ,         @(i) simpledata.valid_y(i));
       p.addParameter('x'          ,obj.x,   @(i) simpledata.valid_x(i));
       p.addParameter('mask'       ,obj.mask,@(i) simpledata.valid_mask(i));
-      p.addParameter('reset_width',false,   @(i) isscalar(i));
-      p.addParameter('monotonize','none',   @(i) ischar(i));
+      p.addParameter('reset_width',false,   @isscalar);
+      p.addParameter('monotonize','none',   @ischar);
       % parse it
       p.parse(y,varargin{:});
       % ---- x ----
@@ -945,23 +945,21 @@
     function out=stats(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('mode',         'struct',          @(i) ischar(i));
-      p.addParameter('frmt',         '%-16.3g',         @(i) ischar(i));
-      p.addParameter('tab',          8,                 @(i) isscalar(i));
-      p.addParameter('minlen',       2,                 @(i) isscalar(i));
-      p.addParameter('outlier',      0,                 @(i) isfinite(i));
-      p.addParameter('outier_sigma', obj.outlier_sigma, @(i) isnumeric(i));
-      p.addParameter('columns',      1:obj.width,       @(i) isnumeric(i) || iscell(i));
+      p.addParameter('mode',          'struct',          @ischar);
+      p.addParameter('frmt',          '%-16.3g',         @ischar);
+      p.addParameter('tab',           8,                 @isscalar);
+      p.addParameter('minlen',        2,                 @isscalar);
+      p.addParameter('columns',       1:obj.width,       @(i) isnumeric(i) || iscell(i));
       p.addParameter('struct_fields',...
         {'min','max','mean','std','rms','meanabs','stdabs','rmsabs','length','gaps','norm'},...
         @(i) iscellstr(i)...
       )
       % parse it
       p.parse(varargin{:});
-      %remove outliers
-      for c=1:p.Results.outlier
-        obj=obj.outlier(p.Results.outlier_sigma);
-      end
+      %detrend and remove outliers (if there inclinded according to outlier_iter, outlier_sigma and detrend)
+      %NOTICE: need to set 'outlier_iter' to 0, otherwise the default in obj.outlier is used in the (common)
+      %        case varargin{:} is omissive in the value of this option.
+      obj=obj.outlier('outlier_iter',0,varargin{:});
       %trivial call
       switch p.Results.mode
       case {'min','max','mean','std','rms','meanabs','stdabs','rmsabs'}
@@ -1067,12 +1065,9 @@
     function out=stats2(obj1,obj2,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('mode',       'struct', @(i) ischar(i));
-      p.addParameter('minlen',            2, @(i) isscalar(i));
+      p.addParameter('mode',       'struct', @ischar);
+      p.addParameter('minlen',            2, @isscalar);
       p.addParameter('columns', 1:min([obj1.width,obj2.width]), @(i) isnumeric(i) || iscell(i));
-      p.addParameter('outlier',           0, @(i) isfinite(i));
-      p.addParameter('outlier_sigma',...
-     simpledata.parameters('outlier_sigma'), @(i) isnumeric(i) &&  isscalar(i));
       p.addParameter('struct_fields',...
         {'cov','corrcoef','length','rms'},...
         @(i) iscellstr(i)...
@@ -1083,11 +1078,11 @@
       compatible(obj1,obj2,varargin{:})
       %need to make the mask match to make sure x_masked is common
       [obj1,obj2]=obj1.mask_match(obj2,'x-domain discrepancy, interpolate objects before calling this method');
-      %remove outliers
-      for i=1:p.Results.outlier
-        obj1=obj1.outlier(p.Results.outlier_sigma);
-        obj2=obj2.outlier(p.Results.outlier_sigma);
-      end
+      %detrend and remove outliers (if there inclinded according to outlier_iter, outlier_sigma and detrend)
+      %NOTICE: need to set 'outlier_iter' to 0, otherwise the default in obj.outlier is used in the (common)
+      %        case varargin{:} is omissive in the value of this option.
+      obj1=obj1.outlier('outlier_iter',0,varargin{:});
+      obj2=obj2.outlier('outlier_iter',0,varargin{:});
       %trivial call
       switch p.Results.mode
       case {'cov','corrcoef'}
@@ -1562,8 +1557,8 @@
       % parse inputs
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('interp_over_gaps_narrower_than',0,@(i) isscalar(i) && isnumeric(i) && ~isnan(i))
-      p.addParameter('interp1_args',cell(0),@(i) iscell(i))
+      p.addParameter('interp_over_gaps_narrower_than',0,@(i) num.isscalar(i) && ~isnan(i))
+      p.addParameter('interp1_args',cell(0),@iscell);
       % parse it
       p.parse(varargin{:});
       % need to add requested x-domain, so that implicit gaps can be handled
@@ -1648,19 +1643,20 @@
       %propagate the data
       obj=obj.assign(y_polyfitted,'x',x_out);
     end
-    function obj=detrend(obj,mode)
+    function obj=detrend(obj,mode,disp)
       if ~exist('mode','var') || isempty(mode)
         mode='linear';
       end
-      if ~isempty(strfind(mode,'poly'))
-        %determine polynomial order to be fitted
-        o=str2double(strrep(mode,'poly',''));
-        %polyfit the data
-        obj_polyfitted=obj.polyfit(o);
-        %subtract polyfitted data from input data
-        obj=obj-obj_polyfitted;
-        %we're done
+      if ~exist('disp','var') || isempty(disp)
+        disp=true;
+      end
+      %trivial call
+      if str.none(mode)
         return
+      end
+      %inform user
+      if disp
+        str.say(mode,'detrending of',obj.descriptor)
       end
       switch mode
       case 'cubic'
@@ -1679,38 +1675,80 @@
       case 'constant'
         obj.y(obj.mask,:)=detrend(obj.y_masked,'constant');
       otherwise
-        error([mfilename,': unknown mode ''',mode,'''.'])
+        if contains(mode,'poly')
+          %determine polynomial order to be fitted
+          o=str2double(strrep(mode,'poly',''));
+          %polyfit the data
+          obj_polyfitted=obj.polyfit(o);
+          %subtract polyfitted data from input data
+          obj=obj-obj_polyfitted;
+        else
+          error([mfilename,': unknown mode ''',mode,'''.'])
+        end
       end
       % sanitize
       obj.check_sd
     end
-    function [obj,outliers]=outlier(obj,outlier_sigma)
+    %NOTICE: also does detrending (defaults to none) because that operation is often needed to isolated outliers
+    function [obj,outliers]=outlier(obj,varargin)
+      v=varargs.wrap('sources',{....
+        {...
+          'outlier_sigma',    obj.outlier_sigma, @isnumeric;...
+          'outlier_iter',     1,                 @isfinite;...
+          'detrend',     'none',                 @ischar;...
+          'disp_flag',     true,                 @islogical;...
+        },...
+      },varargin{:});
+      %handle iterative outlier removal and trivial call
+      switch v.outlier_iter
+      case 0
+        %maybe detrending is requested anyway
+        obj=obj.detrend(v.detrend,v.disp_flag);
+        outliers=[];
+        return;
+      case 1
+      % do nothing
+      otherwise
+        %optional outputs: do things quicker if the value of the outliers is not needed.
+        if nargout>1        
+          outliers=cell(1,v.outlier_iter);
+          for i=1:v.outlier_iter
+            [obj,outliers{i}]=obj.outlier(varargin{:},'outlier_iter',1);
+          end 
+        else
+          for i=1:v.outlier_iter
+            obj=obj.outlier(varargin{:},'outlier_iter',1);
+          end 
+        end            
+        return
+      end
       %handle inputs
-      if ~exist('outlier_sigma','var') || isempty(outlier_sigma)
-        outlier_sigma=obj.outlier_sigma;
+      if isscalar(v.outlier_sigma)
+        v.outlier_sigma=v.outlier_sigma*ones(1,obj.width);
+      else
+        assert(numel(v.outlier_sigma) ~= obj.width,...
+          ['input <outlier_sigma> must have the same number of entries as data width (',...
+          num2str(obj.witdh),'), not ',num2str(numel(v.outlier_sigma)),'.']...
+        )
       end
-      if ~isnumeric(outlier_sigma)
-        error([mfilename,': input <outlier_sigma> must be numeric, not ',class(outlier_sigma),'.'])
-      end
-      if isscalar(outlier_sigma)
-        outlier_sigma=outlier_sigma*ones(1,obj.width);
-      elseif numel(outlier_sigma) ~= obj.width
-        error([mfilename,': input <outlier_sigma> must have the same number of entries as data width (',...
-          num2str(obj.witdh),'), not ',num2str(numel(outlier_sigma)),'.'])
+      %detrend data, handles the 'detrend' option internally
+      obj=obj.detrend(v.detrend,v.disp_flag);
+      %inform user
+      if v.disp_flag
+        str.say('removing outliers larger than ',mean(v.outlier_sigma),'-STD from',obj.descriptor)
       end
       %create tmp container
       y_data=zeros(obj.length,obj.width);
       if nargout>1; y_outliers=zeros(size(y_data)); end
-      %loop over data width, do things quicker if the value of the outliers
-      %is not needed.
+      %loop over data width, do things quicker if the value of the outliers is not needed.
       if nargout>1
         for i=1:obj.width 
-          [y_data(:,i),idx]=simpledata.rm_outliers(obj.y(:,i),'outlier_sigma',outlier_sigma(i),'outlier_value',0);
+          [y_data(:,i),idx]=simpledata.rm_outliers(obj.y(:,i),'outlier_sigma',v.outlier_sigma(i),'outlier_value',0);
           y_outliers(idx,i)=obj.y(idx,i);
         end
       else
         for i=1:obj.width
-          y_data(:,i)=simpledata.rm_outliers(obj.y(:,i),'outlier_sigma',outlier_sigma(i),'outlier_value',0);
+          y_data(:,i)=simpledata.rm_outliers(obj.y(:,i),'outlier_sigma',v.outlier_sigma(i),'outlier_value',0);
         end
       end
       %sanity
@@ -1825,9 +1863,9 @@
       % parse inputs
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('compatible_parameters',simpledata.compatible_parameter_list,@(i) iscellstr(i))
-      p.addParameter('check_width',true,@(i) islogical(i))
-      p.addParameter('skip_par_check',{''},@(i) iscellstr(i))
+      p.addParameter('compatible_parameters',simpledata.compatible_parameter_list,@iscellstr)
+      p.addParameter('check_width',true,@islogical);
+      p.addParameter('skip_par_check',{''},@iscellstr)
       % parse it
       p.parse(varargin{:});
       %basic sanity
@@ -2338,7 +2376,7 @@
         {...
           'epoch',    datetime('now'), @(i)isdatetime(i) || isscalar(i);...
           'timescale',      'seconds', @ischar;...
-          't0',              obj.x(1), @(i)numeric(i) && isscalar(i);...
+          't0',              obj.x(1), @num.isscalar;...
         },...
       },varargin{:});
       v=varargs.wrap('sources',{v,...
@@ -2352,7 +2390,7 @@
     function obj=diff(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('mode','central', @(i) ischar(i));
+      p.addParameter('mode','central', @ischar);
       % parse it
       p.parse(varargin{:});
       % retrieve x- and y-domain
@@ -2530,15 +2568,16 @@
     function out=plot(obj,varargin)
       v=varargs.wrap('sources',{....
         {...
-          'columns',    1:obj.width,@(i)isnumeric(i) || iscell(i);...
-          'line'   ,    {},         @(i)iscell(i);...
-          'color',      {},         @(i)iscell(i);...
-          'zeromean',   false,      @(i)islogical(i) && isscalar(i);...
-          'normalize',  false,      @(i)islogical(i) && isscalar(i);...
-          'outlier',    0,          @(i)isfinite(i)  && isscalar(i);...
-          'title',      '',         @(i)ischar(i);...
-          'smooth_span',0,          @(i)isfinite(i)  && isscalar(i) && i>=0;...
-          'scale',      1,          @(i)all(isfinite(i));...
+          'columns',      1:obj.width,@(i)isnumeric(i) || iscell(i);...
+          'line'   ,      {},         @iscell;...
+          'color',        {},         @iscell;...
+          'zeromean',     false,      @(i)islogical(i) && isscalar(i);...
+          'normalize',    false,      @(i)islogical(i) && isscalar(i);...
+          'outlier_iter', 0,          @(i)isfinite(i)  && isscalar(i);...
+          'title',        '',         @ischar;...
+          'smooth_span',  0,          @(i)isfinite(i)  && isscalar(i) && i>=0;...
+          'scale',        1,          @(i)all(isfinite(i));...
+          'masked',       false,      @(i)islogical(i) && isscalar(i);...
         },...
       },varargin{:});
       % type conversions
@@ -2567,8 +2606,8 @@
         % define a working mask
         out.mask{i}=true(size(obj.mask));
         % remove outliers if requested
-        if v.outlier>0
-          for c=1:v.outlier
+        if v.outlier_iter>0
+          for c=1:v.outlier_iter
              [y_plot,outlier_idx]=simpledata.rm_outliers(y_plot);
              %update the mask with the detected outliers
              out.mask{i}(outlier_idx)=false;
@@ -2587,6 +2626,10 @@
           i2=max([obj.length-span, ceil(obj.length/2)]);
           out.mask{i}(1 :i1 )=false;
           out.mask{i}(i2:end)=false;
+        end
+        % skip showing explicit gaps
+        if v.masked
+          out.mask{i}=out.mask{i} & obj.mask;
         end
         %derive bias and amplitude
         if v.zeromean || v.normalize
@@ -2718,7 +2761,7 @@
       p=inputParser;
       p.KeepUnmatched=true;
       % optional arguments
-      p.addParameter('mode',  'xy',              @(i)ischar(i));
+      p.addParameter('mode',  'xy',              @ischar);
       p.addParameter('masked',false,             @(i)islogical(i) && isscalar(i));
       p.addParameter('mask',  true(obj.length,1),@(i)islogical(i) && numel(i)==obj.length);
       % parse it

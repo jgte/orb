@@ -13,17 +13,25 @@ classdef datanames
     field_path_leaf
   end
   methods(Static)
-    function out=array(in,field_path)
+    function out=array(in,varargin)
       assert(iscell(in),[mfilename,': cannot handle input ''in'' of class ',class(in),', expecting a cell array.'])
       if isempty(in)
         out={};
       else
-        if exist('field_path','var') && ~isempty(field_path)
-          out=cellfun(@(i) datanames(i,field_path),in,'UniformOutput',false);
-        else
-          out=cellfun(@(i) datanames(i),in,'UniformOutput',false);
-        end
+        in=cells.scalar(in,'set');
+        out=cellfun(@(i)datanames(i,varargin{:}),in,'UniformOutput',false);
       end
+%       assert(iscell(in),[mfilename,': cannot handle input ''in'' of class ',class(in),', expecting a cell array.'])
+%       if isempty(in)
+%         out={};
+%       else
+%         in=cells.scalar(in,'set');
+%         if exist('field_path','var') && ~isempty(field_path)
+%           out=cellfun(@(i) datanames(i,field_path),in,'UniformOutput',false);
+%         else
+%           out=cellfun(@(i) datanames(i),in,'UniformOutput',false);
+%         end
+%       end
     end
     function out=common(dn_array)
       %handle edges
@@ -64,29 +72,25 @@ classdef datanames
     function obj=datanames(in,field_path)
       %sanity
       assert(~isempty(in),'cannot handle empty input ''in''.')
-      if ischar(in)
-        if ~isempty(strfind(in,filesep))
+      assert(isscalar(in)||ischar(in),'cannot handle non-scalar inputs; consider using datanames.array')
+      % branch on class
+      switch class(in)
+      case 'char'
+        if contains(in,filesep)
           in=strsplit(in,filesep);
           obj.name=in{1};
           obj=obj.set_field_path(in(2:end));
         else
           obj.name=in;
         end
-      % handle non-scalar inputs
-      elseif ~isscalar(in) 
-        error([mfilename,': cannot handle non-scalar inputs.'])
-      else
-        % branch on class
-        switch class(in)
-        case 'datanames'
-          obj=in;
-        case 'cell'
-          obj=datanames(in{1}); %already known to be scalar
-        case 'dataproduct'
-          obj=in.dataname;
-        otherwise
-          error([mfilename,': cannot handle input ''in'' of class ',class(in),'.'])
-        end
+      case 'datanames'
+        obj=in;
+      case 'cell'
+        obj=datanames(in{1}); %already known to be scalar
+      case 'dataproduct'
+        obj=in.dataname;
+      otherwise
+        error([mfilename,': cannot handle input ''in'' of class ',class(in),'.'])
       end
       %add field_path, if there
       if exist('field_path','var') && ~isempty(field_path)
@@ -212,16 +216,16 @@ classdef datanames
       p.KeepUnmatched=true;
       p.addParameter('start',     datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',      datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('ext',       '',              @(i) ischar(i));
-      p.addParameter('dir',       '',              @(i) ischar(i));
-      p.addParameter('timestamp',         false,   @(i) islogical(i));
-      p.addParameter('keeptsplaceholder', false,   @(i) islogical(i));
-      p.addParameter('ensure_dir',        true,    @(i) islogical(i));
+      p.addParameter('ext',       '',              @ischar);
+      p.addParameter('dir',       '',              @ischar);
+      p.addParameter('timestamp',         false,   @islogical);
+      p.addParameter('keeptsplaceholder', false,   @islogical);
+      p.addParameter('ensure_dir',        true,    @islogical);
       p.addParameter('remove_part',       '',      @(i) ischar(i) || iscellstr(i));
       p.addParameter('prefix',            '',      @(i) ischar(i) || iscellstr(i));
       p.addParameter('suffix',            '',      @(i) ischar(i) || iscellstr(i));
-      p.addParameter('sub_dirs',          'none',  @(i) ischar(i));
-      p.addParameter('add_field_path',    false,   @(i) islogical(i));
+      p.addParameter('sub_dirs',          'none',  @ischar);
+      p.addParameter('add_field_path',    false,   @islogical);
       % parse it
       p.parse(varargin{:});
       %propagate dataname to filename
@@ -241,8 +245,12 @@ classdef datanames
         filename=[filename,obj.field_path];
       end
       %add prefix and suffix (if non-empty)
-      if ~isempty(p.Results.prefix); filename=[{p.Results.prefix},filename]; end
-      if ~isempty(p.Results.suffix); filename{end+1}=p.Results.suffix; end
+      if ~isempty(p.Results.prefix)
+        filename=[{strip(p.Results.prefix,file.build_element_char)},filename];
+      end
+      if ~isempty(p.Results.suffix)
+        filename{end+1}=strip(p.Results.suffix,file.build_element_char);
+      end
       %add time stamp placeholder
       filename{end+1}='<TIMESTAMP>';
       %add extension

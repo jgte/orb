@@ -3,8 +3,8 @@ classdef simplefreqseries < simpletimeseries
   properties(Constant,GetAccess=private)
     %NOTE: edit this if you add a new parameter
     parameter_list={...
-      'psd_method',     'periodogram',@(i) ischar(i);...
-      'bandpass_method','fft',        @(i) ischar(i);...
+      'psd_method',     'periodogram',@ischar;...
+      'bandpass_method','fft',        @ischar;...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -124,7 +124,7 @@ classdef simplefreqseries < simpletimeseries
 
       %despiking
       
-      [d,s]=a.despike(5e-7,'nSigma',1);
+      [d,s]=a.despike(5e-7,'outlier_sigma',1);
       figure
       subplot(2,1,1)
       a.plot('columns',1)
@@ -258,7 +258,7 @@ classdef simplefreqseries < simpletimeseries
       p=inputParser;
       p.KeepUnmatched=true;
       % add stuff as needed
-      p.addParameter('method',  obj.psd_method,@(i) ischar(i));
+      p.addParameter('method',  obj.psd_method,@ischar);
       p.addParameter('resample',false,@(i)islogical(i) && isscalar(i));
       p.addParameter('detrend', true, @(i)islogical(i) && isscalar(i));
       p.addParameter('despike', false,@(i)islogical(i) && isscalar(i));
@@ -350,9 +350,9 @@ classdef simplefreqseries < simpletimeseries
       p=inputParser;
       p.KeepUnmatched=true;
       % add stuff as needed
-      p.addParameter('window_size',    dws,@(i)isnumeric(i) && isscalar(i) && round(i)==i);
-      p.addParameter('iter',           2,  @(i)isnumeric(i) && isscalar(i) && round(i)==i);
-      p.addParameter('window_stretch', 20, @(i)isnumeric(i) && isscalar(i) && round(i)==i);
+      p.addParameter('window_size',    dws,@(i)num.isscalar(i) && round(i)==i);
+      p.addParameter('iter',           2,  @(i)num.isscalar(i) && round(i)==i);
+      p.addParameter('window_stretch', 20, @(i)num.isscalar(i) && round(i)==i);
       % parse it
       p.parse(varargin{:});
       % trivial call
@@ -362,7 +362,7 @@ classdef simplefreqseries < simpletimeseries
       end
       % add additional dependent parameters
       p.KeepUnmatched=false;
-      p.addParameter('min_window_size',max([1,round(p.Results.window_size/100)]),@(i)isnumeric(i) && isscalar(i) && round(i)==i);
+      p.addParameter('min_window_size',max([1,round(p.Results.window_size/100)]),@(i)num.isscalar(i) && round(i)==i);
       % parse it again
       p.parse(varargin{:});
       %easier names
@@ -403,7 +403,7 @@ classdef simplefreqseries < simpletimeseries
       p.KeepUnmatched=true;
       % add stuff as needed
       p.addRequired('Wn',                  @(i) isnumeric(i) && numel(i)==2);
-      p.addParameter('gaps',      'zeroed',@(i) ischar(i));
+      p.addParameter('gaps',      'zeroed',@ischar);
       p.addParameter('detrend',   true,    @(i) islogical(i) && isscalar(i));
       p.addParameter('debug_plot',false,   @(i) islogical(i) && isscalar(i));
       % parse it
@@ -495,7 +495,7 @@ classdef simplefreqseries < simpletimeseries
       p.KeepUnmatched=true;
       % add stuff as needed
       p.addRequired('Wn',                  @(i) isnumeric(i) && numel(i)==2);
-      p.addParameter('gaps',      'interp',@(i) ischar(i));
+      p.addParameter('gaps',      'interp',@ischar);
       p.addParameter('detrend',   true,    @(i) islogical(i) && isscalar(i));
       p.addParameter('debug_plot',false,   @(i) islogical(i) && isscalar(i));
       % parse it
@@ -536,7 +536,7 @@ classdef simplefreqseries < simpletimeseries
       p.KeepUnmatched=true;
       % add stuff as needed
       p.addParameter('Wn',NaN,@(i) isnumeric(i) && numel(i)==2);
-      p.addParameter('method',obj.bandpass_method,@(i) ischar(i));
+      p.addParameter('method',obj.bandpass_method,@ischar);
       % parse it
       p.parse(varargin{:});
       %sanity
@@ -560,7 +560,6 @@ classdef simplefreqseries < simpletimeseries
       p.KeepUnmatched=true;
       % add stuff as needed
       p.addRequired('cutoff',                           @(i) isnumeric(i) && numel(i)==1);
-      p.addParameter('outlier_sigma',obj.outlier_sigma, @(i) isnumeric(i));
       p.addParameter('debug_plot',false,                @(i) islogical(i) && isscalar(i));
       % parse it
       p.parse(cutoff,varargin{:});
@@ -570,8 +569,8 @@ classdef simplefreqseries < simpletimeseries
       smoothed=obj.bandpass('Wn',[0,cutoff],varargin{:});
       % get high-frequency signal
       highfreq=obj-smoothed;
-      % find outliers in high-frequency signal
-      [despiked,spikes]=highfreq.outlier(p.Results.nSigma);
+      % find outliers in high-frequency signal (handles outlier_iter, outlier_sigma and detrend options)
+      [despiked,spikes]=highfreq.outlier(varargin{:});
       spikes=spikes.psd_init;
       % restore smoothed signal
       despiked=despiked+smoothed;

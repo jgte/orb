@@ -1,0 +1,78 @@
+plot_product: true
+method: gswarm.plot_stats
+explicit_fields: true
+model_types: [signal]
+storage_period: direct
+plot_signal: true
+plot_summary: false
+plot_save_data: yes
+#check plots before saving
+# plot_visible: false
+# plot_pause_on_save: false
+plot_visible: true
+plot_pause_on_save: true
+#NOTICE: replacing is done before suppressing (on capitalized product names)
+plot_legend_replace: [
+  ERR,diff w.r.t GRACE model,
+  SWARM,Swarm,
+  PD TS,model,
+  GRACEFO,GRACE,
+  RES,diff. wrt,
+  ASU IFG,ASU,
+  OSU AIUB,OSU
+]
+plot_title_replace:  [
+  ERR,diff w.r.t GRACE model,
+  SWARM,Swarm,
+  PD TS,model,
+  GRACEFO,GRACE,
+  RES,diff. wrt,
+  AIUB AIUB V01,AIUB,
+  IFG IFG V03,IFG,
+  ASU IFG,ASU,
+  OSU AIUB,OSU
+]
+#NOTICE: suppressing is done after replacing
+plot_legend_suppress: [SH,GSWARM,GSwarm,SIGNAL,RL06,CSR,RL01,V01,V02,V03]
+plot_title_suppress:  [SH,GSWARM,GSwarm,SIGNAL,RL06,CSR,RL01,V01,V02,V03]
+#what to plot
+plot_functional: eqwh
+plot_std_caxis: [0,0.05]
+plot_rms_caxis: [0,0.05]
+plot_corrcoeff_caxis: [-1,1]
+plot_colormap: jetzero
+plot_legend_box: false
+#how to process the data
+plot_outlier_iter: 0
+plot_detrended: linear
+plot_min_degree: 2
+plot_max_degree: 20
+#annotations
+plot_xdateformat: yy/mm
+plot_legend_sorting: none
+plot_legend_include_smoothing: false
+plot_fontsize_axis: 28
+plot_fontsize_title: 32
+plot_fontsize_label: 28
+plot_fontsize_legend: 28
+plot_logy: false
+plot_title: none
+
+#plot_spatial_stats
+plot_spatial_mask: none
+plot_spatial_diff_quantity: [cumdas,gridmean]
+plot_type: line
+plot_spatial_stat_list: [diff]
+
+# plot_temporal_stats 
+# NOTICE: plot_temp_stat_list and plot_temp_stat_title both must be declared and agree
+plot_temp_stat_list: [rms] #[corrcoeff,rms,std]
+plot_temp_stat_title: [temporal RMS] #[temporal corr. coeff.,temporal RMS,temporal STD]
+
+# plot_low_degrees (don't plot anything)
+degrees: -1
+orders: -1
+
+
+
+

@@ -1,0 +1,15 @@
+submetadata: swarm.sh.gswarm.rl01.sources-individual.submetadata
+model_types: [error]
+plot_smoothing_method: none
+plot_detrended: none
+stats_relative_to: none
+plot_spatial_diff_quantity: [cumdas]
+plot_spatial_monthly_quantity: [trianglog10]
+plot_spatial_stat_list: [monthly]
+plot_temp_stat_list: [none] #[corrcoeff,rms,std]
+plot_temp_stat_title: [] #[temporal corr. coeff.,temporal RMS,temporal STD]
+plot_title: default
+plot_type: line
+#this product creates a lot of plots
+plot_visible: false
+plot_pause_on_save: false
