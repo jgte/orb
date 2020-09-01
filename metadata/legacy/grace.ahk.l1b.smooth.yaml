@@ -7,5 +7,5 @@ storage_period: daily
 plot_columns: [1,2,3,4]
 plot_normalize: true
 plot_zeromean: true
-plot_outlier: 0
+plot_outlier_iter: 0
 plot_title_suppress: [grace]

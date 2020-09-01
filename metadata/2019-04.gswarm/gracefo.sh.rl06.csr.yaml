@@ -1,0 +1,13 @@
+import_dir: <getenv('HOME')>/data/grace/L2/CSR/RL06/
+model_types: [signal,error]
+#the trailing wildcard here is needed to pick data that has not been decompressed
+wildcarded_filename: GSM-2_*BA01*.gsm* #NOTICE: this is not only GRACE-FO, it is also GRACE
+model_format: gsm
+date_parser: gravity.parse_epoch_grace
+submetadata: [model.processing.submetadata,model.plotting.submetadata]
+storage_period: yearly
+
+start: 2002-04-01
+
+
+never_force: true

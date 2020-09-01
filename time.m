@@ -107,7 +107,7 @@ classdef time
       case 'cell'
         out=cellfun(@time.iszero,in);
       otherwise
-        out=(time.mutate(in)==time.inf_date);
+        out=abs(time.mutate(in)<time.inf_date)<0.5;
       end
     end
     function out=isfinite(in)
@@ -130,6 +130,13 @@ classdef time
         rand(n,1)*31,...
         rand(n,3)*60 ...
       ]))),'ConvertFrom','datenum')+years(2000);
+    end
+    function out=domain(start,stop,step)
+      out=transpose(start:step:stop);
+      %make sure out includes obj.stop (hopefully patched with NaNs later)
+      if out(end)<stop
+        out(end+1)=out(end)+step;
+      end
     end
     %% auto time/duration/strings
     function out=scale(in)
@@ -365,7 +372,7 @@ classdef time
       p=inputParser;
       p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
       p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
-      p.addRequired( 'period',  @(i) isduration(i));
+      p.addRequired( 'period',  @isduration);
       p.parse(start,stop,period)
       switch period
       case days(1)

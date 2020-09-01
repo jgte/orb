@@ -1,0 +1,8 @@
+storage_period: none
+method: gswarm.load_models
+use_GRACE_C20: TN-11-model
+delete_C20: false
+delete_C00: true
+max_degree: 40
+static_model: static.ggm05g
+storage_period: yearly

@@ -5,8 +5,8 @@ recycle: on
 # NOTICE  If these directories are not in cwd (./), then links will be created there (by startup.m)
 #         This is so that there are always  some valid 'data' and 'metadata' dirs in ./
 # NOTICE: metadata is divided into directories corresponding to the projects and are
-#         saved in the git repo. If using a remote metadata (i.e. not inside ./), the same
-#         structure is created (and those metadata are NOT saved in the git repo)
+#         saved in the git repo. If using a remote metadata dir (i.e. not inside ./), the same
+#         structure is created in that dir (and those metadata are NOT saved in the git repo)
 # NOTICE: data is not saved in the git repo and should be properly defined in the project.yaml
 #         Using './data' will just create an empty dir (into where imported data will be saved)
 data_dir: ./data

@@ -1,0 +1,6 @@
+submetadata: swarm.sh.gswarm.rl01.sources-comb.submetadata
+plot_smoothing_method: gauss
+plot_smoothing_degree: [750e3,750e3,750e3]
+plot_spatial_mask: non-tropical
+plot_temp_stat_list: [none] #[corrcoeff,rms,std]
+plot_temp_stat_title: [none] #[temporal corr. coeff.,temporal RMS,temporal STD]

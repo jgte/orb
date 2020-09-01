@@ -253,7 +253,7 @@ classdef file
       end
       %open the file if needed
       [fid,~,close_file]=file.open(filename,'r');
-      %save the string
+      %load the string
       str=fscanf( fid, '%s');
       %close the file (if fid not given)
       if close_file, fclose(fid); end
@@ -300,7 +300,7 @@ classdef file
     function [filenames,no_change_flag]=resolve_ext(in,ext,varargin)
       p=inputParser; p.KeepUnmatched=true;
       p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i)); 
-      p.addRequired( 'ext',                           @(i) ischar(i)                  ); 
+      p.addRequired( 'ext',                           @ischar); 
       p.addParameter('prefer_non_ext_files',   false, @(i) islogical(i) && isscalar(i));
       p.addParameter('prefer_ext_files',       false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',      false, @(i) islogical(i) && isscalar(i));
@@ -364,8 +364,9 @@ classdef file
       p.addParameter('directories_only',    false, @(i) islogical(i) && isscalar(i));
       p.addParameter('files_only',          false, @(i) islogical(i) && isscalar(i));
       p.addParameter('stop_if_empty',       false, @(i) islogical(i) && isscalar(i));
+      p.addParameter('passtrough_if_empty', false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',   false, @(i) islogical(i) && isscalar(i));
-      p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @(i) isnumeric(i) && isscalar(i));
+      p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
       % parse it
       p.parse(in,varargin{:});
       %reduce scalar cell to char (avoids infinite loops with vector mode)
@@ -426,6 +427,10 @@ classdef file
         if p.Results.stop_if_empty
           error(msg)
         end
+        if p.Results.passtrough_if_empty
+          filenames=fullfile(a,f_in);
+          return
+        end
         if p.Results.disp
           str.say('stack_delta',p.Results.stack_delta,['WARNING: ',msg])
         end
@@ -463,7 +468,7 @@ classdef file
       p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i)); 
       p.addParameter('prefer_compressed_files',false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',      false, @(i) islogical(i) && isscalar(i));
-      p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @(i) isnumeric(i) && isscalar(i));
+      p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
       p.parse(in,varargin{:})
       %reduce scalar
       in=cells.scalar(in);
@@ -550,8 +555,8 @@ classdef file
       p.addParameter( 'start',       time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
       p.addParameter( 'stop',        time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
       p.addParameter( 'period',      days(1),                      @(i) isscalar(i) && isduration(i));
-      p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @(i) ischar(i));
-      p.addParameter( 'only_existing',true,                        @(i) islogical(i));
+      p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @ischar);
+      p.addParameter( 'only_existing',true,                        @islogical);
       p.addParameter( 'scalar_as_strings',false,                   @(i) islogical(i) && isscalar(i));
       p.parse(in,varargin{:})
       %reduce scalar
@@ -608,8 +613,10 @@ classdef file
           end
         end
         switch func2str(f)
-          case 'file.resolve_ext'; io=f(io,'.mat',varargin{:}); 
-          otherwise;               io=f(io,varargin{:});
+          case 'file.resolve_ext';       io=f(io,'.mat',varargin{:}); 
+          %NOTICE: passtrough_if_empty deals with cases that the non-mat is absent but the mat file is available
+          case 'file.resolve_wildcards'; io=f(io,'passtrough_if_empty',true,varargin{:}); 
+          otherwise;                     io=f(io,varargin{:});
         end
         if p.Results.debug;
           if ischar(io)
@@ -623,13 +630,35 @@ classdef file
       end
     end
     %% CLI interfaces
+    function [out,result]=system(com,disp_flag,stop_if_error)
+      if ~exist('disp_flag','var') || isempty(disp_flag)
+        disp_flag=false;
+      end
+      if ~exist('stop_if_error','var') || isempty(stop_if_error)
+        stop_if_error=false;
+      end
+      [status,result]=system(com);
+      result=str.chomp(result);
+      out=(status==0);
+      if ~out 
+        if stop_if_error
+          error([str.dbstack,result])
+        else
+          disp(['WARNING: problem issuing command ''',com,''':',newline,result])
+        end
+      else
+        if disp_flag
+          disp(result)
+        end
+      end
+    end
     function [out,s]=find(varargin)
       com=['find ',strjoin(str.clean(varargin,'regex'),' ')];
-      [s,r]=system(com);
-      if s~=0
-         out={};
-      else
+      [s,r]=file.system(com);
+      if s
         out=cells.rm_empty(strsplit(r,newline));
+      else
+        out={};
       end
     end
     function [out,s]=rsync(from,to,more_args,args)
@@ -640,28 +669,34 @@ classdef file
         args='--archive --hard-links --copy-unsafe-links --recursive --itemize-changes --exclude=._* --exclude=.*';
       end
       assert(~isempty(from) && ~isempty(to),'Inputs ''from'' and ''to'' cannot be empty.')
-      [s,r]=system(['rsync ',args,' ',more_args,' ',from,' ',to]);
-      if s~=0
-        out={};
-      else
+      [s,r]=file.system(['rsync ',args,' ',more_args,' ',from,' ',to]);
+      if s
         out=cells.rm_empty(strsplit(r,newline));
         out=cellfun(@(i) strsplit(i),out,'UniformOutput',false);
         out=cellfun(@(i) i{2:end},   out,'UniformOutput',false);
+      else
+        out={};
       end
     end
-    function st=mkdir(dirname,disp_flag)
+    function out=mkdir(dirname,disp_flag)
       if ~exist('disp_flag','var') || isempty(disp_flag)
         disp_flag=false;
       end
       dirname=file.resolve_home(dirname);
       if ~exist(dirname,'dir')
-        [st,msg]=mkdir(dirname);
-        assert(st,['error creating directory ''',dirname,''': ',msg])
+        [out,msg]=mkdir(dirname);
         if disp_flag
-          disp(['NOTICE: created dir: ',dirname])
+          if out
+            disp(['Created directory: ',dirname])
+          else
+            disp(['WARNING: could not create directory: ',dirname,':',newline,msg])            
+          end
         end
       else
-        st=true;
+        out=true;
+        if disp_flag
+          disp(['Directory already available: ',dirname])
+        end
       end
     end
     function out=ln(source,target,disp_flag)
@@ -675,18 +710,10 @@ classdef file
       if ~exist(target,'file')
         %avoid circular links
         if strcmp(file.fullpath(source),file.fullpath(target))
-          result=['circular linking ',source,' to ',target,' is ilegal'];
+          disp(['WARNING: circular linking ',source,' to ',target,' is ilegal'])
           out=false;
         else
-          [status,result]=system(['ln -sv ',source,' ',target]);
-          out=(status==0);
-        end
-        if ~out
-          disp(['WARNING: problem linking ',source,' to ',target,':',newline,result])
-        else
-          if disp_flag
-            disp(['NOTICE: linked ',source,' to ',target])
-          end
+          out=file.system(['ln -sv ',source,' ',target],disp_flag);
         end
       else
         out=false;
@@ -696,17 +723,14 @@ classdef file
       end
     end
     function result=ls(in,ls_flags)
+      if ~exist('in','var') || isempty(in)
+        in=pwd;
+      end
       if ~exist('ls_flags','var') || isempty(ls_flags)
         ls_flags='';
       end
       in=file.resolve_home(in);
-      [status,result]=system(['ls ',ls_flags,' ',in,]);
-      out=(status==0);
-      if ~out
-        disp(['WARNING: problem issueing command ''ls ',ls_flags,' ',in,''':',newline,result])
-      else
-        result=result(1:end-1);
-      end      
+      [~,result]=file.system(['ls ',ls_flags,' ',in,],false);
     end
     function result=md5(in,md5_flags)
       if ~exist('ls_flags','var') || isempty(md5_flags)
@@ -720,6 +744,45 @@ classdef file
       else
         result=result(1:end-1);
       end      
+    end
+    function out=git(mode,filename,commit_msg)
+      if ~exist('filename','var') || isempty(filename)
+        filename=[mfilename('fullpath'),'.m'];
+      end
+      if ~exist('commit_msg','var') || isempty(commit_msg)
+        commit_msg=['updated ',filename];
+      end
+      %check if this is a directory
+      if ~exist(filename,'dir')~=0
+        [d,f,e]=fileparts(filename);
+        if isempty(d); d='./'; end
+        f=[f,e];
+      else
+        d=filename;
+        f='';
+      end
+      git_com=['git -C ',d];
+      switch mode
+        case 'date'
+          git_com=[git_com,' log -1 --format=%cd --date=iso-local ',f];
+        case {'status','st','add'}
+          git_com=[git_com,' ',mode,' ',fullfile(d,f)];
+        case {'commit','ci'}
+          git_com=[git_com,' ',mode,' -m "',commit_msg,'"'];
+        case 'push'
+          git_com=[git_com,' ',mode];
+        case 'isuptodate'
+          out=str.contains(...
+            file.git('status',filename),'nothing to commit, working tree clean'...
+          );
+          return
+        otherwise
+          error(['Cannot handle git command ''',mode,'''.'])
+      end
+      %git it
+      [~,out]=file.system(git_com,false,false);
+      %pre-pend directory report
+      out=['Result of "',git_com,'" is:',newline,out];
     end
     %% general utils
     function io=ensure_scalar(io,force)
@@ -780,13 +843,13 @@ classdef file
       end
       %check if this is really a relative path
       if file.isabsolute(relativepath)
-        out=relativepath;
+        out=file.fullpath(relativepath);
       else
         out=fullfile(root,relativepath);
       end
     end
     function out=isabsolute(filename)
-      out=filename(1)==filesep;
+      out=filename(1)==filesep || filename(1)=='~';
     end
     function io=trailing_filesep(io)
       if iscellstr(io)
@@ -799,15 +862,32 @@ classdef file
       end
     end
     %NOTICE: if 'in' is a dangling link, out is false
-    function out=exist(in)
+    function out=exist(in,force,disp_flag)
+      if ~exist('force','var') || isempty(force)
+        force=false;
+      end
+      if ~exist('disp_flag','var') || isempty(disp_flag)
+        disp_flag=false;
+      end
       %vector mode
       if iscellstr(in)
-        out=cellfun(@file.exist,in);
+        out=cellfun(@(i)file.exist(i,force,disp_flag),in);
       elseif ischar(in)
         %NOTICE: exist returns 7 if in 1st input is a dir and 2nd input is 'file' or 'dir'
         %        but returns 2 if 1st input is a dir only if 2nd input is 'file' (returns 0 if it is 'dir')
         %        so using 'file' captures both cases
-        out=exist(file.resolve_home(in),'file')~=0;
+        out= ~str.logical(force) && exist(file.resolve_home(in),'file')~=0;
+        if disp_flag
+          if exist(file.resolve_home(in),'file')~=0
+            if str.logical(force)
+              str.say('stack_delta',1,'file exists but force is true',in)
+            else
+              str.say('stack_delta',1,'file exists',in)
+            end
+          else
+            str.say('stack_delta',1,'file does not exist',in)
+          end
+        end
       else
         error(['Cannot handle inputs of class ',class(in),'.'])
       end
@@ -918,6 +998,10 @@ classdef file
         io=cells.scalar(io,'get');
       end
     end
+    function out=basename(in)
+      [~,f,e]=fileparts(in);
+      out=[f,e];
+    end
   end
 end
 
@@ -992,9 +1076,9 @@ function filenames=unwrap_old(in,varargin) %used to be simpletimeseries.unwrap_d
   p.addParameter( 'start',       time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
   p.addParameter( 'stop',        time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
   p.addParameter( 'period',      days(1),                      @(i) isscalar(i) && isduration(i));
-  p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @(i) ischar(i));
-  p.addParameter( 'only_existing',true,                        @(i) islogical(i));
-  p.addParameter( 'stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @(i) isnumeric(i) && isscalar(i));
+  p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @ischar);
+  p.addParameter( 'only_existing',true,                        @islogical);
+  p.addParameter( 'stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
   p.parse(in,varargin{:})
   %parse wildcards and handle .mat files
   in=file.wildcard(in,varargin{:});
@@ -1109,7 +1193,7 @@ function [filenames,wildcarded_flag]=wildcard_old(in,varargin)
   p.addParameter('directories_only',    false, @(i) islogical(i) && isscalar(i));
   p.addParameter('files_only',          false, @(i) islogical(i) && isscalar(i));
   p.addParameter('stop_if_empty',       false, @(i) islogical(i) && isscalar(i));
-  p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @(i) isnumeric(i) && isscalar(i));
+  p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
   % parse it
   p.parse(in,varargin{:});
   %reduce scalar cell to char (avoids infinite loops with vector mode)

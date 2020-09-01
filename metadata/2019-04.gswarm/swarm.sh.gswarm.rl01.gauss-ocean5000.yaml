@@ -1,0 +1,6 @@
+submetadata: swarm.sh.gswarm.rl01.sources-comb.submetadata
+plot_smoothing_method: gauss
+plot_smoothing_degree: [5000e3,5000e3,5000e3]
+plot_spatial_mask: deep ocean
+plot_std_caxis: [0,0.001]
+plot_rms_caxis: [0,0.001]

@@ -83,7 +83,13 @@ classdef str
       %handle non-scalar quantities
       %NOTICE: don't use isscalar here because it will pick the size method in objects and return false
       %TODO: this breaks with non-scalar structures
-      if numel(in)>1
+      switch numel(in)
+      case 0
+        out='';
+        return
+      case 1
+        % do nothing
+      otherwise
         out=cell(size(in));
         for i=1:numel(in)
           out{i}=str.show(in(i),fmt,join_char);
@@ -396,8 +402,8 @@ classdef str
     function out=just(in,len,varargin)
       % parse mandatory arguments
       p=inputParser;
-      p.addRequired( 'in',           @(i) ischar(i) || is);
-      p.addRequired( 'len',          @(i) isfinite(i));
+      p.addRequired( 'in',           @ischar);
+      p.addRequired( 'len',          @isfinite);
       p.addParameter('just','center',@(i) any(strcmp(i,{'left','center','right'})));
       p.parse(in,len,varargin{:});
       %truncate 'in' if needed
@@ -478,6 +484,17 @@ classdef str
     end
     function out=iseq(str1,str2)
       out=length(str1)==length(str2) && all(str1==str2);
+    end
+    function io=chomp(io)
+      if iscellstr(io)
+        io=cellfun(@(i) str.chomp(i),io,'UniformOutput',false);
+      elseif ischar(io)
+        if ~isempty(io) && io(end)==newline
+          io=io(1:end-1);
+        end
+      else
+        error(['Cannot handle input of class ''',class(io),'''.'])
+      end
     end
     %% conversion
     %first argument is field width, all remaining inputs are values to print.
@@ -569,10 +586,8 @@ classdef str
         in=(in~=seconds(0));
       case 'char'
         switch lower(in)
-        case {'true','t','on','yes'}
-          in=true;
-        case {'false','f','off','no'}
-          in=false;
+        case {'true' ,'t','on' ,'yes'}; in=true;
+        case {'false','f','off','no' }; in=false;
         otherwise
           error(['Cannot understand logical string ''',in,'''.'])
         end
@@ -585,16 +600,27 @@ classdef str
       end
       %then convert to requested mode
       switch lower(mode)
-      case 'truefalse'; if in; out='true'; else out='false';end
-      case 'tf';        if in; out='T';    else out='F';    end
-      case 'onoff';     if in; out='on';   else out='off';  end
-      case 'yesno';     if in; out='yes';  else out='no';   end
+      case 'truefalse'; if in; out='true'; else; out='false';end
+      case 'tf';        if in; out='T';    else; out='F';    end
+      case 'onoff';     if in; out='on';   else; out='off';  end
+      case 'yesno';     if in; out='yes';  else; out='no';   end
       case 'logical';   out=in;
       otherwise
-        idx=strfind(mode,'-');
-        assert(~isempty(idx),['Unknown mode ''',mode,'''.'])
+        assert(contains(mode,'-'),['Unknown mode ''',mode,'''.'])
         mode=strsplit(mode,'-');
-        if in; out=mode{1}; else out=mode{2}; end
+        if in
+          out=mode{1};
+        else
+          out=mode{2};
+        end
+      end
+    end
+    function out=islogical(in)
+      try
+        str.logical(in);
+        out=true;
+      catch
+        out=false;
       end
     end
     %returns true of 'in' means 'none'
@@ -615,9 +641,14 @@ classdef str
         out=~str.logical(in);
       catch
         %test common 'none' strings
-        out=strcmpi(in,'clean') || ...
+        out=strcmpi(in,'none')  || ...
+            strcmpi(in,'zero')  || ...
+            strcmpi(in,'null')  || ...
+            strcmpi(in,'void')  || ...
+            strcmpi(in,'clean') || ...
             strcmpi(in,'clear') || ...
-            strcmpi(in,'none');
+            strcmpi(in,'nepia') || ...
+            strcmpi(in,'nicles');
       end
     end
     function out=default(in)
@@ -639,9 +670,20 @@ classdef str
       end
     end
     %% user feedback
+    function out=dbstack(delta)
+      if ~exist('delta','var') || isempty(delta)
+        delta=0;
+      end
+      s=dbstack(1+delta);
+      if isempty(s)
+        out='';
+      else
+        out=[s(1).name,':',num2str(s(1).line),': '];
+      end
+    end
     function out=say(varargin)
       %default value for internal parameters
-      stack_delta=0;
+      stack_delta=1;
       %loop control
       start_idx=1;
       start_idx_old=0;
@@ -657,12 +699,7 @@ classdef str
           start_idx=start_idx+2;
         end
       end
-      s=dbstack(1+stack_delta);
-      if isempty(s)
-        out=str.show(cells.rm_empty(varargin(start_idx:end)));
-      else
-        out=[s(1).name,':',num2str(s(1).line),': ',str.show(cells.rm_empty(varargin(start_idx:end)))];
-      end
+      out=[str.dbstack(stack_delta),str.show(cells.rm_empty(varargin(start_idx:end)))];
       if nargout==0
         disp(out);
         clear out
@@ -671,9 +708,9 @@ classdef str
     function log(filename,msg,varargin)
       % parse mandatory arguments
       p=inputParser;
-      p.addRequired( 'filename',    @(i) ischar(i));
+      p.addRequired( 'filename',    @ischar);
       p.addRequired( 'msg',         @(i) iscellstr(i) || ischar(i));
-      p.addParameter('clear',false, @(i) islogical(i));
+      p.addParameter('clear',false, @islogical);
       p.parse(filename,msg,varargin{:});
       if p.Results.clear && exist(filename,'file')
         delete(filename)
@@ -691,6 +728,9 @@ classdef str
       fid = fopen(filename,'a');  
       fprintf(fid,[strjoin(msg,'\n'),'\n']);
       fclose(fid);
+    end
+    function out=quote(in)
+      out=['''',in,''''];
     end
     %% under development
 %     function out=fmt_f2c(in)

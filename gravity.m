@@ -29,12 +29,12 @@ classdef gravity < simpletimeseries
     );
     %default value of some internal parameters
     parameter_list={...
-      'GM',       398600.4415e9, @(i) isnumeric(i) && isscalar(i);...      % Standard gravitational parameter [m^3 s^-2]
-      'R',        6378136.460,   @(i) isnumeric(i) && isscalar(i);...      % Earth's equatorial radius [m]
-      'rho_earth',5514.32310829, @(i) isnumeric(i) && isscalar(i);...      % average density of the Earth = (GM/G) / (4/3*pi*R_av^3) [kg/m3]
-      'rho_water',1000,          @(i) isnumeric(i) && isscalar(i);...      % water density [kg/m3]
-      'G',        6.67408e-11,   @(i) (isnumeric(i) && isscalar(i)) || isempty(i);...      % Gravitational constant [m3/kg/s2]
-      'Rm',       6371000,       @(i) (isnumeric(i) && isscalar(i)) || isempty(i);...      % Earth's mean radius [m]
+      'GM',       398600.4415e9, @num.isscalar;...      % Standard gravitational parameter [m^3 s^-2]
+      'R',        6378136.460,   @num.isscalar;...      % Earth's equatorial radius [m]
+      'rho_earth',5514.32310829, @num.isscalar;...      % average density of the Earth = (GM/G) / (4/3*pi*R_av^3) [kg/m3]
+      'rho_water',1000,          @num.isscalar;...      % water density [kg/m3]
+      'G',        6.67408e-11,   @(i) (num.isscalar(i)) || isempty(i);...      % Gravitational constant [m3/kg/s2]
+      'Rm',       6371000,       @(i) (num.isscalar(i)) || isempty(i);...      % Earth's mean radius [m]
       'love',  [  0       0.000;...               
                   1       0.027;...
                   2      -0.303;... 
@@ -56,10 +56,10 @@ classdef gravity < simpletimeseries
                   100    -0.014;...
                   150    -0.010;...
                   200    -0.007], @(i) isnumeric(i) && size(i,2)==2;...     % Love numbers ?http://dx.doi.org/10.1029/98JB02844
-        'origin',      'unknown', @(i) ischar(i);...                        % (arbitrary string)
+        'origin',      'unknown', @ischar;...                        % (arbitrary string)
         'functional',   'nondim', @(i) ischar(i) && any(strcmp(i,gravity.functionals)); %see above
-        'zf_love', 0.30190,       @(i) isnumeric(i) && isscalar(i);...      % zero frequency Love number: reported in IERS2003 Section 6.3 as "k20"
-        'pt_factor',1.391413e-08, @(i) isnumeric(i) && isscalar(i);...      % permanent tide factor: reported in IERS2003 Section 6.3 as "A0*H0", (4.4228e-8)*(0.31460)
+        'zf_love', 0.30190,       @num.isscalar;...      % zero frequency Love number: reported in IERS2003 Section 6.3 as "k20"
+        'pt_factor',1.391413e-08, @num.isscalar;...      % permanent tide factor: reported in IERS2003 Section 6.3 as "A0*H0", (4.4228e-8)*(0.31460)
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -71,6 +71,7 @@ classdef gravity < simpletimeseries
     R
     functional
     origin
+    cdate
   end
   %calculated only when asked for
   properties(Dependent)
@@ -361,7 +362,7 @@ classdef gravity < simpletimeseries
       %create argument object, declare and parse parameters, save them to obj
       v=varargs.wrap('sources',{gravity.parameters('obj'),...
         {...
-          'scale',           1,              @(i) isscalar(i);...
+          'scale',           1,              @num.isscalar;...
           'scale_per_degree',ones(lmax+1,1), @(i) isvector(i) && lmax+1 == numel(i);...
           'scale_per_coeff', ones(lmax+1),   @(i) ismatrix(i) && all([lmax+1,lmax+1] == size(i));...
           't',               datetime('now'),@(i) isdatetime(i) || isvector(i);...
@@ -579,15 +580,15 @@ classdef gravity < simpletimeseries
     function [m,e]=load_dir(dirname,format,date_parser,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addRequired( 'dirname',     @(i) ischar(i));
-      p.addRequired( 'format',      @(i) ischar(i));
+      p.addRequired( 'dirname',     @ischar);
+      p.addRequired( 'format',      @ischar);
       p.addRequired( 'date_parser', @(i) isa(i,'function_handle'));
-      p.addParameter('wildcarded_filename',['*.',format], @(i) ischar(i))
-      p.addParameter('descriptor',        'unknown',     @(i) ischar(i))
+      p.addParameter('wildcarded_filename',['*.',format], @ischar);
+      p.addParameter('descriptor',        'unknown',     @ischar);
       %NOTICE: start/stop is only used to avoid loading models outside a certain time range
       p.addParameter('start', [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i))); 
       p.addParameter('stop',  [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i)));
-      p.addParameter('overwrite_common_t',  false, @(i) islogical(i));
+      p.addParameter('overwrite_common_t',  false, @islogical);
       p.parse(dirname,format,date_parser,varargin{:})
       %retrieve all gsm files in the specified dir
       filelist=cells.scalar(file.unwrap(fullfile(dirname,p.Results.wildcarded_filename)),'set');
@@ -662,12 +663,21 @@ classdef gravity < simpletimeseries
           'time',        [], @(i) isdatetime(i) || isempty(i);...
           'mode',    'read', @ischar;...
           'descriptor',  '', @ischar;...
-          'version','TN-11', @(i) ischar(i) || iscellstr(i);...
+          'version','TN-14', @(i) ischar(i) || iscellstr(i);...
           'start',time.zero_date, @isdatetime;...
           'stop',  time.inf_date, @isdatetime;...
           'C20mean',-4.8416945732000E-04, @isscalar;...
         },...
       },varargin{:});
+      %parse using a model or the original data
+      if contains(v.version,'-model')
+        new_mode=['model-',strrep(v.mode,'model-','')];
+        new_version=strrep(v.version,'-model','');
+        str.say('WARNING: over-writing input mode',str.quote(v.mode),'with',str.quote(new_mode),...
+          'since input version is',str.quote(v.version),', now passed along as',str.quote(new_version),'.')
+        out=gravity.graceC20(varargin{:},'mode',new_mode,'version',new_version);
+        return
+      end
       switch v.mode
       case 'C20mean'
         out=v.C20mean; 
@@ -705,30 +715,30 @@ classdef gravity < simpletimeseries
 %         b=file.strsave(f,s);
 %         str.say('Written',b,'bytes of data to file:',newline,f,newline,'related to the periods of:',newline,c20.descriptor);
       case 'model-datfile'
-        [p,n]=fileparts(GetGRACEC20('mode','data_file','version',v.version));
+        [p,n]=fileparts(GetGRACEC20(varargin{:},'mode','data_file'));
         out=fullfile(p,[n,'_pd.mat']);
       case 'model-md5file'
-        [p,n]=fileparts(GetGRACEC20('mode','data_file','version',v.version));
+        [p,n]=fileparts(GetGRACEC20(varargin{:},'mode','data_file'));
         out=fullfile(p,[n,'.md5']);
       case 'model-md5'
-        out=file.md5(GetGRACEC20('mode','data_file',    'version',v.version));
+        out=file.md5(GetGRACEC20(varargin{:},'mode','data_file'));
       case 'model-md5set'
         out=file.strsave(...
-          gravity.graceC20('mode','model-md5file','version',v.version),...
-          gravity.graceC20('mode','model-md5',    'version',v.version)...
+          gravity.graceC20(varargin{:},'mode','model-md5file'),...
+          gravity.graceC20(varargin{:},'mode','model-md5')...
         );
       case 'model-md5get'
-        md5file=gravity.graceC20('mode','model-md5file','version',v.version);
+        md5file=gravity.graceC20(varargin{:},'mode','model-md5file');
         if ~file.exist(md5file)
-          gravity.graceC20('mode','model-md5set','version',v.version);
+          gravity.graceC20(varargin{:},'mode','model-md5set');
         end
         out=file.strload(md5file);
       case 'model-md5check'
         out=strcmp(...
-          gravity.graceC20('mode','model-md5get','version',v.version),...
-          gravity.graceC20('mode','model-md5',   'version',v.version)...
+          gravity.graceC20(varargin{:},'mode','model-md5get'),...
+          gravity.graceC20(varargin{:},'mode','model-md5')...
         );
-      case 'model'
+      case {'model','model-get','model-set','model-read','model-reload'}
         %loading necessary data
         c20=gravity.graceC20(varargin{:},'mode','read');
          np=gravity.graceC20(varargin{:},'mode','model-poly');
@@ -747,6 +757,7 @@ classdef gravity < simpletimeseries
           %update md5 of data
           gravity.graceC20(varargin{:},'mode','model-md5set')  
         else
+          load(f_pdset,'pd_set')
           load(f_pd,      'out')
         end
         %handle different time domains
@@ -756,10 +767,10 @@ classdef gravity < simpletimeseries
         if time.isinf( v.stop );  v.stop=v.time(end); end
         %enforce start/stop
         v.time=v.time(v.time>=v.start & v.time<=v.stop);
-        %interpolate if needed
-        out=out.interp(v.time);
+        %evaluate model at requested time domain
+        out=pardecomp.join( pd_set,'time',v.time);
       case 'model-list-datfile'
-        [p,n]=fileparts(GetGRACEC20('mode','data_file'));
+        [p,n]=fileparts(GetGRACEC20(varargin{:},'mode','data_file'));
         out=fullfile(p,[n,'_pdset.mat']);
       case {'model-list','model-list-tex'}
         %check if pdset is already available
@@ -772,8 +783,8 @@ classdef gravity < simpletimeseries
         load(f,'pd_set')
         %output it
         switch v.mode
-          case 'model-list';     out=pardecomp.table(pd_set,'tablify',true); %#ok<NODEF>
-          case 'model-list-tex'; out=pardecomp.table(pd_set,'tablify',false,'latex_table',true); %#ok<NODEF>
+          case 'model-list';     out=pardecomp.table(pd_set,'tablify',true);
+          case 'model-list-tex'; out=pardecomp.table(pd_set,'tablify',false,'latex_table',true);
         end       
       case 'model-plot'
         %retrieve the orignal data
@@ -855,7 +866,7 @@ classdef gravity < simpletimeseries
           'plot_legend',version_list,...
           'plot_xlabel','none')
         title(['mean C_{20}: ',num2str(v.C20mean,'%e')]);
-        d=dat_list;
+        out=dat_list;
       otherwise
         %call mother routine
         try
@@ -909,8 +920,8 @@ classdef gravity < simpletimeseries
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired( 'model_list', @(i) iscell(i) && all(cellfun(@(i) isa(i,'gravity'),model_list)))
-      p.addParameter('mode','mean',@(i) ischar(i))
-      p.addParameter('type','signal',@(i) ischar(i))
+      p.addParameter('mode','mean',@ischar);
+      p.addParameter('type','signal',@ischar);
       p.addParameter('weights',ones(size(model_list))/numel(model_list),@(i) isnumeric(i) && all(size(model_list)==size(i)))
       p.parse(model_list,varargin{:})
       %trivial call
@@ -976,28 +987,28 @@ classdef gravity < simpletimeseries
     function out=gauss_smoothing_type(in)
       % This is a weak criteria but will work as long as there's no need
       % to smooth at degrees larger than 10000 or radii smaller than 10km.
-      if round(sum(in>10e3));
-        out='rad';
+      if round(sum(in>10e3))
+        out='radius';
       else
         out='deg';
       end      
     end
     function out=gauss_smoothing_degree_translate(in)
       switch gravity.gauss_smoothing_type(in)
-      case 'rad'; out=gravity.gauss_smoothing_degree(in);
-      case 'deg'; out=in;
+      case 'radius'; out=gravity.gauss_smoothing_degree(in);
+      case 'deg'   ; out=in;
       end
     end
     function out=gauss_smoothing_name(in)
       switch gravity.gauss_smoothing_type(in)
-      case 'rad';
+      case 'radius'
         %NOTICE: this test should be to see if in is zero but that is assumed to refer to degrees
         if isfinite(in)
           out=[num2str(in/1e3),'km'];
         else
           out='no';
         end
-      case 'deg';
+      case 'deg'
         %NOTICE: this test should only be to see if in is inf but zero is assumed to refer to degrees
         %        even if in practice is always refers to radius
         if isfinite(in) && in~=0
@@ -1018,7 +1029,7 @@ classdef gravity < simpletimeseries
     %% CSR specific stuff
     function t=CSR_RL05_date(year,month,varargin)
       p=inputParser; p.KeepUnmatched=true;
-      p.addParameter('EstimDirs_file',fullfile(getenv('HOME'),'data','csr','EstimData','EstimDirs','EstimDirs_RL05'),@(i) ischar(i))
+      p.addParameter('EstimDirs_file',fullfile(getenv('HOME'),'data','csr','EstimData','EstimDirs','EstimDirs_RL05'),@ischar);
       p.parse(varargin{:})
       %sanity on year
       if year<1000
@@ -1085,18 +1096,18 @@ classdef gravity < simpletimeseries
     %% utilities
     function [degrees,orders]=resolve_degrees_orders(varargin)
       v=varargs.wrap('sources',{{...
-        'lmax',       inf,@(i) isnumeric(i);...
+        'lmax',       inf,@isnumeric;...
         }},varargin{:});
       if isfinite(v.lmax)
         %set defaults according to lmax given
         v=varargs.wrap('sources',{{...
-          'degrees',    0:v.lmax,       @(i) isnumeric(i);...
+          'degrees',    0:v.lmax,       @isnumeric;...
           'orders',     inf(1,v.lmax+1),@(i) isnumeric(cell2mat(cells.num(i)));...
           }},varargin{:});
       else
         %set defaults according to degrees and orders given
         v=varargs.wrap('sources',{{...
-          'degrees',    [2,3],     @(i) isnumeric(i);...
+          'degrees',    [2,3],     @isnumeric;...
           'orders',     [inf,inf], @(i) isnumeric(cell2mat(cells.num(i)));...
           }},varargin{:});
       end
@@ -1778,6 +1789,8 @@ classdef gravity < simpletimeseries
         [mfilename,': found NaNs in the output. Debug needed!'])
     end
     function s=scale_trunc(obj,fwhm_degree)
+      % translate smoothing radius to degree (criteria inside) 
+      fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
       %https://en.wikipedia.org/wiki/Gaussian_function#Properties
       s=[ones(1,min([fwhm_degree+1,obj.lmax+1])),zeros(1,obj.lmax-fwhm_degree)];
 %       find(abs(s-0.5)==min(abs(s-0.5)))
@@ -2003,7 +2016,7 @@ classdef gravity < simpletimeseries
       end
     end
     %cumulative degree RMS
-    function [d,ts]=cumdrms(obj)
+    function [d,ts]=cumdrms(obj,l)
       if ~exist('l','var') || isempty(l)
         l=obj.lmax;
       end
@@ -2052,10 +2065,10 @@ classdef gravity < simpletimeseries
     %% convert to grid
     function out=grid(obj,varargin)
       v=varargs.wrap('sources',{{...
-        'Nlat', obj.lmax+1    , @(i) isnumeric(i) && isscalar(i);...
-        'Nlon',(obj.lmax+1)*2 , @(i) isnumeric(i) && isscalar(i);...
-        'Nfactor',          1 , @(i) isnumeric(i) && isscalar(i);...
-        'spatial_step',   inf , @(i) isnumeric(i) && isscalar(i);...
+        'Nlat', obj.lmax+1    , @num.isscalar;...
+        'Nlon',(obj.lmax+1)*2 , @num.isscalar;...
+        'Nfactor',          1 , @num.isscalar;...
+        'spatial_step',   inf , @num.isscalar;...
       }},varargin{:});
       %easier names for the resolution
       Nlat=max([v.Nlat,simplegrid.lat_stepped_length(v.spatial_step)])*v.Nfactor;
@@ -2181,7 +2194,7 @@ classdef gravity < simpletimeseries
     function compatible(obj1,obj2,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
-      p.addParameter('skip_par_check',{''},@(i) iscellstr(i))
+      p.addParameter('skip_par_check',{''},@iscellstr)
       p.parse(varargin{:});
       %call mother routine
       compatible@simpletimeseries(obj1,obj2,varargin{:});
@@ -2250,15 +2263,15 @@ classdef gravity < simpletimeseries
     %% plot functions
     function out=plot(obj,varargin)
       v=varargs.wrap('sources',{{...
-        'method',   'drms',    @(i) ischar(i);...
-        'showlegend',false,    @(i) islogical(i);...
-        'line',     '-',       @(i) ischar(i);...
-        'title',    '',        @(i) ischar(i);...
-        'functional',obj.funct,@(i) ischar(i);...
+        'method',   'drms',    @ischar;...
+        'showlegend',false,    @islogical;...
+        'line',     '-',       @ischar;...
+        'title',    '',        @ischar;...
+        'functional',obj.funct,@ischar;...
         'time',      [],       @(i) simpletimeseries.valid_t(i) || isempty(i);...
         'colormap',  '',       @(i) ischar(i) || ismatrix(i);...
-        'degrees',[2,3],       @(i) isnumeric(i);...
-        'orders', [0,0],       @(i) isnumeric(i);...
+        'degrees',[2,3],       @isnumeric;...
+        'orders', [0,0],       @isnumeric;...
       }},varargin{:}); 
       % enforce requested functional
       if ~strcmpi(obj.funct,v.functional)
@@ -2298,8 +2311,9 @@ classdef gravity < simpletimeseries
           out.xlabel='SH order';
           ylabel(out.ylabel)
           xlabel(out.xlabel)
+          %TODO: merge this with a to-be-implemented plotting.colormap
           if ~isempty(v.colormap)
-            colormap(v.colormap)
+            colormap(gca,v.colormap)
           end
           cb.nan;
           out.cb=colorbar;
@@ -2356,15 +2370,15 @@ classdef gravity < simpletimeseries
       p=inputParser;
       p.KeepUnmatched=true;
       % optional arguments
-      p.addParameter('prefix',   '',  @(i)ischar(i));
-      p.addParameter('suffix',   '',  @(i)ischar(i));
-      p.addParameter('delim',    '.', @(i)ischar(i));
-      p.addParameter('path',     '.', @(i)ischar(i));
-      p.addParameter('timefmt',  'yyyymmddTHHMMSS', @(i)ischar(i));
+      p.addParameter('prefix',   '',  @ischar);
+      p.addParameter('suffix',   '',  @ischar);
+      p.addParameter('delim',    '.', @ischar);
+      p.addParameter('path',     '.', @ischar);
+      p.addParameter('timefmt',  'yyyymmddTHHMMSS', @ischar);
       p.addParameter('error_obj','',  @(i)isa(i,'gravity') || isempty(i));
-      p.addParameter('modelname','unknown',         @(i)ischar(i));
-      p.addParameter('errors',   'formal',          @(i)ischar(i));
-      p.addParameter('norm',     'fully_normalized',@(i)ischar(i));
+      p.addParameter('modelname','unknown',         @ischar);
+      p.addParameter('errors',   'formal',          @ischar);
+      p.addParameter('norm',     'fully_normalized',@ischar);
       % parse it
       p.parse(varargin{:});
       % get only valid entries
@@ -2438,11 +2452,11 @@ classdef gravity < simpletimeseries
       p=inputParser;
       p.KeepUnmatched=true;
       % optional arguments
-      p.addParameter('prefix',   '',  @(i)ischar(i));
-      p.addParameter('suffix',   '',  @(i)ischar(i));
-      p.addParameter('delim',    '.', @(i)ischar(i));
-      p.addParameter('path',     '.', @(i)ischar(i));
-      p.addParameter('timefmt',  'yyyymmddTHHMMSS', @(i)ischar(i));
+      p.addParameter('prefix',   '',  @ischar);
+      p.addParameter('suffix',   '',  @ischar);
+      p.addParameter('delim',    '.', @ischar);
+      p.addParameter('path',     '.', @ischar);
+      p.addParameter('timefmt',  'yyyymmddTHHMMSS', @ischar);
       p.addParameter('error_obj','',  @(i)isa(i,'gravity') || isempty(i));
       % parse it
       p.parse(varargin{:});
@@ -2608,6 +2622,7 @@ function [m,e]=load_gsm(filename,time)
     'GM',GM,...
     'R',radius,...
     'descriptor',modelname,...
+    'cdate',datetime('now'),...
     'origin',filename...
   );
   %initializing error object
@@ -2617,6 +2632,7 @@ function [m,e]=load_gsm(filename,time)
     'GM',GM,...
     'R',radius,...
     'descriptor',['error of ',modelname],...
+    'cdate',datetime('now'),...
     'origin',filename...
   );
 end
@@ -2686,6 +2702,7 @@ function [m,e]=load_csr(filename,time)
     'GM',GM,...
     'R',radius,...
     'descriptor',modelname,...
+    'cdate',datetime('now'),...
     'origin',filename...
   );
   %initializing error object
@@ -2695,6 +2712,7 @@ function [m,e]=load_csr(filename,time)
     'GM',GM,...
     'R',radius,...
     'descriptor',['error of ',modelname],...
+    'cdate',datetime('now'),...
     'origin',filename...
   );
 end
@@ -2837,7 +2855,7 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
           strcmp(header.errors,'calibrated') || ...
           strcmp(header.errors,'calibrated_and_formal'))
         ei.C(n,m)=x(5);
-        ei.C(n,m)=x(6);
+        ei.S(n,m)=x(6);
       end
     elseif strcmp(s(1:3),'gfc')
       mi.C(n,m)=x(3);
@@ -2846,7 +2864,7 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
           strcmp(header.errors,'calibrated') || ...
           strcmp(header.errors,'calibrated_and_formal'))
         ei.C(n,m)=x(5);
-        ei.C(n,m)=x(6);
+        ei.S(n,m)=x(6);
       end
       i_gfc=i_gfc+1;
     elseif strcmp(s(1:4),'trnd') || strcmp(s(1:3),'dot')
@@ -2892,6 +2910,7 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
     'GM',header.earth_gravity_constant,...
     'R',header.radius,...
     'descriptor',header.modelname,...
+    'cdate',datetime('now'),...
     'origin',header.filename...
   );
   if any(ei.C(:)~=0) || any(ei.S(:)~=0)
@@ -2902,6 +2921,7 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
       'GM',header.earth_gravity_constant,...
       'R',header.radius,...
       'descriptor',['error of ',header.modelname],...
+      'cdate',datetime('now'),...
       'origin',header.filename...
     );
   else
@@ -2911,6 +2931,7 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
       'GM',header.earth_gravity_constant,...
       'R',header.radius,...
       'descriptor',['error of ',header.modelname],...
+      'cdate',datetime('now'),...
       'origin',header.filename...
     );
   end
@@ -2953,6 +2974,7 @@ function [m,e]=load_mod(filename,time)
     'GM',header.GM,...
     'R',header.R,...
     'descriptor',header.name,...
+    'cdate',datetime('now'),...
     'origin',filename...
   );
   %no error info on mod format
@@ -3106,7 +3128,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   %parse arguments that are required later
   v=varargs.wrap('sources',{...
     {...
-      'version',     'TN-11', @ischar;...
+      'version',     'TN-14', @ischar;...
       'mode',         'read', @ischar;...
       'start',time.zero_date, @isdatetime;...
       'stop',  time.inf_date, @isdatetime;...
@@ -3119,9 +3141,11 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   e_idx=5;
   CommentStyle='*';
   datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f';
-  %parse dependent arguments (can be over-written)
+  %upper-case version name 
   v.version=upper(v.version);
-  switch v.version
+  %parse dependent arguments (can be over-written)
+  %(NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
+  switch upper(v.version)
     case 'TN-07'
       datfil=[v.version,'_C20_SLR.txt'];
       daturl=['ftp://podaac.jpl.nasa.gov/allData/grace/docs/',datfil]; %NOTICE: this no longer works
@@ -3130,6 +3154,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
 %       daturl=['https://podaac-w10n.jpl.nasa.gov/w10n/allData/grace/docs/',datfil];
       daturl=['https://podaac-tools.jpl.nasa.gov/drive/files/allData/grace/docs/',datfil];
       datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
+      t_idx=[1 6];
     case 'CSR-RL06'
       datfil='C20_RL06.txt';
       daturl=['http://download.csr.utexas.edu/pub/slr/degree_2/',datfil];
@@ -3143,10 +3168,10 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
     case 'GSFC'
       datfil='GSFC_SLR_C20_GSM_replacement.txt';
-      daturl=['https://neptune.gsfc.nasa.gov/uploads/images_db/',datfil];
+      daturl=['https://earth.gsfc.nasa.gov/sites/default/files/neptune/images_db/',datfil];
     case 'GSFC-7DAY'
       datfil='GSFC_SLR_C20_7day.txt';
-      daturl='personal communication: email of 25/11/2019 from bryant.d.loomis@nasa.gov';
+      daturl='personal communication: email from bryant.d.loomis@nasa.gov';
       datfmt='%10.4f%23.13f';
       t_idx=1;
       s_idx=2;
@@ -3156,29 +3181,27 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   end
   %append v.file and v.url
   v=varargs.wrap('sources',{v,{...
-        'file',fullfile(v.data_dir,datfil),  @(i) ischar(i);...
-        'url',daturl,                         @(i) ischar(i);...
+        'file',fullfile(v.data_dir,datfil),  @ischar;...
+        'url',daturl,                         @ischar;...
       }},varargin{:});
   switch lower(v.mode)
   case 'data_file'
     t=v.file;
-  case 'read'
-    %download data, if not already
+  case 'read' %'set' if not already, then 'get'
     if ~file.exist(v.file)
       GetGRACEC20('mode','set','version',v.version,'data_dir',v.data_dir);
     end
     [t,s,e,d]=GetGRACEC20('mode','get','version',v.version,'file',v.file,'start',v.start,'stop',v.stop);
-  case 'reload'
-    %refresh data
+  case 'reload' %'set' then 'get'
     GetGRACEC20('mode','set','version',v.version,'data_dir',v.data_dir);
-    [t,s,e,d]=GetGRACEC20('mode','get');
+    [t,s,e,d]=GetGRACEC20('mode','get','version',v.version,'file',v.file,'start',v.start,'stop',v.stop);
   case 'plot'
     %NOTICE: this is a low-level plot, without much features
     [t,s,e,d]=GetGRACEC20(varargin{:},'mode','read');
     plotting.figure;
     plot(t ,s ,'o-','MarkerSize',4), hold on
     plotting.enforce('plot_title',d,'plot_legend_location','none')
-  case 'get'
+  case 'get' %read the downloaded data
     %open the file
     fid=file.open(v.file);
     %sanity
@@ -3187,9 +3210,9 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     end
     %default descriptor
     d=['C20 time series, version ',v.version];
-    %get header info
-    switch v.version
-    case {'GSFC-7day','CSR-RL06'}
+    %get header info (NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
+    switch upper(v.version)
+    case {'GSFC-7DAY','CSR-RL06'}
       found=true;
     otherwise
       found=false;
@@ -3217,12 +3240,12 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     dat=textscan(fid,datfmt,'CommentStyle',CommentStyle);
     %close the file
     fclose(fid);
-    % outputs
-    switch v.version
-    case {'GSFC-7day','CSR-RL06'}
-      t=years(dat{t_idx})+datetime('0000-01-01 00:00:00');
+    % outputs (NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
+    switch upper(v.version)
+    case {'GSFC-7DAY','CSR-RL06'}
+      t=years(mean([dat{t_idx}],2))+datetime('0000-01-01 00:00:00');
     otherwise
-      t=datetime(dat{t_idx},'ConvertFrom','modifiedjuliandate');
+      t=datetime(mean([dat{t_idx}],2),'ConvertFrom','modifiedjuliandate');
     end
     % enforce start/stop
     idx=t>=v.start & t<=v.stop;
@@ -3235,11 +3258,15 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     else
       e=zeros(size(s));
     end
-  case 'set'
-    fid=file.open(v.file,'w+');
-    t=webread(v.url);
-    fprintf(fid,'%s',t);
-    fclose(fid);
+  case 'set' %download the data
+    if url.is(v.url)
+      fid=file.open(v.file,'w+');
+      t=webread(v.url);
+      fprintf(fid,'%s',t);
+      fclose(fid);
+    else
+      t=[];
+    end
     s=[];e=[];d=[];
   otherwise
     error([mfilename,': unknown mode ''',v.mode,'''.'])

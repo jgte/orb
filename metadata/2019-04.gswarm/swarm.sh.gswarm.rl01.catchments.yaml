@@ -1,0 +1,37 @@
+submetadata: swarm.sh.gswarm.rl01.plot.submetadata
+method: gswarm.plot_catchments
+
+sources: [ #remember that plots with multiple sources pick the start/stop from the first source
+  swarm.sh.gswarm.rl01,
+  gracefo.sh.rl06.csr,
+]
+stats_relative_to: gracefo.sh.rl06.csr
+
+#plot ops
+plot_poly_range: [1,0.3]
+plot_std_range: 0.2
+
+catchment_list: [
+  'Amazon',
+  'Orinoco',
+  'Alaska',
+  'Greenland',
+  'Ganges-Brahm',
+  'N Australia',
+  'W Antarctica',
+  'Congo Zambezi',
+  'Volga',
+]
+parametric_decomposition: true
+polyorder: 1
+sin_period: [365.2426,182.6213]
+sin_period_unit: days
+sin_names: [yearly,semi-yearly]
+timescale: years
+plot_parametric_components: [p0,p1]
+plot_parametric_timestep_value: 7
+plot_parametric_timestep_units: days
+
+plot_smoothing_method: gauss
+plot_smoothing_degree: [750e3,750e3]
+plot_legend_include_smoothing: false
