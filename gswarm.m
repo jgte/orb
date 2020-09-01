@@ -2655,9 +2655,11 @@ classdef gswarm
         out=fullfile(plot_dir,['C20_',version,'.png']);
       case 'plot'
         if ~gswarm.c20model('done',plot_dir)
-          %this updates the models, make sure it has recent-enough data
-          gravity.graceC20('mode','set','version',version);
+          %this updates the coefficient time series, to make sure it has recent-enough data
+          gravity.graceC20('mode','set','version',strrep(version,'-model',''));
           if model
+            %this updates the model itself
+            gravity.graceC20('mode','set','version',strrep(version,'-model',''));
             out=gravity.graceC20('mode','model-plot','version',version);
           else
             out=gravity.graceC20('mode','plot-all','version',unique({'GSFC-7DAY','GSFC','TN-14','TN-11',upper(version)}));
