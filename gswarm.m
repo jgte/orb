@@ -2721,24 +2721,29 @@ classdef gswarm
       %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need ~/data/gswarm/rsync.remote2local-subset.sh)
       %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need ~/data/grace/download-l2.sh, which
       %WORKFLOW                iterates over specific years, currently 2020)
-      %WORKFLOW     5.4: check that the C20 data is updated and the model evaluated at the last 3 months
-      %WORKFLOW         5.4.1: Don't forget to ask Bryant Loomis for the updated weekly C20 data, and save it
+      %WORKFLOW     5.3: check that the C20 data is updated and the model evaluated at the last 3 months
+      %WORKFLOW         5.3.1: The easiest way to be sure is to run 'gswarm.c20model('plot',file.orbdir('plot'))'
+      %WORKFLOW         5.3.2: Don't forget to ask Bryant Loomis for the updated weekly C20 data, and save it
       %WORKFLOW                as ~/data/gswarm/analyses/<date>-validation/orb/aux/GSFC_SLR_C20_7day.txt
-      %WORKFLOW     5.5: keep an eye the last epoch of the data as it is being loaded, it has to be the
+      %WORKFLOW         5.3.3: For the precombval, TN-14 is used, so this is a good opportunity to send the email to Bryant.
+      %WORKFLOW     5.4: keep an eye the last epoch of the data as it is being loaded, it has to be the
       %WORKFLOW          same as the last available month; otherwise the analysis is incomplete
-      %WORKFLOW     5.6: things that may go wrong:
-      %WORKFLOW         5.6.1: the C20 data is not up-to-date
-      %WORKFLOW         5.6.2: IfG releases a new version of their models and the metadata was not updated to that
-      %WORKFLOW         5.6.3: AIUB names the modes incorrectly or does not compress them
+      %WORKFLOW     5.5: things that may go wrong:
+      %WORKFLOW         5.5.1: the C20 data is not up-to-date
+      %WORKFLOW         5.5.2: IfG releases a new version of their models and the metadata was not updated to that
+      %WORKFLOW         5.5.3: AIUB names the modes incorrectly or does not compress them
       %WORKFLOW 6.  update the orb git repo of the new validation dir (if changes to the code were made)
       %WORKFLOW 7.  go through the report and update all %NEEDS UPDATING lines (some are automatically 
       %WORKFLOW     updated by new-analysis.sh)
       %WORKFLOW 8.  compile it and compare this report with the previous one
-      %WORKFLOW 9.  run publish.sh [echo]
-      %WORKFLOW 10. go to the report dir in the new validation dir and make sure everything is in 
+      %WORKFLOW 9.  go to the report dir in the new validation dir and make sure everything is in 
       %WORKFLOW     synch.sh (don't synch %NEEDS UPDATING lines)
-      %WORKFLOW 11. put the data into aristarchos (remove --dry-run, as usual):
+      %WORKFLOW 10. put the data into aristarchos (remove --dry-run, as usual):
       %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
+      %WORKFLOW 
+      %WORKFLOW If this is a precombval, then mail it to colleagues and you're done.
+      %WORKFLOW 
+      %WORKFLOW 11.  run publish.sh [echo]
       %WORKFLOW 12. email the report to colleagues
       %WORKFLOW     
       %WORKFLOW     (wait for email reponses)
@@ -2765,6 +2770,7 @@ classdef gswarm
       %TODO on next release(s):
       % - remove trends from gswarm.swarm.validation.maps (also plot trends)
       % - ensure EWH axis are consistent for global, land and ocean plots
+      % - fix titles of maps contain 'AIUB AIUB' and 'IFG IFG'
             
       %produce plots for the report
       d=gswarm.production(...
