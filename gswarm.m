@@ -2713,10 +2713,9 @@ classdef gswarm
       %WORKFLOW     is in synch.sh
       %WORKFLOW 3.  create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh validation
       %WORKFLOW 4.  cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and
-      %WORKFLOW     update the stop_date in project.yaml to the last day of the last available model
-      %WORKFLOW     (the new-analysis.sh script automatically updated that to today but that's no bueno)
-      %WORKFLOW 5.  cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and
-      %WORKFLOW     fire up matlab and run the gswarm.validation method:
+      %WORKFLOW     check the stop_date in project.yaml is the last day of the last available model
+      %WORKFLOW     (the new-analysis.sh script automatically updates this but better check if it's OK)
+      %WORKFLOW 5.  fire up matlab and look at the gswarm.validation method:
       %WORKFLOW     5.1: check if all products are being used, some may be commented
       %WORKFLOW     5.2: check if the 'nodata' option is false:
       %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need ~/data/gswarm/rsync.remote2local-subset.sh)
@@ -2727,12 +2726,12 @@ classdef gswarm
       %WORKFLOW         5.3.2: Don't forget to ask Bryant Loomis for the updated weekly C20 data, and save it
       %WORKFLOW                as ~/data/gswarm/analyses/<date>-validation/orb/aux/GSFC_SLR_C20_7day.txt
       %WORKFLOW         5.3.3: For the precombval, TN-14 is used, so this is a good opportunity to send the email to Bryant.
-      %WORKFLOW     5.4: keep an eye the last epoch of the data as it is being loaded, it has to be the
-      %WORKFLOW          same as the last available month; otherwise the analysis is incomplete
+      %WORKFLOW     5.4: run the gswarm.validation method and keep an eye the last epoch of the data as it is being loaded,
+      %WORKFLOW          it has to be the same as the last available month; otherwise the analysis is incomplete
       %WORKFLOW     5.5: things that may go wrong:
       %WORKFLOW         5.5.1: the C20 data is not up-to-date
       %WORKFLOW         5.5.2: IfG releases a new version of their models and the metadata was not updated to that
-      %WORKFLOW         5.5.3: AIUB names the modes incorrectly or does not compress them
+      %WORKFLOW         5.5.3: AIUB names the models incorrectly or does not compress them
       %WORKFLOW 6.  update the orb git repo of the new validation dir (if changes to the code were made)
       %WORKFLOW 7.  go through the report and update all %NEEDS UPDATING lines (some are automatically
       %WORKFLOW     updated by new-analysis.sh)
@@ -2744,7 +2743,7 @@ classdef gswarm
       %WORKFLOW
       %WORKFLOW If this is a precombval, then mail it to colleagues and you're done.
       %WORKFLOW
-      %WORKFLOW 11.  run publish.sh [echo]
+      %WORKFLOW 11. run publish.sh [echo]
       %WORKFLOW 12. email the report to colleagues
       %WORKFLOW
       %WORKFLOW     (wait for email reponses)
