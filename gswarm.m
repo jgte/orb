@@ -2715,7 +2715,8 @@ classdef gswarm
       %WORKFLOW 4.  cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and
       %WORKFLOW     update the stop_date in project.yaml to the last day of the last available model
       %WORKFLOW     (the new-analysis.sh script automatically updated that to today but that's no bueno)
-      %WORKFLOW 5.  fire up matlab and run the gswarm.validation method:
+      %WORKFLOW 5.  cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and
+      %WORKFLOW     fire up matlab and run the gswarm.validation method:
       %WORKFLOW     5.1: check if all products are being used, some may be commented
       %WORKFLOW     5.2: check if the 'nodata' option is false:
       %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need ~/data/gswarm/rsync.remote2local-subset.sh)
