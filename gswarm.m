@@ -19,7 +19,7 @@ classdef gswarm
         },...
         product.args...
       },varargin{:});
-      %load all available data 
+      %load all available data
       [s,e]=gravity.load_dir(v.import_dir,v.model_format,str2func(v.date_parser),...
         'wildcarded_filename',v.wildcarded_filename,...
         'start',obj.start,...
@@ -43,7 +43,7 @@ classdef gswarm
               dn=dn.set_field_path(dn.field_path(1:i-1));
             end
           end
-        end  
+        end
       end
       %propagate relevant data
       for i=1:numel(v.model_types)
@@ -125,7 +125,7 @@ classdef gswarm
             end
             %get C20 timeseries, interpolated to current time domain
             c20=gravity.graceC20('version',v.use_GRACE_C20,'mode',c20mode,'time',mod.t);
-            
+
   %         figure
   %         plot(c20.x_masked,c20.y_masked([],1),'x-','MarkerSize',10,'LineWidth',4), hold on
   %         plot(c20.x,spline(c20.x_masked,c20.y_masked([],1),c20.x),'o-','MarkerSize',10,'LineWidth',2)
@@ -191,7 +191,7 @@ classdef gswarm
         case 'start' %NOTICE: this is only done when loading the raw data (afterwards the matlab data is read directly, bypassing this routine altogher)
           if v.isparameter('start') && v.start~=time.zero_date
             if v.start<mod.start
-              %append extremeties 
+              %append extremeties
               mod=mod.append(gravity.nan(mod.lmax,'t',v.start,'R',mod.R,'GM',mod.GM));
               if exist('err','var')
                 err=err.append(gravity.nan(err.lmax,'t',v.start,'R',err.R,'GM',err.GM));
@@ -337,7 +337,7 @@ classdef gswarm
     end
     %% plots
     function out=file_root(obj,product)
-      %NOTICE: 'storage_period' 'direct' is needed so that only one name is returned, otherwise 
+      %NOTICE: 'storage_period' 'direct' is needed so that only one name is returned, otherwise
       %         a cell array with numerous filenames may be returned, depending on the storage period
       out=product.mdset('storage_period','direct').file('plot',...
         'start',obj.start,...
@@ -345,7 +345,7 @@ classdef gswarm
         'start_timestamp_only',false,...
         'no_extension',true,...
         'sub_dirs','single',...
-        'use_storage_period',true... 
+        'use_storage_period',true...
       );
     end
     function pod=plot_ops(obj,product,varargin)
@@ -370,7 +370,7 @@ classdef gswarm
       },varargin{:});
       %retrieve load/saving of plotdata: handles plot_force and plot_save_data
       [loaddata,savedata]=plotting.forcing(v.varargin{:});
-      %first build data filename; 
+      %first build data filename;
       %TODO: this datafilename is messed up, the smoothing only appears as 'gauss'
       datafilename=obj.plotdatafilename(product);
       %check if data is to be loaded
@@ -386,7 +386,7 @@ classdef gswarm
           savedata=true;
         end
       end
-      %collect the models 
+      %collect the models
       pod.source.n=0; %this acts as a counter inside the following for loop but becomes a constant thereafter
       pod.source.dat=cell(0);pod.source.datanames=cell(0);
       for i=1:product.nr_sources
@@ -533,7 +533,7 @@ classdef gswarm
 %           dat=pod.mod.dat{i}.interp(pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than);
 %           pod.mod.res{i}=ref-dat.interp(pod.t);
 %         end
-%         %NOTICE: probably it's not a good idea to use 'interp_over_gaps_narrower_than' here because that can 
+%         %NOTICE: probably it's not a good idea to use 'interp_over_gaps_narrower_than' here because that can
 %         %        produce different time domains and break the subtraction.
 %         pod.mod.res=cellfun(@(i) pod.mod.ref.interp(pod.t)-i.interp(pod.t),pod.mod.dat,'UniformOutput',false);
         %title
@@ -550,7 +550,7 @@ classdef gswarm
       else
         pod.source.legend_str=str.rep(pod.source.datanames{1}.str,'.',' ','/',' ');
       end
-      %patch empty legend entries (this expects there to be only one empty legend entry) 
+      %patch empty legend entries (this expects there to be only one empty legend entry)
       if any(cells.isempty(pod.source.legend_str))
         pod.source.legend_str(cells.isempty(pod.source.legend_str))={strjoin(datanames.common(pod.source.datanames),' ')};
       end
@@ -570,7 +570,7 @@ classdef gswarm
       if savedata
         str.say('Saving plot data to ',datafilename)
         out=pod;
-        save(datafilename,'out');  
+        save(datafilename,'out');
       end
       %start/stop
       [~,pod.startlist,pod.stoplist]=product.file('data',v.varargin{:},'start',obj.start,'stop',obj.stop);
@@ -598,7 +598,7 @@ classdef gswarm
         }...
       },varargin{:});
       if isempty(v.pod); v.pod=gswarm.plot_ops(obj,product,v.varargin{:}); end
-      
+
       %build title suffix and legend prefix
       legend_str_prefix=cell(1,v.pod.source.n);
       for k=1:v.pod.source.n
@@ -755,10 +755,10 @@ classdef gswarm
       end
       %check if this plot is requested
       if cells.isincluded(v.plot_spatial_stat_list,'diff')
-        
+
         %loop over all requested derived quantities
         for qi=1:numel(v.plot_spatial_diff_quantity)
-          
+
           %do not detrend for gridmean
           switch v.plot_spatial_diff_quantity{qi}
           case 'gridmean'
@@ -775,7 +775,7 @@ classdef gswarm
             file.build(v.pod.file_root,[v.plot_spatial_diff_quantity{qi},'_summary'],v.pod.file_smooth,'png');...
           };
           %prepare plot data only if needed
-          if any(~file.exist(filenames,v.plot_force)) 
+          if any(~file.exist(filenames,v.plot_force))
             %build data array (number of rows is short by one if v.plot_signal && stats_relative_to)
             y=cell(1,numel(v.pod.mod.res));t=cell(size(y));yc=zeros(size(y));
             for di=1:numel(v.pod.mod.res)+1
@@ -792,7 +792,7 @@ classdef gswarm
               end
               %operate
               tmp=tmp.interp(...
-                  v.pod.t,...                            %interp to common time domain 
+                  v.pod.t,...                            %interp to common time domain
                   'interp_over_gaps_narrower_than',...   %and remove lines connecting over large gaps
                   v.plot_lines_over_gaps_narrower_than...
                 ).add_expl_gaps(...                     %add explicit gaps: catches the case when v.pod.t is implicitly gapped
@@ -805,7 +805,7 @@ classdef gswarm
                 );
               %save time
               t{di}=tmp.t;
-              tmp=tmp.(...  
+              tmp=tmp.(...
                 v.plot_spatial_diff_quantity{qi}...         %compute derived quantity
               );
               %propagate relevant data point
@@ -870,7 +870,7 @@ classdef gswarm
               %do nothing
             end
           end
-         
+
 
           %% plot diff cumdas/gridmean
 
@@ -942,12 +942,12 @@ classdef gswarm
           else
             disp(['NOTICE: plot already available: ',filenames{fn_idx}])
           end
-          
+
         end
       end
-      
-      %% epoch-wise plots 
-            
+
+      %% epoch-wise plots
+
       %check if this plot is requested
       if cells.isincluded(v.plot_spatial_stat_list,'monthly')
         title_suffix=strjoin({v.pod.title_masking,v.pod.title_smooth},' ');
@@ -1081,7 +1081,7 @@ classdef gswarm
         }...
       },varargin{:});
       if isempty(v.pod); v.pod=gswarm.plot_ops(obj,product,v.varargin{:}); end
-            
+
       %loop over all statistics
       for s=1:numel(v.plot_temp_stat_list)
         %maybe nothing is requested to be plotted
@@ -1101,7 +1101,7 @@ classdef gswarm
           'detrend',plot_detrended,...
           'period',seconds(inf)...
         };
-        
+
         %% triangular plots
 
         %loop over all sources
@@ -1150,9 +1150,9 @@ classdef gswarm
             plotting.save(filename,v.varargin{:})
           end
         end
-        
+
         %% prepare data for (cumulative) degree-mean/mean corr coeff plots
-        
+
         %plot degree-mean stat
         filenames={...
           file.build(v.pod.file_root,{v.plot_temp_stat_list{s},'dmean'        },v.pod.file_smooth,'png');...
@@ -1206,7 +1206,7 @@ classdef gswarm
               strjoin(cells.rm_empty({' ',v.pod.title_smooth}),newline)...
             },' ');
           end
-          %sort the legend         
+          %sort the legend
           legend_str=legend_str(good_idx);
           %accumulate it
           dc=sum(d,2);
@@ -1240,9 +1240,9 @@ classdef gswarm
                    idx=idx(       1:v.plot_max_nr_lines);
           end
         end
-        
+
         %% plot degree-mean/mean corr coeff (only if not done yet)
-        
+
         fn_idx=1;
         if ~file.exist(filenames{fn_idx},v.plot_force)
           %need to adapt y label for correlation coefficients
@@ -1273,9 +1273,9 @@ classdef gswarm
         else
           disp(['NOTICE: plot already available: ',filenames{fn_idx}])
         end
-        
+
         %% plot cumulative degree-mean/mean corr coeff stat  (only if not done yet)
-        
+
         fn_idx=2;
         if ~file.exist(filenames{fn_idx},v.plot_force) && numel(dc_sorted)>1 && v.plot_summary
           %need to adapt some plotting aspects to correlation coefficients
@@ -1310,7 +1310,7 @@ classdef gswarm
         else
           disp(['NOTICE: plot already available: ',filenames{fn_idx}])
         end
-                
+
       end
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
@@ -1331,7 +1331,7 @@ classdef gswarm
         },...
         product.args...
       },varargin{:});
-    
+
       %collect the models, unless given externally
       v=varargs.wrap('sources',{v,...
         {...
@@ -1339,9 +1339,9 @@ classdef gswarm
         }...
       },varargin{:});
       if isempty(v.pod); v.pod=gswarm.plot_ops(obj,product,v.varargin{:}); end
-    
+
       for i=1:v.pod.source.n
-        %build filename        
+        %build filename
         filename=file.build(v.pod.file_root,...
           v.plot_functional,'std',v.pod.source.file_smooth{i},strsplit(v.pod.source.names{i},' '),'png'...
         );
@@ -1389,7 +1389,7 @@ classdef gswarm
       v=varargs.wrap('sources',{....
         plotting.default,...
         {...
-          't_mod_f',                                        1, @num.isscalar;... %TODO: implement this 
+          't_mod_f',                                        1, @num.isscalar;... %TODO: implement this
           'polyorder',                                      2, @num.isscalar;...
           'plot_functional',                           'eqwh', @gravity.isfunctional;...
           'polynames',      {'constant','linear','quadratic'}, @iscellstr;...
@@ -1419,14 +1419,14 @@ classdef gswarm
       if isempty(v.pod); v.pod=gswarm.plot_ops(obj,product,v.varargin{:}); end
       %retrieve load/saving of plotdata: handles plot_force and plot_save_data
       loaddata=plotting.forcing(v.varargin{:});
-      %init data container  
+      %init data container
       v.pod.pd=cell(size(v.pod.source.dat));
-      
+
       %loop over all models
       for i=1:v.pod.source.n
 
         %TODO: check if all datafilenames here are generated consistently
-        
+
         %build data file name
         datafilename=cells.scalar(product.mdset('storage_period','direct').file('plot',...
           'start',obj.start,'stop',obj.stop,...
@@ -1451,10 +1451,10 @@ classdef gswarm
           );
           %split useful bit from the data
           pd=v.pod.pd{i};
-          save(datafilename,'pd'); 
+          save(datafilename,'pd');
           str.say('Saved plot data to ',datafilename)
         end
-      
+
         for j=0:v.polyorder
           par_name=['p',num2str(j)];
           %build filename
@@ -1558,11 +1558,11 @@ classdef gswarm
           end
         end
       end
-  
+
       if ~v.plot_catchment_boxes
         v.plot_catchment_list={};
       end
-      
+
     end
     function obj=plot_catchments(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
@@ -1591,7 +1591,7 @@ classdef gswarm
         },...
         product.args...
       },varargin{:});
-    
+
       %collect the models, unless given externally
       v=varargs.wrap('sources',{v,...
         {...
@@ -1608,7 +1608,7 @@ classdef gswarm
       else
         sfn='signal';
       end
-      %init data container  
+      %init data container
       v.pod.catch=cell(size(v.pod.source.(sfn)));
       %init user feedback
       s.msg='Loading/computing catchments';s.n=numel(v.catchment_list)*v.pod.source.n;s.stationary=false;
@@ -1655,14 +1655,14 @@ classdef gswarm
             );
             %split useful bit from the data
             catchment=v.pod.catch{i,j};
-            save(datafilename,'catchment'); 
+            save(datafilename,'catchment');
             str.say('Saved catchment data to ',datafilename)
           end
           %user feedback
           s=time.progress(s);
         end
       end
-    
+
       %parameters
       ref_idx=v.pod.source.ref_idx; if isempty(ref_idx),ref_idx=1;end
 
@@ -1725,7 +1725,7 @@ classdef gswarm
           plotting.save(filename,v.varargin{:})
         end
       end
-      
+
       %show stats header (if relevant)
       msg=cell(v.pod.source.n*(numel(v.catchment_list)+1),1);mc=0;
       tab_len=20;
@@ -1797,10 +1797,10 @@ classdef gswarm
         end
         file.strsave(filename,str.latex_table(latex_data,{'','%5.2f','%5.2f','%5.2f'}));
       end
-     
+
       %plot temporal std to show catchments
       obj=gswarm.plot_temporal_std(obj,product,varargin{:},'pod',v.pod);
-      
+
     end
     function obj=plot_maps(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
@@ -1816,7 +1816,7 @@ classdef gswarm
         },...
         product.args...
       },varargin{:});
-        
+
       %collect the models, unless given externally
       v=varargs.wrap('sources',{v,...
         {...
@@ -1834,11 +1834,11 @@ classdef gswarm
         v.plot_time(negative_idx)=numel(v.pod.t)+v.plot_time(negative_idx)+1;
         v.plot_time=sort(v.pod.t(v.plot_time));
       end
-      
+
       for i=1:v.pod.source.n
         clear grid_now
         for it=1:numel(v.plot_time)
-          %build filename        
+          %build filename
           filename=file.build(v.pod.file_root,...
             v.plot_functional,'map',v.pod.source.file_smooth{i},...
             strsplit(v.pod.source.names{i},' '),datestr(v.plot_time(it),v.plot_time_fmt),'png'...
@@ -1901,7 +1901,7 @@ classdef gswarm
           },                                      @iscellstr;...
           'plot_dir',file.orbdir('plot'),         @ischar;...
           'plot_title','',                        @ischar;... %there's a default title
-        },... 
+        },...
       },varargin{:});
       %this is the root of all files saved in this method
       fnroot=fullfile(v.plot_dir,[stem,'.sh.rl06.csr.pd.ts-']);
@@ -1928,8 +1928,8 @@ classdef gswarm
       if cells.isincluded(v.mode,{'d.mat'})
         filename=[fnroot,'d.mat'];
         if ~file.exist(filename)
-          %may need to init grace climatological model if force is true 
-          %this needs to be done separately from the Swarm processing because 
+          %may need to init grace climatological model if force is true
+          %this needs to be done separately from the Swarm processing because
           %otherwise the Swarm period is what is used in the regression: no bueno)
           d=datastorage(...
             'inclusive',true,...
@@ -1950,7 +1950,7 @@ classdef gswarm
         filename=[fnroot,'a.mat'];
         if ~file.exist(filename)
           a={
-            d.data_get_scalar(p{1}.dataname.append_field_leaf('signal')),'original' ;... 
+            d.data_get_scalar(p{1}.dataname.append_field_leaf('signal')),'original' ;...
        pardecomp.join(d.data.(p{2}.codename)),                           're-modelled' ;... %mode evaluated at original t
             d.data_get_scalar(p{3}),                                     'model' ;...
           };
@@ -1979,7 +1979,7 @@ classdef gswarm
           stmn=dataproduct(p{1}).mdget('static_model');
           stc20=datastorage().init(stmn).data_get_scalar(datanames(stmn).append_field_leaf('signal')).C(2,0);
           tn=gravity.graceC20('mode','read');
-          tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);            
+          tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);
           plotting.figure;
           for i=1:size(a,1)
             a{i,1}.ts_C(2,0).addgaps(days(45)).plot;
@@ -2095,7 +2095,7 @@ classdef gswarm
           'force',                  false, @islogical;... %NOTICE: this affects datastorage.init
           'plot_force',             false, @islogical;... %NOTICE: this is not the same as plot_save_data (which is irrelevant here)
           'products',                  {}, @iscellstr;
-        },... 
+        },...
       },varargin{:});
       switch v.type
       case 'process'
@@ -2120,7 +2120,7 @@ classdef gswarm
           'tropics';...
           'smooth750.complete';...%used to confirm that detrending is a good idea
           'formerr';...
-        },'UniformOutput',false);        
+        },'UniformOutput',false);
       case 'all'
 %           'deepoceanmask';...     %fig:method:deepoceanmass
 %           'gracelowdegrees';...   %fig:method:climatmod
@@ -2138,14 +2138,14 @@ classdef gswarm
       case 'gauss'
         out=cellfun(@(i) gswarm.paper(varargin{:},'type',i),...
           {'gauss-global','gauss-land','gauss-ocean'},...
-        'UniformOutput',false); 
+        'UniformOutput',false);
       case {'gauss-global','gauss-land','gauss-ocean'}
         if strcmp(v.type,'gauss-ocean')
           pl={[v.type,'0750'];[v.type,'1500'];[v.type,'3000'];[v.type,'5000']};
         else
           pl={[v.type,'0300'];[v.type,'0750'];[v.type,'1500'];[v.type,'3000']};
         end
-        out=cellfun(@(i) gswarm.paper(varargin{:},'type',i),pl,'UniformOutput',false); 
+        out=cellfun(@(i) gswarm.paper(varargin{:},'type',i),pl,'UniformOutput',false);
       case 'smoothing-methods'    %no longer used (saved to ../issues/smoothing-methods/)
         pl={};
         for m={'gauss','spline','trunc'}
@@ -2196,7 +2196,7 @@ classdef gswarm
         else
           out=[];
         end
-      case 'deepoceanmask'        
+      case 'deepoceanmask'
         plotfilename=fullfile(v.figures_dir,'deepoceanmask.png');
         if ~file.exist(plotfilename,v.plot_force,true)
           gswarm.plotdeepoceanmask(4,plotfilename)
@@ -2205,7 +2205,7 @@ classdef gswarm
       %NOTICE: the flag force will recompute the *timeseries* of the parametric decomposition even if never_force is true
       %NOTICE: use 'type','pd' if you want to recompute the parametric decomposition (consider 'force',true)
       case {'gracelowdegrees',...
-            'gracefolowdegrees'}  
+            'gracefolowdegrees'}
         %resolve internal type
         type=strrep(v.type,'lowdegrees','');
         %define relevant products (the first product is assumed to have the 'signal' field)
@@ -2310,7 +2310,7 @@ classdef gswarm
             saveas(gcf,plotfilenames{i})
           end
         end
-      case 'partitioning'         
+      case 'partitioning'
         functional='eqwh';
         gap_size=days(120);
         filenameroot=fullfile(v.figures_dir,'checks','partitioning');
@@ -2435,7 +2435,7 @@ classdef gswarm
         out=gswarm.paper(varargin{:},'type','res.gracefo.sh.rl06.csr');
       case 'formerr'              %checking only
         out=gswarm.paper(varargin{:},'type','individual.formerr');
-      otherwise 
+      otherwise
         out=gswarm.paper(...
           'type','process',...
           'products',{['swarm.sh.gswarm.rl01.',v.type]}...
@@ -2446,12 +2446,12 @@ classdef gswarm
     function d=quality(varargin)
       global PROJECT
       %NOTICE: this is used to produce the plots in ~/data/gswarm/dissemination/quality
-      %workflow: 
+      %workflow:
       % - you need to delete the last data file of (if not run from a dedicated dir):
       %   - swarm.sh.gswarm.rl01
       %   - swarm.sh.gswarm.rl01.err
       % - check the last entries in the time domain correspond to the most recent models
-      
+
       %parse inputs
       v=varargs.wrap('sources',{....
         {...
@@ -2464,7 +2464,7 @@ classdef gswarm
           'quality_dir',fullfile(getenv('HOME'),'data','gswarm','dissemination','quality')...
                                               , @ischar;...
           'git_ci',                       true, @str.islogical;...
-        },... 
+        },...
       },varargin{:});
       %changes will be saved in git at the end, make sure git is ok in the quality_dir
       assert(file.git('isuptodate',v.quality_dir),['There are changes in ',v.quality_dir,...
@@ -2527,7 +2527,7 @@ classdef gswarm
           str.say('plotted',fn{2})
         end
       end
-      
+
       %show the GRACE and Swarm data
       fn={[f,'.swarm-C20.png'],[f,'.swarm-C30.png']};
       if any(~file.exist(fn))
@@ -2548,7 +2548,7 @@ classdef gswarm
           gs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).addgaps(days(45)); gsp=gs.plot;
           gm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).addgaps(days(45)); gmp=gm.plot;
           tn=gravity.graceC20('mode','read','version',strrep(C20_name,'-model',''));
-          tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);            
+          tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);
           tn.plot('columns',1);
           if contains(C20_name,'-model')
             tm=gravity.graceC20('mode','model','time',gm.t,'version',strrep(C20_name,'-model',''));
@@ -2580,7 +2580,7 @@ classdef gswarm
           str.say('plotted',fn{2})
         end
       end
-      
+
       %show the GRACE and Swarm data
       fn=strjoin({f,v.functional,'quality','png'},'.');
       if ~file.exist(fn)
@@ -2613,14 +2613,14 @@ classdef gswarm
         str.say(' --- Exporting  the time series:')
         cts.export(strrep(fn,'.png','.dat'),'ascii')
       end
-      
+
       %save new data in git
       if v.git_ci
         str.say(' --- Committing new data:')
         disp(file.git('add',[v.quality_dir,'/*']))
         disp(file.git('ci' ,[v.quality_dir,'/*'],['updated quality data up until ',datestr(v.stop)]))
       end
-      
+
     end
     function get_input_data
       %NOTICE: the download-l2.sh script iterates over specific years (currently 2020)
@@ -2639,11 +2639,11 @@ classdef gswarm
     function out=c20model(mode,plot_dir,version)
       if ~exist('version','var') || isempty(version)
         %NOTICE: TN-11 seems to remain outdated since the end of 2019
-        %version='TN-11'; 
+        %version='TN-11';
         %NOTICE: this needs to be in agreement with model.processing.submetadata.yaml
         version=dataproduct('model.processing.submetadata').metadata.use_GRACE_C20;
       end
-      %check if this is a C20 model 
+      %check if this is a C20 model
       model=contains(version,'-model');
       %document the C20 model
       switch mode
@@ -2679,8 +2679,8 @@ classdef gswarm
           disp(['Saved empty string (',version,' is not a C20 model) to ',filename])
         end
       otherwise
-        error(['Unknown mode ''',mode,'''.'])  
-      end        
+        error(['Unknown mode ''',mode,'''.'])
+      end
     end
     function d=precombval(varargin)
       %NOTICE: this method produces the plots in the dir defined in the project.yaml file, which are
@@ -2698,16 +2698,16 @@ classdef gswarm
       %NOTICE: this method produces the plots in the dir defined in the project.yaml file, which are
       %        needed to produce the pre-combination report in the 'report' dir at the same location,
       %        usually: ~/data/gswarm/analyses/<date>-validation
-      
-      %WORKFLOW Workflow of the validation report:
+
+      %WORKFLOW The workflow of the validation report is below. For the precombval report the process is similar, just replace 'validation' with 'precombval'.
       %WORKFLOW 1.  plug the thumb drive in (no need to mount-disk.sh)
-      %WORKFLOW 2.  go to ~/data/gswarm/analyses/report-validation/report and make sure everything
+      %WORKFLOW 2.  go to ~/data/gswarm/analyses/report-validation and make sure everything
       %WORKFLOW     is in synch.sh
       %WORKFLOW 3.  create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh validation
-      %WORKFLOW 4.  cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and 
-      %WORKFLOW     update the stop_date in project.yaml to the last day of the last available model
+      %WORKFLOW 4.  update the stop_date in project.yaml (should be open already) to the last day of the last available model
       %WORKFLOW     (the new-analysis.sh script automatically updated that to today but that's no bueno)
-      %WORKFLOW 5.  fire up matlab and run the gswarm.validation method:
+      %WORKFLOW 5.  cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and
+      %WORKFLOW     fire up matlab and run the gswarm.validation method:
       %WORKFLOW     5.1: check if all products are being used, some may be commented
       %WORKFLOW     5.2: check if the 'nodata' option is false:
       %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need ~/data/gswarm/rsync.remote2local-subset.sh)
@@ -2723,41 +2723,41 @@ classdef gswarm
       %WORKFLOW         5.6.2: IfG releases a new version of their models and the metadata was not updated to that
       %WORKFLOW         5.6.3: AIUB names the modes incorrectly or does not compress them
       %WORKFLOW 6.  update the orb git repo of the new validation dir (if changes to the code were made)
-      %WORKFLOW 7.  go through the report and update all %NEEDS UPDATING lines (some are automatically 
+      %WORKFLOW 7.  go through the report and update all %NEEDS UPDATING lines (some are automatically
       %WORKFLOW     updated by new-analysis.sh)
       %WORKFLOW 8.  compile it and compare this report with the previous one
       %WORKFLOW 9.  run publish.sh [echo]
-      %WORKFLOW 10. go to the report dir in the new validation dir and make sure everything is in 
+      %WORKFLOW 10. go to the report dir in the new validation dir and make sure everything is in
       %WORKFLOW     synch.sh (don't synch %NEEDS UPDATING lines)
       %WORKFLOW 11. put the data into aristarchos (remove --dry-run, as usual):
       %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
       %WORKFLOW 12. email the report to colleagues
-      %WORKFLOW     
+      %WORKFLOW
       %WORKFLOW     (wait for email reponses)
-      %WORKFLOW     
+      %WORKFLOW
       %WORKFLOW 13. make sure data is in aristarchos (remove --dry-run, as usual):
       %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
-      %WORKFLOW 14. login to aristarchos and:  
+      %WORKFLOW 14. login to aristarchos and:
       %WORKFLOW     cd /home/gswarm/data/dissemination
       %WORKFLOW     tail *list && ./op.sh get-L1B-GPS get-L1B-ATT force && tail *list
       %WORKFLOW     ./op.sh update-source update-raw
       %WORKFLOW     ./op.sh make -val=yyyy-mm (run this for as many months as needed)
       %WORKFLOW     [...]
-      %WORKFLOW     follow the instructions, additional commands needed. 
-      %WORKFLOW     
+      %WORKFLOW     follow the instructions, additional commands needed.
+      %WORKFLOW
       %WORKFLOW     After sending the email to ESA and ICGEM (as reported in the instructions):
-      %WORKFLOW 15  update the dissemination dir git repo: 
+      %WORKFLOW 15  update the dissemination dir git repo:
       %WORKFLOW     git st && git add *; git ci -m 'added new models'
       %WORKFLOW 16. update local data (remove --dry-run, as usual):
       %WORKFLOW     ~/data/gswarm/rsync.remote2local-subset.sh --delete --dry-run
       %WORKFLOW 17. plug in the data disk, mount it and sync the thumbs drive:
       %WORKFLOW     mount-disk.sh data
-      %WORKFLOW     ~/media/data/data/rsync.thumb.sh reverse --dry-run 
-      
+      %WORKFLOW     ~/media/data/data/rsync.thumb.sh reverse --dry-run
+
       %TODO on next release(s):
       % - remove trends from gswarm.swarm.validation.maps (also plot trends)
       % - ensure EWH axis are consistent for global, land and ocean plots
-            
+
       %produce plots for the report
       d=gswarm.production(...
         'products',  {...
@@ -2780,11 +2780,11 @@ classdef gswarm
 
       %NOTICE: this method expects some input arguments, notably:
       % - products (cellstr)
-      
+
       %parse input args
       %NOTICE: gracefo.sh.rl06.csr.ld.ts has metadata never_force set as true (usually!)
       %        so 'force' as true will only reload the Swarm individual models
-      %NOTICE: 'inclusive' can be false, because the GRACE data is only used to derive 
+      %NOTICE: 'inclusive' can be false, because the GRACE data is only used to derive
       %        gracefo.sh.rl06.csr.ld.ts, separately
       v=varargs.wrap('sources',{....
         {...
@@ -2796,9 +2796,9 @@ classdef gswarm
           'force',     false,                       @islogical;... %this affects datastorage.init
           'force_d',   false,                       @islogical;... %this affects load(datafilename,'d') if force is false
           'nodata',    false,                       @islogical;... %NOTICE: consider turning this on to update all input data
-          'c20model',  true,                        @islogical;... 
-         'grace_model',true,                        @islogical;... 
-        },... 
+          'c20model',  true,                        @islogical;...
+         'grace_model',true,                        @islogical;...
+        },...
       },varargin{:});
       %check if all needed arguments are available
       required_args={'products'};
@@ -2852,11 +2852,11 @@ classdef gswarm
         if mod(c+1,3)==0; out{c,1}='\rowcolor{Gray}';  c=c+1; end
         switch numel(s)
         case 3
-          out{c,1}=s{2}; %gravity field 
+          out{c,1}=s{2}; %gravity field
           out{c,2}=str.rep(s{3},'v','');     %version
           out{c,3}='\ac{N/A}';               %orbit
         case 4
-          out{c,1}=['\ac{',str.rep(upper(s{2}),'IFG','IfG'),'}']; %gravity field 
+          out{c,1}=['\ac{',str.rep(upper(s{2}),'IFG','IfG'),'}']; %gravity field
           out{c,2}=str.rep(s{4},'v','');     %version
           out{c,3}=['\ac{',str.rep(upper(s{3}),'IFG','IfG'),'}']; %orbit
         otherwise
