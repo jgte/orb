@@ -2743,7 +2743,7 @@ classdef gswarm
       %WORKFLOW
       %WORKFLOW If this is a precombval, then mail it to colleagues and you're done.
       %WORKFLOW
-      %WORKFLOW 11. run publish.sh [echo]
+      %WORKFLOW 11. run publish.sh [echo] (inside the dir of the latest report)
       %WORKFLOW 12. email the report to colleagues
       %WORKFLOW
       %WORKFLOW     (wait for email reponses)
