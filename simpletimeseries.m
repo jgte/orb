@@ -253,14 +253,14 @@ classdef simpletimeseries < simpledata
       if ~exist('w','var') || isempty(w)
         w=3;
       end
-      
-      
+
+
       %test current object
       args=simpledata.test_parameters('args',l,w);
       now=juliandate(datetime('now'),'modifiedjuliandate');
       t=datetime(now-l,'convertfrom','modifiedjuliandate'):...
         datetime(now+l,'convertfrom','modifiedjuliandate');
-          
+
       a=simpletimeseries.randn(t,w,args{:});
       a=a.scale(0.05);
       idx=2:4;
@@ -270,10 +270,10 @@ classdef simpletimeseries < simpledata
         a=a+as;
       end
       a.descriptor='original';
-      
+
       a.component_split_plot(days(l/3)./idx,'columns',1);
       return
-      
+
       i=0;c=1;
       i=i+1;h{i}=figure('visible','on');
       a.plot('column',c)
@@ -285,14 +285,14 @@ classdef simpletimeseries < simpledata
       i=i+1;h{i}=figure('visible','on');
       plot(m(:,1))
       title('mean')
-      
+
       i=i+1;h{i}=figure('visible','on');
       plot(s(:,1))
       title('std')
-      
-      
+
+
       return
-       
+
       i=0;
       bn=simpletimeseries.randn(t,w,args{:});
       bs=simpletimeseries.sin(t,days(l./(1:w)),args{:});
@@ -307,9 +307,9 @@ classdef simpletimeseries < simpledata
         legend('uncal','target','cal')
         title(['column ',num2str(i)])
       end
-      
+
       return
-      
+
       lines1=cell(w,1);lines1(:)={'-o'};
       lines2=cell(w,1);lines2(:)={'-x'};
       lines3=cell(w,1);lines3(:)={'-+'};
@@ -319,13 +319,13 @@ classdef simpletimeseries < simpledata
       a.medfilt(10).plot('line',lines3);
       legend('origina','median','medfilt')
       title('median (operation not saved)');
-      
+
       b=a.resample;
       a=a.fill;
       i=i+1;h{i}=figure('visible','off');
       a.plot('line',lines1); hold on; b.plot('title','fill','line',lines2)
       legend('fill','resample')
-      
+
       a=a.append(...
         simpletimeseries(...
           a.stop+(round(l/3):round(4*l/3)-1),...
@@ -335,7 +335,7 @@ classdef simpletimeseries < simpledata
         )...
       );
       i=i+1;h{i}=figure('visible','off'); a.plot('title','append')
-      
+
       a=a.trim(...
         datetime(now+round(-l/2),'convertfrom','modifiedjuliandate'),...
         datetime(now+round( l/2),'convertfrom','modifiedjuliandate')...
@@ -345,23 +345,23 @@ classdef simpletimeseries < simpledata
       b=a.resample(...
         days(0.8) ...
       );
-      i=i+1;h{i}=figure('visible','off'); 
+      i=i+1;h{i}=figure('visible','off');
       a.plot('line',lines1); hold on; b.plot('title','resampled','line',lines2)
       legend('original','resampled')
-      
+
       a=a.extend(...
         100 ...
       ).extend(...
         -100 ...
       );
       i=i+1;h{i}=figure('visible','off'); a.plot('title','extend')
-      
+
       a=a.slice(...
         datetime(now+round(-l/5),'convertfrom','modifiedjuliandate'),...
         datetime(now+round( l/5),'convertfrom','modifiedjuliandate')...
       );
       i=i+1;h{i}=figure('visible','off'); a.plot('title','delete')
-      
+
       a=simpledata.test_parameters('all_T',l,w);
       i=i+1;h{i}=figure('visible','off'); a.plot('title', 'parametric decomposition','columns',1)
       %decompose
@@ -373,7 +373,7 @@ classdef simpletimeseries < simpledata
       fn=fields(out);tot=[];legend_str={};
       for i=1:numel(fn);
         if ~isempty(strfind(fn{i},'ts_'))
-          legend_str{end+1}=fn{i}; 
+          legend_str{end+1}=fn{i};
           out.(fn{i}).plot('columns',1)
           if isempty(tot)
             tot=out.(fn{i});
@@ -385,22 +385,24 @@ classdef simpletimeseries < simpledata
       tot.plot('columns',1)
       legend_str=strrep(legend_str,'_','\_');
       legend('original',legend_str{:},'sum')
-      
+
       a=simpledata.test_parameters('all_T',l,w);
       i=i+1;h{i}=figure('visible','off'); a.plot('title', 'parametric reconstruction','columns',1,'line',{'x-'})
       %reconstruct
       b=pardecomp.join(out,transpose(0:1.2:round(1.2*l)-1));
       b.plot('columns',1,'line',{'o-'})
       legend('original','reconstructed')
-      
-      
-      
+
+
+
       for i=numel(h):-1:1
         set(h{i},'visible','on')
       end
 
     end
     %% import methods
+    %NOTICE: the mat-file handling in this method is so that there are mat files duplicating the raw data: one raw file, one mat file. This is not a datastorage-type of structuring the data.
+    %TODO: consider retiring cut24hrs
     function obj=import(filename,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -409,8 +411,6 @@ classdef simpletimeseries < simpledata
       p.addParameter( 'del_arch', true,  @(i) isscalar(i) && islogical(i))
       p.addParameter( 'format',   '',    @ischar);
       p.parse(varargin{:})
-      %use this flag to skip saving mat data (e.g. if input file is empty)
-      skip_save_mat=false;
       %unwrap wildcards and place holders (output is always a cellstr)
       filename=file.unwrap(filename,varargin{:});
       %if argument is a cell string, then load all those files
@@ -448,7 +448,11 @@ classdef simpletimeseries < simpledata
         return
       end
       %split into parts and propagate the extension as the format
-      [d,f,format]=fileparts(filename);
+      [d,f,ext]=fileparts(filename);
+      %plug data dir, if no dir is given
+      if isempty(d) || strcmp(d,'.')
+        d=simpletimeseries.parameters('value','data_dir');
+      end
       %check if mat file is available
       datafile=fullfile(d,[f,'.mat']);
       if file.exist(datafile)
@@ -460,14 +464,19 @@ classdef simpletimeseries < simpledata
         %we're done
         return
       end
+      %assume format is given by extension
+      format=ext;
       %some files have the format ID in front
       for i={...
         'ACC1B','AHK1B','GNV1B','KBR1B','MAS1B','SCA1B','THR1B','CLK1B',...
-        'GPS1B','IHK1B','MAG1B','TIM1B','TNK1B','USO1B','VSL1B',...
-        'grc[AB]_gps_orb_.*\.acc','.*resid.latlon.res2-res1.*'...
+        'GPS1B','IHK1B','MAG1B','TIM1B','TNK1B','USO1B','VSL1B'...
       }
         if ~isempty(regexp(filename,i{1},'once'))
-          format=i{1};
+          if strcmp(ext,'.asc')
+            format=[i{1},'-ascii'];
+          else
+            format=i{1};
+          end
           break
         end
       end
@@ -475,8 +484,12 @@ classdef simpletimeseries < simpledata
       if ~isempty(p.Results.format)
         format=p.Results.format;
       end
+      disp(['Format is ',format])
       %branch on extension/format ID
       switch format
+      % --------------
+      % CSR formats
+      % --------------
       case '.resid'
         fid=file.open(filename);
         raw = textscan(fid,'%f %f %f %f %f %f %f','delimiter',' ','MultipleDelimsAsOne',1,'Headerlines',1);
@@ -584,7 +597,6 @@ classdef simpletimeseries < simpledata
         %sanity
         if isempty(t) || isempty(y)
           disp([mfilename,': this file has no data  ',filename])
-          skip_save_mat=true;
           obj=[];
         else
           iter=0;
@@ -624,94 +636,33 @@ classdef simpletimeseries < simpledata
             'monotonize','remove'...
           );
         end
-      case 'ACC1B'
-        %load data
-        [raw,header]=file.textscan(filename,'%f %s %f %f %f %f %f %f %f %f %f %f');
-        %retrieve GPS time epoch
-        header_line='TIME EPOCH (GPS TIME)         : ';
-        header=strsplit(header,'\n');
-        for i=1:numel(header)
-          if strfind(header{i},header_line)
-            gps_time_epoch=strrep(header{i},header_line,'');
-            break
-          end
-        end
-        %building time domain
-        t=time.gpssec2datetime(raw(:,1),gps_time_epoch);
-        %gather data domain
-        y=raw(:,2:4);
-        %skip empty data files
-        if isempty(t) || isempty(y)
-          disp([mfilename,': this file has no data  ',filename])
-          skip_save_mat=true;
-          obj=[];
-        else
-          %building object
-          obj=simpletimeseries(t,y,...
-            'format','datetime',...
-            'y_units',{'m/s^2','m/s^2','m/s^2'},...
-            'labels', {'x','y','z'},...
-            'timesystem','gps',...
-            'descriptor',strjoin(header,'\n')...
-           ).fill;
-        end
-      case 'AHK1B'
-        %inits
-        l='';
-        %define header details to be retrieved
-        header_anchors={...
-          'TIME EPOCH (GPS TIME)         : ',...
-          'NUMBER OF DATA RECORDS        : ',...
-          'SATELLITE NAME                : '...
-        };
-      	header_values=cell(numel(header_anchors));
-        %open the file
-        fid = file.open(filename);
-        %run through the header and retrieve relevant parameters
-        while isempty(strfind(l ,'END OF HEADER'))
-        	l=fgetl(fid);
-          for i=1:numel(header_anchors)
-            if ~isempty(strfind(l,header_anchors{i}))
-              header_values{i}=strrep(l,header_anchors{i},'');
-            end
-          end
-        end
-        %init data vector and counter
-        raw=cell(ceil(str2double(header_values{2})/7),22); c=0;
-        %loop until the end
-        while ~feof(fid)
-          l=fgetl(fid);
-          %get only the lines with temperature data
-          if ~isempty(strfind(l,'00000111111111111111111111000000'))
-            c=c+1;
-%        1       2  3  4         5                                  6                  7           8               9              10              11              12            13              14         15          16          17          18           19          20          21          22           23          24           25        26     27
-%222177690  893506  G  A  00000100   00000111111111111111111111000000  10.15329807017275 4.917429447 9.723482464e-09 2.481763683e-09 1.039316011e-08 1.959635476e-08 5.4534528e-09 5.740073306e-09 33.2671051 55.12400055 26.62501335 14.92129993 -14.91238022 5.074500084 21.62319946 14.02499962 -14.03499985 50.17699814 -50.44900131  00000001  60282
-            ll=strsplit(strtrim(l),' ');
-            raw(c,:)=[{[ll{1},'.',ll{2}]},ll(7:end)];
-          end
-        end
-        fclose(fid);
-        %convert string array to double
-        raw=str2double(raw);        
-        %building time domain
-        t=time.gpssec2datetime(raw(:,1),header_values{1});
-        %gather data domain
-        y=raw(:,[10,12,11,16]);
-        %skip empty data files
-        if isempty(t) || isempty(y)
-          disp([mfilename,': this file has no data  ',filename])
-          skip_save_mat=true;
-          obj=[];
-        else
-          %building object
-          obj=simpletimeseries(t,y,...
-            'format','datetime',...
-            'y_units',{'deg C','deg C','deg C','deg C'},...
-            'labels', {'SU','core','ICU','ADC'},...
-            'timesystem','gps',...
-            'descriptor',[strtrim(header_values{3}),' temperature (AHK1B)']...
-           ).resample;
-        end
+      % --------------
+      % GRACE L1B formats
+      % --------------
+      case 'ACC1B-asc'
+        obj=load_ACC1B(filename);
+      case 'AHK1B-asc'
+        obj=load_AHK1B(filename);
+      case 'SCA1B-asc'
+        %TODO
+        obj=load_SCA1B(filename);
+      case {...
+        'ACC1B','AHK1B','GNV1B','KBR1B','MAS1B','SCA1B','THR1B','CLK1B',...
+        'GPS1B','IHK1B','MAG1B','TIM1B','TNK1B','USO1B','VSL1B'}
+        %figure out date from file name; format must be:
+        %  <product>_yyyy-mm-dd_<sat>_<version>.dat
+        fp=strsplit(f,'_');
+        dp=strsplit(fp{2},'-');
+        o=fullfile(d,'grace','L1B','JPL',['RL',fp{4}],dp{1},[f,'.asc']);
+        %invoke L1B cat script
+        com=['~/data/grace/cat-l1b.sh ',...
+          dp{1},dp{2},dp{3},' ',format,' ',fp{3},' ',fp{4},' JPL > ',o];
+        disp(com)
+        file.system(com,[],true);
+        %recursive call to retrieve the data
+        obj=simpletimeseries.import(o,'format',[format,'-asc']);
+        %NOTICE: the data_dir was changed above, so need to bail to avoid writing a duplicate mat file in the default data_dir
+        return
       case 'grc[AB]_gps_orb_.*\.acc'
         %load data
         [raw,header]=file.textscan(filename,'%f %f %f %f %f %f %f %f',[],'%');
@@ -731,7 +682,6 @@ classdef simpletimeseries < simpledata
         %skip empty data files
         if isempty(t) || isempty(y)
           disp([mfilename,': this file has no data  ',filename{i}])
-          skip_save_mat=true;
           obj=[];
         else
           %building object
@@ -819,7 +769,7 @@ classdef simpletimeseries < simpledata
           'labels', labels(data_cols),...
           'timesystem','gps',...
           'descriptor',['SLR Stokes coeff. from ',filename]...
-        );        
+        );
       case 'seconds'
         %define data cols
         data_cols=2:4;
@@ -867,7 +817,7 @@ classdef simpletimeseries < simpledata
         error([mfilename,': cannot handle files of type ''',format,'''.'])
       end
       %save mat file if requested
-      if p.Results.save_mat && ~skip_save_mat
+      if p.Results.save_mat && ~isempty(obj)
         save(datafile,'obj')
       end
       %delete uncompressed file if compressed file is there
@@ -936,7 +886,7 @@ classdef simpletimeseries < simpledata
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
       %create argument object, declare and parse parameters, save them to obj
       [v,p]=varargs.wrap('parser',p,'sources',{simpletimeseries.parameters('obj')},'mandatory',{t,y},varargin{:});
-      % get datetime 
+      % get datetime
       [t,f]=time.ToDateTime(t,p.Results.format);
       %call superclass (create empty object, assignment comes later)
       obj=obj@simpledata(simpletimeseries.time2num(t),y,...
@@ -976,7 +926,7 @@ classdef simpletimeseries < simpledata
         obj.epochi=p.Results.epoch;
       elseif presence.t
         obj.epochi=p.Results.t(1);
-      else 
+      else
         error([mfilename,': cannot derive epoch without either input ''epoch'' or ''t''.'])
       end
       %update local records
@@ -1170,7 +1120,7 @@ classdef simpletimeseries < simpledata
       %handle empty object
       if isempty(obj.x)
         out=true;
-        return 
+        return
       end
       %this function checks that:
       %if obj.x(1) is zero, then obj.epoch and obj.t(1) are equal
@@ -1249,7 +1199,7 @@ classdef simpletimeseries < simpledata
       case 'stop';  out=out(end);
       case 'all';   %do nothing
       otherwise; error(['unknown mode ''',mode,'''.'])
-      end   
+      end
     end
     function out=idx(obj,t_now,varargin)
       %need to handle doubles, to make it compatible with simpledata
@@ -1460,7 +1410,7 @@ classdef simpletimeseries < simpledata
         keep_time_domain=false;
       end
       if keep_time_domain
-        %save current time domain 
+        %save current time domain
         t_now=obj.t;
       end
       %handle periods
@@ -1542,15 +1492,15 @@ classdef simpletimeseries < simpledata
     function obj=extend_or_trim_end(obj,t_end)
       assert(isdatetime(t_end),['Input ''t_cut'' must of of class datetime, not ',class(t_end)])
       %check if t_ref is outside obj timespan
-      if t_end < obj.start 
+      if t_end < obj.start
         error(['Expecting input t_ref (',datestr(t_end),') to be larger than obj.start (',datestr(obj.start),').'])
-      elseif obj.stop <= t_end 
+      elseif obj.stop <= t_end
         %extend
         obj=obj.extend(t_end);
       else
         %trim end section
         obj=obj.trim(obj.start,t_end);
-      end  
+      end
     end
     function obj=extend_or_trim_start(obj,t_start)
       assert(isdatetime(t_start),['Input ''t_cut'' must of of class datetime, not ',class(t_start)])
@@ -1563,7 +1513,7 @@ classdef simpletimeseries < simpledata
       else
         %trim start section
         obj=obj.trim(t_start,obj.stop);
-      end  
+      end
     end
     function obj=append_epochs(obj,t_now,y_now)
       %trivial call
@@ -1746,7 +1696,7 @@ classdef simpletimeseries < simpledata
         end
         if ~cells.isincluded(p.Results.skip_par_check,par{i}) && ~isequal(obj1.(par{i}),obj2.(par{i}))
           error([mfilename,': discrepancy in parameter ',par{i},'.'])
-        end 
+        end
       end
     end
     function [obj1,obj2,idx1,idx2]=merge(obj1,obj2,y_new)
@@ -2448,14 +2398,14 @@ classdef simpletimeseries < simpledata
         case 'msodp' %expecting sat_name to be '1201 GRACEA' or '1202 GRACEB'
           %translate satellite name: ACCREAD.f is very picky with this stuff
           switch lower(str.rep(v.sat_name,'-','',' ','','_','','.',''))
-          %                             I7X                 A20  
+          %                             I7X                 A20
           case 'gracea'; sat_name='1201    GRACEA';
           case 'graceb'; sat_name='1202    GRACEB';
           otherwise; error(['unrecognized sat_name value ''',v.sat_name,'''.'])
           end
           %need only valid data
           obj=obj.masked;
-          unitfacor=0.1e4; 
+          unitfacor=0.1e4;
           %enforce requested header type/value
           switch lower(v.header)
           case 'default'
@@ -2509,13 +2459,106 @@ i=i+1;dh{i}= '+eoh______';
           %eof
           fprintf(fid,'%s','%eof');
         case 'seconds'
-          
+
         otherwise
-          error(['Cannot handle exporting time series to files of type ''',filetype,'''.'])  
+          error(['Cannot handle exporting time series to files of type ''',filetype,'''.'])
         end
         fclose(fid);
       end
-    
+
     end
+  end
+end
+
+function [out,fid]=parse_grace_L1B_headers(filename)
+  %define header details to be retrieved
+  header_anchors={...
+    'TIME EPOCH (GPS TIME)         : ','gps_time';...
+    'NUMBER OF DATA RECORDS        : ','nr_data';...
+    'SATELLITE NAME                : ','sat_name';...
+  };
+  out=struct([]);
+  %open the file
+  fid = file.open(filename);
+  %run through the header and retrieve relevant parameters
+  l='';
+  while isempty(strfind(l ,'END OF HEADER'))
+    l=fgetl(fid);
+    for i=1:size(header_anchors,1)
+      if ~isempty(strfind(l,header_anchors{i,1}))
+        out(1).(header_anchors{i,2})=strrep(l,header_anchors{i,1},'');
+      end
+    end
+  end
+  %if fid is in output, don't close it
+  if nargout<=1
+    fclose(fid);
+  end
+end
+function obj=load_ACC1B(filename)
+  %parse headers
+  header=parse_grace_L1B_headers(filename);
+  %load data
+  raw=file.textscan(filename,'%f %s %f %f %f %f %f %f %f %f %f %f');
+  %building time domain
+  t=time.gpssec2datetime(raw(:,1),header.gps_time);
+  %gather data domain
+  y=raw(:,2:4);
+  %skip empty data files
+  if isempty(t) || isempty(y)
+    disp([mfilename,': this file has no data  ',filename])
+    obj=[];
+  else
+    %building object
+    obj=simpletimeseries(t,y,...
+      'format','datetime',...
+      'y_units',{'m/s^2','m/s^2','m/s^2'},...
+      'labels', {'x','y','z'},...
+      'timesystem','gps',...
+      'descriptor',[strtrim(header.sat_name),' accelerometer (ACC1B)']...
+     ).fill;
+  end
+end
+function obj=load_AHK1B(filename)
+  %parse headers, file opened inside
+  [header,fid]=parse_grace_L1B_headers(filename);
+  %init data vector and counter
+  raw=cell(ceil(str2double(header.nr_data)/7),22);
+  %inits
+  l='';
+  c=0;
+  %loop until the end
+  while ~feof(fid)
+    l=fgetl(fid);
+    %get only the lines with temperature data
+    if ~isempty(strfind(l,'00000111111111111111111111000000'))
+      c=c+1;
+%        1       2  3  4         5                                  6                  7           8               9              10              11              12            13              14         15          16          17          18           19          20          21          22           23          24           25        26     27
+%222177690  893506  G  A  00000100   00000111111111111111111111000000  10.15329807017275 4.917429447 9.723482464e-09 2.481763683e-09 1.039316011e-08 1.959635476e-08 5.4534528e-09 5.740073306e-09 33.2671051 55.12400055 26.62501335 14.92129993 -14.91238022 5.074500084 21.62319946 14.02499962 -14.03499985 50.17699814 -50.44900131  00000001  60282
+      ll=strsplit(strtrim(l),' ');
+      raw(c,:)=[{[ll{1},'.',ll{2}]},ll(7:end)];
+    end
+  end
+  fclose(fid);
+  %convert string array to double
+  raw=str2double(raw);
+  %building time domain
+  t=time.gpssec2datetime(raw(:,1),header.gps_time);
+  %gather data domain
+  y=raw(:,[10,12,11,16]);
+  %skip empty data files
+  if isempty(t) || isempty(y)
+    disp([mfilename,': this file has no data  ',filename])
+    skip_save_mat=true;
+    obj=[];
+  else
+    %building object
+    obj=simpletimeseries(t,y,...
+      'format','datetime',...
+      'y_units',{'deg C','deg C','deg C','deg C'},...
+      'labels', {'SU','core','ICU','ADC'},...
+      'timesystem','gps',...
+      'descriptor',[strtrim(header.sat_name),' temperature (AHK1B)']...
+     ).resample;
   end
 end
