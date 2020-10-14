@@ -35,6 +35,6 @@ plot_parametric_t_masked: true
 
 plot_poly_range: [1,0.3]
 plot_amplitude_range: [0.1,0.01]
-plot_std_range: 0.5
+plot_std_range: 0.2
 
 #TODO: fix line colors, legend location, values of p0
