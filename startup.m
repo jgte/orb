@@ -10,8 +10,14 @@ dirnow=fileparts(mfilename('fullpath'));
 disp(['NOTICE: startup from : ',dirnow])
 addpath(dirnow)
 % add legacy support
-if datetime(version('-date'))<=datetime('2016-02-11')
-  addpath(fullfile(dirnow,'version_patching'));
+legacy_date='2016-02-11';
+dirlegacy=fullfile(dirnow,'version_patching');
+if datetime(version('-date'))<=datetime(legacy_date)
+  disp(['NOTICE: current version dates from ',version('-date'),...
+    ', which is before ',legacy_date,', so adding ',dirlegacy,' to the PATH.'])
+  addpath(dirlegacy);
+else
+  rmpath(dirlegacy)
 end
 %inform user
 pathhead=strsplit(path,':');
@@ -77,7 +83,7 @@ project_entries=fieldnames(PROJECT);
 project_msg=cell(0);c=0;
 %loop over all project entries
 for i=1:size(project_entries,1)
-  %propagate 
+  %propagate
   switch project_entries{i}
     case 'name'
       %do nothing
@@ -105,7 +111,7 @@ if c>0
   end
 end
 
-%% project dirs 
+%% project dirs
 
 %loop over them
 for i=1:numel(dir_list)
