@@ -136,188 +136,212 @@ classdef num
     %computes the derivative with order 'nderiv' of each row of 'f'
     %assuming homogeneous x-domain step equal to 'dt'
     %using a central stencial scheme with npoints*2+1
-    function [df,out]=diff(f,dt,npoints,nderiv,varargin)
+    function [df,out]=diff(f,dt,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('npoints',3, @(i) isnumeric(i) && isscalar(i));
+      p.addParameter('nderiv', 1, @(i) isnumeric(i));
+      % NOTICE: extremeties can be:
+      % crop
+      % nan
+      % fix
+      % '' (default)
+      p.addParameter('extremeties','nan', @(i) ischar(i));
+      p.addParameter('verbose',false, @(i) islogical(i));
+      % NOTICE: noplot is only relevant for tests
+      p.addParameter('noplot',false, @(i) islogical(i));
+      % parse it
+      p.parse(varargin{:});
+      %easier names
+      np=p.Results.npoints;
+      nd=p.Results.nderiv;
       %special calls
       if ischar(f)
         switch lower(f)
-        case 'dt';       df=0.1;   return
-        case 'npoints';  df=3;     return
-        case 'nderiv';   df=1;     return
-        case {'sin','p'};
+        case 'dt';       df=0.1; 
+        case 'npoints';  df=3;  
+        case 'nderiv';   df=1;  
+        case {'sin','p'}
           %need dt,npoints,nderiv
-          out.dt=dt;
-          out.npoints=npoints;
-          out.nderiv=nderiv;
+          if ~exist('dt','var') || isempty(dt)
+            out.dt=num.diff('dt');
+          else
+            out.dt=dt;
+          end
+          if nd<=0
+            out.nderiv=num.diff('nderiv');
+          else
+            out.nderiv=nd;
+          end
+          if np<=0
+            out.npoints=num.diff('npoints');
+          else
+            out.npoints=np;
+          end
           switch lower(f)
           case 'sin'
-            out.t=0:dt:dt*100*pi/2/dt;
-            out.f=[sin(out.dt*out.t);cos(out.dt*out.t)];
+            out.t=0:out.dt:out.dt*100*pi/2/out.dt;
+            out.f=sin(out.dt*out.t);
             syms dts ts
-            out.fa=[sin(dts*ts);cos(dts*ts)];
-            out.dfa=double(subs(diff(out.fa,nderiv),{'dts','ts'},{dt,out.t}));
-            out.dfn1=num.diff(out.f,dt,npoints,nderiv,varargin{:});
+            out.fa=sin(dts*ts);
+            out.dfa=double(subs(diff(out.fa,out.nderiv),{'dts','ts'},{out.dt,out.t}));
+            out.dfn1=num.diff(out.f,out.dt,varargin{:},'extremities','nan');
+          case 'cos'
+            out.t=0:out.dt:out.dt*100*pi/2/out.dt;
+            out.f=cos(out.dt*out.t);
+            syms dts ts
+            out.fa=cos(dts*ts);
+            out.dfa=double(subs(diff(out.fa,out.nderiv),{'dts','ts'},{out.dt,out.t}));
+            out.dfn1=num.diff(out.f,out.dt,varargin{:},'extremities','nan');
           case 'p'
             out.degree=2;
             %NOTICE: as of now, crossing 45 latitude creates problems
-            out.t=sin(linspace(-pi*0.5,pi*0.5,round(2*pi/dt)));
+            out.t=sin(linspace(-pi*0.5,pi*0.5,round(2*pi/out.dt)));
+            %TODO: dig up Ppq
             out.f=Ppq(out.t,out.degree,0);
             out.fa='legendre';
             out.dfa=gradient(out.f,1)./(ones(size(out.f,1),1)*transpose(num.deltax(out.t)));
             out.dfn1=Ppq(out.t,out.degree,1);out.dfn1=out.dfn1{2};
           end
-          out.dfn2=num.diff(out.f,dt,npoints,nderiv,'fix_extremities');
-          for i=1:size(out.f,1)
-            delta=out.dfn1(i,:)-out.dfa(i,:);
-            delta=delta(~isnan(delta));
-            out.std1(i)=std(delta);
-            out.max1(i)=max(abs(delta));
-            delta=out.dfn2(i,:)-out.dfa(i,:);
-            delta=delta(~isnan(delta));
-            out.std2(i)=std(delta);
-            out.max2(i)=max(abs(delta));
-          end
+          %NOTICE: this is the alternative solution with fixing the extremities
+          %        out.dfn1 contains the normal solution of discarding the extremeties
+          out.dfn2=num.diff(out.f,out.dt,varargin{:},'extremities','fix');
+          %compute difference wrt analytical solution
+          delta=out.dfn1-out.dfa;
+          delta=delta(~isnan(delta));
+          out.std1=std(delta);
+          out.max1=max(abs(delta));
+          delta=out.dfn2-out.dfa;
+          delta=delta(~isnan(delta));
+          out.std2=std(delta);
+          out.max2=max(abs(delta));
+          %NOTICE: the main output is empty, this test only intends to return 'out'
           df=[];
-          return
         case {'test-sin','test-p'}
           if ~exist('dt','var') || isempty(dt)
             dt=num.diff('dt');
           end
-          if ~exist('nderiv','var') || isempty(nderiv)
-            nderiv=num.diff('nderiv');
-          end
-          if ~exist('npoints','var') || isempty(npoints)
-            npoints=num.diff('npoints');
-          end
-          [~,out]=num.diff(strrep(f,'test-',''),dt,npoints,nderiv,varargin{:});
-          if ~cells.isincluded(varargin,'noplot')
-            for i=1:size(out.dfn1,1)
-              figure
-              subplot(2,1,1)
-              plot(out.t,out.dfn1(i,:)),hold on
-              plot(out.t,out.dfa(i,:),'k')
-              legend('numeric','analytic')
-              ylabel(char(out.fa(i))),xlabel('ts')
-              title([num2str(npoints),'-point stencil central ',num2str(nderiv),'-th derivative'])
-              subplot(2,1,2)
-              semilogy(abs(out.dfn1(i,:)-out.dfa(i,:)))
-              title(['numeric - analytic, std=',num2str(out.std1(i)),', maxabs=',num2str(out.max1(i))])
-            end
+          [~,out]=num.diff(strrep(f,'test-',''),dt,varargin{:});
+          if ~p.Results.noplot
+            figure
+            subplot(2,1,1)
+            plot(out.t,out.dfn1),hold on
+            plot(out.t,out.dfn2),hold on
+            plot(out.t,out.dfa,'k')
+            legend('numeric (edges dropped)','numeric (edges fixed)','analytic')
+            ylabel(char(out.fa)),xlabel('ts')
+            title([num2str(out.npoints),'-point stencil central ',num2str(out.nderiv),'-th derivative'])
+            subplot(2,1,2)
+            semilogy(abs(out.dfn1-out.dfa)), hold on
+            semilogy(abs(out.dfn2-out.dfa))
+            legend('edges dropped','edges fixed')
+            title(['numeric - analytic, std=',num2str(out.std1),', maxabs=',num2str(out.max1)])
           end
           df=[];
-          return
         case {'error-sin','error-p'}
           if ~exist('dt','var') || isempty(dt)
             dt=num.diff('dt');
           end
-          if ~exist('nderiv','var') || isempty(nderiv)
-            nderiv=num.diff('nderiv');
-          end
-          if ~exist('npoints','var') || isempty(npoints)
-            min_npoints=max(1,nderiv);
-            max_npoints=max([nderiv,num.diff('npoints')])*3;
-            npoints=min_npoints:2:max_npoints;
-          end
-          stds1=zeros(size(npoints));
-          maxs1=zeros(size(npoints));
-          stds2=zeros(size(npoints));
-          maxs2=zeros(size(npoints));
-          for i=1:length(npoints)
-            if i==1 || i==length(npoints)
-              vararg={};
-            else
-              vararg={'noplot'};
-            end
-            [~,out]=num.diff(strrep(f,'error','test'),dt,npoints(i),nderiv,vararg{:},varargin{:});
-            stds1(i)=out.std1(1)/diff(minmax(out.dfa(1,:)))*100;
-            maxs1(i)=out.max1(1)/diff(minmax(out.dfa(1,:)))*100;
-            stds2(i)=out.std2(1)/diff(minmax(out.dfa(1,:)))*100;
-            maxs2(i)=out.max2(1)/diff(minmax(out.dfa(1,:)))*100;
+          min_np=max(1,np);
+          max_np=max([np,num.diff('npoints')])*3;
+          np=min_np:2:max_np;
+          stds1=zeros(size(np));
+          maxs1=zeros(size(np));
+          stds2=zeros(size(np));
+          maxs2=zeros(size(np));
+          for i=1:length(np)
+            [~,out]=num.diff(strrep(f,'error','test'),dt,'npoints',np(i),'nderiv',nd,'noplot',true,varargin{:});
+            %case when the edges are dropped
+            stds1(i)=out.std1/diff(minmax(out.dfa))*100;
+            maxs1(i)=out.max1/diff(minmax(out.dfa))*100;
+            %case when the edges are fixed
+            stds2(i)=out.std2/diff(minmax(out.dfa))*100;
+            maxs2(i)=out.max2/diff(minmax(out.dfa))*100;
           end
           plotting.figure;
           subplot(2,2,1)
-          semilogy(npoints,stds1)
+          semilogy(np,stds1)
           xlabel('n')
-          ylabel('std(error) [% of df]')
-          plotting.enforce('plot_title',[num2str(nderiv),'-th order central difference'],'plot_legend_location','none');
+          ylabel('std(error) [% of minmax(df)]')
+          plotting.enforce('plot_title',[num2str(nd),'-th order diff, edges dropped'],'plot_legend_location','none');
           subplot(2,2,2)
-          semilogy(npoints,maxs1)
-          xlabel('n')
-          ylabel('max(error) [% of df]')
-          plotting.enforce('plot_title',[num2str(nderiv),'-th order central difference'],'plot_legend_location','none');
+          semilogy(np,maxs1)
+          xlabel('npoints')
+          ylabel('max(error) [% of minmax(df)]')
+          plotting.enforce('plot_title',[num2str(nd),'-th order diff, edges dropped'],'plot_legend_location','none');
           subplot(2,2,3)
-          semilogy(npoints,stds2)
+          semilogy(np,stds2)
           title('edges fixed')
-          xlabel('n')
-          ylabel('std(error) [% of df]')
+          xlabel('npoints')
+          ylabel('std(error) [% of minmax(df)]')
           plotting.enforce('plot_title','edges fixed','plot_legend_location','none');
           subplot(2,2,4)
-          semilogy(npoints,maxs2)
-          xlabel('n')
-          ylabel('max(error) [% of df]')
+          semilogy(np,maxs2)
+          xlabel('npoints')
+          ylabel('max(error) [% of minmax(df)]')
           plotting.enforce('plot_title','edges fixed','plot_legend_location','none');
-          return
         end
-      end
-      %handle default inputs
-      if ~exist('npoints','var') || isempty(npoints)
-        npoints=num.diff('npoints');
-      end
-      if ~exist('nderiv','var') || isempty(nderiv)
-        nderiv=num.diff('nderiv');
+        return
       end
       %handle shortcuts calls
-      if npoints==0
+      if np==0
         df=f;
-        for i=1:nderiv
+        for i=1:nd
           df=gradient(df,dt);
         end
         return
       end
       %some sanity
-      if isscalar(npoints)
-        dpoints=transpose(-npoints:npoints);
+      if isscalar(np)
+        dp=transpose(-np:np);
       else
-        assert(isvector(npoints),'input <npoints>, if not scalar, must be a 1D vector.')
-        dpoints=npoints(:);
+        assert(isvector(np),'input <npoints>, if not scalar, must be a 1D vector.')
+        dp=np(:);
       end
-      assert(nderiv <= npoints,['cannot calculate the ',num2str(nderiv),'-th derivative with only ',num2str(npoints),' points.'])
+      assert(nd <= np,['cannot calculate the ',...
+        num2str(nd),'-th derivative with only ',...
+        num2str(np),' points.'])
       nf=size(f,2);
-      assert(nf>=npoints,['cannot use ',num2str(npoints),' points stencil with data with only ',num2str(nf),' points'])
+      assert(nf>=np,['cannot use ',num2str(np),...
+        ' points stencil with data with only ',num2str(nf),' points'])
       %compute derivative
-      df=num.conv(f,num.diff_coeffs(dt,dpoints,nderiv));
+      df=num.conv(f,num.diff_coeffs(dt,dp,nd));
       %find edges
-      idx=[floor(npoints),ceil(npoints)];
+      idx=[floor(np),ceil(np)];
       if cells.isincluded(varargin,'verbose')
         tab=16;
         disp(['start=',num2str(idx(1)),' end=',num2str(idx(2)),...
-          ' dpoints=',num2str(dpoints(1)),':',num2str(dpoints(end))])
+          ' npoints=',num2str(dp(1)),':',num2str(dp(end))])
         for i=1:size(df,1)
-          disp([' df(',num2str(i),',[1:',num2str(idx(1)),',',num2str(nf-idx(2)+1),':',num2str(nf),'])=',str.tablify(tab,df(i,[1:idx(1),end-idx(2)+1:end]))])
+          disp([' df(',num2str(i),',[1:',num2str(idx(1)),',',num2str(nf-idx(2)+1),...
+            ':',num2str(nf),'])=',str.tablify(tab,df(i,[1:idx(1),end-idx(2)+1:end]))])
         end
       end
       %fixing warm-up/cool-down points, if requested
-      if cells.isincluded(varargin,'crop_extremities')
+      switch p.Results.extremeties
+      case 'crop'
         %crop it
         df(:,[1:idx(1),end-idx(2)+1:end])=[];
-      elseif cells.isincluded(varargin,'nan_extremities')
+      case 'nan'
         %nan it
         df(:,[1:idx(1),end-idx(2)+1:end])=NaN;
-      elseif cells.isincluded(varargin,'fix_extremities')
-        for i=0:npoints-1
+      case 'fix'
+        for i=0:np-1
           if cells.isincluded(varargin,'verbose')
             disp(['--- idx=',num2str(i+1)])
-            disp(['dpoints=',num2str(-i),':',num2str(2*npoints-i)])
+            disp(['dp=',num2str(-i),':',num2str(2*np-i)])
             disp(str.tablify(tab,['old df(:,',num2str(i+1),')'],transpose(df(:,i+1))))
           end
-          tmp=num.conv(f(:,1:2*npoints+1),num.diff_coeffs(dt,-i:2*npoints-i,nderiv));
-          df(:,i+1)=tmp(:,npoints+1);
+          tmp=num.conv(f(:,1:2*np+1),...
+            num.diff_coeffs(dt,-i:2*np-i,nd));
+          df(:,i+1)=tmp(:,np+1);
           if cells.isincluded(varargin,'verbose')
             disp(str.tablify(tab,['fixed df(:,',num2str(i+1),')'],transpose(df(:,i+1))))
-            disp(['dpoints=',num2str(-2*npoints+i),':',num2str(i)])
+            disp(['dp=',num2str(-2*np+i),':',num2str(i)])
             disp(str.tablify(tab,['old df(:,',num2str(nf-i),')'],transpose(df(:,end-i))))
           end
-          tmp=num.conv(f(:,end-2*npoints:end),num.diff_coeffs(dt,-2*npoints+i:i,nderiv));
-          df(:,end-i)=tmp(:,npoints+1);
+          tmp=num.conv(f(:,end-2*np:end),num.diff_coeffs(dt,-2*np+i:i,nd));
+          df(:,end-i)=tmp(:,np+1);
           if cells.isincluded(varargin,'verbose')
             disp(str.tablify(tab,['fixed df(:,',num2str(nf-i),')'],transpose(df(:,end-i))))
           end
