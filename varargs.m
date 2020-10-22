@@ -582,7 +582,7 @@ classdef varargs < dynamicprops
               end
             end
           catch e
-            disp(['Could not save parameter ''',name,''' because: ',e.message])
+            warning(['Could not save parameter ''',name,''' because: ',e.message])
           end
         end
       end
