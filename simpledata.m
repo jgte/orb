@@ -2444,6 +2444,7 @@
       %propagate data
       obj=obj.assign(y_diff);
     end
+
     %% wrappers
     function obj=smooth(obj,varargin)
       x_now=obj.x_masked;
@@ -2838,5 +2839,6 @@
 %         error([mfilename,': cannot handle files of type ''',e,'''.'])
 %       end
 %     end
-  end
- end
+    end
+end
+ 
