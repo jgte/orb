@@ -2707,15 +2707,15 @@ classdef gswarm
       %        needed to produce the pre-combination report in the 'report' dir at the same location,
       %        usually: ~/data/gswarm/analyses/<date>-validation
 
-      %WORKFLOW Workflow of the validation report:
+      %WORKFLOW Workflow of the TYPE={precombval|validation} report:
       %WORKFLOW 1.  plug the thumb drive in (no need to mount-disk.sh)
-      %WORKFLOW 2.  go to ~/data/gswarm/analyses/report-validation/ and make sure everything
+      %WORKFLOW 2.  go to ~/data/gswarm/analyses/report-TYPE/ and make sure everything
       %WORKFLOW     is in synch.sh
-      %WORKFLOW 3.  create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh validation
+      %WORKFLOW 3.  create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
       %WORKFLOW 4.  cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and
       %WORKFLOW     check the stop_date in project.yaml is the last day of the last available model
       %WORKFLOW     (the new-analysis.sh script automatically updates this but better check if it's OK)
-      %WORKFLOW 5.  fire up matlab and look at the gswarm.validation method:
+      %WORKFLOW 5.  fire up matlab and look at the gswarm.TYPE method:
       %WORKFLOW     5.1: check if all products are being used, some may be commented
       %WORKFLOW     5.2: check if the 'nodata' option is false:
       %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need ~/data/gswarm/rsync.remote2local-subset.sh)
@@ -2723,10 +2723,11 @@ classdef gswarm
       %WORKFLOW                iterates over specific years, currently 2020)
       %WORKFLOW     5.3: check that the C20 data is updated and the model evaluated at the last 3 months
       %WORKFLOW         5.3.1: The easiest way to be sure is to run 'gswarm.c20model('plot',file.orbdir('plot'))'
-      %WORKFLOW         5.3.2: Don't forget to ask Bryant Loomis for the updated weekly C20 data, and save it
-      %WORKFLOW                as ~/data/gswarm/analyses/<date>-validation/orb/aux/GSFC_SLR_C20_7day.txt
-      %WORKFLOW         5.3.3: For the precombval, TN-14 is used, so this is a good opportunity to send the email to Bryant.
-      %WORKFLOW     5.4: run the gswarm.validation method and keep an eye the last epoch of the data as it is being loaded,
+      %WORKFLOW         5.3.2: For TYPE=precombval, TN-14 is used, so this is a good opportunity to send the email 
+      %WORKFLOW                to Bryant Loomis and ask for the updated weekly C20 data.
+      %WORKFLOW         5.3.3: For TYPE=validation, make sure the data Bryant sent is saved as
+      %WORKFLOW                ~/data/gswarm/analyses/<date>-validation/orb/aux/GSFC_SLR_C20_7day.txt
+      %WORKFLOW     5.4: run the gswarm.TYPE method and keep an eye the last epoch of the data as it is being loaded,
       %WORKFLOW          it has to be the same as the last available month; otherwise the analysis is incomplete
       %WORKFLOW     5.5: things that may go wrong:
       %WORKFLOW         5.5.1: the C20 data is not up-to-date
