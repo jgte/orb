@@ -2703,44 +2703,57 @@ classdef gswarm
       );
     end
     function d=validation(varargin)
-      %NOTICE: this method produces the plots in the dir defined in the project.yaml file, which are
-      %        needed to produce the pre-combination report in the 'report' dir at the same location,
-      %        usually: ~/data/gswarm/analyses/<date>-validation
+      %NOTICE: this method produces the plots in the dir defined in the project.yaml file,
+      %        which are needed to produce the pre-combination report in the 'report' dir 
+      %        at the same location, usually: ~/data/gswarm/analyses/<date>-validation
 
       %WORKFLOW Workflow of the TYPE={precombval|validation} report:
       %WORKFLOW 1.  plug the thumb drive in (no need to mount-disk.sh)
       %WORKFLOW 2.  go to ~/data/gswarm/analyses/report-TYPE/ and make sure everything
       %WORKFLOW     is in synch.sh
       %WORKFLOW 3.  create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
-      %WORKFLOW 4.  cd to the orb dir in the new validation dir (shown by new-analysis.sh script) and
-      %WORKFLOW     check the stop_date in project.yaml is the last day of the last available model
-      %WORKFLOW     (the new-analysis.sh script automatically updates this but better check if it's OK)
+      %WORKFLOW 4.  cd to the orb dir in the new validation dir (shown by new-analysis.sh 
+      %WORKFLOW     script) and check the stop_date in project.yaml is the last day of the
+      %WORKFLOW     last available model (the new-analysis.sh script automatically updates
+      %WORKFLOW     this but better check if it's OK)
       %WORKFLOW 5.  fire up matlab and look at the gswarm.TYPE method:
       %WORKFLOW     5.1: check if all products are being used, some may be commented
       %WORKFLOW     5.2: check if the 'nodata' option is false:
-      %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need ~/data/gswarm/rsync.remote2local-subset.sh)
-      %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need ~/data/grace/download-l2.sh, which
+      %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need 
+      %WORKFLOW                ~/data/gswarm/rsync.remote2local-subset.sh)
+      %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need 
+      %WORKFLOW                ~/data/grace/download-l2.sh, which
       %WORKFLOW                iterates over specific years, currently 2020)
-      %WORKFLOW     5.3: check that the C20 data is updated and the model evaluated at the last 3 months
-      %WORKFLOW         5.3.1: The easiest way to be sure is to run 'gswarm.c20model('plot',file.orbdir('plot'))'
-      %WORKFLOW         5.3.2: For TYPE=precombval, TN-14 is used, so this is a good opportunity to send the email 
-      %WORKFLOW                to Bryant Loomis and ask for the updated weekly C20 data.
+      %WORKFLOW     5.3: check that the C20 data is updated and the model evaluated at the
+      %WORKFLOW          last 3 months
+      %WORKFLOW         5.3.1: The easiest way to be sure is to run:
+      %WORKFLOW                'gswarm.c20model('plot',file.orbdir('plot'))'
+      %WORKFLOW         5.3.2: For TYPE=precombval, TN-14 is used, so this is a good opportunity 
+      %WORKFLOW                to send the email  to Bryant Loomis and ask for the updated 
+      %WORKFLOW                weekly C20 data.
       %WORKFLOW         5.3.3: For TYPE=validation, make sure the data Bryant sent is saved as
       %WORKFLOW                ~/data/gswarm/analyses/<date>-validation/orb/aux/GSFC_SLR_C20_7day.txt
-      %WORKFLOW     5.4: run the gswarm.TYPE method and keep an eye the last epoch of the data as it is being loaded,
-      %WORKFLOW          it has to be the same as the last available month; otherwise the analysis is incomplete
+      %WORKFLOW     5.4: run the gswarm.TYPE method and keep an eye the last epoch of the 
+      %WORKFLOW          data as it is being loaded, it has to be the same as the last 
+      %WORKFLOW          available month; otherwise the analysis is incomplete
       %WORKFLOW     5.5: things that may go wrong:
       %WORKFLOW         5.5.1: the C20 data is not up-to-date
-      %WORKFLOW         5.5.2: IfG releases a new version of their models and the metadata was not updated to that
+      %WORKFLOW         5.5.2: IfG releases a new version of their models and the metadata
+      %WORKFLOW                was not updated to that
       %WORKFLOW         5.5.3: AIUB names the models incorrectly or does not compress them
-      %WORKFLOW 6.  update the orb git repo of the new validation dir (if changes to the code were made)
-      %WORKFLOW 7.  go through the report and update all %NEEDS UPDATING lines (some are automatically
-      %WORKFLOW     updated by new-analysis.sh)
-      %WORKFLOW 8.  compile it and compare this report with the previous one
-      %WORKFLOW 9.  go to the report dir in the new validation dir and make sure everything is in
-      %WORKFLOW     synch.sh (don't synch %NEEDS UPDATING lines)
-      %WORKFLOW 10. put the data into aristarchos (remove --dry-run, as usual):
+      %WORKFLOW 6.  go through the report and update all %NEEDS UPDATING lines (some are 
+      %WORKFLOW     automatically updated by new-analysis.sh)
+      %WORKFLOW     6.1: if TYPE=precombval, there are maps that cannot be named automatically,
+      %WORKFLOW          look for '%NEEDS UPDATING (MAPS)' and run ./ls-missing-figures.sh
+      %WORKFLOW          to see which plots are being wrongly picked
+      %WORKFLOW 7.  compile it and compare this report with the previous one
+      %WORKFLOW 8.  go to the report dir in the new validation dir and make sure everything 
+      %WORKFLOW     is in synch.sh (don't synch %NEEDS UPDATING lines)
+      %WORKFLOW 9.  put the data into aristarchos (remove --dry-run, as usual):
       %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
+      %WORKFLOW 10. git repos to make sure are up to date:
+      %WORKFLOW     ~/data/gswarm/analyses/<date>-validation/orb/
+      %WORKFLOW     ~/data/gswarm/analyses/
       %WORKFLOW
       %WORKFLOW If this is a precombval, then mail it to colleagues and you're done.
       %WORKFLOW
