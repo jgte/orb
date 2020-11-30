@@ -6,7 +6,7 @@ Generic timeseries/satellite geodesy/data processing Matlab software.
 
 ## Directory structure
 
-Each checked-out copy of this repository is intended to be its own self-contained *project*. That means that is should contain all data, metadata, plots and code. It is up to the user to refrain from pushing scripts that are specific to a certain application that isn't really interesting to anyone else (and that may be the case for the scripts listed in the [`Applications`](#code) section.)
+Each checked-out copy of this repository is intended to be its own self-contained *project*. That means that is should contain all data, metadata, plots and code. It is up to the user to refrain from pushing scripts that are specific to a certain application that isn't really interesting to anyone else (and that may be the case for the scripts listed in the [`Applications`](#Applications) section.)
 
 The following directories make up the repository:
 
