@@ -6,16 +6,19 @@ Generic timeseries/satellite geodesy/data processing Matlab software.
 
 ## Directory structure
 
-Each checked-out copy of this repository is intended to be its own self-contained *project*. That means that is should contain all data, metadata, plots and code. It is up to the user to refrain from pushing scripts that are specific to a certain application that isn't really interesting to anyone else (and that may be the case for the scripts listed in the [`Applications`](#Applications) section.)
+Each checked-out copy of this repository is intended to be its own self-contained *project*. That means that is should contain all data, metadata, plots and code. It is up to the user to refrain from pushing scripts that are specific to a certain application that isn't really interesting to anyone else (and that may be the case for the scripts listed in the [Applications](#Applications) section.)
 
 The following directories make up the repository:
 
-* aux : contains auxiliary data, such as C20 time series, land makes and geopotential coefficients
-* data : this is where the data are stored by the `datastorage` class
-* metadata : this is where the metadata are stored by the `datastorage` class
+* aux : contains auxiliary data, such as C20 time series, land masks and geopotential coefficients
 * packages : contains auxiliary software (currently `+yaml`)
-* plots :  : this is where the plots are stored by the `datastorage` class
 * version_patching : contains functions that were not available in old Matlab versions (in case those versions are the only possibility)
+
+The following directories are relevant to the [`datastorage`](#datastorage) class:
+
+* data : contains data (from imported data through the whole processing chain)
+* metadata : contains metadata files
+* plots : contains plots produced by the various processing methods
 
 ## `datastorage`
 
