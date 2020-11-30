@@ -102,7 +102,7 @@ classdef num
       n=length(xpoints);
       i=0:n-1;
       w=warning('error','MATLAB:nearlySingularMatrix'); %#ok<NASGU,CTPCT>
-      try 
+      try
         M=inv((xpoints(:)*ones(1,n)).^(ones(n,1)*i).*(dt*ones(n)).^(ones(n,1)*i)).*(factorial(0:n-1)'*ones(1,n));
       catch ME
         switch ME.identifier

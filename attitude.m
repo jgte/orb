@@ -477,6 +477,7 @@ classdef attitude
       assert(~isempty(obj.quat),'cannot compute data type ''angr'' because ''quat'' is empty')
       %computing quaternion quantities
       qj=attitude.quat_conj(obj.quat.y,obj.qsfirst);
+      %NOTICE: this calls simpledata.diff, but there is also simpletimeseries.deriv (unnecessary)
       dq=obj.quat.diff.y;
       %compute angular rates in frame_to
       y=2*attitude.quat_mult(qj,dq,obj.qsfirst);
