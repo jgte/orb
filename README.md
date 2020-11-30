@@ -49,7 +49,7 @@ end
 
 This makes it possible to call each of the `f1` ... `fj` members simply as:
 
-```matlab
+```
 dummy.fJ(in1J,...,inkJ)
 ```
 
