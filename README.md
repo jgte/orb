@@ -33,7 +33,7 @@ The use of this infrastructure has a somewhat steep learning curve and is prone 
 
 Each mat-file is a class but many are *dummy* classes, which are only used to group together a bunch of routines that have similar application. Here's an template of those *dummy* classes:
 
-```matlab
+```
 classdef dummy
   methods(Static)
     function [out11,...,outi1]=f1(in11,...,ink1)
