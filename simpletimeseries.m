@@ -2107,6 +2107,18 @@ classdef simpletimeseries < simpledata
         filter_response.a=fP(1:numel(ff));
       end
     end
+    %% derivative
+    function obj=deriv(obj,varargin)
+      %TODO: test this
+  
+      %get data
+      y=obj.y;
+      %call primitive
+      %NOTICE: these input arguments are here to set a reasonable default for the important parameters of num.diff 
+      dy=num.diff(y,obj.step,'npoints',5,'nderiv',1,'extremeties','nan',varargin{:});
+      %back propagate
+      obj=obj.assign(dy);
+    end
     %% segment analysis
     function out=segmentate(obj,seg_length,seg_overlap,varargin)
       if ~isduration(seg_length)
@@ -2616,7 +2628,6 @@ i=i+1;dh{i}= '+eoh______';
     end
   end
 end
-
 function [out,fid]=parse_grace_L1B_headers(filename)
   %define header details to be retrieved
   header_anchors={...
