@@ -24,9 +24,9 @@ The following directories are relevant to the [`datastorage`](#datastorage) clas
 
 The following classes make up the *datastorage* infrastructure (in addition to the data, metdata and plots directories):
 
-* datanames : resolves the name of a data product
-* dataproduct : handles a data product metadata and relevant directories
-* datastorage : main script for loading, processing and saving data products
+* `datanames` : resolves the name of a data product
+* `dataproduct` : handles a data product metadata and relevant directories
+* `datastorage` : main script for loading, processing and saving data products
 
 This infrastructure is intended to make it easier to handle data processing pipelines. The idea is that it is all controlled by the metadata and by splitting the processing into steps, each one corresponding to a certain data product.
 
@@ -60,31 +60,31 @@ The dummy classes may have class constants but do not have non-static members.
 
 The following m-files contain dummy classes:
 
-* cb.m : handles colorbars
-* cells.m : utilities relevant to cell arrays
-* cluster.m : handles staging and un-staging of data
-* file.m : file operations
-* num.m : numerical algorithms
-* pardecomp.m : parameter decomposition
-* plotting.m : wrapper and default-setter for plotting
-* str.m : string operations
-* structs.m : utilities relevant to structures
-* time.m : time-related functions
-* url.m : utilities relevant to handling URLs
+* `cb` : handles colorbars
+* `cells` : utilities relevant to cell arrays
+* `cluster` : handles staging and un-staging of data
+* `file` : file operations
+* `num` : numerical algorithms
+* `pardecomp` : parameter decomposition
+* `plotting` : wrapper and default-setter for plotting
+* `str` : string operations
+* `structs` : utilities relevant to structures
+* `time` : time-related functions
+* `url` : utilities relevant to handling URLs
 
 
 ## Classes
 
 Each of the following classes handle specific physical data types, which are shown according to their class hierarchy:
 
-* attitude : process quaternion or angular data
-* orbit : process orbit data
-* simpledata : contains primitive methods for data processing, models data as a numeric vector with a common value for the free variable and for the *mask* (valid/invalid data point).
-  * simpletimeseries : adds time-related operations
-    * simplefreqseries : frequency representation of time series
-      * segmentedfreqseries : segmented representation of spectra
-    * simplegrid : represents gridded data
-    * gravity : handling of Spherical Harmonic coefficients
+* `attitude` : process quaternion or angular data
+* `orbit` : process orbit data
+* `simpledata` : contains primitive methods for data processing, models data as a numeric vector with a common value for the free variable and for the *mask* (valid/invalid data point).
+  * `simpletimeseries` : adds time-related operations
+    * `simplefreqseries` : frequency representation of time series
+      * `segmentedfreqseries` : segmented representation of spectra
+    * `simplegrid` : represents gridded data
+    * `gravity` : handling of Spherical Harmonic coefficients
 
 The `varargs` class is different from all others in the sense that it handles variable-length arguments (TODO: add a better description).
 
@@ -93,22 +93,22 @@ The `varargs` class is different from all others in the sense that it handles va
 
 The following classes make is possible to retrieve data from NRTDM (please ignore if you are unfamiliar with this software package):
 
-* nrtdm
-* nrtdm_metadata
-* nrtdm_product
+* `nrtdm`
+* `nrtdm_metadata`
+* `nrtdm_product`
 
 
 ## Scripts and functions
 
-* startup.m : handles correct linking of project directories
-* test.m : calls all tests in all classes
+* `startup` : handles correct linking of project directories
+* `test` : calls all tests in all classes
 
 
 ## Applications
 
 The following classes are examples of using the classes and scripts above.
 
-* csr.m : routines to handle some of CSR's data, specifically those related to accelerometer parameters (highly outdated, possibly to be removed in the future)
-* gswarm.m : used for the processing of the Swarm gravity field models
+* `csr` : routines to handle some of CSR's data, specifically those related to accelerometer parameters (highly outdated, possibly to be removed in the future)
+* `gswarm` : used for the processing of the Swarm gravity field models
 
 
