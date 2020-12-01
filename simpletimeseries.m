@@ -800,15 +800,20 @@ classdef simpletimeseries < simpledata
           simpletimeseries.strings_from_grace_l1b_filename(fullfile(d,f));
         %define output file
         o=fullfile(dirname,[f,'.asc']);
-        %invoke L1B cat script
-        com=['~/data/grace/cat-l1b.sh ',...
+        o=strrep(o,' ','\ ');
+        %invoke L1B cat script        
+        com=[strrep(pwd,' ','\ ') '/data/grace/cat-l1b.sh ',...
           strrep(date,'-',''),' ',product,' ',sat,' ',version,' JPL > ',o];
+%        com=[ pwd '/data/grace/cat-l1b.sh ',...
+%           strrep(date,'-',''),' ',product,' ',sat,' ',version,' JPL > ',o];
+        com=string(com);
         disp(com)
         %make sure there's a directory for o
         if ~exist(dirname,'dir'); mkdir(dirname); end
         %issue com
         file.system(com,[],true);
         %recursive call to retrieve the data
+        o=strrep(o,'\ ',' ');
         obj=simpletimeseries.import(o,'format',[format,'-asc']);
         %NOTICE: the data_dir was changed above, so need to bail to avoid writing a duplicate mat file in the default data_dir
         return

@@ -637,7 +637,10 @@ classdef file
       if ~exist('stop_if_error','var') || isempty(stop_if_error)
         stop_if_error=false;
       end
+%       temcdir=pwd;
+      cd data/grace
       [status,result]=system(com);
+      cd ../..
       result=str.chomp(result);
       out=(status==0);
       if ~out 
