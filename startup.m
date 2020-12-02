@@ -8,7 +8,7 @@ disp([datestr(datetime('now'),'yyyy-mm-dd HH:MM:SS'),' - startup.m started'])
 %get dir of this file
 dirnow=fileparts(mfilename('fullpath'));
 disp(['NOTICE: startup from : ',dirnow])
-addpath(dirnow)
+addpath(genpath(dirnow))
 % add legacy support
 legacy_date='2016-02-11';
 dirlegacy=fullfile(dirnow,'version_patching');
