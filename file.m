@@ -3,6 +3,9 @@ classdef file
     %NOTICE: this used to be called 'DATE_PLACE_HOLDER'
     dateplaceholder='DATE_PLACEHOLDER';
     archivedfilesext={'.gz','.gzip','.z','.zip','.tgz','.tar.gz','.tar'};
+    %NOTICE: these need to be hard-coded because the point is to translate paths with any
+    %        of these sub-strings into $HOME. Append as needed.
+    %TODO: move this to project.yaml, if it exists
     homes={...
       '~';...
       '/home1/00767/byaa676';...
