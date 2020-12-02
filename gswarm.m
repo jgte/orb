@@ -1,5 +1,23 @@
 classdef gswarm
-   methods(Static)
+  properties(Constant)
+    l1bdir_options={...
+      '~/data/gswarm';...
+      './data/gswarm';...
+    };
+  end
+  methods(Static)
+    function out=dir(type)
+      switch type
+        case 'data'
+          for i=1:numel(grace.l1bdir_options)
+            if file.exist(grace.l1bdir_options{i})
+              out=grace.l1bdir_options{i};
+              return
+            end
+          end
+        %add more directories here
+      end
+    end
     function obj=load_models(obj,product,varargin)
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{...
@@ -2634,7 +2652,7 @@ classdef gswarm
         '--exclude=wgt/',...
         '--exclude=acceleration/',...
         '--exclude=normaleq/',...
-        '--exclude=backup.*/'},' '),'disp',true,'cd','~/data/gswarm');
+        '--exclude=backup.*/'},' '),'disp',true,'cd',gswarm.dir('data'));
     end
     function out=c20model(mode,plot_dir,version)
       if ~exist('version','var') || isempty(version)
