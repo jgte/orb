@@ -1,4 +1,4 @@
-The data in file GSFC_SLR_C20_7day.txt was gratiously provided by Dr. Bryant Loomis of NASA's Goddard Space Flight Center. 
+The data in file `GSFC_SLR_C20_7day.txt` was gratiously provided by Dr. Bryant Loomis of NASA's Goddard Space Flight Center. 
 
 Any use of these data must first receive explicit consent by Dr. Loomis and reference the following publication:
 
