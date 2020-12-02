@@ -1010,6 +1010,9 @@ classdef file
       [~,f,e]=fileparts(in);
       out=[f,e];
     end
+    function out=hostname
+      out=file.system('hostname');
+    end
   end
 end
 
