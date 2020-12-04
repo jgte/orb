@@ -723,7 +723,7 @@ classdef file
           disp(['WARNING: circular linking ',source,' to ',target,' is ilegal'])
           out=false;
         else
-          out=file.system(['ln -sv ',source,' ',target],disp_flag);
+          out=file.system(['ln -sv ',source,' ',target],'disp',disp_flag);
         end
       else
         out=false;
@@ -740,7 +740,7 @@ classdef file
         ls_flags='';
       end
       in=file.resolve_home(in);
-      [~,result]=file.system(['ls ',ls_flags,' ',in,],false);
+      [~,result]=file.system(['ls ',ls_flags,' ',in,],'disp',false);
     end
     function result=md5(in,md5_flags)
       if ~exist('ls_flags','var') || isempty(md5_flags)
