@@ -8,7 +8,7 @@ disp([datestr(datetime('now'),'yyyy-mm-dd HH:MM:SS'),' - startup.m started'])
 %get dir of this file
 dirnow=fileparts(mfilename('fullpath'));
 disp(['NOTICE: startup from : ',dirnow])
-addpath(genpath(dirnow))
+addpath(dirnow)
 % add legacy support
 legacy_date='2016-02-11';
 dirlegacy=fullfile(dirnow,'version_patching');
@@ -16,12 +16,11 @@ if datetime(version('-date'))<=datetime(legacy_date)
   disp(['NOTICE: current version dates from ',version('-date'),...
     ', which is before ',legacy_date,', so adding ',dirlegacy,' to the PATH.'])
   addpath(dirlegacy);
-else
-  rmpath(dirlegacy)
 end
 %inform user
 pathhead=strsplit(path,':');
-disp(['NOTICE: top 3 entries in path are:',newline,strjoin(pathhead(1:3),newline)])
+n=6;
+disp(['NOTICE: top ',num2str(n),' entries in path are:',newline,strjoin(pathhead(1:n),newline)])
 
 %% add packages
 
