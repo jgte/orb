@@ -238,7 +238,7 @@ classdef file
       if ~exist('filename','var') || isempty(filename)
         error([mfilename,': need filename.'])
       end
-      if ~exist('str','var') || isempty(str)
+      if ~exist('str','var') %str can be empty
         error([mfilename,': need str.'])
       end
       %open the file if needed
