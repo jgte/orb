@@ -791,7 +791,7 @@ classdef file
           error(['Cannot handle git command ''',mode,'''.'])
       end
       %git it
-      [~,out]=file.system(git_com,false,false);
+      [~,out]=file.system(git_com,'disp',false,'stop_if_error',false);
       %pre-pend directory report
       out=['Result of "',git_com,'" is:',newline,out];
     end
