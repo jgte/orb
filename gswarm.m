@@ -2751,7 +2751,7 @@ classdef gswarm
       %WORKFLOW     is in synch.sh (don't synch %NEEDS UPDATING lines)
       %WORKFLOW 9.  put the data into aristarchos (remove --dry-run, as usual):
       %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
-      %WORKFLOW 10. git repos to make sure are up to date:
+      %WORKFLOW 10. git repos to make sure are up to date (should be open in smerge):
       %WORKFLOW     ~/data/gswarm/analyses/<date>-validation/orb/
       %WORKFLOW     ~/data/gswarm/analyses/
       %WORKFLOW
