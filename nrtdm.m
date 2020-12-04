@@ -23,22 +23,11 @@ classdef nrtdm
       end
       assert(exist(out,'dir')~=0,'Cannot find NRTDM dir')
     end
-    function out=data_dir(hostname,check)
-      if ~exist('hostname','var') || isempty(hostname)
-        [~,hostname]=system('hostname');
-        hostname=hostname(1:end-1);
-      end
+    function out=data_dir(check)
       if ~exist('check','var') || isempty(check)
         check=false;
       end
-      switch lower(hostname)
-        case 'tud276672'
-          out='/home/teixeira/data/swarm/nrtdmdata/';
-        case 'tud14231'
-          out='/Users/teixeira/cloud/TUDelft/data/swarm/nrtdmdata/';
-        otherwise
-          out=fullfile(nrtdm.nrtdm_dir,'data');
-      end
+      out=file.resolve_home('~/data/swarm/nrtdmdata');
       if check
         assert(exist(out,'dir')~=0,'Cannot find NRTDM data dir')
       end

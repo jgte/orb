@@ -3,6 +3,9 @@ classdef file
     %NOTICE: this used to be called 'DATE_PLACE_HOLDER'
     dateplaceholder='DATE_PLACEHOLDER';
     archivedfilesext={'.gz','.gzip','.z','.zip','.tgz','.tar.gz','.tar'};
+    %NOTICE: these need to be hard-coded because the point is to translate paths with any
+    %        of these sub-strings into $HOME. Append as needed.
+    %TODO: move this to project.yaml, if it exists
     homes={...
       '~';...
       '/home1/00767/byaa676';...
@@ -630,24 +633,31 @@ classdef file
       end
     end
     %% CLI interfaces
-    function [out,result]=system(com,disp_flag,stop_if_error)
-      if ~exist('disp_flag','var') || isempty(disp_flag)
-        disp_flag=false;
-      end
-      if ~exist('stop_if_error','var') || isempty(stop_if_error)
-        stop_if_error=false;
+    function [out,result]=system(com,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('com',                   @ischar);
+      p.addParameter('cd',            '',    @ischar); 
+      p.addParameter('disp',          false, @islogical); 
+      p.addParameter('stop_if_error', false, @islogical);
+      p.parse(com,varargin{:})
+      if ~isempty(p.Results.cd)
+        cdnow=cd(p.Results.cd);
       end
       [status,result]=system(com);
       result=str.chomp(result);
       out=(status==0);
+      if ~isempty(p.Results.cd)
+        cd(cdnow);
+      end
       if ~out 
-        if stop_if_error
+        if p.Results.stop_if_error
           error([str.dbstack,result])
         else
           disp(['WARNING: problem issuing command ''',com,''':',newline,result])
         end
       else
-        if disp_flag
+        if p.Results.disp
           disp(result)
         end
       end
@@ -758,6 +768,7 @@ classdef file
         if isempty(d); d='./'; end
         f=[f,e];
       else
+        %this is actually a directory
         d=filename;
         f='';
       end
@@ -1001,6 +1012,9 @@ classdef file
     function out=basename(in)
       [~,f,e]=fileparts(in);
       out=[f,e];
+    end
+    function out=hostname
+      out=file.system('hostname');
     end
   end
 end

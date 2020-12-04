@@ -1,5 +1,23 @@
 classdef gswarm
-   methods(Static)
+  properties(Constant)
+    l1bdir_options={...
+      '~/data/gswarm';...
+      './data/gswarm';...
+    };
+  end
+  methods(Static)
+    function out=dir(type)
+      switch type
+        case 'data'
+          for i=1:numel(grace.l1bdir_options)
+            if file.exist(grace.l1bdir_options{i})
+              out=grace.l1bdir_options{i};
+              return
+            end
+          end
+        %add more directories here
+      end
+    end
     function obj=load_models(obj,product,varargin)
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{...
@@ -2624,9 +2642,9 @@ classdef gswarm
     end
     function get_input_data
       %NOTICE: the download-l2.sh script iterates over specific years (currently 2020)
-      file.system('~/data/grace/download-l2.sh CSR 06',true);
+      file.system('./download-l2.sh CSR 06','disp',true,'cd',grace.dir('l1b'));
       file.system(strjoin({...
-        '~/data/gswarm/rsync.remote2local.sh',...
+        './rsync.remote2local.sh',...
         '--exclude=analyses/',...
         '--exclude=orbit/',...
         '--exclude=old/',...
@@ -2634,7 +2652,7 @@ classdef gswarm
         '--exclude=wgt/',...
         '--exclude=acceleration/',...
         '--exclude=normaleq/',...
-        '--exclude=backup.*/'},' '),true);
+        '--exclude=backup.*/'},' '),'disp',true,'cd',gswarm.dir('data'));
     end
     function out=c20model(mode,plot_dir,version)
       if ~exist('version','var') || isempty(version)

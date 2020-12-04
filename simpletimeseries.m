@@ -801,13 +801,13 @@ classdef simpletimeseries < simpledata
         %define output file
         o=fullfile(dirname,[f,'.asc']);
         %invoke L1B cat script
-        com=['~/data/grace/cat-l1b.sh ',...
+        com=['./cat-l1b.sh ',...
           strrep(date,'-',''),' ',product,' ',sat,' ',version,' JPL > ',o];
         disp(com)
         %make sure there's a directory for o
         if ~exist(dirname,'dir'); mkdir(dirname); end
         %issue com
-        file.system(com,[],true);
+        file.system(com,'stop_if_error',true,'cd',grade.dir('l1b'));
         %recursive call to retrieve the data
         obj=simpletimeseries.import(o,'format',[format,'-asc']);
         %NOTICE: the data_dir was changed above, so need to bail to avoid writing a duplicate mat file in the default data_dir
@@ -2107,6 +2107,18 @@ classdef simpletimeseries < simpledata
         filter_response.a=fP(1:numel(ff));
       end
     end
+    %% derivative
+    function obj=deriv(obj,varargin)
+      %TODO: test this
+  
+      %get data
+      y=obj.y;
+      %call primitive
+      %NOTICE: these input arguments are here to set a reasonable default for the important parameters of num.diff 
+      dy=num.diff(y,obj.step,'npoints',5,'nderiv',1,'extremeties','nan',varargin{:});
+      %back propagate
+      obj=obj.assign(dy);
+    end
     %% segment analysis
     function out=segmentate(obj,seg_length,seg_overlap,varargin)
       if ~isduration(seg_length)
@@ -2616,7 +2628,6 @@ i=i+1;dh{i}= '+eoh______';
     end
   end
 end
-
 function [out,fid]=parse_grace_L1B_headers(filename)
   %define header details to be retrieved
   header_anchors={...
