@@ -1545,11 +1545,11 @@ classdef simpletimeseries < simpledata
     end
     %the detrend method can be called directly
     %the outlier method can be called directly
-    function obj=median(obj,span,op,keep_time_domain)
+    function obj=median(obj,span,keep_time_domain)
       if ~exist('keet_time_domain','var')
-        obj=obj.segstat(span,op);
+        obj=obj.segstat(span,@median);
       else
-        obj=obj.segstat(span,op,keep_time_domain);
+        obj=obj.segstat(span,@median,keep_time_domain);
       end
     end
     function obj=segstat(obj,span,op,keep_time_domain)
