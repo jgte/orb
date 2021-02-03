@@ -1589,8 +1589,8 @@ classdef gravity < simpletimeseries
         values=values*ones(numel(time),numel(d));
       end
       %interpolate over time if needed
-      if ~obj.istequal(time)
-        values=interp1(time,values.obj.t_masked);
+      if numel(time)>1 && ~obj.istequal(time)
+        values=interp1(time,values,obj.t_masked);
       end
       %retrieve matrix form
       mat_now=obj.mat;
@@ -2358,6 +2358,8 @@ classdef gravity < simpletimeseries
             case 'cumdas',   title_str='cumul. degree amplit.';
           end
           out.title=[obj.descriptor,' - ',title_str];
+        else
+          out.title=v.title;
         end
         title(str.clean(out.title,'title'))
       otherwise
