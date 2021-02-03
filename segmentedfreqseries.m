@@ -189,6 +189,9 @@ classdef segmentedfreqseries < simplefreqseries
     end
     %% seg methods
     function obj=segmentate(obj,seg_length,seg_overlap,varargin)
+      %save segment parameters
+      obj.seg_length=seg_length;
+      obj.seg_overlap=seg_overlap;
       % separate time series into segments
       [ts,idx]=segmentedfreqseries.time_segmented(obj.t,...
         seg_length,...
@@ -330,7 +333,7 @@ classdef segmentedfreqseries < simplefreqseries
       %tweaking some super methods
       switch p.Results.operation
       case 'plot'
-        xlim(datenum([obj.x(1) obj.x(end)]))
+        xlim([obj.t(1) obj.t(end)])
       end
       %check if outputs are of the same class as member 'seg'
       self_assign=true;
