@@ -54,7 +54,7 @@ classdef structs
       if strcmp(varname,'_')
         out=strjoin(out,'_');
       else
-        out=strjoin(out,char(10));
+        out=strjoin(out,newline);
       end
     end
     %returns true if all leafs are empty

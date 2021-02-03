@@ -1149,7 +1149,7 @@ classdef csr
         if ~isempty(out)
           obj=obj.data_set(product.dataname.set_field_path(v.sats(s)),out);
         else
-          str.say('No data in file(s):',[char(10),strjoin(infile,char(10))])
+          str.say('No data in file(s):',[newline,strjoin(infile,newline)])
         end
       end
       obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
@@ -1390,7 +1390,7 @@ classdef csr
       end
       out=file.wildcard(fullfile(csr.estim_dir_default(v.varargin{:},varargin{:}),filename));
       if v.enforce_scalar
-        assert(numel(out)==1,['Can only handle one estim file at a time, not ',num2str(numel(out)),':',10,strjoin(out(:),char(10))])
+        assert(numel(out)==1,['Can only handle one estim file at a time, not ',num2str(numel(out)),':',10,strjoin(out(:),newline)])
         out=out{1};
       end
     end
@@ -2591,7 +2591,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
             );
             %add text box
             a=axis;
-            text(a(1)+0.01*(a(2)-a(1)),a(3)+0.15*(a(4)-a(3)),strjoin(text_str,char(10)),'fontsize',14)
+            text(a(1)+0.01*(a(2)-a(1)),a(3)+0.15*(a(4)-a(3)),strjoin(text_str,newline),'fontsize',14)
             %save plots
             saveas(gcf,plot_name);
           end

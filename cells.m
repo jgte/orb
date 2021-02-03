@@ -238,7 +238,7 @@ classdef cells
       else
         if ischar(in)
           if size(in,1)==1
-            out=transpose(strsplit(in,char(10)));
+            out=transpose(strsplit(in,newline));
           else
             out=cell([size(in,1),1]);
             for i=1:size(in,1)

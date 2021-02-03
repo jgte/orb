@@ -2596,7 +2596,7 @@ i=i+1;dh{i}= '+scmass___ 500.000';
 i=i+1;dh{i}=['+software_ http://github.com/jgte/orb, data exported on ',...
   datestr(datetime('now'),'yyyy-mm-dd HH:MM:SS'),' by Joao Encarnacao'];
 i=i+1;dh{i}= '+eoh______';
-            fprintf(fid,'%s',strjoin(dh,char(10)));
+            fprintf(fid,'%s',strjoin(dh,newline));
           case 'none'
             %do nothing
           otherwise

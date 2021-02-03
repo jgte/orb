@@ -317,7 +317,7 @@ classdef varargs < dynamicprops
       for i=1:obj.length
         out{i+1}=str.tablify(tab,c(sort_idx(i),:));
       end
-      out=strjoin(out,char(10));
+      out=strjoin(out,newline);
     end
     function out=show(obj,tab)
       if ~exist('tab','var') || isempty(tab)
