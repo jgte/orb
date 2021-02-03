@@ -452,23 +452,24 @@ classdef num
     %% pardecomp stuff (deprecated)
     function plot_pardecomp(pd_struct)
       s=200+[0,0,21,9]*50;
+      lf={'-','--',':','-.'};
       figure('Position',s,'PaperPosition',s)
       legend_str=cell(1,numel(pd_struct.polynomial)+numel(pd_struct.sinusoidal)+numel(pd_struct.cosinusoidal)+2);
-      plot(pd_struct.in.t,pd_struct.in.y,'b','LineWidth',2), hold on
       c=0;
-      c=c+1;legend_str{c}='residual';
-      plot(pd_struct.in.t,pd_struct.y_res,'k','LineWidth',2)
+      plot(pd_struct.in.t,pd_struct.in.y,'b','LineWidth',2), hold on
       c=c+1;legend_str{c}='original';
+      plot(pd_struct.in.t,pd_struct.y_res,'k','LineWidth',2)
+      c=c+1;legend_str{c}='residual';
       for i=1:numel(pd_struct.polynomial)
-        plot(pd_struct.in.t,pd_struct.y_polynomial(:,i),'r','LineWidth',2)
+        plot(pd_struct.in.t,pd_struct.y_polynomial(:,i),['r',lf{mod(i-1,numel(lf))+1}],'LineWidth',2)
         c=c+1;legend_str{c}=['t^',num2str(i-1),':',num2str(pd_struct.polynomial(i))];
       end
       for i=1:numel(pd_struct.sinusoidal)
-        plot(pd_struct.in.t,pd_struct.y_sinusoidal(:,i),'g','LineWidth',2)
+        plot(pd_struct.in.t,pd_struct.y_sinusoidal(:,i),['g',lf{mod(i-1,numel(lf))+1}],'LineWidth',2)
         c=c+1;legend_str{c}=['sin_',num2str(i),':',num2str(pd_struct.sinusoidal(i))];
       end
       for i=1:numel(pd_struct.cosinusoidal)
-        plot(pd_struct.in.t,pd_struct.y_cosinusoidal(:,i),'m','LineWidth',2)
+        plot(pd_struct.in.t,pd_struct.y_cosinusoidal(:,i),['m',lf{mod(i-1,numel(lf))+1}],'LineWidth',2)
         c=c+1;legend_str{c}=['cos_',num2str(i),':',num2str(pd_struct.cosinusoidal(i))];
       end
       legend(legend_str,'location','eastoutside')
