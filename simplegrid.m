@@ -927,8 +927,7 @@ classdef simplegrid < simpletimeseries
       end
       title(catchment.name)
     end
-    %% tests
-    %general test for the current object
+    %% general test for the current object
     function out=test_parameters(field,l,w)
       switch field
       case 'something'
@@ -946,9 +945,14 @@ classdef simplegrid < simpletimeseries
       end
       switch lower(method)
       case 'all'
-         for i={'reps','plus','minus','times','rdivide','print','resample','ggm05s','stats','coast'}
-           simplegrid.test(i{1},l);
-         end
+       for i={'reps','print','resample',...
+         'plus','minus','times','rdivide',...
+         'area','height','volume',...
+         'crop','interp2',...
+         'min','max','mean','std','rms','meanabs','stdabs','rmsabs','length','gaps',...
+         'coast','plot','conv'}
+         simplegrid.test(i{1},l);
+       end
       case 'reps'
         dt={'vecmat','matrix','list','flatlist'};
         a=struct(...
@@ -1008,7 +1012,9 @@ classdef simplegrid < simpletimeseries
         disp(method)
         a.(method).prettymap(a.t(1))
       case 'crop'
-        a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(l(3)));
+        %TODO: update this test once the interpolant method works with multiple epochs
+        %a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(l(3)));
+        a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(1));
         disp('original')
         a.prettymap(a.t(1))
         disp('cropped')
@@ -1016,8 +1022,11 @@ classdef simplegrid < simpletimeseries
         a.lon=45:45:270;
         a.prettymap(a.t(1))
       case 'interp2'
-        a=simplegrid.unit(l(1),  l(2),  't',datetime('now')+days(  1:1:2),'scale',0.5);
-        b=simplegrid.unit(l(1)-1,l(2)-1,'t',datetime('now')+days(0.5:1:2),'scale',2);
+        %TODO: update this test once the interpolant method works with multiple epochs
+        %a=simplegrid.unit(l(1),  l(2),  't',datetime('now')+days(  1:1:2),'scale',0.5);
+        %b=simplegrid.unit(l(1)-1,l(2)-1,'t',datetime('now')+days(0.5:1:2),'scale',2);
+        a=simplegrid.unit(l(1),  l(2),  't',datetime('now'),'scale',0.5);
+        b=simplegrid.unit(l(1)-1,l(2)-1,'t',datetime('now'),'scale',2);
         disp('originals:a')
         a.prettymap
         disp('originals:b')
@@ -1036,14 +1045,11 @@ classdef simplegrid < simpletimeseries
         disp('original')
         a.prettymap
         disp(method)
-        a.stats('mode',method,'period',inf).prettymap
+        a.stats('mode',method,'period',days(inf)).prettymap
       case 'coast'
         a=simplegrid.coast;
       case 'plot'
-        a=simplegrid.slanted(l(1)*10,l(2)*10).plot;
-      case 'conv'
-        a=simplegrid.slanted(l(1)*10,l(2)*10)
-        keyboard
+        a=simplegrid.slanted(l(1)*10,l(2)*10).imagesc;
       end
     end
   end
@@ -1640,7 +1646,9 @@ classdef simplegrid < simpletimeseries
       lon_new=mean([lon1;lon2]);
       lat_new=mean([lat1,lat2],2);
       %save results
-      obj=obj.assign(map_now,'t',obj.t,'lat',lat_new,'lon',lon_new);
+      map_c=cell(1,obj.length);
+      map_c(:)={map_now};
+      obj=obj.assign(map_c,'t',obj.t,'lat',lat_new,'lon',lon_new);
       %convert back to original units
       obj=obj.convert(original_units);
     end

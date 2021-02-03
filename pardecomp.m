@@ -144,11 +144,11 @@ classdef pardecomp
       for j=1:numel(coeffnames)
         %retrieve coefficient index within its type
         switch coeffnames{j}(1)
-        case 'p';
+        case 'p'
           i=str2double(coeffnames{j}(2:end))+1;
           labels=[str.th(i-1),'-order polynomial term'];
           units=[obj.y_units{1},'/',v.timescale,'^',num2str(i-1)];
-        case {'c','s'};
+        case {'c','s'}
           i=str2double(coeffnames{j}(2:end));
           labels=['sine term for period with ',num2str(d(1).T(i)),' ',v.timescale];
           if coeffnames{j}(1)=='c'; labels=['co',labels]; end %#ok<AGROW>
@@ -416,7 +416,7 @@ classdef pardecomp
         out=str.latex_table(out);
       end
     end
-    %% testing
+    %% general test for the current object
     function test
       %test parameters
       step=1;

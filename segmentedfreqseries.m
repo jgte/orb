@@ -74,7 +74,7 @@ classdef segmentedfreqseries < simplefreqseries
       out=out(~empty_idx);
       idx=idx(~empty_idx);
     end
-    %general test for the current object
+    %% general test for the current object
     function out=test_parameters(field,l,w)
       switch field
       case 'timestep'
@@ -103,8 +103,10 @@ classdef segmentedfreqseries < simplefreqseries
         out=simplefreqseries.test_parameters(field,l,w);
       end
     end
-    function test(l,w)
-
+    function test(method,l,w)
+      if ~exist('method','var') || isempty(method)
+        method='all';
+      end
       if ~exist('l','var') || isempty(l)
         l=1000;
       end
@@ -117,42 +119,54 @@ classdef segmentedfreqseries < simplefreqseries
       columns={'columns',1};
       line_seg={'line',{'-o'}};
       line_y  ={'line',{'-+'}};
-
-      %simple plot
-
+      %init object
       a=segmentedfreqseries(...
         segmentedfreqseries.test_parameters('time',l,w),...
         segmentedfreqseries.test_parameters('y-dyn-sin',l,w),...
         'format','datetime',...
         args{:}...
       );
-
-%       figure
-%       subplot(2,1,1)
-%       a.plot(columns{:},line_y{:})
-%       a.op('plot',columns{:},line_seg{:})
-%
-%       subplot(2,1,2)
-%       a.plot_psd(columns{:},line_y{:})
-%       a.op('plot_psd',columns{:},line_seg{:})
-
-      %y_merged
-
-      figure
-      b=simplefreqseries(...
-        a.t,...
-        a.y_merged,...
-        args{:},...
-        'format','datetime'...
-      );
-      b.plot(columns{:},line_seg{:});
-      a.plot(columns{:},line_y{:})
-      c=a-b;
-      if sum(c.y(:).^2)>1e-14
-        error([mfilename,':BUG TRAP: discrepancy between merged and original data'])
+   
+      switch method
+        case 'all'
+          for i={}
+            segmentedfreqseries.test(i{1},l);
+          end
+        case 'plot'
+          legend_str{1}='original';
+          for i=1:numel(a.seg)
+            legend_str{i+1}=a.seg{i}.descriptor; %#ok<AGROW>
+          end
+          figure
+          subplot(2,1,1)
+          a.plot(columns{:},line_y{:})
+          a.op('plot',columns{:},line_seg{:})
+          legend(legend_str,'location','eastoutside')
+          subplot(2,1,2)
+          a.plot_psd(columns{:},line_y{:})
+          a.op('plot_psd',columns{:},line_seg{:})
+          legend(legend_str,'location','eastoutside')
+          title(method)
+        case 'y_merged'
+          b=segmentedfreqseries(...
+            a.t,...
+            a.y_merged,...
+            'format','datetime',...
+            args{:}...
+          );
+          figure
+          a.plot(columns{:},line_y{:})
+          b.plot(columns{:},line_seg{:});
+          legend('original','merged')
+          title(method)
+          c=a-b;
+          disp(c.stats('mode','str-nl'))
+          if sum(c.y(:).^2)>1e-14
+            error([mfilename,':BUG TRAP: discrepancy between merged and original data'])
+          end
+        otherwise
+          error(['Cannot handle test method ''',method,'''.'])
       end
-
-
     end 
   end
   methods

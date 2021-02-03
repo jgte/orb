@@ -245,161 +245,6 @@ classdef simpletimeseries < simpledata
         end
       end
     end
-    %general test for the current object
-    function out=test(l,w)
-      if ~exist('l','var') || isempty(l)
-        l=1000;
-      end
-      if ~exist('w','var') || isempty(w)
-        w=3;
-      end
-
-
-      %test current object
-      args=simpledata.test_parameters('args',l,w);
-      now=juliandate(datetime('now'),'modifiedjuliandate');
-      t=datetime(now-l,'convertfrom','modifiedjuliandate'):...
-        datetime(now+l,'convertfrom','modifiedjuliandate');
-
-      a=simpletimeseries.randn(t,w,args{:});
-      a=a.scale(0.05);
-      idx=2:4;
-      for i=1:numel(idx)
-        as=simpletimeseries.sin(t,days(l/3)/idx(i)*ones(1,w),args{:});
-        as=as.scale(rand(1,w));
-        a=a+as;
-      end
-      a.descriptor='original';
-
-      a.component_split_plot(days(l/3)./idx,'columns',1);
-      return
-
-      i=0;c=1;
-      i=i+1;h{i}=figure('visible','on');
-      a.plot('column',c)
-      [m,s,segs]=a.component_ampl(days(2*l/5));
-      for si=1:numel(segs)
-        i=i+1;h{i}=figure('visible','on');
-        segs{si}.plot('column',c)
-      end
-      i=i+1;h{i}=figure('visible','on');
-      plot(m(:,1))
-      title('mean')
-
-      i=i+1;h{i}=figure('visible','on');
-      plot(s(:,1))
-      title('std')
-
-
-      return
-
-      i=0;
-      bn=simpletimeseries.randn(t,w,args{:});
-      bs=simpletimeseries.sin(t,days(l./(1:w)),args{:});
-      b=bs.scale(rand(1,w))+bn.scale(0.1)+ones(bs.length,1)*randn(1,w);
-      c=a.calibrate_poly(b);
-      i=i+1;h{i}=figure('visible','on');
-      for i=1:w
-        subplot(1,w,i)
-        a.plot('column',i)
-        b.plot('column',i)
-        c.plot('column',i)
-        legend('uncal','target','cal')
-        title(['column ',num2str(i)])
-      end
-
-      return
-
-      lines1=cell(w,1);lines1(:)={'-o'};
-      lines2=cell(w,1);lines2(:)={'-x'};
-      lines3=cell(w,1);lines3(:)={'-+'};
-      i=i+1;h{i}=figure('visible','on');
-      a.plot('line',lines1)
-      a.median(10).plot('line',lines2);
-      a.medfilt(10).plot('line',lines3);
-      legend('origina','median','medfilt')
-      title('median (operation not saved)');
-
-      b=a.resample;
-      a=a.fill;
-      i=i+1;h{i}=figure('visible','off');
-      a.plot('line',lines1); hold on; b.plot('title','fill','line',lines2)
-      legend('fill','resample')
-
-      a=a.append(...
-        simpletimeseries(...
-          a.stop+(round(l/3):round(4*l/3)-1),...
-          simpledata.test_parameters('y',l,w),...
-          'mask',simpledata.test_parameters('mask',l,w),...
-          args{:}...
-        )...
-      );
-      i=i+1;h{i}=figure('visible','off'); a.plot('title','append')
-
-      a=a.trim(...
-        datetime(now+round(-l/2),'convertfrom','modifiedjuliandate'),...
-        datetime(now+round( l/2),'convertfrom','modifiedjuliandate')...
-      );
-      i=i+1;h{i}=figure('visible','off'); a.plot('title','trim')
-
-      b=a.resample(...
-        days(0.8) ...
-      );
-      i=i+1;h{i}=figure('visible','off');
-      a.plot('line',lines1); hold on; b.plot('title','resampled','line',lines2)
-      legend('original','resampled')
-
-      a=a.extend(...
-        100 ...
-      ).extend(...
-        -100 ...
-      );
-      i=i+1;h{i}=figure('visible','off'); a.plot('title','extend')
-
-      a=a.slice(...
-        datetime(now+round(-l/5),'convertfrom','modifiedjuliandate'),...
-        datetime(now+round( l/5),'convertfrom','modifiedjuliandate')...
-      );
-      i=i+1;h{i}=figure('visible','off'); a.plot('title','delete')
-
-      a=simpledata.test_parameters('all_T',l,w);
-      i=i+1;h{i}=figure('visible','off'); a.plot('title', 'parametric decomposition','columns',1)
-      %decompose
-      out=pardecomp.split(a,...
-        'np',numel(simpledata.test_parameters('y_poly_scale')),...
-        't0',a.x(round(a.length/2)),...
-        'T',simpledata.test_parameters('T',l)...
-      );
-      fn=fields(out);tot=[];legend_str={};
-      for i=1:numel(fn);
-        if ~isempty(strfind(fn{i},'ts_'))
-          legend_str{end+1}=fn{i};
-          out.(fn{i}).plot('columns',1)
-          if isempty(tot)
-            tot=out.(fn{i});
-          else
-            tot=tot+out.(fn{i});
-          end
-        end
-      end
-      tot.plot('columns',1)
-      legend_str=strrep(legend_str,'_','\_');
-      legend('original',legend_str{:},'sum')
-
-      a=simpledata.test_parameters('all_T',l,w);
-      i=i+1;h{i}=figure('visible','off'); a.plot('title', 'parametric reconstruction','columns',1,'line',{'x-'})
-      %reconstruct
-      b=pardecomp.join(out,transpose(0:1.2:round(1.2*l)-1));
-      b.plot('columns',1,'line',{'o-'})
-      legend('original','reconstructed')
-
-
-
-      for i=numel(h):-1:1
-        set(h{i},'visible','on')
-      end
-
-    end
     %% internally-consistent naming of satellites
     function out=translatesat(in)
       %search for satellite name
@@ -1021,6 +866,181 @@ classdef simpletimeseries < simpledata
     function out=sin(t,w,varargin)
       y=cell2mat(arrayfun(@(i) sin((t(:)-t(1))*pi/i),w,'UniformOutput',false));
       out=simpletimeseries(t(:),y,varargin{:});
+    end
+    %% general test for the current object
+    function out=test(method,l,w)
+      if ~exist('method','var') || isempty(method)
+        method='all';
+      end
+      if ~exist('l','var') || isempty(l)
+        l=1000;
+      end
+      if ~exist('w','var') || isempty(w)
+        w=3;
+      end
+
+      %get common parameters
+      args=simpledata.test_parameters('args',l,w);
+      now=juliandate(datetime('now'),'modifiedjuliandate');
+      t=datetime(now,           'convertfrom','modifiedjuliandate'):...
+        datetime(now+round(l)-1,'convertfrom','modifiedjuliandate');
+      %init object
+      a=simpletimeseries(...
+          t,...
+          simpledata.test_parameters('y_all',l,w),...
+          'mask',simpledata.test_parameters('mask',l,w),...
+          args{:}...
+        );
+
+      switch method
+        case 'all'
+          %TODO: add 'component_split'
+          for i={'calibrate_poly','median','fill-resample','append','trim','resample','extend','slice','pardecomp'}
+            simpletimeseries.test(i{1},l);
+          end
+        case 'component_split'
+          %TODO: update this test, it's not in agreement with the new implementation of the relevant methods
+          error('unfinished')
+          a=simpletimeseries.randn(t,w,args{:});
+          a=a.scale(0.05);
+          idx=2:4;
+          for i=1:numel(idx)
+            as=simpletimeseries.sin(t,days(l/3)/idx(i)*ones(1,w),args{:});
+            as=as.scale(rand(1,w));
+            a=a+as;
+          end
+          a.descriptor='original';
+          a.component_split_plot(days(l/3)./idx,'columns',1);
+          return
+          i=0;c=1;
+          i=i+1;h{i}=figure('visible','on');
+          a.plot('column',c)
+          [m,s,segs]=a.component_ampl(days(2*l/5));
+          for si=1:numel(segs)
+            i=i+1;h{i}=figure('visible','on');
+            segs{si}.plot('column',c)
+          end
+          i=i+1;h{i}=figure('visible','on');
+          plot(m(:,1))
+          title('mean')
+
+          i=i+1;h{i}=figure('visible','on');
+          plot(s(:,1))
+          title('std')
+        case 'calibrate_poly'
+          a=simpletimeseries.sin(t,days(l./(1:w)),args{:});
+          bn=simpletimeseries.randn(t,w,args{:});
+          a=a+bn.scale(0.05);
+          b=a.scale(rand(1,w))+bn.scale(0.1)+ones(a.length,1)*randn(1,w);
+          c=a.calibrate_poly(b);
+          figure
+          a.plot('columns',1)
+          b.plot('columns',1)
+          c.plot('columns',1)
+          legend('uncal','target','cal')
+          title(method)
+        case 'median'
+          figure
+          a.plot(            'columns',1,'line',{'o-'});
+          a.medfilt(10).plot('columns',1,'line',{'+-'});
+          a.median( 10).plot('columns',1,'line',{'x-'});
+          legend('origina','median','medfilt')
+          title(method)
+        case 'fill-resample'
+          %TODO: make this test more illustrative
+          b=a.resample;
+          c=a.fill;
+          figure;
+          a.plot('columns',1,'line',{'o-'})
+          b.plot('columns',1,'line',{'+-'})
+          c.plot('columns',1,'line',{'x-'})
+          legend('original','fill','resample')
+          title(method)
+        case 'append'
+          b=a.append(...
+            simpletimeseries(...
+              a.stop+(round(l/3):round(4*l/3)-1),...
+              simpledata.test_parameters('y_all',l,w),...
+              'mask',simpledata.test_parameters('mask',l,w),...
+              args{:}...
+            )...
+          );
+          figure;
+          a.plot('columns',1,'line',{'o-'})
+          b.plot('columns',1,'line',{'+-'})
+          legend('original','appended')
+          title(method)
+        case 'trim'
+          b=a.trim(...
+            datetime(now+round(l*0.3),'convertfrom','modifiedjuliandate'),...
+            datetime(now+round(l*0.7),'convertfrom','modifiedjuliandate')...
+          );
+          figure;
+          a.plot('columns',1,'line',{'o-'})
+          b.plot('columns',1,'line',{'+-'})
+          legend('original','trimmed')
+          title(method)
+        case 'resample'
+          b=a.resample(...
+            days(0.8) ...
+          );
+          figure;
+          a.plot('columns',1,'line',{'o-'})
+          b.plot('columns',1,'line',{'+-'})
+          legend('original','resampled')
+          title(method)
+        case 'extend'
+          b=a.extend(...
+            round(l/4) ...
+          ).extend(...
+            -round(l/2) ...
+          );
+          figure;
+          a.plot('columns',1,'line',{'o-'})
+          b.plot('columns',1,'line',{'+-'})
+          legend('original','extended')
+          title(method)
+        case 'slice'
+          b=a.slice(...
+            datetime(now+round( l/5),'convertfrom','modifiedjuliandate'),...
+            datetime(now+round( l/2),'convertfrom','modifiedjuliandate')...
+          );
+          figure;
+          a.plot('columns',1,'line',{'o-'})
+          b.plot('columns',1,'line',{'+-'})
+          legend('original','sliced')
+          title(method)
+        case 'pardecomp'
+          a=simpletimeseries(...
+              t,...
+              simpledata.test_parameters('y_all_T',l,w),...
+              'mask',simpledata.test_parameters('mask',l,w),...
+              args{:}...
+            );
+          %test parameters
+          poly_coeffs=simpledata.test_parameters('y_poly_scale');
+          sin_periods=simpledata.test_parameters('T',l);
+           sin_coeffs=simpledata.test_parameters('y_sin_scale');
+           cos_coeffs=simpledata.test_parameters('y_cos_scale');
+          %inform
+          disp(['poly_coeffs : ',num2str(poly_coeffs(:)')])
+          disp(['sin_periods : ',num2str(sin_periods(:)')])
+          disp(['sin_coeffs  : ',num2str(sin_coeffs(:)')])
+          disp(['cos_coeffs  : ',num2str(cos_coeffs(:)')])
+          %derived parameters
+          [b,pd_set]=a.parametric_decomposition(...
+            'np',numel(poly_coeffs),...
+            'T',sin_periods,...
+            'timescale','days'...
+          );
+          figure;
+          a.plot('columns',1,'line',{'o-'})
+          b.plot('columns',1,'line',{'+-'})
+          legend('original','pardecomp')
+          title(method)
+
+          disp(pardecomp.table(pd_set,'tablify',true))
+      end
     end
   end
   methods
@@ -2628,6 +2648,7 @@ i=i+1;dh{i}= '+eoh______';
     end
   end
 end
+
 function [out,fid]=parse_grace_L1B_headers(filename)
   %define header details to be retrieved
   header_anchors={...

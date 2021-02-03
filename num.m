@@ -33,7 +33,7 @@ classdef num
         out=in-sign(in);
       end
     end
-    % shortcut for [s.field(:,column)]
+    % shortcut for [s.field(:,column)] or [s.field(line,:)]
     function out=struct_deal(s,field,line,column)
       if ~xor(isempty(line),isempty(column))
         error([mfilename,': (only) one of ''line'' or ''column'' must be empty.'])

@@ -91,88 +91,119 @@ classdef simplefreqseries < simpletimeseries
           out=out+randn(l,w)*0.1; %noise
         end
       case 'Wn'
-        out=[0,4e-7];
+        out=[2e-7,1e-6];
+      case 'time'
+        %set the number of gaps to be 5% of the length of the time domain
+        n_gaps=floor(l*0.1);
+        %generate a time domain:
+        % - <l> refers to the length of the data
+        % - generate n_gaps more than needed, so that there's l number of data
+        out=juliandate(datetime('now'),'modifiedjuliandate')+linspace(1,l,l+n_gaps);
+        %insert implicit gaps
+        while numel(out)>l
+          out(round(2+rand*(numel(out)-3)))=[];
+        end
       otherwise
         out=simpledata.test_parameters(field,l,w);
       end
     end
-    function test(l,w)
-      
+    function out=test(method,l,w)
+      if ~exist('method','var') || isempty(method)
+        method='all';
+      end
       if ~exist('l','var') || isempty(l)
         l=1000;
       end
       if ~exist('w','var') || isempty(w)
         w=3;
       end
-      
-      %test current object
+      %get common parameters
       args=simplefreqseries.test_parameters('args',l,w);
-      now=juliandate(datetime('now'),'modifiedjuliandate');
-      
-      t=[1:l/2,round(l/2+l/10):l];
-      a=simplefreqseries(...
-        now+t,...  % t
-        simplefreqseries.test_parameters('y-sin',t,w),...           % y
-        'no-mask',simplefreqseries.test_parameters('mask',l,w),...
+      %define time domain
+      t=simplefreqseries.test_parameters('time',l,w);
+      %init object
+      y=simplefreqseries.test_parameters('y-sin',t,w);
+      mask=simplefreqseries.test_parameters('mask',l,w);
+      a=simplefreqseries(t,y,...      
+        'mask',mask,...
         args{:},...
         'format','modifiedjuliandate'...
-      );
-    
-      %TODO: fft_bandpass doesn't work if there are explicit gaps in the time domain
-      %(which is something uncommon anyway)
-      a=a.fill;
-
-      %despiking
-      
-      [d,s]=a.despike(5e-7,'outlier_sigma',1);
-      figure
-      subplot(2,1,1)
-      a.plot('columns',1)
-      d.plot('columns',1)
-      s.plot('columns',1)
-      legend('original','despiked','spikes')
-      
-      subplot(2,1,2)
-      a.plot_psd('columns',1)
-      d.plot_psd('columns',1)
-      s.plot_psd('columns',1)
-      legend('original','despiked','spikes')
-      title('despiking')
-      return
-      %PSD-smoothing
-      
-      figure
-      a.psd_refresh('smooth',false).plot_psd('columns',1)
-      a.psd_refresh('smooth',true ).plot_psd('columns',1)
-      legend('original PSD','smoothed PSD')
-      title('PSD smoothing')
-     
-      %different PSD computation methods
-
-      methods={'periodogram','fft'};
-      figure
-      for i=1:numel(methods)
-        a=a.psd_refresh('method',methods{i}); hold on
-        a.plot_psd('columns',1)
+      );      
+      switch method
+        case 'all'
+          %TODO: fix the weight test
+          for i={'init','despike','smooth','psd','band-pass'}
+            simplefreqseries.test(i{1},l);
+          end
+        case {'constructor','init'}
+          out=a;
+        case 'despike'
+          [d,s]=a.despike(5e-7,'outlier_sigma',1);
+          figure
+          subplot(2,1,1)
+          a.plot('columns',1)
+          d.plot('columns',1)
+          s.plot('columns',1)
+          legend('original','despiked','spikes')
+          subplot(2,1,2)
+          a.plot_psd('columns',1)
+          d.plot_psd('columns',1)
+          s.plot_psd('columns',1)
+          legend('original','despiked','spikes')
+          title('despiking')
+          out=d;
+        case 'smooth'
+          figure
+          a.psd_refresh('smooth',false).plot_psd('columns',1)
+          a.psd_refresh('smooth',true ).plot_psd('columns',1)
+          legend('original PSD','smoothed PSD')
+          title('PSD smoothing')
+          out=a;
+        case 'psd'
+          methods={'periodogram','fft'};
+          figure
+          for i=1:numel(methods)
+            a=a.psd_refresh('method',methods{i}); hold on
+            a.plot_psd('columns',1)
+          end
+          legend(methods)
+          title('different PSD computation algorithms')
+          out=a;
+        case 'band-pass'
+          Wn=simplefreqseries.test_parameters('Wn',t,w);
+%           %TODO: fft_bandpass doesn't work if there are explicit gaps in the time domain
+%           %(which is something uncommon anyway)
+%           a=a.fill;
+          b=a.fft_bandpass(Wn);
+          figure
+          subplot(2,1,1)
+          a.plot('columns',1);
+          b.plot('columns',1);
+          legend('original','filtered')
+          subplot(2,1,2)
+          a.plot_psd('columns',1)
+          b.plot_psd('columns',1)
+          limits=axis;
+          plot([Wn(1) Wn(1)],limits(3:4),'k:')
+          plot([Wn(2) Wn(2)],limits(3:4),'k:')
+          legend('original','filtered')
+          title('band-pass filtering')          
+        case 'weight'
+          %get noise with 10% std as the signal in object 'a'
+          b=simplefreqseries.transmute(...
+            simpletimeseries.randn(t,a.width).scale(a.stats('mode','std')*0.1)...
+          );
+          figure
+          subplot(2,1,1)
+          a.plot('columns',1);
+          b.plot('columns',1);
+          legend('original','filtered')
+          subplot(2,1,2)
+          a.plot_psd('columns',1)
+          b.plot_psd('columns',1)
+          legend('original','filtered')
+          title('band-pass filtering')          
       end
-      legend(methods)
-      title('different PSD computation algorithms')
-      
-      %band-pass filtering
-      
-      b=a.fft_bandpass(simplefreqseries.test_parameters('Wn',t,w));
-      figure
-      subplot(2,1,1)
-      a.plot('columns',1);
-      b.plot('columns',1);
-      legend('original','filtered')
-      
-      subplot(2,1,2)
-      a.plot_psd('columns',1)
-      b.plot_psd('columns',1)
-      legend('original','filtered')
-      title('band-pass filtering')
-
     end
   end
   methods

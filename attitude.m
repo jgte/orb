@@ -230,26 +230,36 @@ classdef attitude
         error([mfilename,': unknown field ',field,'.'])
       end
     end
-    function out=test(mode)
+    function out=test(method)
+      if ~exist('method','var') || isempty(method)
+        method='all';
+      end
       format= attitude.test_parameters('format');
       satname=attitude.test_parameters('satname');
       start=  attitude.test_parameters('start');
-      switch(mode)
+      switch(method)
+        case 'all'
+          for i={'filename','import','quat','ang','angr'}
+            attitude.test(i{1});
+          end
         case 'filename'
           out=attitude.filename(format,satname,start);
         case 'import'
           out=attitude.import(format,satname,start);
         case 'quat'
           out=attitude.test('import');
+          figure
           out.quat.plot;
         case 'ang'
           out=attitude.test('import');
+          figure
           out.ang.plot;
         case 'angr'
           out=attitude.test('import');
+          figure
           out.angr.plot('zeromean',true);
         otherwise
-          error(['Cannot handle mode ''',mode,'''.'])
+          error(['Cannot handle test method ''',method,'''.'])
       end
     end
   end

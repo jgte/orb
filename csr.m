@@ -193,7 +193,7 @@ classdef csr
         out{i}=datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'plot_dir',plot_dir,args{:});
       end
     end
-    function out=test(mode,start)
+    function out=test_calpar(mode,start)
       if ~exist('mode','var') || isempty(mode)
         mode='poly_calmod';
         mode='calpar';

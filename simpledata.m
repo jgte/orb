@@ -474,7 +474,7 @@
           'y_units',   strcat(cellstr(repmat('y_unit-',w,1)),cellstr(num2str((1:w)'))),...
           'labels',    strcat(cellstr(repmat('label-', w,1)),cellstr(num2str((1:w)'))),...
           'x_unit',    'x_unit',...
-          'descriptor','descriptor'...
+          'descriptor','original'...
         };
       case 'x';             out=transpose(0:l-1);
       case 'T';             out=l./[3 5];
@@ -566,10 +566,13 @@
       case 'no-mask'
         out=true(l,1);
       case 'columns'
+        %NOTICE: this return from 1 to w columns
         out=[1,find(randn(1,w-1)>0)+1];
       case 'obj'
         args=simpledata.test_parameters('args',l,w);
-        out=simpledata(1:l,simpledata.test_parameters('y',l,w),...
+        out=simpledata(...
+          simpledata.test_parameters('x',    l,w),...
+          simpledata.test_parameters('y_all',l,w),...
           'mask',simpledata.test_parameters('no-mask',l,w),...
           args{:}...
         );
@@ -577,181 +580,212 @@
         error([mfilename,': cannot understand field ''',field,'''.'])
       end
     end
-    function test(l,w)
+    function test(method,l,w)
+      if ~exist('method','var') || isempty(method)
+        method='all';
+      end
       if ~exist('l','var') || isempty(l)
         l=simpledata.test_parameters('l');
       end
       if ~exist('w','var') || isempty(w)
         w=simpledata.test_parameters('w');
       end
+      %get common parameters
          args=simpledata.test_parameters('args',l,w);
       columns=simpledata.test_parameters('columns',l,w);
-
-      i=0;
-
-%       i=i+1;
-%       t=simpledata.test_parameters('x',l);
-%       y=simpledata.test_parameters('y_all_T',l,w);
-%       a=num.pardecomp(t,y(:,1),...
-%         'polynomial',ones(size(simpledata.test_parameters('y_poly_scale'))),...
-%         'sinusoidal',simpledata.test_parameters('T',l)...
-%       );
-%       disp(['sin_periods : ',num2str(simpledata.test_parameters('T',l))])
-%       disp(['poly_coeffs : ',num2str(simpledata.test_parameters('y_poly_scale'))])
-%       disp(['sin_coeffs  : ',num2str(simpledata.test_parameters('y_sin_scale'))])
-%       disp(['cos_coeffs  : ',num2str(simpledata.test_parameters('y_cos_scale'))])
-%       disp(['randn_scale : ',num2str(simpledata.test_parameters('y_randn_scale'))])
-%       num.plot_pardecomp(a)
-%       
-% 
-%       
-%       keyboard
+      %init object
+      a=simpledata.test_parameters('obj',l,w);
       
-      i=i+1;
-      a=simpledata([1:4,5 7 9 11],[11 12 13 14 15 17 19 31]',...
-        'mask',logical([1 1 0 0 1 1 0 0])...
-      );
-      b=simpledata([1:4,6,8,10 12],[21 22 23 24 26 28 40 42]',...
-        'mask',logical([1 0 1 0 1 0 1 0])...
-      );
-      disp('Augment test: a')
-      a.peek
-      disp('Augment test: b')
-      b.peek
-      disp('Augment test: a.augment(b,common=[true,false],new=true,old=true)')
-      a.augment(b,'quiet',true,'common',true,'new',true,'old',true,'skip_gaps',false).peek
-      disp('---')
-      a.augment(b,'quiet',true,'common',false,'new',true,'old',true,'skip_gaps',false).peek
-      
-      disp('Augment test: a.augment(b,common=[true,false],new=false,old=true)')
-      a.augment(b,'quiet',true,'common',true,'new',false,'old',true,'skip_gaps',false).peek
-      disp('---')
-      a.augment(b,'quiet',true,'common',false,'new',false,'old',true,'skip_gaps',false).peek
+      switch method
+        case 'all'
+          for i={'plot','append','median','trim','slice','interp','detrend','outlier','plus','pardecomp','augment','vmean'}
+           simpledata.test(i{1},l);
+          end
+        case 'plot'
+          figure
+          a.plot('columns', columns)
+        case 'append'
+          b=a.append(...
+            simpledata(-l-1:-1,simpledata.test_parameters('y_all',l+1,w),...
+              'mask',simpledata.test_parameters('mask',l+1,w),...
+              args{:}...
+            )...
+          );
+          figure
+          subplot(2,1,1)
+          a.plot('columns', columns)
+          title('original')
+          subplot(2,1,2)
+          b.plot('columns', columns)
+          title(method)
+        case 'median'
+          lines1=cell(size(columns));lines1(:)={'-o'};
+          lines2=cell(size(columns));lines2(:)={'-x'};
+          figure
+          a.median(10 ).plot('columns', columns,'line',lines1);
+          a.medfilt(10).plot('columns', columns,'line',lines2);
+          legend('median','medfilt')
+          title(method)
+        case 'trim'
+          b=a.trim(...
+            round(-l/2),...
+            round( l/3)...
+          );
+          figure
+          subplot(2,1,1)
+          a.plot('columns', columns)
+          title('original')
+          subplot(2,1,2)
+          b.plot('columns', columns)
+          title(method)
+        case 'slice'
+          b=a.slice(...
+            round(l*0.3),...
+            round(l*0.4)...
+          );
+          figure
+          a.plot('columns', columns,'line',repmat({'+-'},numel(columns),1))
+          b.plot('columns', columns,'line',repmat({'o-'},numel(columns),1))
+          legend_str={};
+          for i=1:numel(columns);legend_str{end+1}=['original-',num2str(i)]; end %#ok<AGROW>
+          for i=1:numel(columns);legend_str{end+1}=['sliced-',  num2str(i)]; end %#ok<AGROW>
+          %% 
+          %% 
+          legend(legend_str)
+          title(method)
+        case 'interp'
+          figure
+          legend_str={};
+          %define interpolated time domain
+          t_interp=round(-l*0.1):0.4:round(l*0.7);
+          %add some gaps to the data
+          mask=a.mask;
+          mask(a.idx(round(l*0.45)):a.idx(round(l*0.5)))=false;
+          a=a.mask_and(mask);
+          %plot it
+          legend_str{end+1}='original';
+          a.plot('columns',1,'line',{'o:'});
+          legend_str{end+1}='linear interp over gaps narrower than=0';
+          a.interp(...
+            t_interp,'interp_over_gaps_narrower_than',0 ...
+          ).plot('columns',1,'line',{'x-'});
+          legend_str{end+1}='spline interp over gaps narrower than 3';          
+          a.interp(...
+            t_interp,'interp_over_gaps_narrower_than',3 ...
+          ).plot('columns',1,'line',{'d-'});
+          legend_str{end+1}='spline interp over gaps narrower than \infty';          
+          a.interp(...
+            t_interp,'interp_over_gaps_narrower_than',inf ...
+          ).plot('columns',1,'line',{'s-'});
+          legend(legend_str)
+        case 'detrend'
+          b=a.detrend;
+          figure
+          subplot(2,1,1)
+          a.plot('columns', columns)
+          title('original')
+          subplot(2,1,2)
+          b.plot('columns', columns)
+          title(method)
+        case 'outlier'
+          %TODO: need to revise the outlier method, this test is giving strange results
+          outlier_iter=2;
+          figure
+          a=a.assign(simpledata.test_parameters('y_randn',l,w));
+          a.plot('columns', 1,'line',{'x-'});
+          legend_str{1}=a.descriptor;
+          [a,o]=a.outlier('outlier_iter',outlier_iter,'outlier_sigma',3);
+          a.plot(...
+            'columns', 1,...
+            'masked',true,...
+            'line',{'o'}...
+          );
+          legend_str{2}=[a.descriptor,' w/out outliers'];
+          for i=1:outlier_iter
+            if any(o{i}.mask)
+              o{i}.plot(...
+                'columns', 1,...
+                'masked',true,...
+                'line',{'d'}...
+              );
+              legend_str{i+2}=o{i}.descriptor; 
+            end
+          end
+          legend(legend_str)
+          title(method)
+        case 'plus'
+          a=simpledata(0:l,simpledata.test_parameters('y_all',l+1,w),...
+            'mask',[true(0.2*l+1,1);false(0.2*l,1);true(0.6*l,1)],...
+            args{:}...
+          );
+          b=simpledata(-l/2:2:3/2*l,simpledata.test_parameters('y_all',l+1,w),...
+            'mask',[true(0.3*l+1,1);false(0.2*l,1);true(0.2*l,1);false(0.1*l,1);true(0.2*l,1)],...
+            args{:}...
+          );
+          figure
+          a.plot('columns',1,'line',{'+-'})
+          b.plot('columns',1,'line',{'x-'})
+          c=a+b;
+          c.plot('columns',1,'line',{'o-'})
+          legend('a','b','a+b')
+          title(method)
+        %the tests below do not require the object 'a', defined above
+        case 'pardecomp'
+          %NOTICE: this uses a deprecated method
+          t=simpledata.test_parameters('x',l);
+          y=simpledata.test_parameters('y_all_T',l,w);
+          a=num.pardecomp(t,y(:,1),...
+            'polynomial',numel(simpledata.test_parameters('y_poly_scale'))-1,...
+            'sinusoidal',simpledata.test_parameters('T',l)...
+          );
+          disp(['sin_periods : ',num2str(simpledata.test_parameters('T',l))])
+          disp(['poly_coeffs : ',num2str(simpledata.test_parameters('y_poly_scale'))])
+          disp(['sin_coeffs  : ',num2str(simpledata.test_parameters('y_sin_scale'))])
+          disp(['cos_coeffs  : ',num2str(simpledata.test_parameters('y_cos_scale'))])
+          disp(['randn_scale : ',num2str(simpledata.test_parameters('y_randn_scale'))])
+          num.plot_pardecomp(a)
+        case 'augment'
+          a=simpledata([1:4,5 7 9 11],[11 12 13 14 15 17 19 31]',...
+            'mask',logical([1 1 0 0 1 1 0 0])...
+          );
+          b=simpledata([1:4,6,8,10 12],[21 22 23 24 26 28 40 42]',...
+            'mask',logical([1 0 1 0 1 0 1 0])...
+          );
+          disp('Augment test: a')
+          a.peek
+          disp('Augment test: b')
+          b.peek
+          disp('Augment test: a.augment(b,common=[true,false],new=true,old=true)')
+          a.augment(b,'quiet',true,'common',true,'new',true,'old',true,'skip_gaps',false).peek
+          disp('---')
+          a.augment(b,'quiet',true,'common',false,'new',true,'old',true,'skip_gaps',false).peek
 
-      disp('Augment test: a.augment(b,common=true,new=true,old=true,skip_gaps=[false,true])')
-      a.augment(b,'quiet',true,'common',true,'new',true,'old',true,'skip_gaps',false).peek
-      disp('---')
-      a.augment(b,'quiet',true,'common',true,'new',true,'old',true,'skip_gaps',true).peek
-           
-      i=i+1;h{i}=figure('visible','on');
-      a=cell(1,w*2);
-      legend_str=cell(1,numel(a)+1);
-      for i=1:numel(a)
-        a{i}=simpledata.randn(1:l,w);
-        a{i}.plot('columns',1,'line',{'.'})
-        legend_str{i}=['a',num2str(i)];
+          disp('Augment test: a.augment(b,common=[true,false],new=false,old=true)')
+          a.augment(b,'quiet',true,'common',true,'new',false,'old',true,'skip_gaps',false).peek
+          disp('---')
+          a.augment(b,'quiet',true,'common',false,'new',false,'old',true,'skip_gaps',false).peek
+
+          disp('Augment test: a.augment(b,common=true,new=true,old=true,skip_gaps=[false,true])')
+          a.augment(b,'quiet',true,'common',true,'new',true,'old',true,'skip_gaps',false).peek
+          disp('---')
+          a.augment(b,'quiet',true,'common',true,'new',true,'old',true,'skip_gaps',true).peek
+        case 'vmean'
+          figure('visible','on');
+          a=cell(1,w*2);
+          legend_str=cell(1,numel(a)+1);
+          for i=1:numel(a)
+            a{i}=simpledata.randn(1:l,w);
+            a{i}.plot('columns',1,'line',{'.'})
+            legend_str{i}=['a',num2str(i)];
+          end
+          b=simpledata.vmean(a);
+          b.plot('columns',1)
+          legend_str{end}='mean(a_i)';
+          legend(legend_str)
+        otherwise
+          error(['Cannot handle test method ''',method,'''.'])
       end
-      b=simpledata.vmean(a);
-      b.plot('columns',1)
-      legend_str{end}='mean(a_i)';
-      legend(legend_str)
-      
-      i=i+1;h{i}=figure('visible','off');
-      a=simpledata(1:l,simpledata.test_parameters('y',l,w),...
-        'mask',simpledata.test_parameters('no-mask',l,w),...
-        args{:}...
-      );
-      a.plot('columns', columns)
-      title('starting point')
 
-      i=i+1;h{i}=figure('visible','off');
-      a=a.append(...
-        simpledata(-l:0,simpledata.test_parameters('y',l+1,w),...
-          'mask',simpledata.test_parameters('mask',l+1,w),...
-          args{:}...
-        )...
-      );
-      a.plot('columns', columns)
-      title('append')
-
-      lines1=cell(size(columns));lines1(:)={'-o'};
-      lines2=cell(size(columns));lines2(:)={'-x'};
-      i=i+1;h{i}=figure('visible','off');
-      a.median(10).plot('columns', columns,'line',lines1);
-      a.medfilt(10).plot('columns', columns,'line',lines2);
-      legend('median','medfilt')
-      title('median (operation not saved)')
-      
-      i=i+1;h{i}=figure('visible','off');
-      a=a.trim(...
-        round(-l/2),...
-        round( l/3)...
-      );
-      a.plot('columns', columns)
-      title('trim')
-    
-      i=i+1;h{i}=figure('visible','off');
-      a=a.slice(...
-        round(-l/20),...
-        round( l/30)...
-      );
-      a.plot('columns', columns)
-      title('delete')
-          
-      i=i+1;h{i}=figure('visible','off');
-      a.interp(...
-        round(-l/2):0.4:round(l/3),'interp_over_gaps_narrower_than',0 ...
-      ).plot('columns',1,'line',{'x-'});
-      hold on
-      a.plot('columns',1,'line',{'o:'});
-      title('linear interp over gaps narrower than=0')
-
-      i=i+1;h{i}=figure('visible','off');
-      a.interp(...
-        round(-l/2):0.4:round(l/3),'interp_over_gaps_narrower_than',inf ...
-      ).plot('columns',1,'line',{'x-'});
-      hold on
-      a.plot('columns',1,'line',{'o:'});
-      title('spline interp over gaps narrower than \infty')
-
-      i=i+1;h{i}=figure('visible','off');
-      a.interp(...
-        round(-l/2):0.4:round(l/3),'interp_over_gaps_narrower_than',3 ...
-      ).plot('columns',1,'line',{'x-'});
-      hold on
-      a.plot('columns',1,'line',{'o:'});
-      title('spline interp over gaps narrower than 2')
-      
-      i=i+1;h{i}=figure('visible','off');
-      a=a.detrend;
-      a.plot('columns', columns);
-      title('detrended')
-
-      i=i+1;h{i}=figure('visible','off');
-      a.plot('columns', 1,'line',{'x-'});
-      [a,o]=a.outlier('outlier_iter',2);
-      a.plot(...
-        'columns', 1,...
-        'masked',true,...
-        'line',{'+'}...
-      );
-      o.plot(...
-        'columns', 1,...
-        'masked',true,...
-        'line',{'o'}...
-      );
-      title('detrended without outliers')
-      legend('original','w/out outliers','outliers')
-      
-      i=i+1;h{i}=figure('visible','off');
-      a=simpledata(0:l,simpledata.test_parameters('y',l+1,w),...
-        'mask',[true(0.2*l+1,1);false(0.2*l,1);true(0.6*l,1)],...
-        args{:}...
-      );
-      b=simpledata(-l/2:2:3/2*l,simpledata.test_parameters('y',l+1,w),...
-        'mask',[true(0.3*l+1,1);false(0.2*l,1);true(0.2*l,1);false(0.1*l,1);true(0.2*l,1)],...
-        args{:}...
-      );
-      a.plot('column',1,'line',{'+-'})
-      b.plot('column',1,'line',{'x-'})
-      c=a+b;
-      c.plot('column',1,'line',{'o-'})
-      legend('a','b','a+b')
-      title('add two series')
-    
-      for i=numel(h):-1:1
-        set(h{i},'visible','on')
-      end
     end
   end
   methods
@@ -2455,7 +2489,6 @@
       %propagate data
       obj=obj.assign(y_diff);
     end
-
     %% wrappers
     function obj=smooth(obj,varargin)
       x_now=obj.x_masked;
@@ -2828,7 +2861,7 @@
         S.descriptor=obj.descriptor;
         S.y_units=obj.y_units;
         S.labels=obj.labels;
-        S.x_units=obj.x_units; %#ok<STRNU>
+        S.x_units=obj.x_units; 
         details=whos('S');
         disp(['Saving ',obj.descriptor,' to ',filename,' (',num2str(details.bytes/1024),'Kb).'])
         if nargin>1
@@ -2851,5 +2884,4 @@
 %       end
 %     end
     end
-end
- 
+ end

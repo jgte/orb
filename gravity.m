@@ -700,6 +700,7 @@ classdef gravity < simpletimeseries
           %save periods
           save(f,'out');
         else
+          disp(['Loading parametric decomposition from ',f])
           %load periods
           load(f,'out');
         end
@@ -864,7 +865,7 @@ classdef gravity < simpletimeseries
         end
         plotting.enforce(varargin{:},...
           'plot_legend',version_list,...
-          'plot_xlabel','none')
+          'plot_xlabel','none');
         title(['mean C_{20}: ',num2str(v.C20mean,'%e')]);
         out=dat_list;
       otherwise
@@ -1137,8 +1138,7 @@ classdef gravity < simpletimeseries
     function lmax=width2lmax(width)
       lmax=sqrt(width)-1;
     end
-    %% tests
-    %general test for the current object
+    %% general test for the current object
     function out=test_parameters(field,l,w)
       switch field
       case 'something'
@@ -1161,7 +1161,7 @@ classdef gravity < simpletimeseries
       disp(['--- ',method,': l=',num2str(l)])
       switch lower(method)
       case 'all'
-         for i={'reps','unit','unit rms','r','gm','minus','resample','ggm05g','c'}
+         for i={'reps','unit','unit rms','r','gm','minus','grid','ggm05g','stats','c','smoothing','deepoceanmaskplot','gracec20'}
            gravity.test(i{1},l);
          end
       case 'reps'
@@ -1227,18 +1227,25 @@ classdef gravity < simpletimeseries
         disp(b.tri{numel(t)})
       case 'grid'
         figure
-        gravity.unit_randn(100*l,'t',t).grid.imagesc
+        gravity.unit_randn(120,'t',t).grid.imagesc
       case 'ggm05g'
         m=gravity.ggm05g;
+        disp('- print gravity')
         m.print
+        disp('- print grid')
         m.grid.print
       case 'stats'
-        m=gravity.load('ggm05g.gfc.txt');
+        m=gravity.ggm05g.setC(0,0,0).setC(2,0,0);
         for i={'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
           figure
-          m.plot(i{1},'functional','geoid','itle',[m.descriptor,' - ',i{1}]);
+          m.plot('method',i{1},'functional','geoid','title',[m.descriptor,' - ',i{1}]);
         end
       case 'c'
+        if numel(t)<3
+          now=juliandate(datetime('now'),'modifiedjuliandate');
+          t=datetime(now,       'convertfrom','modifiedjuliandate'):...
+            datetime(now+l*10-1,'convertfrom','modifiedjuliandate');
+        end
         a=gravity.unit_randn(l,'t',t);
         disp('- tri: a=')
         disp(a.tri{numel(t)})
@@ -1246,7 +1253,7 @@ classdef gravity < simpletimeseries
         o=round(rand*2*d)-d;
         disp(['- a.C(',num2str(d),',',num2str(o),',',datestr(t(numel(t))),')=',num2str(a.C(d,o,t(numel(t))))])
         disp(['- a.C(',num2str(d),',',num2str(o),',',datestr(t(1)),')=',num2str(a.C(d,o,t(1)))])
-        v=9;
+        v=9.9999;
         a=a.setC(d,o,v,t(numel(t)));
         disp(['- tri: a.setC(',num2str(d),',',num2str(o),')=',num2str(v)])
         disp(a.tri{numel(t)})
@@ -1271,7 +1278,11 @@ classdef gravity < simpletimeseries
         a.imagesc;
         colormap(c)
         colorbar off
-        plotting.enforce('plot_legend_location','none')
+        plotting.enforce('plot_legend_location','none');
+      case 'gracec20'
+        gravity.graceC20('mode','plot-all','version',{'GSFC-7DAY','GSFC','TN-14','TN-11'})
+      otherwise
+        error(['Cannot handle test method ''',method,'''.'])
       end
     end
   end
@@ -3202,7 +3213,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     [t,s,e,d]=GetGRACEC20(varargin{:},'mode','read');
     plotting.figure;
     plot(t ,s ,'o-','MarkerSize',4), hold on
-    plotting.enforce('plot_title',d,'plot_legend_location','none')
+    plotting.enforce('plot_title',d,'plot_legend_location','none');
   case 'get' %read the downloaded data
     %open the file
     fid=file.open(v.file);
