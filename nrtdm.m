@@ -55,7 +55,7 @@ classdef nrtdm
       if ~exist('time_stop','var') || isempty(time_stop)
         time_stop=datetime(2015,6,3,18,0,0);
       end
-      nrtdm(product_name,time_start,time_stop,'data_dir',nrtdm.data_dir('',true)).ts.plot
+      nrtdm(product_name,time_start,time_stop,'data_dir',nrtdm.data_dir(true)).ts.plot
     end
   end
   methods

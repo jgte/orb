@@ -20,7 +20,7 @@ classdef nrtdm_metadata
       );
     end
     function test
-      if ~file.exist(nrtdm_product.config_dir)
+      if ~file.exist(nrtdm.config_dir)
         disp([mfilename,':WARNING: cannot find NRTDM config dir: ',nrtdm_product.config_dir,'. Skipping test.'])
         return
       end
