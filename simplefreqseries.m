@@ -218,7 +218,7 @@ classdef simplefreqseries < simpletimeseries
     end
     %% psd methods
     function out=get.f(obj)
-      out=1/obj.step_num/2*linspace(0,1,obj.psd_nfft/2);
+      out=1/obj.step_num/2*linspace(0,1,floor(obj.psd_nfft/2)+1);
     end
     function out=get.psd(obj)
       obj=psd_refresh_if_empty(obj);
@@ -269,7 +269,7 @@ classdef simplefreqseries < simpletimeseries
       %duplicate
       working=obj;
       %interpolate gaps for computing the PSD if requested
-      if p.Results.detrend
+      if p.Results.resample
         working=working.resample;
       end
       %remove trend if requested
