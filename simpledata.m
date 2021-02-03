@@ -766,6 +766,7 @@
       %create argument object, declare and parse parameters, save them to obj
       [~,~,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{simpledata.parameters('obj')},'mandatory',{x,y},varargin{:});
       %assign (this needs to come before the parameter check, so that sizes are known)
+      varargin=cells.vararginclean(varargin,'t');
       obj=obj.assign(y,'x',x,varargin{:});
       %rowize labels and y_units
       obj.labels =transpose(obj.labels( :));
@@ -887,12 +888,18 @@
       obj.disp_field('nr gaps',    tab,sum(~obj.mask))
       obj.disp_field('first datum',tab,sum(obj.x(1)))
       obj.disp_field('last datum', tab,sum(obj.x(end)))
-      obj.disp_field('statistics', tab,[10,stats(obj,...
-        'mode','str-nl',...
-        'tab',tab,...
-        'period',seconds(inf),...
-        'columns',1:min([obj.peekwidth,obj.width])...
-      )])
+      switch class(obj)
+        case 'simplegrid'
+          %do nothing, the str-nl mode does not work with simplegrid.stats
+          %TODO: figure out a way to show grid statistics with the print method
+        otherwise
+        obj.disp_field('statistics', tab,[10,stats(obj,...
+          'mode','str-nl',...
+          'tab',tab,...
+          'period',seconds(inf),...
+          'columns',1:min([obj.peekwidth,obj.width])...
+        )])
+      end
       obj.peek
     end
     function disp_field(obj,field,tab,value)
@@ -960,20 +967,20 @@
       %NOTICE: need to set 'outlier_iter' to 0, otherwise the default in obj.outlier is used in the (common)
       %        case varargin{:} is omissive in the value of this option.
       obj=obj.outlier('outlier_iter',0,varargin{:});
-      %trivial call
-      switch p.Results.mode
-      case {'min','max','mean','std','rms','meanabs','stdabs','rmsabs'}
-        %bad things happend when deriving statistics of zero or one data points
-        if size(obj.y_masked,1)<max([2,p.Results.minlen])
-          out=zeros(1,obj.width);
-          return
-        end
-      end
       % type conversions
       if iscell(p.Results.columns)
         columns=cell2mat(p.Results.columns);
       else
         columns=p.Results.columns;
+      end
+      %trivial call
+      switch p.Results.mode
+      case {'min','max','mean','std','rms','meanabs','stdabs','rmsabs'}
+        %bad things happend when deriving statistics of zero or one data points
+        if size(obj.y_masked,1)<max([2,p.Results.minlen])
+          out=zeros(1,numel(columns));
+          return
+        end
       end
       %branch on mode
       switch p.Results.mode
@@ -996,7 +1003,10 @@
           out{i}=[...
             str.tabbed(p.Results.struct_fields{i},p.Results.tab),' : ',...
             num2str(...
-            stats@simpledata(obj,varargin{:},'mode',p.Results.struct_fields{i}),...
+              stats@simpledata(...
+                obj,varargin{:},...
+                'mode',p.Results.struct_fields{i}...
+              ),...
             p.Results.frmt)...
           ];
         end
@@ -1057,7 +1067,7 @@
         if any(isnan(out(:)))
           error([mfilename,': BUG TRAP: detected NaN in <out>. Debug needed.'])
         end
-        if size(out,2)~=numel(columns)
+        if size(out,2)~=numel(columns) && ~strcmp(p.Results.mode,'norm')
           error([mfilename,': BUG TRAP: data width changed. Debug needed.'])
         end
       end
@@ -1714,6 +1724,7 @@
           outliers=cell(1,v.outlier_iter);
           for i=1:v.outlier_iter
             [obj,outliers{i}]=obj.outlier(varargin{:},'outlier_iter',1);
+            outliers{i}.descriptor=[outliers{i}.descriptor,' iteration ',num2str(i)];
           end 
         else
           for i=1:v.outlier_iter
@@ -1773,7 +1784,7 @@
       obj=obj.assign(y_data,'mask',all(y_data~=0,2));
     end
     function obj=median(obj,n)
-      obj=obj.segstat(n,'median');
+      obj=obj.segstat(n,@median);
 %       %create x-domain of medianed data, cutting it into segments of
 %       %length n, putting each segment in one column of matrix t (x 
 %       %increases first row-wise, then column-wise)
@@ -1920,7 +1931,7 @@
       %scheme and other options can be set in varargin).
       compatible(obj1,obj2,varargin{:})
       %trivial call
-      if isxsame(obj1,obj2)
+      if isxequal(obj1,obj2)
         return
       end
       %build extended x-domain
