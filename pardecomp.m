@@ -147,12 +147,12 @@ classdef pardecomp
         case 'p'
           i=str2double(coeffnames{j}(2:end))+1;
           labels=[str.th(i-1),'-order polynomial term'];
-          units=[obj.y_units{1},'/',v.timescale,'^',num2str(i-1)];
+          units=[obj.units{1},'/',v.timescale,'^',num2str(i-1)];
         case {'c','s'}
           i=str2double(coeffnames{j}(2:end));
           labels=['sine term for period with ',num2str(d(1).T(i)),' ',v.timescale];
           if coeffnames{j}(1)=='c'; labels=['co',labels]; end %#ok<AGROW>
-          units=obj.y_units{1};
+          units=obj.units{1};
         otherwise
           error(['Cannot understand the coefficient name ''',coeffnames{j},'''.'])
         end
@@ -160,7 +160,7 @@ classdef pardecomp
         o=init(time.zero_date,transpose(num.struct_deal(d,coeffnames{j}(1),i,[])));
         o=o.copy_metadata(obj);
         o.descriptor=[coeffnames{j},' of ',str.clean(obj.descriptor,'file')];
-        o.y_units(:)={units}; o.labels(:)={labels};
+        o.units(:)={units}; o.labels(:)={labels};
         %append to pd_args
         pd_args{c+1}=coeffnames{j};
         pd_args{c+2}=o;
@@ -323,7 +323,7 @@ classdef pardecomp
             %need to delete the some metadata entries (it changes for every coefficient or type of coefficient)
             switch rnames{f}
             case 'metadata'
-              for m={'descriptor','y_units','units','x_units','labels'}
+              for m={'descriptor','units','x_units','labels'}
                 rvalue=varargs(rvalue).delete(m{1}).varargin;
               end
             end

@@ -1340,7 +1340,7 @@ classdef gravity < simpletimeseries
       reset_flag=false;
       if numel(obj.labels)~=obj.width || ~cells.isequalstr(obj.labels,l)
         obj.labels=l;
-        obj.y_units=u;
+        obj.units=u;
         reset_flag=true;
       end
     end
@@ -1878,7 +1878,7 @@ classdef gravity < simpletimeseries
             obj.R=s;
           case 'functional'
             obj.funct=s;
-            obj.y_units(:)={gravity.functional_units(s)};
+            obj.units(:)={gravity.functional_units(s)};
         end
       end
     end

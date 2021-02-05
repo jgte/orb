@@ -465,8 +465,8 @@ classdef datastorage
       %operate
       for i=1:numel(values1)
         %enforce common time domain both ways
-        values2{i}=values2{i}.interp2(values1{i},varargin{:},'check_width',false,'skip_par_check',{'lmax','labels','y_units'});
-        values1{i}=values1{i}.interp2(values2{i},varargin{:},'check_width',false,'skip_par_check',{'lmax','labels','y_units'});
+        values2{i}=values2{i}.interp2(values1{i},varargin{:},'check_width',false,'skip_par_check',{'lmax','labels','units'});
+        values1{i}=values1{i}.interp2(values2{i},varargin{:},'check_width',false,'skip_par_check',{'lmax','labels','units'});
         %apply method
         result{i}=values1{i}.(method)(values2{i},varargin{:});
       end
@@ -1732,15 +1732,15 @@ classdef datastorage
       %add the y-label given as input, if there
       if ~isempty(v.plot_ylabel)
         ylabel_str=v.plot_ylabel;
-      elseif all(cellfun(@(i) ~isfield(i,'y_units'),h))
+      elseif all(cellfun(@(i) ~isfield(i,'units'),h))
         %do nothing
         ylabel_str='';
       else
         %get non-empty indexes
-        good_idx=find(cellfun(@(i) ~isempty(i) && ~isempty(i.y_units),h));
+        good_idx=find(cellfun(@(i) ~isempty(i) && ~isempty(i.units),h));
         %check if the labels of all lines are compatible
         for i=2:numel(good_idx)
-          if ~strcmp(h{good_idx(1)}.y_units,h{good_idx(i)}.y_units)
+          if ~strcmp(h{good_idx(1)}.units,h{good_idx(i)}.units)
             error([mfilename,':BUG TRAP: y-units are not consistent in all plotted lines.'])
           end
         end
@@ -1748,7 +1748,7 @@ classdef datastorage
         if numel(good_idx)==1
           ylabel_str=h{good_idx(1)}.ylabel;
         else
-          ylabel_str=h{1}.y_units;
+          ylabel_str=h{1}.units;
         end
       end
       v.plot_ylabel=ylabel_str;

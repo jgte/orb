@@ -7,7 +7,7 @@
       'peeklength',   10,       @num.isscalar;...
       'peekwidth',    10,       @num.isscalar;...
       'labels',       {''},     @iscell;...
-      'y_units',      {''},     @iscellstr;...
+      'units',        {''},     @iscellstr;...
       'x_units',      '',       @ischar;...
       'descriptor',   '',       @ischar;...
       'plot_zeros',   true,     @(i) islogical(i) && isscalar(i);...
@@ -17,7 +17,7 @@
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
-    compatible_parameter_list={'y_units','x_units'};
+    compatible_parameter_list={'units','x_units'};
   end
   %read only
   properties(SetAccess=private)
@@ -32,7 +32,7 @@
   %NOTE: edit this if you add a new parameter (if read/write)
   properties(GetAccess=public,SetAccess=public)
     labels
-    y_units
+    units
     x_units
     descriptor
     peeklength
@@ -471,7 +471,7 @@
       switch field
       case 'args'
         out={...
-          'y_units',   strcat(cellstr(repmat('y_unit-',w,1)),cellstr(num2str((1:w)'))),...
+          'units',   strcat(cellstr(repmat('y_unit-',w,1)),cellstr(num2str((1:w)'))),...
           'labels',    strcat(cellstr(repmat('label-', w,1)),cellstr(num2str((1:w)'))),...
           'x_unit',    'x_unit',...
           'descriptor','original'...
@@ -802,9 +802,9 @@
       %assign (this needs to come before the parameter check, so that sizes are known)
       varargin=cells.vararginclean(varargin,'t');
       obj=obj.assign(y,'x',x,varargin{:});
-      %rowize labels and y_units
+      %rowize labels and units
       obj.labels =transpose(obj.labels( :));
-      obj.y_units=transpose(obj.y_units(:));
+      obj.units=transpose(obj.units(:));
       % check parameters
       for i=1:simpledata.parameters('length')
         obj=check_annotation(obj,simpledata.parameters('name',i));
@@ -1281,13 +1281,13 @@
       if ~isvector(columns)
         error([mfilename,': input ''columns'' must be a vector'])
       end
-      %save relevant labels and y_units
+      %save relevant labels and units
       labels_now =obj.labels( columns);
-      y_units_now=obj.y_units(columns);
+      units_now=obj.units(columns);
       %retrieve requested columns
       obj=obj.assign(obj.y(:, columns),'reset_width',true);
       obj.labels =labels_now;
-      obj.y_units=y_units_now;
+      obj.units=units_now;
     end
     function obj=get_cols(obj,columns)
       obj=obj.cols(columns);
@@ -2151,7 +2151,7 @@
       %augment the data, labels and units
       obj1=obj1.assign([obj1.y,obj2.y],'reset_width',true);
       obj1.labels=[obj1.labels(:);obj2.labels(:)]';
-      obj1.y_units =[obj1.y_units(:); obj2.y_units(:) ]';
+      obj1.units =[obj1.units(:); obj2.units(:) ]';
     end
     %% algebra (all operations assume the time domains are in-phase and no interpolation is done)
     function obj1=plus(obj1,obj2)
@@ -2745,7 +2745,7 @@
       end
       out.xlabel=['[',obj.x_units,']'];
       if numel(out.line_handle)==1
-        out.ylabel=[obj.labels{columns},' [',obj.y_units{columns},']'];
+        out.ylabel=[obj.labels{columns},' [',obj.units{columns},']'];
         out.legend=obj.labels{columns};
         if v.zeromean
           out.ylabel=[out.ylabel,' ',num2str(out.y_mean{1},'%+.3g')];
@@ -2759,16 +2759,16 @@
       else
         same_units=true;
         for i=2:numel(columns)
-          if ~strcmp(obj.y_units{columns(1)},obj.y_units{columns(i)})
+          if ~strcmp(obj.units{columns(1)},obj.units{columns(i)})
             same_units=false;
           end
         end
         if same_units
-          out.ylabel=['[',obj.y_units{columns(1)},']'];
+          out.ylabel=['[',obj.units{columns(1)},']'];
           out.legend=obj.labels(columns);
         else
           out.ylabel='';
-          out.legend=arrayfun(@(i) strcat(obj.labels(i),' [',obj.y_units(i),']'),columns);
+          out.legend=arrayfun(@(i) strcat(obj.labels(i),' [',obj.units(i),']'),columns);
         end
         if v.zeromean
           for i=1:numel(columns)
@@ -2859,9 +2859,9 @@
         S.x=out(:,1);
         S.y=out(:,2:end);
         S.descriptor=obj.descriptor;
-        S.y_units=obj.y_units;
+        S.units=obj.units;
         S.labels=obj.labels;
-        S.x_units=obj.x_units; 
+        S.x_units=obj.x_units;
         details=whos('S');
         disp(['Saving ',obj.descriptor,' to ',filename,' (',num2str(details.bytes/1024),'Kb).'])
         if nargin>1

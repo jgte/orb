@@ -1147,7 +1147,7 @@ classdef gswarm
               );
             end
             %set y-units
-            d.y_units(:)={gravity.functional_units(v.plot_functional)};
+            d.units(:)={gravity.functional_units(v.plot_functional)};
             %plot it
             d.plot('method','triang');
             %enforce it
