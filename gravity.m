@@ -1279,7 +1279,7 @@ classdef gravity < simpletimeseries
         colorbar off
         plotting.enforce('plot_legend_location','none');
       case 'gracec20'
-        gravity.graceC20('mode','plot-all','version',{'GSFC-7DAY','GSFC','TN-14','TN-11'})
+        gravity.graceC20('mode','plot-all','version',{'GSFC-7DAY','GSFC','TN-14','TN-11'});
       otherwise
         error(['Cannot handle test method ''',method,'''.'])
       end

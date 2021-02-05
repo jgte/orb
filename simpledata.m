@@ -133,7 +133,7 @@
       end
       switch mode
       case {'=','==','equal'}
-        if numel(x1)==numel(x2) 
+        if numel(x1)==numel(x2)
          out=(x1(:)-x2(:)).^2<tol.^2;
         elseif isscalar(x1)
           out=(x1-x2(:)).^2<tol.^2;
@@ -199,7 +199,7 @@
       % s(i1) = s1;
       % s(i2) = s2;
       % plot(t1,s1,'bo',t2,s2,'ro',t,s)
-      
+
       %trivial call
       if isempty(x1) || isempty(x2)
         x = [];
@@ -367,7 +367,7 @@
       out=cell(numel(obj_list)-1,1);
       %loop over obj list
       for i=1:numel(obj_list)-1
-        out{i}=obj_list{i}.isequal(obj_list{i+1},columns); 
+        out{i}=obj_list{i}.isequal(obj_list{i+1},columns);
         c=c+1;s=time.progress(s,c);
       end
     end
@@ -595,7 +595,7 @@
       columns=simpledata.test_parameters('columns',l,w);
       %init object
       a=simpledata.test_parameters('obj',l,w);
-      
+
       switch method
         case 'all'
           for i={'plot','append','median','trim','slice','interp','detrend','outlier','plus','pardecomp','augment','vmean'}
@@ -649,8 +649,8 @@
           legend_str={};
           for i=1:numel(columns);legend_str{end+1}=['original-',num2str(i)]; end %#ok<AGROW>
           for i=1:numel(columns);legend_str{end+1}=['sliced-',  num2str(i)]; end %#ok<AGROW>
-          %% 
-          %% 
+          %%
+          %%
           legend(legend_str)
           title(method)
         case 'interp'
@@ -669,11 +669,11 @@
           a.interp(...
             t_interp,'interp_over_gaps_narrower_than',0 ...
           ).plot('columns',1,'line',{'x-'});
-          legend_str{end+1}='spline interp over gaps narrower than 3';          
+          legend_str{end+1}='spline interp over gaps narrower than 3';
           a.interp(...
             t_interp,'interp_over_gaps_narrower_than',3 ...
           ).plot('columns',1,'line',{'d-'});
-          legend_str{end+1}='spline interp over gaps narrower than \infty';          
+          legend_str{end+1}='spline interp over gaps narrower than \infty';
           a.interp(...
             t_interp,'interp_over_gaps_narrower_than',inf ...
           ).plot('columns',1,'line',{'s-'});
@@ -708,7 +708,7 @@
                 'masked',true,...
                 'line',{'d'}...
               );
-              legend_str{i+2}=o{i}.descriptor; 
+              legend_str{i+2}=o{i}.descriptor;
             end
           end
           legend(legend_str)
@@ -859,7 +859,7 @@
       % ---- mask ----
       %check if explicit mask was given
       if ~any(strcmp(p.UsingDefaults,'mask'))
-        %make sure things make sense 
+        %make sure things make sense
         assert(obj.length==numel(p.Results.mask),[mfilename,': ',...
           'number of elements of input ''mask'' (',num2str(numel(p.Results.mask)),...
           ') must be the same as the data length (',num2str(obj.length),').'])
@@ -888,7 +888,7 @@
         if isprop(obj,pn{i}) && isprop(obj_in,pn{i})
           obj.(pn{i})=obj_in.(pn{i});
         end
-      end      
+      end
     end
     function out=metadata(obj,more_parameters)
       if ~exist('more_parameters','var')
@@ -1031,7 +1031,7 @@
       case 'gaps';    out=obj.nr_gaps* ones(1,numel(columns));
       %one line, two lines, three lines, many lines
       case 'norm';    out=norm(     obj.y_masked([],columns));
-      case {'str','str-2l','str-3l','str-nl'} 
+      case {'str','str-2l','str-3l','str-nl'}
         out=cell(size(p.Results.struct_fields));
         for i=1:numel(p.Results.struct_fields)
           out{i}=[...
@@ -1087,7 +1087,7 @@
         if numel(fields)==1
           out=init(x_now,s.(fields{1}));
           out=out.copy_metadata(obj);
-        else          
+        else
           for i=1:numel(fields)
             out.(fields{i})=init(x_now,s.(fields{i}));
             out.(fields{i})=out.(fields{i}).copy_metadata(obj);
@@ -1175,7 +1175,7 @@
         if numel(fields)==1
           out=init(x_now,s.(fields{1}));
           out=out.copy_metadata(obj1);
-        else          
+        else
           for i=1:numel(fields)
             out.(fields{i})=init(x_now,s.(fields{i}));
             out.(fields{i})=out.(fields{i}).copy_metadata(obj1);
@@ -1359,7 +1359,7 @@
           obj_new=simpletimeseries(obj.x2t(x),y).copy_metadata(obj);
         otherwise
           error(['Cannot handle object of class ''',class(obj),''', implementation needed (it''s quick, go and do it).'])
-        end  
+        end
         obj=obj.append(obj_new);
       end
     end
@@ -1561,7 +1561,7 @@
       end
       if ~check
         error([mfilename,': discrepancy in between length of ',annotation_name,' and of width of y'])
-      end 
+      end
     end
     function obj=monotonize(obj,mode)
       [x_now,y_now,mask_now]=simpledata.monotonic(obj.x,obj.y,obj.mask,mode);
@@ -1572,7 +1572,7 @@
     end
     %% edit methods
     function obj=remove(obj,rm_mask)
-      %remove epochs given in rm_mask, by eliminating them from the data, 
+      %remove epochs given in rm_mask, by eliminating them from the data,
       %not by setting them as gaps.
       obj=obj.assign(obj.y(~rm_mask,:),'x',obj.x(~rm_mask),'mask',obj.mask(~rm_mask));
     end
@@ -1638,7 +1638,7 @@
         obj=obj.assign(nan(size(obj.y)));
         return
       end
-      %propagate requested x-domain only (mask is rebuilt from NaNs in 
+      %propagate requested x-domain only (mask is rebuilt from NaNs in
       obj=obj.assign(y_now,'x',x_now,'mask',mask_now);
     end
     function [obj,S]=polyfit(obj,order,x_out)
@@ -1754,17 +1754,17 @@
       % do nothing
       otherwise
         %optional outputs: do things quicker if the value of the outliers is not needed.
-        if nargout>1        
+        if nargout>1
           outliers=cell(1,v.outlier_iter);
           for i=1:v.outlier_iter
             [obj,outliers{i}]=obj.outlier(varargin{:},'outlier_iter',1);
             outliers{i}.descriptor=[outliers{i}.descriptor,' iteration ',num2str(i)];
-          end 
+          end
         else
           for i=1:v.outlier_iter
             obj=obj.outlier(varargin{:},'outlier_iter',1);
-          end 
-        end            
+          end
+        end
         return
       end
       %handle inputs
@@ -1787,7 +1787,7 @@
       if nargout>1; y_outliers=zeros(size(y_data)); end
       %loop over data width, do things quicker if the value of the outliers is not needed.
       if nargout>1
-        for i=1:obj.width 
+        for i=1:obj.width
           [y_data(:,i),idx]=simpledata.rm_outliers(obj.y(:,i),'outlier_sigma',v.outlier_sigma(i),'outlier_value',0);
           y_outliers(idx,i)=obj.y(idx,i);
         end
@@ -1801,7 +1801,7 @@
         error([mfilename,':Warning: failed the consistency check: obj.y=y_data+y_outliers. Debug needed!'])
       end
       %optional outputs
-      if nargout>1        
+      if nargout>1
         %copy object to preserve metadata
         outliers=obj;
         %propagate gaps
@@ -1820,10 +1820,10 @@
     function obj=median(obj,n)
       obj=obj.segstat(n,@median);
 %       %create x-domain of medianed data, cutting it into segments of
-%       %length n, putting each segment in one column of matrix t (x 
+%       %length n, putting each segment in one column of matrix t (x
 %       %increases first row-wise, then column-wise)
 %       %NOTICE: this function decimates the data!
-%   
+%
 %       %init matrix that stores the segmented x_temp
 %       x_temp=nan(n,ceil(obj.length/n));
 %       x_temp(1:obj.length)=obj.x;
@@ -1834,7 +1834,7 @@
 %       s.msg=[mfilename,': computing mean and decimating every ',num2str(n),' data points.'];s.n=obj.width;
 %       for i=1:obj.width
 %         %cut the data into segments of length n, putting each segment in
-%         %one column of matrix y_seg (x increases first row-wise, then 
+%         %one column of matrix y_seg (x increases first row-wise, then
 %         %column-wise)
 %         y_seg=nan(n,ceil(obj.length/n));
 %         y_seg(1:obj.length)=obj.y(:,i);
@@ -1853,7 +1853,7 @@
     end
     function obj=segstat(obj,n,op)
       %create x-domain of segmented data, cutting it into segments of
-      %length n, putting each segment in one column of matrix t (x 
+      %length n, putting each segment in one column of matrix t (x
       %increases first row-wise, then apply the statistic in 'mode' column-wise)
       %NOTICE: this function decimates the data!
       valid_fun={'std','rms','mean','median','min','max','var'};
@@ -1869,7 +1869,7 @@
       s.msg=[mfilename,': computing mean and decimating every ',num2str(n),' data points.'];s.n=obj.width;
       for i=1:obj.width
         %cut the data into segments of length n, putting each segment in
-        %one column of matrix y_seg (x increases first row-wise, then 
+        %one column of matrix y_seg (x increases first row-wise, then
         %column-wise)
         y_seg=nan(n,ceil(obj.length/n));
         y_seg(1:obj.length)=obj.y(:,i);
@@ -1932,7 +1932,7 @@
         end
         if ~cells.isincluded(p.Results.skip_par_check,par{i}) && ~isequal(obj1.(par{i}),obj2.(par{i}))
           error([mfilename,': discrepancy in parameter ',par{i},'.'])
-        end 
+        end
       end
     end
     function [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2,y_new)
@@ -2077,7 +2077,7 @@
       if p.Results.old;      idx=idx &       ~old_idx; end
 
 %       [common_idx,new_idx,old_idx,idx]
-      
+
       %count data in obj2 which has the same epochs as in obj1 but is different
       common_idx=find( (idx1==idx2) & idx);
       if any(common_idx) && ( any(obj1_out.mask(common_idx)) ||  any(obj1_out.mask(common_idx)) )
@@ -2115,7 +2115,7 @@
           obj2_new=obj2.masked.at(obj2_out.x(idx));
         else
           obj2_new=obj2.at(obj2_out.x(idx));
-        end          
+        end
         %propagate data
         obj1_out.y(idx,:)=obj2_new.y;
         %propagate mask
@@ -2292,7 +2292,7 @@
       obj1=obj1.assign(y1);
       %update descriptor
       obj1.descriptor=[obj1.descriptor,'*',obj2.descriptor];
-%       obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';      
+%       obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
     end
     function obj1=rdivide(obj1,obj2)
       %empty is not supported
@@ -2730,7 +2730,7 @@
         if isprop(obj,'t')
           try
             xlim(datetime(xl,'convertfrom','datenum'));
-          catch 
+          catch
             xlim(xl);
           end
         else
@@ -2845,7 +2845,7 @@
         %data point exists, pluck it out
         out=obj.y(bounds(1),column);
       else
-        %data point does not exist, interpolate 
+        %data point does not exist, interpolate
         out=interp1(obj.x(bounds),obj.y(bounds,column),x_now);
       end
     end
