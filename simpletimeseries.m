@@ -449,7 +449,7 @@ classdef simpletimeseries < simpledata
       %check if mat file is available
       datafile=fullfile(d,[f,'.mat']);
       if file.exist(datafile)
-        load(datafile)
+        load(datafile,'obj')
         %sanity on the loaded data
         if ~exist('obj','var')
           error([mfilename,': expecting to load variables ''obj'' from file ',datafile,'.'])
@@ -703,13 +703,13 @@ classdef simpletimeseries < simpledata
         %load the header
         header=file.header(filename,20);
         %branch on files with one or two coefficients
-        if ~isempty(strfind(header,'C21')) || ~isempty(strfind(header,'C22'))
+        if contains(header,'C21') || contains(header,'C22')
           %2002.0411  2.43934614E-06 -1.40026049E-06  0.4565  0.4247 -0.0056  0.1782   20020101.0000   20020201.0000
           file_fmt='%f %f %f %f %f %f %f %f %f';
           data_cols=[2 3];
           corr_cols=[5 6];
           units={'',''};
-          if isempty(strfind(header,'C21'))
+          if ~contains(header,'C21')
             labels={'C2,1','C2,-1'};
           else
             labels={'C2,2','C2,-2'};
@@ -720,8 +720,8 @@ classdef simpletimeseries < simpledata
           data_cols=2;
           corr_cols=5;
           units={''};
-          if ~isempty(strfind(header,'C20')); labels={'C2,0'}; end
-          if ~isempty(strfind(header,'C40')); labels={'C4,0'}; end
+          if contains(header,'C20'); labels={'C2,0'}; end
+          if contains(header,'C40'); labels={'C4,0'}; end
         end
         raw=file.textscan(filename,file_fmt);
         %build the time domain
@@ -868,7 +868,7 @@ classdef simpletimeseries < simpledata
       out=simpletimeseries(t(:),y,varargin{:});
     end
     %% general test for the current object
-    function out=test(method,l,w)
+    function test(method,l,w)
       if ~exist('method','var') || isempty(method)
         method='all';
       end
@@ -1364,7 +1364,7 @@ classdef simpletimeseries < simpledata
       switch mode
       case 'start'; out=out(1);
       case 'stop';  out=out(end);
-      case 'all';   %do nothing
+      case 'all'    %do nothing
       otherwise; error(['unknown mode ''',mode,'''.'])
       end
     end
@@ -2282,7 +2282,7 @@ classdef simpletimeseries < simpledata
           v.search,v.lower_durat,v.upper_durat,v.nr_seg,v.t_extrapolate,v.t_crop,v.aperiodic_order);
         if exist(datafile,'file')
           str.say('Loading data file ',datafile)
-          load(datafile)
+          load(datafile,'obj','obj_orig','stats')
           recompute=false;
         end
       end
@@ -2661,10 +2661,10 @@ function [out,fid]=parse_grace_L1B_headers(filename)
   fid = file.open(filename);
   %run through the header and retrieve relevant parameters
   l='';
-  while isempty(strfind(l ,'END OF HEADER'))
+  while ~contains(l ,'END OF HEADER')
     l=fgetl(fid);
     for i=1:size(header_anchors,1)
-      if ~isempty(strfind(l,header_anchors{i,1}))
+      if contains(l,header_anchors{i,1})
         out(1).(header_anchors{i,2})=strrep(l,header_anchors{i,1},'');
       end
     end
@@ -2704,13 +2704,12 @@ function obj=load_AHK1B(filename)
   %init data vector and counter
   raw=cell(ceil(str2double(header.nr_data)/7),22);
   %inits
-  l='';
   c=0;
   %loop until the end
   while ~feof(fid)
     l=fgetl(fid);
     %get only the lines with temperature data
-    if ~isempty(strfind(l,'00000111111111111111111111000000'))
+    if contains(l,'00000111111111111111111111000000')
       c=c+1;
 %        1       2  3  4         5                                  6                  7           8               9              10              11              12            13              14         15          16          17          18           19          20          21          22           23          24           25        26     27
 %222177690  893506  G  A  00000100   00000111111111111111111111000000  10.15329807017275 4.917429447 9.723482464e-09 2.481763683e-09 1.039316011e-08 1.959635476e-08 5.4534528e-09 5.740073306e-09 33.2671051 55.12400055 26.62501335 14.92129993 -14.91238022 5.074500084 21.62319946 14.02499962 -14.03499985 50.17699814 -50.44900131  00000001  60282
@@ -2728,7 +2727,7 @@ function obj=load_AHK1B(filename)
   %skip empty data files
   if isempty(t) || isempty(y)
     disp([mfilename,': this file has no data  ',filename])
-    skip_save_mat=true;
+    skip_save_mat=true; %#ok<NASGU>
     obj=[];
   else
     %building object

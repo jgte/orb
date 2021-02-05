@@ -530,7 +530,7 @@ classdef varargs < dynamicprops
       if ~isa(obj_new,'varargs');obj_new=varargs(obj_new).delete(varargs.reserved_fields{:});end
       for i=1:obj_new.length
         name=obj_new.S(i).name;
-        if obj.isparameter(name);
+        if obj.isparameter(name)
           obj.set(obj_new.get(i));
         end
       end
@@ -540,7 +540,7 @@ classdef varargs < dynamicprops
       if ~isa(obj_new,'varargs');obj_new=varargs(obj_new).delete(varargs.reserved_fields{:});end
       for i=1:obj_new.length
         name=obj_new.S(i).name;
-        if ~obj.isparameter(name);
+        if ~obj.isparameter(name)
           obj.set(obj_new.get(i));
         end
       end

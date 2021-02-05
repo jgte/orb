@@ -94,7 +94,7 @@ classdef file
       else
         %make sure dir exists
         d=fileparts(filename);
-        if isempty(strfind(perm,'r'))
+        if ~contains(perm,'r')
           file.mkdir(d);
         end
         %open the file
@@ -574,7 +574,7 @@ classdef file
         return
       end
       %trivial calll
-      if isempty(strfind(in,file.dateplaceholder))
+      if ~contains(in,file.dateplaceholder)
         filenames=in;
         return
       end
@@ -606,7 +606,7 @@ classdef file
       %loop over all operations
       for i=1:numel(p.Results.op_sequence)
         f=p.Results.op_sequence{i};
-        if p.Results.debug;
+        if p.Results.debug
           if ischar(io)
             str.say('Starting ',f,':',newline,io);
           elseif numel(io)<10
@@ -621,7 +621,7 @@ classdef file
           case 'file.resolve_wildcards'; io=f(io,'passtrough_if_empty',true,varargin{:}); 
           otherwise;                     io=f(io,varargin{:});
         end
-        if p.Results.debug;
+        if p.Results.debug
           if ischar(io)
             str.say('Finished ',f,':',newline,io);
           elseif numel(io)<10
@@ -1063,7 +1063,7 @@ function [io,wildcarded_flag] = translate_wildcard(io)
   %handle special characters, reduce them to literals
   special_chars={'+'};
   for i=1:numel(special_chars)
-    if ~isempty(strfind(io,special_chars{i}))
+    if contains(io,special_chars{i})
       io=str.rep(io,special_chars{i},['\',special_chars{i}]);
     end
   end
@@ -1083,247 +1083,247 @@ end
 
 %% obsolete functions
 
-function filenames=unwrap_old(in,varargin) %used to be simpletimeseries.unwrap_datafiles
-  p=inputParser;
-  p.KeepUnmatched=true;
-  p.addRequired(  'in',                                        @(i) ischar(i) || iscellstr(i));
-  p.addParameter( 'start',       time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
-  p.addParameter( 'stop',        time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
-  p.addParameter( 'period',      days(1),                      @(i) isscalar(i) && isduration(i));
-  p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @ischar);
-  p.addParameter( 'only_existing',true,                        @islogical);
-  p.addParameter( 'stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
-  p.parse(in,varargin{:})
-  %parse wildcards and handle .mat files
-  in=file.wildcard(in,varargin{:});
-  %reduce scalar
-  in=cells.scalar(in);
-  %vector mode
-  if iscellstr(in)
-    filenames=cells.rm_empty(cells.flatten(...
-      cellfun(@(i) file.unwrap(i,varargin{:},'scalar_as_strings',true),in,'UniformOutput',false)...
-    ));
-    return
-  end
-  %need fileparts
-  [d,f,e]=fileparts(in);
-  %if argument filename has a date place holder, build a cell string with those dates
-  if ~isempty(strfind(in,file.dateplaceholder))
-    %sanity
-    if p.Results.start>=p.Results.stop
-      error([mfilename,': input ''start'' (',datestr(p.Results.start),...
-        ') is not after input ''stop'' (',datestr(p.Results.stop),').'])
-    end
-    date_list=time.list(p.Results.start,p.Results.stop,p.Results.period);
-    filenames=cell(size(date_list));
-    for i=1:numel(date_list)
-      filenames{i}=strrep(in,file.dateplaceholder,datestr(date_list(i),p.Results.date_fmt));
-    end
-    %unwrap these files again
-    filenames=file.unwrap(filenames,varargin{:});
-    %done
-    return
-  end
-  %now handling compressed files: prepend tar to extension if there
-  if strcmp(f(max([1,end-3]):end),'.tar')
-    e=['.tar',e];
-  end
-  %try to uncompress archives
-  try
-    switch lower(e)
-    case {'.z','.zip'}
-      arch=true;
-      filenames=file.resolve_home(unzip(in,file.unresolve_home(d)));
-    case {'.tgz','.tar.gz','.tar'}
-      arch=true;
-      filenames=file.resolve_home(untar(in,file.unresolve_home(d)));
-      %get rid of PaxHeaders
-      filenames(cells.cellstrin(filenames,'PaxHeaders'))=[];
-    case {'.gz','.gzip'}
-      arch=true;
-      filenames=file.resolve_home(gunzip(in,file.unresolve_home(d)));
-    otherwise
-      arch=false;  
-    end
-    if arch
-      str.say('stack_delta',p.Results.stack_delta,['Extracted archive ''',in,'''.'])
-    end
-  catch
-    %if the zip file is corrupted, assume data file is missing
-    str.say('stack_delta',p.Results.stack_delta,['WARNING: error extracting archive ''',in,'''.'])
-    return
-  end
-  %handle zipped files
-  if arch
-    %some sanity
-    if ~iscellstr(filenames)
-      error([mfilename,': expecting variable ''unzipped_filename'' to be a cellstr, not a ''',...
-        class(filenames),'''.'])
-    end
-    if numel(filenames)~=1
-      error([mfilename,': expecting zip archive ''',filenames,''' to contain one file only, not ',...
-        num2str(numel(filenames)),':',10,strjoin(filenames,'\n')])
-    end
-    %and we're done (no recursive unwrapping!)
-    return
-  end
-  %if none of the conditions above were met, this is the name of a single file (return char!)
-  if exist(in,'file')==0 && p.Results.only_existing
-    filenames='';
-  else
-    filenames=in;
-  end
-end
-
-%handling wildcards and .mat files
-function [filenames,wildcarded_flag]=wildcard_old(in,varargin)
-  % FILENAMES = FILENAME_WILDCARD(STR) looks for files which fit the wilcard
-  % input string STR and returns a cell array FILENAMES with the
-  % corresponding filenames.
-  %
-  % Optional 'strict_mat_search' as true (default is false) makes script look for mat files named:
-  %
-  % ['^',f_in,'\.mat$']
-  %
-  % Instead of the standard way which is:
-  %
-  % ['^',f_in,'.*\.mat$']
-  %
-  % Optional 'prefer_non_mat_files' as true will skip looking for corresponding .mat
-  % files (default is false).
-  %
-  % Optional 'scalar_as_strings' returns strings (instead of cell arrays) when the
-  % result is scalar (default is false). In case the result is non-scalar and this
-  % parameter is true, an error is triggered.
-
-  % Created by J.Encarnacao <J.deTeixeiradaEncarnacao@tudelft.nl>
-  p=inputParser;
-  p.KeepUnmatched=true;
-  p.addRequired( 'in',                         @(i) ischar(i)   || iscellstr(i)); 
-  p.addParameter('strict_mat_search'   ,false, @(i) islogical(i) && isscalar(i));
-  p.addParameter('prefer_non_mat_files',false, @(i) islogical(i) && isscalar(i));
-  p.addParameter('disp',                true,  @(i) islogical(i) && isscalar(i));
-  p.addParameter('scalar_as_strings',   false, @(i) islogical(i) && isscalar(i));
-  p.addParameter('directories_only',    false, @(i) islogical(i) && isscalar(i));
-  p.addParameter('files_only',          false, @(i) islogical(i) && isscalar(i));
-  p.addParameter('stop_if_empty',       false, @(i) islogical(i) && isscalar(i));
-  p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
-  % parse it
-  p.parse(in,varargin{:});
-  %reduce scalar cell to char (avoids infinite loops with vector mode)
-  in=cells.scalar(in);
-  %vector mode
-  if iscellstr(in)
-    filenames=cells.rm_empty(cells.flatten(...
-      cellfun(@(i) file.wildcard(i,varargin{:}),in,'UniformOutput',false)...
-    ));
-    return
-  end
-  %trivial call
-  if isempty(in)
-    if p.Results.scalar_as_strings
-      filenames='';
-    else
-      filenames={''};
-    end
-    return
-  end
-  %resolve home dirs
-  in=file.resolve_home(in);
-  %turn off advanced features: trailing wildcard messes up big time the .mat and zipped files handling
-  simple_file_search=(in(end)=='*');
-  %wildcard character '*' needs to be translated to '.*' (if not already)
-  [in,wildcarded_flag]=translate_wildcard(in);
-  %finding relevant directory
-  [a,f,e]=fileparts(in);
-  if isempty(a)
-      a='.';
-  end
-  %rebuilding complete filename
-  f_in=[f,e];
-  %check if a simple directory has been passed
-  if isempty(f_in) && ~wildcarded_flag
-    if p.Results.scalar_as_strings
-      filenames=a;
-    else
-      filenames={a};
-    end
-    return
-  end
-  %fetching directory listing
-  f=dir(a);
-  f=struct2cell(f);
-  %branch on options
-  if p.Results.directories_only
-    idx=[f{end-1,:}];
-  elseif p.Results.files_only
-    idx=~[f{end-1,:}];
-  else
-    idx=true(1,size(f,2));
-  end
-  f=f(1,idx);
-  %greping
-  f1=reduce_cell_array(regexp(f(:),['^',f_in,'$'],'match'));
-  %check if advanced features are available
-  if simple_file_search
-    f1c=f1;
-  else
-    %taking into account also mat files, find any relevant .mat files in current dir
-    if p.Results.strict_mat_search
-      f2=reduce_cell_array(regexp(f(:),['^',f_in,'\.mat$'],'match'));
-    else
-      f2=reduce_cell_array(regexp(f(:),['^',f_in,'.*\.mat$'],'match'));
-    end
-    %strip mat extension from f2 list, these are the relevant .mat files that may be in f1
-    f2c_mat=cellfun(@(i) file.ext(i,'.mat','get'),f2,'UniformOutput',false);
-    %delete mat files that are in also in f1
-    f1c=setdiff(f1,f2c_mat);
-    %add these mat files to the final file list
-    f1c=unique([f1c(:);f2(:)]);
-    %handle zipped files (pretty much as is done for mat files, but prefer what is in f1c)
-    for i=1:numel(file.archivedfilesext)
-      %find any relevant zipped files in current dir
-      f2=reduce_cell_array(regexp(f(:),['^',f_in,strrep(file.archivedfilesext{i},'.','\.'),'$'],'match'));
-      %avoiding the rest of the loop if there are not archived files with this ext
-      if isempty(f2); continue; end
-      %strip zip extension from f2 list, these are the relevant zipped files that may be in f1
-      f2c=cellfun(@(j) strrep(j,file.archivedfilesext{i},''),f2,'UniformOutput',false);
-      %clean this list of files of those that are in f1
-      tmp=setdiff(f2c,f1);
-      %restore the zip extension
-      tmp=cellfun(@(j) [j,file.archivedfilesext{i}],tmp,'UniformOutput',false);
-      %add these zipped files to the final file list
-      f1c=unique([tmp(:);f1c(:)]);
-    end
-  end
-  %one filename is frequently empty
-  f1c=file.resolve_ext(cells.rm_empty(f1c),'.mat',p.Results.prefer_non_mat_files);
-  %inform user if no files found
-  if isempty(f1c)
-    msg=['found no files named ''',in,'''.'];
-    if p.Results.stop_if_empty
-      error(msg)
-    end
-    if p.Results.disp
-      str.say('stack_delta',p.Results.stack_delta,['WARNING: ',msg])
-    end
-    filenames='';
-    return
-  end
-  %add path
-  root=fileparts(in);
-  filenames=cell(1,length(f1c));
-  for i=1:length(f1c)
-    filenames{i}=fullfile(root,f1c{i});
-  end
-  %inform user
-  if p.Results.disp && wildcarded_flag
-    str.say('stack_delta',p.Results.stack_delta,['found ',num2str(numel(filenames)),' filenames in wildcarded string ''',in,'''.'])
-  end
-  %convert to string if requested
-  if p.Results.scalar_as_strings
-    assert(numel(filenames)==1,['If ''scalar_as_strings'' is true, then results must be scalar, not with length ',...
-      num2str(numel(filenames)),'.'])
-    filenames=filenames{1};
-  end
-end
+% function filenames=unwrap_old(in,varargin) %used to be simpletimeseries.unwrap_datafiles
+%   p=inputParser;
+%   p.KeepUnmatched=true;
+%   p.addRequired(  'in',                                        @(i) ischar(i) || iscellstr(i));
+%   p.addParameter( 'start',       time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
+%   p.addParameter( 'stop',        time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
+%   p.addParameter( 'period',      days(1),                      @(i) isscalar(i) && isduration(i));
+%   p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @ischar);
+%   p.addParameter( 'only_existing',true,                        @islogical);
+%   p.addParameter( 'stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
+%   p.parse(in,varargin{:})
+%   %parse wildcards and handle .mat files
+%   in=file.wildcard(in,varargin{:});
+%   %reduce scalar
+%   in=cells.scalar(in);
+%   %vector mode
+%   if iscellstr(in)
+%     filenames=cells.rm_empty(cells.flatten(...
+%       cellfun(@(i) file.unwrap(i,varargin{:},'scalar_as_strings',true),in,'UniformOutput',false)...
+%     ));
+%     return
+%   end
+%   %need fileparts
+%   [d,f,e]=fileparts(in);
+%   %if argument filename has a date place holder, build a cell string with those dates
+%   if contains(in,file.dateplaceholder)
+%     %sanity
+%     if p.Results.start>=p.Results.stop
+%       error([mfilename,': input ''start'' (',datestr(p.Results.start),...
+%         ') is not after input ''stop'' (',datestr(p.Results.stop),').'])
+%     end
+%     date_list=time.list(p.Results.start,p.Results.stop,p.Results.period);
+%     filenames=cell(size(date_list));
+%     for i=1:numel(date_list)
+%       filenames{i}=strrep(in,file.dateplaceholder,datestr(date_list(i),p.Results.date_fmt));
+%     end
+%     %unwrap these files again
+%     filenames=file.unwrap(filenames,varargin{:});
+%     %done
+%     return
+%   end
+%   %now handling compressed files: prepend tar to extension if there
+%   if strcmp(f(max([1,end-3]):end),'.tar')
+%     e=['.tar',e];
+%   end
+%   %try to uncompress archives
+%   try
+%     switch lower(e)
+%     case {'.z','.zip'}
+%       arch=true;
+%       filenames=file.resolve_home(unzip(in,file.unresolve_home(d)));
+%     case {'.tgz','.tar.gz','.tar'}
+%       arch=true;
+%       filenames=file.resolve_home(untar(in,file.unresolve_home(d)));
+%       %get rid of PaxHeaders
+%       filenames(cells.cellstrin(filenames,'PaxHeaders'))=[];
+%     case {'.gz','.gzip'}
+%       arch=true;
+%       filenames=file.resolve_home(gunzip(in,file.unresolve_home(d)));
+%     otherwise
+%       arch=false;  
+%     end
+%     if arch
+%       str.say('stack_delta',p.Results.stack_delta,['Extracted archive ''',in,'''.'])
+%     end
+%   catch
+%     %if the zip file is corrupted, assume data file is missing
+%     str.say('stack_delta',p.Results.stack_delta,['WARNING: error extracting archive ''',in,'''.'])
+%     return
+%   end
+%   %handle zipped files
+%   if arch
+%     %some sanity
+%     if ~iscellstr(filenames)
+%       error([mfilename,': expecting variable ''unzipped_filename'' to be a cellstr, not a ''',...
+%         class(filenames),'''.'])
+%     end
+%     if numel(filenames)~=1
+%       error([mfilename,': expecting zip archive ''',filenames,''' to contain one file only, not ',...
+%         num2str(numel(filenames)),':',10,strjoin(filenames,'\n')])
+%     end
+%     %and we're done (no recursive unwrapping!)
+%     return
+%   end
+%   %if none of the conditions above were met, this is the name of a single file (return char!)
+%   if exist(in,'file')==0 && p.Results.only_existing
+%     filenames='';
+%   else
+%     filenames=in;
+%   end
+% end
+% 
+% %handling wildcards and .mat files
+% function [filenames,wildcarded_flag]=wildcard_old(in,varargin)
+%   % FILENAMES = FILENAME_WILDCARD(STR) looks for files which fit the wilcard
+%   % input string STR and returns a cell array FILENAMES with the
+%   % corresponding filenames.
+%   %
+%   % Optional 'strict_mat_search' as true (default is false) makes script look for mat files named:
+%   %
+%   % ['^',f_in,'\.mat$']
+%   %
+%   % Instead of the standard way which is:
+%   %
+%   % ['^',f_in,'.*\.mat$']
+%   %
+%   % Optional 'prefer_non_mat_files' as true will skip looking for corresponding .mat
+%   % files (default is false).
+%   %
+%   % Optional 'scalar_as_strings' returns strings (instead of cell arrays) when the
+%   % result is scalar (default is false). In case the result is non-scalar and this
+%   % parameter is true, an error is triggered.
+% 
+%   % Created by J.Encarnacao <J.deTeixeiradaEncarnacao@tudelft.nl>
+%   p=inputParser;
+%   p.KeepUnmatched=true;
+%   p.addRequired( 'in',                         @(i) ischar(i)   || iscellstr(i)); 
+%   p.addParameter('strict_mat_search'   ,false, @(i) islogical(i) && isscalar(i));
+%   p.addParameter('prefer_non_mat_files',false, @(i) islogical(i) && isscalar(i));
+%   p.addParameter('disp',                true,  @(i) islogical(i) && isscalar(i));
+%   p.addParameter('scalar_as_strings',   false, @(i) islogical(i) && isscalar(i));
+%   p.addParameter('directories_only',    false, @(i) islogical(i) && isscalar(i));
+%   p.addParameter('files_only',          false, @(i) islogical(i) && isscalar(i));
+%   p.addParameter('stop_if_empty',       false, @(i) islogical(i) && isscalar(i));
+%   p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
+%   % parse it
+%   p.parse(in,varargin{:});
+%   %reduce scalar cell to char (avoids infinite loops with vector mode)
+%   in=cells.scalar(in);
+%   %vector mode
+%   if iscellstr(in)
+%     filenames=cells.rm_empty(cells.flatten(...
+%       cellfun(@(i) file.wildcard(i,varargin{:}),in,'UniformOutput',false)...
+%     ));
+%     return
+%   end
+%   %trivial call
+%   if isempty(in)
+%     if p.Results.scalar_as_strings
+%       filenames='';
+%     else
+%       filenames={''};
+%     end
+%     return
+%   end
+%   %resolve home dirs
+%   in=file.resolve_home(in);
+%   %turn off advanced features: trailing wildcard messes up big time the .mat and zipped files handling
+%   simple_file_search=(in(end)=='*');
+%   %wildcard character '*' needs to be translated to '.*' (if not already)
+%   [in,wildcarded_flag]=translate_wildcard(in);
+%   %finding relevant directory
+%   [a,f,e]=fileparts(in);
+%   if isempty(a)
+%       a='.';
+%   end
+%   %rebuilding complete filename
+%   f_in=[f,e];
+%   %check if a simple directory has been passed
+%   if isempty(f_in) && ~wildcarded_flag
+%     if p.Results.scalar_as_strings
+%       filenames=a;
+%     else
+%       filenames={a};
+%     end
+%     return
+%   end
+%   %fetching directory listing
+%   f=dir(a);
+%   f=struct2cell(f);
+%   %branch on options
+%   if p.Results.directories_only
+%     idx=[f{end-1,:}];
+%   elseif p.Results.files_only
+%     idx=~[f{end-1,:}];
+%   else
+%     idx=true(1,size(f,2));
+%   end
+%   f=f(1,idx);
+%   %greping
+%   f1=reduce_cell_array(regexp(f(:),['^',f_in,'$'],'match'));
+%   %check if advanced features are available
+%   if simple_file_search
+%     f1c=f1;
+%   else
+%     %taking into account also mat files, find any relevant .mat files in current dir
+%     if p.Results.strict_mat_search
+%       f2=reduce_cell_array(regexp(f(:),['^',f_in,'\.mat$'],'match'));
+%     else
+%       f2=reduce_cell_array(regexp(f(:),['^',f_in,'.*\.mat$'],'match'));
+%     end
+%     %strip mat extension from f2 list, these are the relevant .mat files that may be in f1
+%     f2c_mat=cellfun(@(i) file.ext(i,'.mat','get'),f2,'UniformOutput',false);
+%     %delete mat files that are in also in f1
+%     f1c=setdiff(f1,f2c_mat);
+%     %add these mat files to the final file list
+%     f1c=unique([f1c(:);f2(:)]);
+%     %handle zipped files (pretty much as is done for mat files, but prefer what is in f1c)
+%     for i=1:numel(file.archivedfilesext)
+%       %find any relevant zipped files in current dir
+%       f2=reduce_cell_array(regexp(f(:),['^',f_in,strrep(file.archivedfilesext{i},'.','\.'),'$'],'match'));
+%       %avoiding the rest of the loop if there are not archived files with this ext
+%       if isempty(f2); continue; end
+%       %strip zip extension from f2 list, these are the relevant zipped files that may be in f1
+%       f2c=cellfun(@(j) strrep(j,file.archivedfilesext{i},''),f2,'UniformOutput',false);
+%       %clean this list of files of those that are in f1
+%       tmp=setdiff(f2c,f1);
+%       %restore the zip extension
+%       tmp=cellfun(@(j) [j,file.archivedfilesext{i}],tmp,'UniformOutput',false);
+%       %add these zipped files to the final file list
+%       f1c=unique([tmp(:);f1c(:)]);
+%     end
+%   end
+%   %one filename is frequently empty
+%   f1c=file.resolve_ext(cells.rm_empty(f1c),'.mat',p.Results.prefer_non_mat_files);
+%   %inform user if no files found
+%   if isempty(f1c)
+%     msg=['found no files named ''',in,'''.'];
+%     if p.Results.stop_if_empty
+%       error(msg)
+%     end
+%     if p.Results.disp
+%       str.say('stack_delta',p.Results.stack_delta,['WARNING: ',msg])
+%     end
+%     filenames='';
+%     return
+%   end
+%   %add path
+%   root=fileparts(in);
+%   filenames=cell(1,length(f1c));
+%   for i=1:length(f1c)
+%     filenames{i}=fullfile(root,f1c{i});
+%   end
+%   %inform user
+%   if p.Results.disp && wildcarded_flag
+%     str.say('stack_delta',p.Results.stack_delta,['found ',num2str(numel(filenames)),' filenames in wildcarded string ''',in,'''.'])
+%   end
+%   %convert to string if requested
+%   if p.Results.scalar_as_strings
+%     assert(numel(filenames)==1,['If ''scalar_as_strings'' is true, then results must be scalar, not with length ',...
+%       num2str(numel(filenames)),'.'])
+%     filenames=filenames{1};
+%   end
+% end

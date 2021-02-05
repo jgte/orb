@@ -218,7 +218,7 @@ function outfile=nrtdm_convert(metadata,t,varargin)
       ts=ts.extend(t_stop);
     end
     %fill gaps
-    ts=ts.fill; %#ok<NASGU>
+    ts=ts.fill; 
     %save it
     save(outfile,'ts');
   else
@@ -250,7 +250,9 @@ function [time,values]=nrtdm_read(product,timearg,nrtdm_args,exportdata)
 
   %get data
   com=[exportdata,' ',product,' ',timearg,' ',nrtdm_args,' -noheader -nofooter -out-screen < /dev/null'];
-  if debug_now;disp(['com = ',com]);end
+  if debug_now
+    disp(['com = ',com]) %#ok<UNRCH>
+  end
 
   [status,data_str]=system(com);
   if status ~=0
@@ -261,7 +263,7 @@ function [time,values]=nrtdm_read(product,timearg,nrtdm_args,exportdata)
       data_str])
   end
   if debug_now
-    disp(['status = ',num2str(status)])
+    disp(['status = ',num2str(status)]) %#ok<UNRCH>
     disp('--- data_str start ---')
     disp(data_str)
     disp('--- data_str end ---')
@@ -283,14 +285,14 @@ function [time,values]=nrtdm_read(product,timearg,nrtdm_args,exportdata)
   %input (NOTICE: this does not contemplate special fields, such as (e.g.):
   %SA_Basic/Accel_L1B/1-3
   a=textscan(product,'%s');
-  if debug_now,disp('a='),disp(a{:}),end
+  if debug_now,disp('a='),disp(a{:}),end %#ok<UNRCH>
   product_length=numel(a{1});
-  if debug_now,disp(['product_length=',num2str(product_length)]),end
+  if debug_now,disp(['product_length=',num2str(product_length)]),end %#ok<UNRCH>
 
   %build the format specifiers, taking into account the number of products
   d='%f';
   fmt=[d,'-',d,'-',d,' ',d,':',d,':%6.3f %s',repmat(' %f',1,product_length)];
-  if debug_now,disp(['fmt=',fmt]),end
+  if debug_now,disp(['fmt=',fmt]),end %#ok<UNRCH>
 
   %parse data
   %2014-01-01 00:00:07.000 UTC -0.314819944E-04
@@ -299,15 +301,15 @@ function [time,values]=nrtdm_read(product,timearg,nrtdm_args,exportdata)
     'MultipleDelimsAsOne',true,...
     'CommentStyle','#'...
     );
-  if debug_now,disp(['size(data_cell)=',num2str(size(data_cell))]),end
+  if debug_now,disp(['size(data_cell)=',num2str(size(data_cell))]),end %#ok<UNRCH>
 
   %converting to matlab representation of time
   time=datetime(data_cell{1},data_cell{2},data_cell{3},data_cell{4},data_cell{5},data_cell{6});
-  if debug_now,disp(['size(time)=',num2str(size(time))]),end
+  if debug_now,disp(['size(time)=',num2str(size(time))]),end %#ok<UNRCH>
 
   %output
   values=cell2mat(data_cell(8:end));
-  if debug_now,disp(['size(values)=',num2str(size(values))]),end
+  if debug_now,disp(['size(values)=',num2str(size(values))]),end %#ok<UNRCH>
 
   if numel(values)==0
     keyboard

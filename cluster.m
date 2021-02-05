@@ -46,6 +46,7 @@ classdef cluster
       out=cells.flatten(out);
     end
     function out=unstage(filelist,rootdir,sinkdir,more_args)
+      error('unfinished')
       if ~exist('sinkdir','var') || isempty(sinkdir)
         sinkdir=cluter.scratch;
       end

@@ -214,7 +214,7 @@ classdef plotting
           out{i}=colororder(i,:);
       end
       %enforce reverse order of colours
-      if ~isempty(strfind(mode,'-reversed'))
+      if contains(mode,'-reversed')
         out=flipud(out);
       end
       %matlab orders lines in the reverse way
@@ -836,7 +836,7 @@ classdef plotting
           case J_align+1
             v.plot_legend_align_right_just=transpose(str.logical(v.plot_legend_align_right_just(:)));
           otherwise
-            error(['plot_legend_align_right_just must have either 1 or ',num2str(numel(J_align+1)),...
+            error(['plot_legend_align_right_just must have either 1 or ',num2str(numel(J_align)+1),...
               ' entries, not ',num2str(numel(v.plot_legend_align_right_just)),'.'])
           end
           %align the legend entries

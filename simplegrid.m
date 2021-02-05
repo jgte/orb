@@ -124,8 +124,10 @@ classdef simplegrid < simpletimeseries
     end
     function out=lat_stepped_length(delta_deg)
       if isfinite(delta_deg)
-        if delta_deg==0; out=inf;
-        else out=(180+delta_deg)/delta_deg;
+        if delta_deg==0
+          out=inf;
+        else
+          out=(180+delta_deg)/delta_deg;
         end
       else
         out=0;
@@ -133,8 +135,10 @@ classdef simplegrid < simpletimeseries
     end
     function out=lon_stepped_length(delta_deg)
       if isfinite(delta_deg)
-        if delta_deg==0; out=inf;
-        else out=(360+delta_deg)/delta_deg;
+        if delta_deg==0
+          out=inf;
+        else
+          out=(360+delta_deg)/delta_deg;
         end
       else
         out=0;

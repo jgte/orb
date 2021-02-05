@@ -455,7 +455,7 @@ classdef cb
               ') so generating histogram considering std of ',num2str(min_std_f*(MAXVAL-MINVAL))])
       else
           %getting histogram of the data
-          [h,x_h]=hist(data,NELEM);
+          [h,x_h]=histogram(data,NELEM);
           %need the histogram in the old x domain
           h=interp1(x_h,h,x_old,'linear','extrap');
       end

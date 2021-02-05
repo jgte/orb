@@ -65,7 +65,11 @@ classdef csr
         end
         msg{k+2}=str.tablify(20,ids,idx(k),msg_data{:});
       end
-      if debug;disp(strjoin(msg(1:min([20,numel(msg)])),'\n')); else disp(msg{1}); end; 
+      if debug
+        disp(strjoin(msg(1:min([20,numel(msg)])),'\n'))
+      else
+        disp(msg{1})
+      end
       if log_flag;csr.log(msg);end
     end
     %% debugging
@@ -361,7 +365,7 @@ classdef csr
                 {arc_starts,  tmp.(v.sats{s}).y(:,v.arclen_col)}...
               )
               %fix it
-              if ~isempty(idx);
+              if ~isempty(idx)
                 arc_ends(idx)=dateshift(arc_starts(idx),'end','day')-seconds(1);
               end
             end
@@ -398,7 +402,7 @@ classdef csr
             end
 
             %fancy stuff: handle parameters defined as arc segments
-            if ~isempty(strfind(v.calpars{j},'AC0Y'))
+            if contains(v.calpars{j},'AC0Y')
               %there are 8 segments per day
               periodicity=days(1)/8;
               %get day location for this parameter
@@ -634,7 +638,7 @@ classdef csr
             %this check ensures that there are no arcs with lenghts longer than consecutive time stamps
             for j=1:numel(v.calpars_out)
               %some calpars do not have t0
-              if ~any(v.calpars_out{j}(end)=='DQ') || ~isempty(strfind(v.calpars_out{j},'Y'))
+              if ~any(v.calpars_out{j}(end)=='DQ') || contains(v.calpars_out{j},'Y')
                 str.say(str.tablify([8,32],'Skipping',product.str))
                 continue
               end
@@ -660,7 +664,7 @@ classdef csr
             %this check ensures that the t0 value is the same as the start of the arc
             for j=1:numel(v.calpars_out)
               %the Y parameter was constructed from multitple parameters and some calpars do not have t0
-              if ~any(v.calpars_out{j}(end)=='DQ') || ~isempty(strfind(v.calpars_out{j},'Y')) 
+              if ~any(v.calpars_out{j}(end)=='DQ') || contains(v.calpars_out{j},'Y')
                 str.say(str.tablify([8,32],'Skipping',product.str))
                 continue
               end
@@ -738,7 +742,7 @@ classdef csr
                 {arc_starts,  tmp.(v.sats{s}).y(:,v.arclen_col)}...
               )
               %fix it
-              if ~isempty(idx);
+              if ~isempty(idx)
                 arc_ends(idx)=dateshift(arc_starts(idx),'end','day')-seconds(1);
               end
             end
@@ -775,7 +779,7 @@ classdef csr
             end
 
             %fancy stuff: handle parameters defined as arc segments
-            if ~isempty(strfind(v.calpars{j},'AC0Y'))
+            if contains(v.calpars{j},'AC0Y')
               %there are 8 segments per day
               periodicity=days(1)/8;
               %get day location for this parameter
@@ -1011,7 +1015,7 @@ classdef csr
             %this check ensures that there are no arcs with lenghts longer than consecutive time stamps
             for j=1:numel(v.calpars_out)
               %some calpars do not have t0
-              if ~any(v.calpars_out{j}(end)=='DQ') || ~isempty(strfind(v.calpars_out{j},'Y'))
+              if ~any(v.calpars_out{j}(end)=='DQ') || contains(v.calpars_out{j},'Y')
                 str.say(str.tablify([8,32],'Skipping',product.str))
                 continue
               end
@@ -1037,7 +1041,7 @@ classdef csr
             %this check ensures that the t0 value is the same as the start of the arc
             for j=1:numel(v.calpars_out)
               %the Y parameter was constructed from multitple parameters and some calpars do not have t0
-              if ~any(v.calpars_out{j}(end)=='DQ') || ~isempty(strfind(v.calpars_out{j},'Y')) 
+              if ~any(v.calpars_out{j}(end)=='DQ') || contains(v.calpars_out{j},'Y')
                 str.say(str.tablify([8,32],'Skipping',product.str))
                 continue
               end
@@ -1306,15 +1310,15 @@ classdef csr
     function out=estim_translate_param(in)
       if ~isempty(regexp(in,'AC[XYZ][DQ]','once'))
         out=[in(1:2),'0',in(3:4)];
-      elseif ~isempty(strfind(in,'C0Y'))
+      elseif contains(in,'C0Y')
         out=['AC',in(3:4),in(1)];
-      elseif ~isempty(strfind(in,'CYD')) || ...
-             ~isempty(strfind(in,'CYQ'))
+      elseif contains(in,'CYD') || ...
+             contains(in,'CYQ')
         out=['AC0',in(3:4),in(1)];
-      elseif ~isempty(strfind(in,'S-T')) || ...
-             ~isempty(strfind(in,'C-T')) || ...
-             ~isempty(strfind(in,'S-N')) || ...
-             ~isempty(strfind(in,'C-N'))
+      elseif contains(in,'S-T') || ...
+             contains(in,'C-T') || ...
+             contains(in,'S-N') || ...
+             contains(in,'C-N')
         switch numel(in)
         case 4; out=[in(2),in(4),'0',in(1  )];
         case 5; out=[in(3),in(5),    in(1:2)];
@@ -1396,10 +1400,10 @@ classdef csr
     end
     function out=estim_load(filename)
       if exist([filename,'.mat'],'file')
-        load([filename,'.mat'])
+        load([filename,'.mat'],'out')
         msg='mat file';
       elseif strcmp(filename(end-3:end),'.mat')
-        load(filename)
+        load(filename,'out')
         msg='mat file';
       else
         %init the outputs
@@ -2016,12 +2020,19 @@ classdef csr
                 out{oc}.filename=filename;
                 out{oc}.fig_handle=gcf;
                 %check if any data was plotted
-                if all(isempty(out{oc}));  str.say('Skipped plot',filename,'(no data plotted)'); close(gcf) %nothing plotted
-                else saveas(gcf,filename); str.say('Created plot',filename)                                 %save this plot
+                if all(isempty(out{oc})) %nothing plotted
+                  str.say('Skipped plot',filename,'(no data plotted)')
+                  close(gcf) 
+                else %save this plot
+                  saveas(gcf,filename); str.say('Created plot',filename)
                 end
-              else str.say('Skipped plot',filename,['(no data in ',product.name,')']); out{c}={};
+              else
+                str.say('Skipped plot',filename,['(no data in ',product.name,')']);
+                out{c}={};
               end
-            else   str.say('Skipped plot',filename,'(file already exists)');           out{c}={};
+            else
+              str.say('Skipped plot',filename,'(file already exists)');
+              out{c}={};
             end
           end
         end
@@ -2359,18 +2370,24 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
 %               end
                             
               %create/append daily data
-              if a==1; day_calmod=arc_calmod;
-              else     day_calmod=day_calmod.append(arc_calmod);
+              if a==1
+                day_calmod=arc_calmod;
+              else
+                day_calmod=day_calmod.append(arc_calmod);
               end
             end
             %create/append complete time domain
-            if d==1; coord_calmod=day_calmod;
-            else     coord_calmod=coord_calmod.append(day_calmod);
+            if d==1
+              coord_calmod=day_calmod;
+            else
+              coord_calmod=coord_calmod.append(day_calmod);
             end
           end
           %create/glue all coordinates
-          if c==1; calmod=coord_calmod;
-          else     calmod=calmod.glue(coord_calmod);
+          if c==1
+            calmod=coord_calmod;
+          else
+            calmod=calmod.glue(coord_calmod);
           end          
         end
         calmod.descriptor=['calibration model ',product.str];
@@ -2542,9 +2559,9 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
             %create target ts 2
             tst_try{i}=ts{3}.cols(ci);
             switch lower(v.coords{c})
-              case 'x'; %do nothing
+              case 'x' %do nothing
               case 'y'; tst_try{i}=tst_try{i}.scale(-1);
-              case 'z'; %do nothing
+              case 'z' %do nothing
             end
           end
           %"solve"
@@ -2717,8 +2734,8 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       %init gravity object
       g=gravity.unit(max(v.degrees),'scale',0,'t',ts{1}.t);
       %propagate the data
-      for i=1:numel(v.degrees);
-        for j=1:numel(v.orders{i});
+      for i=1:numel(v.degrees)
+        for j=1:numel(v.orders{i})
           g=g.setC(v.degrees(i),cells.scalar(v.orders{i}(j),'get'),ts{i}.y(:,j),ts{i}.t);
         end
       end

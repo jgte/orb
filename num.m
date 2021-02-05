@@ -531,11 +531,6 @@ classdef num
 %         continuar aqui
         
       end
-      %some sanity
-      if isempty(y)
-        assert(strcmp(p.Results.mode,'model'),'if input ''y'' is empty, then mode must be ''model''')
-        y=ones(size(t));
-      end
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired( 't', @(i)  isnumeric(i) && isvector(i) && size(i,2)==1          && ~any(isnan(i)) );
@@ -551,6 +546,11 @@ classdef num
       p.addParameter('pd_struct', [],                               @(i) isstruct(i)  || isempty(i));
       % parse it
       p.parse(t,y,varargin{:});
+      %some sanity
+      if isempty(y)
+        assert(strcmp(p.Results.mode,'model'),'if input ''y'' is empty, then mode must be ''model''')
+        y=ones(size(t));
+      end
 
       %simpler names
       np=p.Results.polynomial;

@@ -165,7 +165,7 @@ classdef orbit
       orbit_type_now='';
       %search for an orbit type specification
       for i=1:numel(orbit_types)
-        if strfind(in,['-',orbit_types{i}])
+        if contains(in,['-',orbit_types{i}])
           %save orbit type
           orbit_type_now=orbit_types{i};
           %remove it from input
@@ -411,13 +411,13 @@ classdef orbit
         hline = fgetl(fid);
         fclose(fid);
         %assign format ID
-        if ~isempty(strfind(hline,'#c'))
+        if contains(hline,'#c')
           formatID='sp3c';
-        elseif ~isempty(strfind(hline,'#k'))
+        elseif contains(hline,'#k')
           formatID='sp3k';
-        elseif ~isempty(strfind(hline,'ITSG'))
+        elseif contains(hline,'ITSG')
           formatID='ifg';
-        elseif ~isempty(strfind(hline,'LEOPOD')) || ~isempty(strfind(hline,'AIUB'))
+        elseif contains(hline,'LEOPOD') || contains(hline,'AIUB')
           formatID='aiub';
         else
           formatID='numeric';
@@ -1133,7 +1133,7 @@ classdef orbit
         %build argument list for this statistic
         for j=1:numel(o_list)
           args{2*j-1}=o_list{j};
-          if size(stats.(o_list{j}).(s_list{i}),2)==1;
+          if size(stats.(o_list{j}).(s_list{i}),2)==1
             args{2*j  }=repmat(stats.(o_list{j}).(s_list{i}),1,orbit.data_type_list.(o_list{j}).size);
           elseif size(stats.(o_list{j}).(s_list{i}),2)==orbit.data_type_list.(o_list{j}).size
             args{2*j  }=stats.(o_list{j}).(s_list{i});
@@ -1169,9 +1169,9 @@ classdef orbit
           pSTD_fmt='%6.1f';
           EPid='EPx';
         case 'c'
-          p_fmt='%14.6f';
-          pSTD_fmt='TBD';
-          EPid='EP '; 
+          p_fmt='%14.6f'; %#ok<NASGU>
+          pSTD_fmt='TBD'; %#ok<NASGU>
+          EPid='EP ';  %#ok<NASGU>
           error('in development')
         otherwise
           error(['Cannot handle version ''',v.sp3_version,''' of the SP3 format.'])
@@ -1179,7 +1179,11 @@ classdef orbit
       %sp3 is alwasy GPS time system
       obj.tsys=v.timesystem;
       %gather info
-      if obj.isempty('vel'); PV='P'; else PV='V'; end
+      if obj.isempty('vel')
+        PV='P';
+      else
+        PV='V';
+      end
       epoch=obj.get('epoch');
       nr_epochs=obj.get('length');
       [gps_week, gps_sow,~] = time.date2gps(datevec(epoch)); 
@@ -1478,10 +1482,14 @@ function [t,pos,pos_cor,clk,clk_cor,header] = read_numeric(filename)
     error([mfilename,': cannot understand format of file ''',filename,'''.'])
   end
   %derive satellite name from filename
-  if     str.contains(lower(filename),'_sa_') || str.contains(upper(filename),'SWARMA'); header.satname='Swarm-A';
-  elseif str.contains(lower(filename),'_sb_') || str.contains(upper(filename),'SWARMB'); header.satname='Swarm-B';
-  elseif str.contains(lower(filename),'_sc_') || str.contains(upper(filename),'SWARMC'); header.satname='Swarm-C';
-  else header.satname='unknown';
+  if     str.contains(lower(filename),'_sa_') || str.contains(upper(filename),'SWARMA')
+    header.satname='Swarm-A';
+  elseif str.contains(lower(filename),'_sb_') || str.contains(upper(filename),'SWARMB')
+    header.satname='Swarm-B';
+  elseif str.contains(lower(filename),'_sc_') || str.contains(upper(filename),'SWARMC')
+    header.satname='Swarm-C';
+  else
+    header.satname='unknown';
   end
   header.sp3id=orbit.translatesp3id(header.satname);
   %set known parameters

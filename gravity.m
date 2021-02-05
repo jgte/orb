@@ -456,7 +456,7 @@ classdef gravity < simpletimeseries
         %NOTICE: input argument 'time' is ignored here; only by coincidence (or design,
         %        e.g. if gravity.load_dir is used) will time be same as the one saved
         %        in the mat file.
-        load(mat_filename)
+        load(mat_filename,'m','e')
         %handle particular cases
         if ~exist('m','var')
           if exist('sol','var')
@@ -750,16 +750,14 @@ classdef gravity < simpletimeseries
         if ~file.exist(f_pdset) || ~file.exist(f_pd) || ~...
           gravity.graceC20(varargin{:},'mode','model-md5check')  
           %get the coefficients; NOTICE: always use c20.t so that f_pdset is not dependent on inputs
-          [out,pd_set]=c20.parametric_decomposition('np',np,'T',T,...
+          [~,pd_set]=c20.parametric_decomposition('np',np,'T',T,...
             'timescale','days','time',c20.t_domain(days(7))); 
           %save them
           save(f_pdset,'pd_set')
-          save(f_pd,      'out')
           %update md5 of data
           gravity.graceC20(varargin{:},'mode','model-md5set')  
         else
           load(f_pdset,'pd_set')
-          load(f_pd,      'out')
         end
         %handle different time domains
         if isempty(v.time);      v.time=c20.t; end
@@ -927,7 +925,8 @@ classdef gravity < simpletimeseries
       p.parse(model_list,varargin{:})
       %trivial call
       if numel(model_list)==1
-        out=model_list;
+        out=model_list{1};
+        return
       end
 %       %sanity
 %       for i=2:numel(model_list)
@@ -2581,7 +2580,7 @@ function [m,e]=load_gsm(filename,time)
        radius=d.header.non0x2Dstandard_attributes.mean_equator_radius.value;
        permanent_tide=strfind(d.header.non0x2Dstandard_attributes.permanent_tide_flag,'inclusive');
        %read end of header string
-       s=fgets(fid);
+       fgets(fid);
      end
      %increment counter
      c=c+1;

@@ -21,18 +21,36 @@ classdef cells
         out=cells.isequal({c1},{c2});
       else
         for i=1:numel(c1)
-          if ~isa(c1{i},class(c2{i})); return; end
+          if ~isa(c1{i},class(c2{i}))
+            return
+          end
           if isnumeric(c1{i}) || islogical(c1{i})
-            if any(c1{i}~=c2{i}); return; else continue; end
+            if any(c1{i}~=c2{i})
+              return
+            else
+              continue
+            end
           end
           if ischar(c1{i})
-            if ~strcmp(c1{i},c2{i}); return; else continue; end
+            if ~strcmp(c1{i},c2{i})
+              return
+            else
+              continue
+            end
           end
           if iscell(c1{i})
-            if ~cells.isequal(c1{i},c2{i}); return; else continue; end
+            if ~cells.isequal(c1{i},c2{i})
+              return
+            else
+              continue
+            end
           end
           try
-            if ~c1{i}.isequal(c2{i}); return; else continue; end
+            if ~c1{i}.isequal(c2{i})
+              return
+            else
+              continue
+            end
           catch
             error(['Cannot handle data of class ',class(c1{i}),'.'])
           end
@@ -66,7 +84,7 @@ classdef cells
       end
       if depth_now<depth %&& ~isempty(in) %an empty cell returns true with depth 1
         for i=1:numel(in)
-          if ~cells.iscellofcells(in{i},depth,depth_now+1);
+          if ~cells.iscellofcells(in{i},depth,depth_now+1)
             out=false;
             return
           end
@@ -140,7 +158,12 @@ classdef cells
       elseif isempty(cellstrin)
         out={};
       else
-        out=~cellfun(@isempty,strfind(cellstrin(cellfun(@ischar,cellstrin)),strin));
+        %pick the elements of cellstrin that are chars
+        cellstrwork=cellstrin(cellfun(@ischar,cellstrin));
+        %check if strin is in cellstrin
+        out=contains(cellstrwork,strin);
+        %old implementation:
+        %out=~cellfun(@isempty,strfind(cellstrin(cellfun(@ischar,cellstrin)),strin));
       end
     end
     function out=strfind(cellstrin,strin) %this used to be called cellstrfind

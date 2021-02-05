@@ -120,8 +120,10 @@ classdef str
           end
         end
       case 'logical'
-        if in, out='T';
-        else   out='F';
+        if in
+          out='T';
+        else
+          out='F';
         end
       case 'cell'
         if isempty(in{1})
@@ -237,7 +239,7 @@ classdef str
     end
     %% latex stuff
     function out=islatex(in)
-      out=~isempty(strfind(in,'\'));
+      out=contains(in,'\');
     end
     %account for latex keywords and chars when calculating the length of a string
     function out=latex_length(in)
@@ -247,7 +249,7 @@ classdef str
       if ~str.islatex(in); return; end
       %loop over all latex keyword
       for i=1:numel(str.latex_keywords)
-        if ~isempty(strfind(in,str.latex_keywords{i}))
+        if contains(in,str.latex_keywords{i})
           out=out-length(str.latex_keywords{i})+1;
         end
       end
@@ -286,7 +288,7 @@ classdef str
         end
       else
         for i=1:size(in,1)
-          if strcmp(in{i,1},'\rowcolor{Gray}');
+          if strcmp(in{i,1},'\rowcolor{Gray}')
             out{i,1}=in{i,1};
             out(i,2:end-1)={''};
             out{i,end}=newline;
@@ -335,11 +337,11 @@ classdef str
         going=true;
         while going
           s=strrep(s,[alt_char,alt_char],alt_char);
-          %if cellstr gets here, 'isempty(strfind(' will loop forever
+          %if cellstr gets here, 'contains' will loop forever
           if iscellstr(s)
             going=cells.isincluded(s,[alt_char,alt_char]);
           else
-            going=~isempty(strfind(s,[alt_char,alt_char]));
+            going=contains(s,[alt_char,alt_char]);
           end
         end
         if alt_char==' '

@@ -1986,12 +1986,20 @@ classdef datastorage
             out{c}.filename=filename;
             out{c}.fig_handle=gcf;
             %check if any data was plotted
-            if all(isempty(out{c}));   str.say('Skipped plot',filename,'(no data plotted)'); close(gfc) %nothing plotted
-            else saveas(gcf,filename); str.say('Created plot',filename)                                 %save this plot
+            if all(isempty(out{c})) %nothing plotted
+              str.say('Skipped plot',filename,'(no data plotted)')
+              close(gfc) 
+            else %save this plot
+              saveas(gcf,filename); 
+              str.say('Created plot',filename)                                 
             end
-          else str.say('Skipped plot',filename,['(no data in ',product.name,')']); out{c}={};
+          else
+            str.say('Skipped plot',filename,['(no data in ',product.name,')']);
+            out{c}={};
           end
-        else   str.say('Skipped plot',filename,'(file already exists)');           out{c}={};
+        else
+          str.say('Skipped plot',filename,'(file already exists)');
+          out{c}={};
         end
       end
       obj.log('@','out','id',id,'start',obj.start,'stop',obj.stop)

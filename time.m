@@ -105,9 +105,9 @@ classdef time
     function out=isinf(in)
       switch class(in)
       case 'cell'
-        out=cellfun(@time.iszero,in);
+        out=cellfun(@time.isinf,in);
       otherwise
-        out=abs(time.mutate(in)<time.inf_date)<0.5;
+        out=any(isinf(time.mutate(in)));
       end
     end
     function out=isfinite(in)
@@ -294,7 +294,11 @@ classdef time
         return
       end
       %gather measurements
-      if s.c>0; dt=toc; else dt=0; end
+      if s.c>0
+        dt=toc;
+      else
+        dt=0;
+      end
       s.c=s.c+1;
       s.dt(s.c)=dt;
       s.dt_std=std(s.dt(1:s.c));
@@ -690,7 +694,7 @@ classdef time
         format='default';
       end
       switch format
-      case {'datetime','default'};
+      case {'datetime','default'}
         out=in;
       case 'datenum'
         out=datenum(in);

@@ -187,25 +187,25 @@ classdef gswarm
           end
         case 'model_span'
           error('no longer supported')
-          msg={};
-          %append extremeties, if requested
-          if v.isparameter('model_span') && v.model_span{1}~=time.zero_date && v.model_span{1}<mod.start
-            mod=mod.append(gravity.nan(mod.lmax,'t',v.model_span{1},'R',mod.R,'GM',mod.GM));
-            if exist('err','var')
-              err=err.append(gravity.nan(err.lmax,'t',v.model_span{1},'R',err.R,'GM',err.GM));
-            end
-            msg{end+1}=['from ',datestr(v.model_span{1})];
-            show_msg=true;
-          end
-          if v.isparameter('model_span') && v.model_span{2}~=time.inf_date && v.model_span{2}>mod.stop
-            mod=mod.append(gravity.nan(mod.lmax,'t',v.model_span{2},'R',mod.R,'GM',mod.GM));
-            if exist('err','var')
-              err=err.append(gravity.nan(err.lmax,'t',v.model_span{2},'R',err.R,'GM',err.GM));
-            end
-            msg{end+1}=['to ',datestr(v.model_span{2})];
-            show_msg=true;
-          end
-          msg=strjoin(msg,' ');
+%           msg={};
+%           %append extremeties, if requested
+%           if v.isparameter('model_span') && v.model_span{1}~=time.zero_date && v.model_span{1}<mod.start
+%             mod=mod.append(gravity.nan(mod.lmax,'t',v.model_span{1},'R',mod.R,'GM',mod.GM));
+%             if exist('err','var')
+%               err=err.append(gravity.nan(err.lmax,'t',v.model_span{1},'R',err.R,'GM',err.GM));
+%             end
+%             msg{end+1}=['from ',datestr(v.model_span{1})];
+%             show_msg=true;
+%           end
+%           if v.isparameter('model_span') && v.model_span{2}~=time.inf_date && v.model_span{2}>mod.stop
+%             mod=mod.append(gravity.nan(mod.lmax,'t',v.model_span{2},'R',mod.R,'GM',mod.GM));
+%             if exist('err','var')
+%               err=err.append(gravity.nan(err.lmax,'t',v.model_span{2},'R',err.R,'GM',err.GM));
+%             end
+%             msg{end+1}=['to ',datestr(v.model_span{2})];
+%             show_msg=true;
+%           end
+%           msg=strjoin(msg,' ');
         case 'start' %NOTICE: this is only done when loading the raw data (afterwards the matlab data is read directly, bypassing this routine altogher)
           if v.isparameter('start') && v.start~=time.zero_date
             if v.start<mod.start
