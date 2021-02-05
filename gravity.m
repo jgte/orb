@@ -1064,7 +1064,7 @@ classdef gravity < simpletimeseries
     end
     function [m,e]=ggm05g(datafile)
       if ~exist('datafile','var') || isempty(datafile)
-        datafile=fullfile(file.orbdir('aux'),'ggm05g.gfc.txt');
+        datafile=fullfile(file.orbdir('aux'),'ggm05g.gfc');
       end
       [m,e]=gravity.load(datafile,'gfc');
     end
