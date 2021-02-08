@@ -851,19 +851,19 @@ classdef simpletimeseries < simpledata
       end
       out=obj_list{1}.t;
     end
-    %constructors
+    %% constructors
     function out=one(t,width,varargin)
-      out=simpletimeseries(t(:),ones(numel(t),width),varargin{:});
+      out=simpletimeseries(t(:),ones(numel(t),width),'descriptor','unit',varargin{:});
     end
     function out=zero(t,width,varargin)
-      out=simpletimeseries(t(:),zeros(numel(t),width),varargin{:});
+      out=simpletimeseries(t(:),zeros(numel(t),width),'descriptor','zero',varargin{:});
     end
     function out=randn(t,width,varargin)
-      out=simpletimeseries(t(:),randn(numel(t),width),varargin{:});
+      out=simpletimeseries(t(:),randn(numel(t),width),'descriptor','randn',varargin{:});
     end
     function out=sin(t,w,varargin)
       y=cell2mat(arrayfun(@(i) sin((t(:)-t(1))*pi/i),w,'UniformOutput',false));
-      out=simpletimeseries(t(:),y,varargin{:});
+      out=simpletimeseries(t(:),y,'descriptor','sinusoidal',varargin{:});
     end
     %% general test for the current object
     function test(method,l,w)
