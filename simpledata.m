@@ -1555,6 +1555,8 @@
           %annotation is cell, with unit length and that entry is empty,
           %i.e. the default is still there. Reset according to width
           obj.(annotation_name)=cell(obj.width,1);
+          %populate with empty strings (some sanity checks need cellstr)
+          obj.(annotation_name)(:)={''};
         else
           check=false;
         end
