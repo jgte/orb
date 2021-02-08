@@ -1808,6 +1808,9 @@ classdef simpletimeseries < simpledata
       obj=obj.augment(obj_new);
     end
     function [obj_clean,obj_outlier]=despike(obj,n,varargin)
+      if ~exist('n','var') || isempty(n)
+        n=ceil(obj.length*0.05);
+      end
       %get medianed timeseries
       obj_median=obj.median(n);
       %compute residual to median
