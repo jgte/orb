@@ -49,6 +49,7 @@ classdef simplefreqseries < simpletimeseries
         end
       end
     end
+    %% frequency utilities
     function idx=get_freq_idx(ff,Wn,mode)
       switch mode
       case 'lower'
@@ -70,7 +71,120 @@ classdef simplefreqseries < simpletimeseries
         error([mfilename,': empty output ''idx'', debug needed!'])
       end
     end
-    %general test for the current object
+    function out=f_domain(n,step,zero_f)
+      if ~exist('zero_f','var') || isempty(zero_f)
+        zero_f=true;
+      end
+      switch class(step)
+        case 'duration'
+          step=simpletimeseries.timescale(step);
+        case 'double'
+          %do nothing
+        otherwise
+          error(['Cannot handle input ''step'' of class ''',class(step),'''.'])
+      end
+      if zero_f
+        %output frequency domain contains the zero frequency
+        out=1/step/2*linspace(0,1,n);
+      else
+        %output frequency domain omits the zero frequency
+        out=1/step/2*linspace(0,1,n+1);
+        out(1)=[];
+      end
+    end
+    function W=fourier2psd(X,n,dt)
+      W=X.*conj(X)/n*dt;
+    end
+    %% constructors
+    function obj=colored_noise(fn,Wn,tn,varargin)
+      %Applies the weights defined in frequencies fn with values Wn to the time series defined in this object
+      %NOTICE: this method operates on the time series (member 'y'' defined in the simpledata parent class)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      % add stuff as needed
+      p.addRequired( 'fn', @(i) isnumeric(i) && isvector(i));
+      p.addRequired( 'Wn', @(i) isnumeric(i) && isvector(i) && numel(i) == numel(fn));
+      p.addRequired( 'tn', @(i) simpletimeseries.valid_t(i));
+      p.addParameter('seed','default',@(i)...   % does not support the form RNG(SD,GENERATOR)
+        ischar(i) || ...                        % can be 'shuffle' or 'default'
+        ( isnumeric(i) && isscalar(i) ) || ...  % can be the seed 
+        ( isstruct(i) && structs.iseq_field_list(i,struct('Type','','Seed',[],'State',[])) )... % can be a RNG structure
+      );
+      p.addParameter('columns',1,@(i)isnumeric(i) && isscalar(i));
+      p.addParameter('plot_column',0,@(i)isnumeric(i) && isscalar(i));
+      p.addParameter('Wn_interp','loglog',@ischar);
+      % parse it
+      p.parse(fn,Wn,tn,varargin{:});
+      %init RNG
+      rng(p.Results.seed);
+      %trivial call: empty data, output is the same as input
+      if all(Wn==0)
+        yn=zeros(size(tn));
+      else
+        %resolve time step and save input time domain length
+        dt=simpletimeseries.timestep(tn);
+        %make some noise
+        ti=tn(1):dt:tn(end);
+        %make sure noise series ends after tn(end)
+        if ti(end)<tn(end)
+          ti(end+1)=ti(end)+dt;
+        end
+        ni=numel(ti);
+        yi=randn(ni,p.Results.columns);
+        %resolve frequency domain
+        fi=simplefreqseries.f_domain(ni,dt,false);
+        %interpolate fn and Wn to frequency domain of current timeseries
+        switch p.Results.Wn_interp
+        case 'loglog'
+          Wi=10.^interp1(log10(fn),log10(Wn),log10(fi),'linear','extrap');
+        case 'semilogy'
+          Wi=10.^interp1(fn,log10(Wn),fi,'linear','extrap');
+        case 'semilogx'
+          Wi=interp1(log10(fn),Wn,log10(fi),'linear','extrap');
+        case 'linear'
+          Wi=interp1(fn,Wn,fi,'linear','extrap');
+        otherwise
+          error(['Cannot handle argumen ''Wn_interp'' with value ''',p.Results.Wn_interp,...
+            ''', expecting one of ''loglog'', ''semilogy'', ''semilogx'' or ''linear''.'])
+        end
+        %determine fft computational length
+        n=2^nextpow2(ni);
+        %scaling to fourier coefficients
+        Xi=zeros(n,p.Results.columns);
+        Xi(1:ni,:)=complex(sqrt(Wi(:)))*ones(1,p.Results.columns);
+        %compute Fourier coefficients of the noise
+        X=fft(yi,n);
+        %scale Fourier coefficients in the frequency domain
+        Xo=X.*Xi;
+        %convert back to the time domain
+        yo=real(ifft(Xo,n,'symmetric'));
+        %only need half of the time series
+        no=n/2;
+        yo=yo(1:no,:);
+        to=linspace(tn(1),tn(end),no);
+        %interpolate noise back to the requested time domain
+        yn=interp1(to,yo,tn);
+      end
+      %build object
+      obj=simplefreqseries(tn,yn,'descriptor','noise',varargin{:});
+      %show plot, if requested
+      if p.Results.plot_column>0
+        c=p.Results.plot_column;
+        plotting.figure;
+        subplot(2,1,1)
+        plot(fn,Wn*simpletimeseries.timescale(dt),'o-'), hold on
+        plot(fi,Wi*simpletimeseries.timescale(dt))
+        simplefreqseries(to,yo).plot_psd('columns',c,'method','fft','resample',false,'detrend',false)
+        obj.plot_psd('columns',c,'method','fft','resample',false,'detrend',false)
+        legend('Wn*dt','Wn*dt interp',['Noise ifft col.',num2str(c)],['Noise interp col.',num2str(c)],'location','west')        
+        subplot(2,1,2)
+        plot(ti,yi(:,c)), hold on
+        plot(to,yo(:,c),'-o')
+        obj.plot('columns',c,'line',{'-+'})
+        legend('white noise','colored noise ifft','colored noise interp');
+      end
+    end
+    %% general test for the current object
     function out=test_parameters(field,l,w)
       switch field
       case 'y-sin'
@@ -131,8 +245,7 @@ classdef simplefreqseries < simpletimeseries
       );      
       switch method
         case 'all'
-          %TODO: fix the weight test
-          for i={'init','despike','smooth','psd','band-pass'}
+          for i={'init','despike','smooth','psd','band-pass','noises'}
             simplefreqseries.test(i{1},l);
           end
         case {'constructor','init'}
@@ -187,22 +300,40 @@ classdef simplefreqseries < simpletimeseries
           plot([Wn(1) Wn(1)],limits(3:4),'k:')
           plot([Wn(2) Wn(2)],limits(3:4),'k:')
           legend('original','filtered')
-          title('band-pass filtering')          
-        case 'weight'
-          %get noise with 10% std as the signal in object 'a'
-          b=simplefreqseries.transmute(...
-            simpletimeseries.randn(t,a.width).scale(a.stats('mode','std')*0.1)...
-          );
-          figure
-          subplot(2,1,1)
-          a.plot('columns',1);
-          b.plot('columns',1);
-          legend('original','filtered')
-          subplot(2,1,2)
-          a.plot_psd('columns',1)
-          b.plot_psd('columns',1)
-          legend('original','filtered')
-          title('band-pass filtering')          
+          title(method)
+          out=b;
+        case 'noises'
+          for i={'step-down','step-up','pink','brown','blue','violet'}
+            simplefreqseries.test(['noise-',i{1}],l);
+          end
+        case {'noise-step-down','noise-step-up','noise-pink','noise-brown','noise-blue','noise-violet'}
+          if l<5000
+            disp(['NOTICE: input ''l'' is ',num2str(l),'which is lower than the advised value of 5000'])
+          end
+          switch method
+            case 'noise-step-down'
+              fn=[1e-7,5.9e-7,6e-7,1e-5];
+              Wn=[   1,     1,1e-3,1e-3];
+            case 'noise-step-up'
+              fn=[1e-7,5.9e-7,6e-7,1e-5];
+              Wn=[1e-3,  1e-3,   1,   1];
+            %https://en.wikipedia.org/wiki/Colors_of_noise
+            case 'noise-pink'
+              fn=[1e-7,1e-6,1e-5];
+              Wn=[  10,   1, 0.1];
+            case 'noise-brown'
+              fn=[1e-7,1e-6,1e-5];
+              Wn=[ 100,   1,0.01];
+            case 'noise-blue'
+              fn=[1e-7,1e-6,1e-5];
+              Wn=[ 0.1,   1,  10];
+            case 'noise-violet'
+              fn=[1e-7,1e-6,1e-5];
+              Wn=[0.01,   1, 100];
+          end
+          %shape that noise
+          b=simplefreqseries.colored_noise(fn,Wn,a.t,'columns',w,'plot_column',randi(w,1,1));
+          out=b;
       end
     end
   end
@@ -249,7 +380,7 @@ classdef simplefreqseries < simpletimeseries
     end
     %% psd methods
     function out=get.f(obj)
-      out=1/obj.step_num/2*linspace(0,1,floor(obj.psd_nfft/2)+1);
+      out=simplefreqseries.f_domain(obj.psd_nfft/2+1,obj.step_num);
     end
     function out=get.psd(obj)
       obj=psd_refresh_if_empty(obj);
@@ -265,7 +396,7 @@ classdef simplefreqseries < simpletimeseries
       obj.check_sf
     end
     function out=plot_psd(obj,varargin)
-      obj=psd_refresh_if_empty(obj);
+      obj=psd_refresh_if_empty(obj,varargin{:});
       out=obj.psd.plot(varargin{:});
       set(gca,'xscale','log','yscale','log')
       %outputs
@@ -277,9 +408,9 @@ classdef simplefreqseries < simpletimeseries
       obj.psdi=[];
     end
     %% delayed constructor method
-    function obj=psd_refresh_if_empty(obj)
+    function obj=psd_refresh_if_empty(obj,varargin)
       if isempty(obj.psdi)
-        obj=psd_refresh(obj);
+        obj=psd_refresh(obj,varargin{:});
       end
     end
     function n=psd_nfft(obj)
@@ -290,9 +421,8 @@ classdef simplefreqseries < simpletimeseries
       p.KeepUnmatched=true;
       % add stuff as needed
       p.addParameter('method',  obj.psd_method,@ischar);
-      p.addParameter('resample',false,@(i)islogical(i) && isscalar(i));
+      p.addParameter('resample',true, @(i)islogical(i) && isscalar(i));
       p.addParameter('detrend', true, @(i)islogical(i) && isscalar(i));
-      p.addParameter('despike', false,@(i)islogical(i) && isscalar(i));
       p.addParameter('onesided',true, @(i)islogical(i) && isscalar(i));
       p.addParameter('smooth',  true, @(i)islogical(i) && isscalar(i));
       % parse it
@@ -306,11 +436,6 @@ classdef simplefreqseries < simpletimeseries
       %remove trend if requested
       if p.Results.detrend
         working=working.detrend;
-      end
-      %remove spikes if requested
-      if p.Results.despike
-        %not implemented yet!
-        working=working.despike;
       end
       %handle empty data
       if isempty(working.y_masked)
@@ -334,7 +459,7 @@ classdef simplefreqseries < simpletimeseries
           %compute Fourier coefficients
           X=fft(working.y_masked,obj.psd_nfft);
           %compute power spectra
-          psd0=X(1:m,:).*conj(X(1:m,:))/obj.psd_nfft*obj.step_num;
+          psd0=simplefreqseries.fourier2psd(X(1:m,:),obj.psd_nfft,obj.step_num);
           %one-sidedeness
           if p.Results.onesided
             psd0=2*psd0;
@@ -584,6 +709,7 @@ classdef simplefreqseries < simpletimeseries
         error([mfilename,': unknown bandpass method ''',method,'''.'])
       end
     end
+
     %% time-domain operations, done at the level of the frequency domain
     function [despiked,spikes]=despike(obj,cutoff,varargin)
       obj=psd_refresh_if_empty(obj);
