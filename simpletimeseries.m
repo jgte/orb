@@ -1395,7 +1395,7 @@ classdef simpletimeseries < simpledata
       end
       out=time.FromDateTime(obj.t(mask),'modifiedjuliandate');
     end
-    function obj=add_expl_gaps(obj,min_gap_len)
+    function obj=addgaps(obj,min_gap_len)
       %find time domain indexes where explicit gaps need to be added
       gap_idx=find(diff(obj.t)>min_gap_len);
       %trivial call
@@ -1404,6 +1404,11 @@ classdef simpletimeseries < simpledata
       t_gaps=mean([obj.t(gap_idx),obj.t(gap_idx+1)],2);
       %augment object with newly found explicit gaps
       obj=obj.t_merge(t_gaps);
+      % alternatively:
+      % %compute mid-epoch for each gap
+      % t_new=obj.t(gap_idx)+(obj.t(gap_idx+1)-obj.t(gap_idx))/2;
+      % %add NaNs
+      % obj=obj.set_at(t_new,nan(numel(t_new),obj.width));
     end
     %% mask methods
     function [obj1,obj2]=mask_match(obj1,obj2,errmsg)
@@ -1595,16 +1600,6 @@ classdef simpletimeseries < simpledata
       end
     end
     %% edit methods (specific to this class)
-    function obj=addgaps(obj,mingapsize)
-      %get locations indexes of gaps
-      gap_idx=find(diff(obj.t)>mingapsize);
-      %check for trivial call
-      if isempty(gap_idx);return;end
-      %compute mid-epoch for each gap
-      t_new=obj.t(gap_idx)+(obj.t(gap_idx+1)-obj.t(gap_idx))/2;
-      %add NaNs
-      obj=obj.set_at(t_new,nan(numel(t_new),obj.width));
-    end
     function obj=extend(obj,nr_epochs)
 %       %sanity
 %       if ~obj.ishomogeneous

@@ -809,7 +809,7 @@ classdef gravity < simpletimeseries
         c20e=c20e-c20em(1);
         %plot it
         plotting.figure;
-        c20o.add_expl_gaps(days(35)).plot('columns',1);
+        c20o.addgaps(days(35)).plot('columns',1);
         c20m.plot('columns',1);
         c20e.plot('columns',1);
         plotting.enforce(varargin{:},...

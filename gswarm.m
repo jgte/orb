@@ -813,7 +813,7 @@ classdef gswarm
                   v.pod.t,...                            %interp to common time domain
                   'interp_over_gaps_narrower_than',...   %and remove lines connecting over large gaps
                   v.plot_lines_over_gaps_narrower_than...
-                ).add_expl_gaps(...                     %add explicit gaps: catches the case when v.pod.t is implicitly gapped
+                ).addgaps(...                     %add explicit gaps: catches the case when v.pod.t is implicitly gapped
                   v.plot_lines_over_gaps_narrower_than...
                 ).scale(...
                   v.plot_functional,'functional'...      %scale to functional
@@ -2256,7 +2256,7 @@ classdef gswarm
         grm=out.data_get_scalar(p{2});
         for i=1:numel(degree_list)
           plotting.figure(v.varargin{:});
-          grsp=grs.ts_C(degree_list(i),0).add_expl_gaps(days(45)).plot('line',{'-o'});
+          grsp=grs.ts_C(degree_list(i),0).addgaps(days(45)).plot('line',{'-o'});
           grmp=grm.ts_C(degree_list(i),0).plot;
           plotting.enforce(v.varargin{:},...
             'plot_legend',{...
@@ -2383,7 +2383,7 @@ classdef gswarm
           d.gr.n='GRACE';
           d.sw.n='Swarm';
           for j={'gm','gr','sw'}
-            dnow=cellfun(@(i) i.detrend.add_expl_gaps(gap_size),d.(j{1}).o,'UniformOutput',false);
+            dnow=cellfun(@(i) i.detrend.addgaps(gap_size),d.(j{1}).o,'UniformOutput',false);
             d.(j{1}).d=cellfun(@(i) i.cumdas,dnow,'UniformOutput',false);
             d.(j{1}).t=cellfun(@(i) i.t     ,dnow,'UniformOutput',false);
           end
