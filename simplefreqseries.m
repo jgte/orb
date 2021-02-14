@@ -255,6 +255,9 @@ classdef simplefreqseries < simpletimeseries
           end
         case {'constructor','init'}
           out=a;
+        case 'print'
+          a.psd_refresh.print;
+          out=a;
         case 'despike'
           [d,s]=a.despike(5e-7,'outlier_sigma',1);
           figure
@@ -382,6 +385,25 @@ classdef simplefreqseries < simpletimeseries
       end
       %call superclass
       out=metadata@simpletimeseries(obj,[simplefreqseries.parameters('list');more_parameters(:)]);
+    end
+    %% print
+    function print(obj,tab)
+      if ~exist('tab','var') || isempty(tab)
+        tab=12;
+      end
+      %parameters
+      relevant_parameters={'bandpass_method','psd_method','nyquist'};
+      for i=1:numel(relevant_parameters)
+        obj.disp_field(relevant_parameters{i},tab);
+      end
+      %print pdf, if available
+      if isempty(obj.psdi)
+        obj.disp_field('psd',tab,'empty')
+      else
+        obj.psdi.print(tab)
+      end
+      %print superclass
+      print@simpletimeseries(obj,tab)
     end
     %% psd methods
     function out=get.f(obj)
