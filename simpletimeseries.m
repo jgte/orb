@@ -1112,6 +1112,7 @@ classdef simpletimeseries < simpledata
       %call superclass
       out=metadata@simpledata(obj,[simpletimeseries.parameters('list');more_parameters(:)]);
     end
+    %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
         tab=12;

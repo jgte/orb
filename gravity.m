@@ -1510,7 +1510,7 @@ classdef gravity < simpletimeseries
     function out=get.checksum(obj)
       out=obj.norm-sqrt(obj.C(0,0).^2);
     end
-    %% print
+    %% info methods
     function print(obj,tab,lprint)
       if ~exist('lprint','var') || isempty(lprint)
         lprint=3;

@@ -386,7 +386,7 @@ classdef simplefreqseries < simpletimeseries
       %call superclass
       out=metadata@simpletimeseries(obj,[simplefreqseries.parameters('list');more_parameters(:)]);
     end
-    %% print
+    %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
         tab=12;
@@ -736,7 +736,6 @@ classdef simplefreqseries < simpletimeseries
         error([mfilename,': unknown bandpass method ''',method,'''.'])
       end
     end
-
     %% time-domain operations, done at the level of the frequency domain
     function [despiked,spikes]=despike(obj,cutoff,varargin)
       obj=psd_refresh_if_empty(obj);
