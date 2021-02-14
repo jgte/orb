@@ -171,16 +171,21 @@ classdef simplefreqseries < simpletimeseries
       if p.Results.plot_column>0
         c=p.Results.plot_column;
         plotting.figure;
-        subplot(2,1,1)
+        subplot(3,1,1)
         plot(fn,Wn*simpletimeseries.timescale(dt),'o-'), hold on
         plot(fi,Wi*simpletimeseries.timescale(dt))
         simplefreqseries(to,yo).plot_psd('columns',c,'method','fft','resample',false,'detrend',false)
         obj.plot_psd('columns',c,'method','fft','resample',false,'detrend',false)
         legend('Wn*dt','Wn*dt interp',['Noise ifft col.',num2str(c)],['Noise interp col.',num2str(c)],'location','west')        
-        subplot(2,1,2)
+        subplot(3,1,2)
         plot(ti,yi(:,c)), hold on
         plot(to,yo(:,c),'-o')
         obj.plot('columns',c,'line',{'-+'})
+        legend('white noise','colored noise ifft','colored noise interp');
+        subplot(3,1,3)
+        hi=histogram(yi(:,c)); hold on
+        ho=histogram(yo(:,c));
+        hn=histogram(obj.y(:,c));
         legend('white noise','colored noise ifft','colored noise interp');
       end
     end
