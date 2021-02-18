@@ -1,0 +1,1 @@
+This code was initially published in https://www.mathworks.com/matlabcentral/fileexchange/35054-f10-7-solar-flux-ap-indices

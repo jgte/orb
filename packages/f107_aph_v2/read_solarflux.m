@@ -1,4 +1,4 @@
-function [ daten f107 ] = read_solarflux( filename )
+function [ daten, f107 ] = read_solarflux( filename )
 
 % INPUT
 % 'filename'  : full path of solar flux observation file

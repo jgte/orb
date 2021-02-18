@@ -1,4 +1,4 @@
-function [ daten magnetic_indices daily_average ] = read_magnetic( filename )
+function [ daten, magnetic_indices, daily_average ] = read_magnetic( filename )
 
 % INPUTS
 % 'filename'            : full path of magnetic index observation file

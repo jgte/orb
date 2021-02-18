@@ -1,4 +1,4 @@
-function [F107A, F107, APH] = f107_aph(year,doy,UTseconds)
+function [F107A, F107, APH] = f107_aph(t)
 
 % INPUTS
 % 'year'      : m x 1 array of requested years
@@ -14,11 +14,16 @@ function [F107A, F107, APH] = f107_aph(year,doy,UTseconds)
 % (previous day and centered 81-day mean) for atmosnrlmsise00
 
 % Author : John A. Smith, CIRES/NOAA, Univ. of Colorado at Boulder
+% Minor improvements: Joao Encarnacao, TU Delft
+
+%convert datetime to year, doy, UTseconds
+
+ydu=time.FromDateTime(t,'yeardoysec');
 
 % convert year, doy and UTseconds to column vectors
-year=reshape(year,[],1);
-doy=reshape(doy,[],1);
-UTseconds=reshape(UTseconds,[],1);
+year=reshape(ydu(:,1),[],1);
+doy=reshape(ydu(:,2),[],1);
+UTseconds=reshape(ydu(:,3),[],1);
 
 % make sure year, doy, and UT second arrays are equal length
 if ~isequal(length(year),length(doy),length(UTseconds))
@@ -38,7 +43,7 @@ daten = datenum([year z])+doy+UTseconds/86400; % convert doy to datenum
 
 % check that date is not in the future
 if any(daten>now)
-    error('Invalid time or date')
+    error('Invalid time or date: cannot handle dates in the future')
 end
 
 % determine year for 3 days prior (Ap)
@@ -49,7 +54,7 @@ end
 
 % check if both Ap and solar flux (SF) data available for year
 if min([YAp YSF])<1947
-    error('Solar flux data only available from 1947 onward')
+    error('Solar flux data only available from 1947, doy 3 onwards')
 end
 
 % convert year to string
@@ -66,7 +71,7 @@ local = cellstr(strcat(pwd,remote));
 f=ftp('ftp.ngdc.noaa.gov'); % open ftp session
 for i=1:N
     if ~exist(local{i},'file')
-        disp('downloading geomagnetic data...') 
+        disp(['downloading geomagnetic data for year ',yrstr(i,:)]) 
         mget(f,remote{i}); % download dataset
     end
 end
