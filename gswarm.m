@@ -2759,6 +2759,12 @@ classdef gswarm
       %WORKFLOW         5.5.2: IfG releases a new version of their models and the metadata
       %WORKFLOW                was not updated to that
       %WORKFLOW         5.5.3: AIUB names the models incorrectly or does not compress them
+      %WORKFLOW         5.5.4: You changed a matlab class and the *.mat files in the GRACE
+      %WORKFLOW                L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell 
+      %WORKFLOW                this is the case when the error happens only on the first new 
+      %WORKFLOW                model); just delete the offending *.mat files:
+      %WORKFLOW                rm -fv ~/data/gswarm/*/gravity/*.mat ~/data/grace/L2/CSR/RL06/*.mat
+      %WORKFLOW                and re-import everything (by simply re-running gswarm.TYPE).
       %WORKFLOW 6.  go through the report and update all %NEEDS UPDATING lines (some are 
       %WORKFLOW     automatically updated by new-analysis.sh)
       %WORKFLOW     6.1: if TYPE=precombval, there are maps that cannot be named automatically,
