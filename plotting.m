@@ -975,8 +975,20 @@ classdef plotting
         end
       end
     end
-    function [axis_handle,l,w]=subplot(i,n)
+    function [axis_handle,l,w]=subplot(i,n,portrait_flag)
+      if ~exist('portrait_flag','var') || isempty(portrait_flag)
+        portrait_flag=true;
+      end
       l=floor(sqrt(n)); w=ceil(n/l);
+      if portrait_flag
+        if l<w
+          tmp=w;w=l;l=tmp;
+        end
+      else %landscape
+        if l>w
+          tmp=w;w=l;l=tmp;
+        end
+      end
       if 1<=i && i<=n
         axis_handle=subplot(l,w,i);
       else
