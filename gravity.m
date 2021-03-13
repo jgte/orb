@@ -1095,6 +1095,15 @@ classdef gravity < simpletimeseries
     end
     %% utilities
     function [degrees,orders]=resolve_degrees_orders(varargin)
+      %[degrees,orders]=gravity.resolve_degrees_orders('degrees',[-1],'orders',[inf])
+      % degrees =     []
+      % orders  =     []
+      %[degrees,orders]=gravity.resolve_degrees_orders('degrees',[2,3],'orders',[1,inf])
+      % degrees = [     2     3     3     3     3     3     3     3 ]
+      % orders  = [     1    -3    -2    -1     0     1     2     3 ]
+      %[degrees,orders]=gravity.resolve_degrees_orders('degrees',[2,3,2],'orders',[1,2,1])
+      % degrees = [     2     3     2 ]
+      % orders  = [     1     2     1 ]
       v=varargs.wrap('sources',{{...
         'lmax',       inf,@isnumeric;...
         }},varargin{:});
