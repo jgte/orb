@@ -9,9 +9,9 @@ classdef gswarm
     function out=dir(type)
       switch type
         case 'data'
-          for i=1:numel(grace.l1bdir_options)
-            if file.exist(grace.l1bdir_options{i})
-              out=grace.l1bdir_options{i};
+          for i=1:numel(gswarm.l1bdir_options)
+            if file.exist(gswarm.l1bdir_options{i})
+              out=gswarm.l1bdir_options{i};
               return
             end
           end
@@ -2729,8 +2729,8 @@ classdef gswarm
       %WORKFLOW 1.  plug the thumb drive in (no need to mount-disk.sh)
       %WORKFLOW 2.  go to ~/data/gswarm/analyses/report-TYPE/ and make sure everything
       %WORKFLOW     is in synch.sh
-      %WORKFLOW 3.  create a new validation dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
-      %WORKFLOW 4.  cd to the orb dir in the new validation dir (shown by new-analysis.sh 
+      %WORKFLOW 3.  create a new TYPE dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
+      %WORKFLOW 4.  cd to the orb dir in the new TYPE dir (shown by new-analysis.sh 
       %WORKFLOW     script) and check the stop_date in project.yaml is the last day of the
       %WORKFLOW     last available model (the new-analysis.sh script automatically updates
       %WORKFLOW     this but better check if it's OK)
@@ -2738,7 +2738,7 @@ classdef gswarm
       %WORKFLOW     5.1: check if all products are being used, some may be commented
       %WORKFLOW     5.2: check if the 'nodata' option is false:
       %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need 
-      %WORKFLOW                ~/data/gswarm/rsync.remote2local-subset.sh)
+      %WORKFLOW                ~/data/gswarm/rsync.remote2local.sh)
       %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need 
       %WORKFLOW                ~/data/grace/download-l2.sh, which
       %WORKFLOW                iterates over specific years, currently 2020)
@@ -2771,12 +2771,12 @@ classdef gswarm
       %WORKFLOW          look for '%NEEDS UPDATING (MAPS)' and run ./ls-missing-figures.sh
       %WORKFLOW          to see which plots are being wrongly picked
       %WORKFLOW 7.  compile it and compare this report with the previous one
-      %WORKFLOW 8.  go to the report dir in the new validation dir and make sure everything 
+      %WORKFLOW 8.  go to the report dir in the new TYPE dir and make sure everything 
       %WORKFLOW     is in synch.sh (don't synch %NEEDS UPDATING lines)
       %WORKFLOW 9.  put the data into aristarchos (remove --dry-run, as usual):
       %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
       %WORKFLOW 10. git repos to make sure are up to date (should be open in smerge):
-      %WORKFLOW     ~/data/gswarm/analyses/<date>-validation/orb/
+      %WORKFLOW     ~/data/gswarm/analyses/<date>-TYPE/orb/
       %WORKFLOW     ~/data/gswarm/analyses/
       %WORKFLOW
       %WORKFLOW If this is a precombval, then mail it to colleagues and you're done.
