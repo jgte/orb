@@ -656,7 +656,7 @@ classdef gswarm
               stats{k}.corrcoef=-1;stats{k}.rms=inf;
               continue
             end
-            %add statistics to the legend (unless this is the produce from which the stats are derived)
+            %add statistics to the legend (unless this is the product from which the stats are derived)
             if k~=v.pod.source.ref_idx
               mod_ref_now=v.pod.mod.ref.ts_C(d,o).interp(...
                 ts_now{k}.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than...
@@ -732,12 +732,14 @@ classdef gswarm
           'plot_max_degree',         inf, @num.isscalar;...
           'plot_functional',     'geoid', @gravity.isfunctional;...
           'plot_type',            'line', @(i) cells.isincluded(i,{'line','bar'});...
-          'plot_monthly_error',    false, @islogical;...
           'plot_show_legend_stats',false, @islogical;...
           'plot_max_nr_lines',        20, @num.isscalar;...
-          'plot_spatial_diff_quantity',{'cumdas','gridmean'}, @(i) all(cellfun(@(j) ismethod(gravity.unit(1),j),i));...
-          'plot_spatial_monthly_quantity',{'das','triang'}, @iscellstr;...
-          'plot_spatial_stat_list',    {'diff','monthly'}, @iscellstr; ... TODO: corr
+          'plot_spatial_stat_list'       ,{'diff','monthly'}   , @iscellstr; ... TODO: corr
+          'plot_spatial_diff_quantity'   ,{'cumdas','gridmean'}, @(i) all(cellfun(@(j) ismethod(gravity.unit(1),j),i));... %relevant if plot_spatial_stat_list has 'diff'
+          'plot_spatial_monthly_quantity',{'das','triang'}     , @iscellstr;...   %relevant if plot_spatial_stat_list has 'monthly': one plot per month
+          'plot_spatial_monthly_error'   ,false                , @islogical;...   %relevant if plot_spatial_stat_list has 'monthly': include format error in das monthly plots
+          'plot_spatial_monthly_last'    ,inf                  , @num.isscalar;...%relevant if plot_spatial_stat_list has 'monthly': only plots these last months
+          'plot_spatial_monthly_triang_caxis',[-inf inf]       , @(i) isnumeric(i) && numel(i)==2;...%relevant if plot_spatial_stat_list has 'monthly': define triang plots' caxis
           'plot_legend_include_smoothing',          false, @islogical;...
           'plot_lines_over_gaps_narrower_than', days(120), @isduration;...
           'plot_signal',           false, @islogical;...
@@ -969,19 +971,31 @@ classdef gswarm
       %check if this plot is requested
       if cells.isincluded(v.plot_spatial_stat_list,'monthly')
         title_suffix=strjoin({v.pod.title_masking,v.pod.title_smooth},' ');
-        for i=1:numel(v.pod.t)
+        if isfinite(v.plot_spatial_monthly_last)
+          assert(v.plot_spatial_monthly_last>0,'the parameter ''plot_spatial_monthly_last'' must be positive')
+          %NOTICE: there's no need to decrement start_idx because the last model is a empty by definition
+          start_idx=numel(v.pod.t)-v.plot_spatial_monthly_last;
+        else
+          start_idx=1;
+        end
+        for i=start_idx:numel(v.pod.t)
           %gather models valid now
           dat    =cellfun(@(j) j.interp(v.pod.t(i)),v.pod.source.dat,'UniformOutput',false);
           dat_idx=cellfun(@(j) j.nr_valid>0,dat);
           %gather error if requested
-          if v.plot_monthly_error
-            dat_error=cellfun(@(j) j.interp(v.pod.t(i)),v.pod.source.error,'UniformOutput',false);
+          if v.plot_spatial_monthly_error
+            try 
+              dat_error=cellfun(@(j) j.interp(v.pod.t(i)),v.pod.source.error,'UniformOutput',false);
+            catch
+              v.plot_spatial_monthly_error=false;
+              disp('WARNING: cannot plot monthly error because it is not available. Implementation needed.')
+            end
           end
           %check if there's any data to plot
           if all(~dat_idx); continue;end
           %reduce data
           dat=dat(dat_idx);
-          if v.plot_monthly_error
+          if v.plot_spatial_monthly_error
             dat_error=dat_error(dat_idx);
           end
           legend_str=upper(v.pod.source.names(dat_idx));
@@ -994,7 +1008,7 @@ classdef gswarm
             if ~file.exist(filename,v.plot_force)
               %branch on the type of plot
               switch v.plot_spatial_monthly_quantity{qi}
-              case 'drms'
+              case 'das'
                 plotting.figure(v.varargin{:});
                 for j=1:numel(dat)
                   dat{j}.plot('mode',v.plot_spatial_monthly_quantity{qi},'functional',v.plot_functional);
@@ -1007,7 +1021,7 @@ classdef gswarm
                   'plot_title',v.plot_title,...
                   'plot_title_default',str.show({datestr(v.pod.t(i),'yyyy-mm'),'degree-RMS',title_suffix})...
                 );
-                if v.plot_monthly_error
+                if v.plot_spatial_monthly_error
                   %get previous lines
                   lines_before=findobj(gca,'Type','line');
                   %plot errors
@@ -1028,7 +1042,7 @@ classdef gswarm
                 plotting.figure(v.varargin{:},...
                   'plot_size',200+[0,0,21,9]*30.*[1 1 w l]);
                 for j=1:numel(dat)
-                  plotting.subplot(j,numel(dat));
+                  plotting.subplot(j,numel(dat),true);
                   dat{j}.plot('method',v.plot_spatial_monthly_quantity{qi},...
                     'colormap',str.clean(v.plot_colormap,{'opt','zero'}),... %TODO: fix this once plotting.colormap is implemented and used in gravity.plot
                     'functional',v.plot_functional...
@@ -1036,6 +1050,7 @@ classdef gswarm
                   %enforce it
                   product.enforce_plot(v.varargin{:},...
                     'plot_colormap','none',...
+                    'plot_caxis',v.plot_spatial_monthly_triang_caxis,...
                     'plot_title',v.plot_title,...
                     'plot_title_default',str.show({legend_str{j},datestr(v.pod.t(i),'yyyy-mm'),title_suffix})...
                   );
@@ -1064,7 +1079,7 @@ classdef gswarm
         {...
           'plot_min_degree',     2,          @num.isscalar;...
           'plot_max_degree',     inf,        @num.isscalar;...
-          'plot_rms_caxis',      [-inf inf], @num.isscalar;...
+          'plot_rms_caxis',      [-inf inf], @isnumeric;...
           'plot_functional',     'geoid',    @gravity.isfunctional;...
           'plot_type',           'line',     @(i) cells.isincluded(i,{'line','bar'});...
           'plot_max_nr_lines',   20,         @num.isscalar;...
@@ -2742,24 +2757,29 @@ classdef gswarm
       %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need 
       %WORKFLOW                ~/data/grace/download-l2.sh, which
       %WORKFLOW                iterates over specific years, currently 2020)
-      %WORKFLOW     5.3: check that the C20 data is updated and the model evaluated at the
+      %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'nodata' to true.
+      %WORKFLOW     5.3: if TYPE=validation, check if the 'git_ci' option is true:
+      %WORKFLOW         5.3.1: after the swarm data is processed, the quality is computed in 
+      %WORKFLOW                the gswarm.quality method, where it is added to the git repo
+      %WORKFLOW         5.3.2: NOTICE: when doing tests, it's best to set 'git_ci' to false.
+      %WORKFLOW     5.4: check that the C20 data is updated and the model evaluated at the
       %WORKFLOW          last 3 months
-      %WORKFLOW         5.3.1: The easiest way to be sure is to run:
+      %WORKFLOW         5.4.1: The easiest way to be sure is to run:
       %WORKFLOW                'gswarm.c20model('plot',file.orbdir('plot'))'
-      %WORKFLOW         5.3.2: For TYPE=precombval, TN-14 is used, so this is a good opportunity 
+      %WORKFLOW         5.4.2: For TYPE=precombval, TN-14 is used, so this is a good opportunity 
       %WORKFLOW                to send the email  to Bryant Loomis and ask for the updated 
       %WORKFLOW                weekly C20 data.
-      %WORKFLOW         5.3.3: For TYPE=validation, make sure the data Bryant sent is saved as
+      %WORKFLOW         5.4.3: For TYPE=validation, make sure the data Bryant sent is saved as
       %WORKFLOW                ~/data/gswarm/analyses/<date>-validation/orb/aux/GSFC_SLR_C20_7day.txt
-      %WORKFLOW     5.4: run the gswarm.TYPE method and keep an eye the last epoch of the 
+      %WORKFLOW     5.5: run the gswarm.TYPE method and keep an eye the last epoch of the 
       %WORKFLOW          data as it is being loaded, it has to be the same as the last 
       %WORKFLOW          available month; otherwise the analysis is incomplete
-      %WORKFLOW     5.5: things that may go wrong:
-      %WORKFLOW         5.5.1: the C20 data is not up-to-date
-      %WORKFLOW         5.5.2: IfG releases a new version of their models and the metadata
+      %WORKFLOW     5.6: things that may go wrong:
+      %WORKFLOW         5.6.1: the C20 data is not up-to-date
+      %WORKFLOW         5.6.2: IfG releases a new version of their models and the metadata
       %WORKFLOW                was not updated to that
-      %WORKFLOW         5.5.3: AIUB names the models incorrectly or does not compress them
-      %WORKFLOW         5.5.4: You changed a matlab class and the *.mat files in the GRACE
+      %WORKFLOW         5.6.3: AIUB names the models incorrectly or does not compress them
+      %WORKFLOW         5.6.4: You changed a matlab class and the *.mat files in the GRACE
       %WORKFLOW                L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell 
       %WORKFLOW                this is the case when the error happens only on the first new 
       %WORKFLOW                model); just delete the offending *.mat files:
@@ -2767,17 +2787,18 @@ classdef gswarm
       %WORKFLOW                and re-import everything (by simply re-running gswarm.TYPE).
       %WORKFLOW 6.  go through the report and update all %NEEDS UPDATING lines (some are 
       %WORKFLOW     automatically updated by new-analysis.sh)
-      %WORKFLOW     6.1: if TYPE=precombval, there are maps that cannot be named automatically,
-      %WORKFLOW          look for '%NEEDS UPDATING (MAPS)' and run ./ls-missing-figures.sh
-      %WORKFLOW          to see which plots are being wrongly picked
+      %WORKFLOW     6.1: There are plots that refer to the most recent months and cannot be 
+      %WORKFLOW          named automatically, look for '%NEEDS UPDATING (MAPS)' and run 
+      %WORKFLOW          ./ls-missing-figures.sh to see which plots are being wrongly picked.
       %WORKFLOW 7.  compile it and compare this report with the previous one
       %WORKFLOW 8.  go to the report dir in the new TYPE dir and make sure everything 
       %WORKFLOW     is in synch.sh (don't synch %NEEDS UPDATING lines)
-      %WORKFLOW 9.  put the data into aristarchos (remove --dry-run, as usual):
-      %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
-      %WORKFLOW 10. git repos to make sure are up to date (should be open in smerge):
+      %WORKFLOW 9.  check the following git repos to make sure things are up to date (should 
+      %WORKFLOW     be open in smerge):
       %WORKFLOW     ~/data/gswarm/analyses/<date>-TYPE/orb/
       %WORKFLOW     ~/data/gswarm/analyses/
+      %WORKFLOW 10. put the data into aristarchos (remove --dry-run, as usual):
+      %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
       %WORKFLOW
       %WORKFLOW If this is a precombval, then mail it to colleagues and you're done.
       %WORKFLOW
