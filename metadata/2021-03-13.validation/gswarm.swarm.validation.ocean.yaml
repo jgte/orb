@@ -1,0 +1,28 @@
+method: gswarm.plot_stats
+submetadata: gswarm.swarm.validation.replaceC20.submetadata
+
+#plot_ops
+plot_max_degree: 20
+plot_smoothing_degree: 750e3
+plot_smoothing_method: gauss
+plot_spatial_mask: ocean
+
+
+# plot_temporal_stats
+plot_temp_stat_list: [corrcoeff,rms] #[corrcoeff,rms,std]
+#plot_temp_stat_title: <something>
+
+#plot_spatial_stats
+plot_derived_quantity: [cumdas]
+plot_type: line
+plot_spatial_stat_list: [diff]
+plot_spatial_monthly_error: false
+
+
+#plot_low_degrees
+degrees: [-1]
+orders: [inf]
+
+#plotting options
+plot_legend_location: northeast
+

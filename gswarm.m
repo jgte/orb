@@ -2193,7 +2193,7 @@ classdef gswarm
         end
         out=cellfun(@(i) gswarm.paper(varargin{:},'type',i),pl,'UniformOutput',false);
       case 'C20-source'           %auxiliar
-        out=dataproduct('model.processing.submetadata').metadata.use_GRACE_C20;
+        out=dataproduct('model.processing.replaceC20.submetadata').metadata.use_GRACE_C20;
       case 'C20'                  %checking only
         plotfilename=fullfile(v.check_figs_dir,'checks','C20.png');
         if ~file.exist(plotfilename)
@@ -2673,8 +2673,8 @@ classdef gswarm
       if ~exist('version','var') || isempty(version)
         %NOTICE: TN-11 seems to remain outdated since the end of 2019
         %version='TN-11';
-        %NOTICE: this needs to be in agreement with model.processing.submetadata.yaml
-        version=dataproduct('model.processing.submetadata').metadata.use_GRACE_C20;
+        %NOTICE: this needs to be in agreement with model.processing.replaceC20.submetadata.yaml
+        version=dataproduct('model.processing.replaceC20.submetadata').metadata.use_GRACE_C20;
       end
       %check if this is a C20 model
       model=contains(version,'-model');
