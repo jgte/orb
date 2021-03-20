@@ -662,6 +662,9 @@ classdef file
         end
       end
     end
+    function [out,result]=python3(com,varargin)
+      [out,result]=file.system(['echo "',com,'" | python3'],varargin{:});
+    end
     function [out,s]=find(varargin)
       com=['find ',strjoin(str.clean(varargin,'regex'),' ')];
       [s,r]=file.system(com);
