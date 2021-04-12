@@ -2447,8 +2447,8 @@
       switch p.Results.mode
       case 'forwards'
         % gather indexes
-        iplus1=[false;true(obj.length-1,1)];
-        iminus1=[true(obj.length-1,1);false];
+        iplus1=[false;true(obj.nr_valid-1,1)];
+        iminus1=[true(obj.nr_valid-1,1);false];
         % compute forward derivative
         y_diff=[...
           (...
@@ -2460,8 +2460,8 @@
         ];
       case 'backwards'
         % gather indexes
-        iplus1=[false;true(obj.length-1,1)];
-        iminus1=[true(obj.length-1,1);false];
+        iplus1=[false;true(obj.nr_valid-1,1)];
+        iminus1=[true(obj.nr_valid-1,1);false];
         % compute forward derivative
         y_diff=[...
           nan(1,obj.width);...
@@ -2473,8 +2473,8 @@
         ];
       case 'central'
         % gather indexes
-        iplus2=[false;false;true(obj.length-2,1)];
-        iminus2=[true(obj.length-2,1);false;false];
+        iplus2=[false;false;true(obj.nr_valid-2,1)];
+        iminus2=[true(obj.nr_valid-2,1);false;false];
         % compute central derivative
         y_diff=[...
           nan(1,obj.width);...
@@ -2489,7 +2489,9 @@
         error([mfilename,': unknown mode ''',p.Results.mode,'''.'])
       end
       %propagate data
-      obj=obj.assign(y_diff);
+      y_now=nan(obj.size);
+      y_now(obj.mask,:)=y_diff;
+      obj=obj.assign(y_now);
     end
     %% wrappers
     function obj=smooth(obj,varargin)
