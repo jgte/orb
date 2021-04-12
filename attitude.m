@@ -425,12 +425,14 @@ classdef attitude
       );
     end
     function obj=set.ang(obj,ang)
-      %TODO: implement procedures that propagate to other datatypes (if needed)
-      error('implementation needed')
+      obj.angi=ang;
     end
     function ang=get.ang(obj)
-      assert(~isempty(obj.angi),'Need to call obj.update_ang before calling obj.ang')
-      ang=obj.angi;
+      if isempty(obj.angi)
+        ang=[];
+      else
+        ang=obj.angi;
+      end
     end
     %% angular rates
     function obj=update_angr(obj)
@@ -462,44 +464,53 @@ classdef attitude
       );      
     end
     function obj=set.angr(obj,angr)
-      %TODO: implement procedures that propagate to other datatypes (if needed)
-      error('implementation needed')
+      obj.angri=angr;
     end
     function angr=get.angr(obj)
-      assert(~isempty(obj.angi),'Need to call obj.update_angr before calling obj.angr')
-      angr=obj.angri;
+      if isempty(obj.angri)
+        angr=[];
+      else
+        angr=obj.angri;
+      end
     end
     %% angular accelerations
-    function out=get.anga(obj)
-      if isempty(obj.anga)
-        assert(~isempty(obj.quat),'cannot compute data type ''anga'' because ''quat'' is empty')
-        %computing quaternion quantities
-        q=obj.quat.y;
-        qj=attitude.quat_conj(q,obj.qsfirst);
-        dq=obj.quat.diff.y;
-        %compute angular rates in frame_to
-        y=2*attitude.quat_mult(qj,dq,obj.qsfirst);
-        %%compute angular rates in frame_from
-        %y=2*attitude.quat_mult(dq,qj,obj.qsfirst);
-        if obj.qsfirst
-            obj.msg([mfilename,': average of absolute value of scalar part of omega is ',...
-                num2str(mean(abs(y(~isnan(y(:,1)),1))))])
-            y=y(:,2:4);
-        else
-            obj.msg([mfilename,': average of absolute value of scalar part of omega is ',...
-                num2str(mean(abs(y(~isnan(y(:,1)),4))))])
-            y=y(:,1:3);
-        end
-        %building object
-        obj.angr=simpletimeseries(obj.quat.t,y,...
-          'format','datetime',...
-          'units',{'deg/s', 'deg/s',  'deg/s'},...
-          'labels', {'roll-rate','pitch-rate','yaw-rate'},...
-          'timesystem','gps',...
-          'descriptor',obj.quat.descriptor...
-        );
+    function obj=update_anga(obj)
+      assert(~isempty(obj.quat),'cannot compute data type ''anga'' because ''quat'' is empty')
+      %computing quaternion quantities
+      q=obj.quat.y;
+      qj=attitude.quat_conj(q,obj.qsfirst);
+      dq=obj.quat.diff.y;
+      %compute angular rates in frame_to
+      y=2*attitude.quat_mult(qj,dq,obj.qsfirst);
+      %%compute angular rates in frame_from
+      %y=2*attitude.quat_mult(dq,qj,obj.qsfirst);
+      if obj.qsfirst
+          obj.msg([mfilename,': average of absolute value of scalar part of omega is ',...
+              num2str(mean(abs(y(~isnan(y(:,1)),1))))])
+          y=y(:,2:4);
+      else
+          obj.msg([mfilename,': average of absolute value of scalar part of omega is ',...
+              num2str(mean(abs(y(~isnan(y(:,1)),4))))])
+          y=y(:,1:3);
       end
-      out=obj.angr;
+      %building object
+      obj.angai=simpletimeseries(obj.quat.t,y,...
+        'format','datetime',...
+        'units',{'deg/s', 'deg/s',  'deg/s'},...
+        'labels', {'roll-rate','pitch-rate','yaw-rate'},...
+        'timesystem','gps',...
+        'descriptor',obj.quat.descriptor...
+      );
+    end
+    function obj=set.anga(obj,anga)
+      obj.angai=anga;
+    end
+    function anga=get.anga(obj)
+      if isempty(obj.angai)
+        anga=[];
+      else
+        anga=obj.angai;
+      end
     end
     %% object properties
     function obj=set.satname(obj,in)
