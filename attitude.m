@@ -77,53 +77,19 @@ classdef attitude
 %           error([mfilenane,': unknown NRTDM product for satellite ''',in,''', debug needed!'])
 %       end
 %     end
-    %the function <format>_filename below define the filenames given sat, date and dir
-    %for the data of different formats
-    %NOTICE: data_dir is the top-most data dir, without specifying the satellite, data, etc
-    function filename=grace_l1b_filename(satname,start,version,data_dir)
-      filename=grace.grace_l1b_filename('SCA1B',satname,start,version,data_dir);
-    end
-    %NOTICE: add more <format>_filename wrapers here
-
-    %wrapper for the <format>_filename routines, transparent for different <format>s
-    %NOTICE: inputs satname and start can be arrays (cell array for satname)
-    %NOTICE: the output is always a cell array
-    function out=filename(format,satname,start,varargin)
-      p=inputParser;
-      p.addRequired( 'format',      @ischar);
-      p.addRequired( 'satname',     @(i) ischar(i) || iscell(i));
-      p.addRequired( 'start',       @(i) isdatetime(i) );
-      p.addParameter('version','', @ischar);
-      p.addParameter('data_dir',...
-        simpletimeseries.parameters('value','data_dir'),...
-        simpletimeseries.parameters('validation','data_dir'));
-      p.parse(format,satname,start,varargin{:});
-      %picking interface routine
-      interface=str2func(['attitude.',format,'_filename']);
-      %ensure cell satname
-      satname=cells.scalar(satname,'set');
-      %make room for outputs
-      out=cell(1,numel(satname)*numel(start));
-      %loop over vector inputs
-      c=1;
-      for s=1:numel(satname)
-        for d=1:numel(start)
-          %call interface routines
-          out{c}=interface(satname{s},start(d),p.Results.version,p.Results.data_dir);
-        end
-      end
-    end
     %import data according to format, satname, start and optionally data_dir:
-    % - valid formats are according to the available <format>_filename routines
+    % - valid formats are according to swith loop in this routine
     % - valid satnames are according to simpletimeseries.translatesat
     % - start is datetime, from which the date in the filename is retrieved
     % - data_dir
-    function obj=import(format,satname,varargin)
-      % call parent
-      sts=simpletimeseries.import(attitude.filename(format,satname,varargin{:}));
+    function obj=import(format,satname,start,varargin)
       %save loaded data in appropriate data type
       switch format
         case 'grace_l1b'
+          %get datafile
+          datafile=grace.grace_l1b_filename('SCA1B',satname,start,varargin{:});
+          %load the data
+          sts=simpletimeseries.import(datafile,'format','SCA1B');
           %ensure quaternions are unitary
           sts=sts.assign_y(attitude.quat_unit(sts.y));
           args={'quat',sts};
@@ -222,13 +188,12 @@ classdef attitude
       format= attitude.test_parameters('format');
       satname=attitude.test_parameters('satname');
       start=  attitude.test_parameters('start');
+      test_list={'import','quat','ang','angr'};
       switch(method)
         case 'all'
-          for i={'filename','import','quat','ang','angr'}
-            attitude.test(i{1});
+          for i=1:numel(test_list)
+            out{i}=attitude.test(test_list{i});
           end
-        case 'filename'
-          out=attitude.filename(format,satname,start);
         case 'import'
           out=attitude.import(format,satname,start);
         case 'quat'
