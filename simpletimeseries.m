@@ -249,14 +249,6 @@ classdef simpletimeseries < simpledata
       switch lower(in)
         case {'champ','ch'}
           out='ch';
-        case {'grace-a','gracea','grace a','ga'}
-          out='ga';
-        case {'grace-b','graceb','grace b','gb'}
-          out='gb';
-        case {'grace-c','gracec','grace c','gc'}
-          out='gc';
-        case {'grace-d','graced','grace d','gd'}
-          out='gd';
         case {'swarm-a','swarma','swarm a','swma','sa','l47'}
           out='sa';
         case {'swarm-b','swarmb','swarm b','swmb','sb','l48'}
@@ -275,10 +267,6 @@ classdef simpletimeseries < simpledata
       %search for satellite name
       switch simpletimeseries.translatesat(in)
         case 'ch'; out='CHAMP';
-        case 'ga'; out='GRACE-A';
-        case 'gb'; out='GRACE-B';
-        case 'gc'; out='GRACE-C';
-        case 'gd'; out='GRACE-D';
         case 'sa'; out='Swarm-A';
         case 'sb'; out='Swarm-B';
         case 'sc'; out='Swarm-C';
@@ -311,85 +299,6 @@ classdef simpletimeseries < simpledata
     end
     function out=isframe(in)
       out=~isempty(simpletimeseries.translateframe(in));
-    end
-    %% specific data name-handling methods
-    function sat=grace_l1b_sat(satname)
-      switch simpletimeseries.translatesat(satname)
-        case 'ga'; sat='A';
-        case 'gb'; sat='B';
-        case 'gc'; sat='C';
-        case 'gd'; sat='D';
-        otherwise
-          error([mfilenane,': cannot handle GRACE satname  ''',satname,'''.'])
-      end
-    end
-    function satname=grace_l1b_satname(sat)
-      switch attitude.translatesat(sat)
-        case 'A'; satname='ga';
-        case 'B'; satname='gb';
-        case 'C'; satname='gc';
-        case 'D'; satname='gd';
-        otherwise
-          error([mfilenane,': cannot handle GRACE sat ''',sat,''', debug needed!'])
-      end
-    end
-    function version=grace_l1b_version(product)
-      switch product
-        case {'KBR1B'|'SCA1B'}
-          version='03';
-        case {'AHK1B','GNV1B','MAS1B','THR1B','CLK1B','GPS1B',...
-              'IHK1B','MAG1B','TIM1B','TNK1B','USO1B','VSL1B'}
-          version='02';
-        otherwise
-          error(['Cannot handle GRACE product ''',product,'''.'])
-      end
-    end
-    %NOTICE: data_dir is the top-most data dir, without specifying the satellite, data, etc
-    function filename=grace_l1b_filename(product,satname,start,version,data_dir)
-      if ~exist('version','var') || isempty(version)
-        version=simpletimeseries.grace_l1b_version(product);
-      end
-      %NOTICE: empty data_dir gets handled in grace_dirname
-      if ~exist('data_dir','var')
-        data_dir='';
-      end
-      sat=simpletimeseries.grace_l1b_sat(satname);
-      date=time.FromDateTime(start,'yyyy-MM-dd');
-      dirname=simpletimeseries.grace_l1b_dirname(start,version,data_dir);
-      filename=fullfile(dirname,[product,'_',date,'_',sat,'_',version,'.dat']);
-    end
-    %passes data_dir to dirname unless it is non-existing, empty or '.' (in which case, it
-    %builds the default directory structure of the GRACE data dir
-    function dirname=grace_l1b_dirname(start,version,data_dir)
-      if ~exist('data_dir','var') ...
-          || isempty(data_dir) ...
-          || strcmp(data_dir,'.') ...
-          || strcmp(data_dir,simpletimeseries.parameters('value','data_dir'))
-        year=time.FromDateTime(start,'yyyy');
-        dirname=fullfile(simpletimeseries.parameters('value','data_dir'),...
-          'grace','L1B','JPL',['RL',version],year);
-      else
-        dirname=data_dir;
-      end
-    end
-    %GRACE L1B file names must be: <product>_yyyy-mm-dd_<sat>_<version>.dat
-    function [product,sat,date,version,dirname]=strings_from_grace_l1b_filename(filename)
-      %split input
-      [d,f]=fileparts(filename);
-      %split name of file
-      fp=strsplit(f,'_');
-      product=fp{1};
-      date=fp{2};
-      sat=fp{3};
-      version=fp{4};
-      dirname=simpletimeseries.grace_l1b_dirname(time.ToDateTime(date,'yyyy-MM-dd'),version,d);
-    end
-    function [product,satname,start,version,dirname]=details_from_grace_l1b_filename(filename)
-      %get strings
-      [product,sat,date,version,dirname]=strings_from_grace_l1b_filename(filename);
-      %convert
-      start=time.ToDateTime(date,'yyyy-MM-dd');
-      satname=simpletimeseries.grace_l1b_satname(sat);
     end
     %% import methods
     %NOTICE: the mat-file handling in this method is so that there are mat files duplicating the raw data: one raw file, one mat file. This is not a datastorage-type of structuring the data.
@@ -594,15 +503,7 @@ classdef simpletimeseries < simpledata
         assert(success,['Cannot handle files of type ''',format,'''.'])        
       end
     end
-    function obj=GRACEaltitude(varargin)
-      p=inputParser;
-      p.addParameter('datafile',file.resolve_home(fullfile('~','data','grace','altitude','GRACE.altitude.dat')));
-      p.parse(varargin{:});
-      obj=simpletimeseries.import(p.Results.datafile,...
-        'format','mjd',...
-        'cut24hrs',false...
-      );
-    end
+
     %% utilities
     function out=list(start,stop,period)
       p=inputParser;
