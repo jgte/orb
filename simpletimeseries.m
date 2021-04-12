@@ -260,7 +260,13 @@ classdef simpletimeseries < simpledata
         case {'unknown','test'}
           out=in;
         otherwise
-          error([mfilename,': cannot handle satellite ''',in,'''.'])
+          success=false;
+          %try grace.m
+          [out,success]=machinery.trycatch(success,'grace:BadSat',@grace.translatesat,{in});
+          %add additional class calls to translatesat (using the same structure above)
+          
+          %check something worked
+          assert(success,['Cannot translate satellite ''',in,'''.'])
       end
     end
     function out=translatesatname(in)
@@ -273,7 +279,13 @@ classdef simpletimeseries < simpledata
         case 'go'; out='GOCE';
         case {'unknown','test'}; out=in;
         otherwise
-          error([mfilename,': cannot handle satellite ''',in,'''.'])
+          success=false;
+          %try grace.m
+          [out,success]=machinery.trycatch(success,'grace:BadSatName',@grace.translatesatname,{in});
+          %add additional class calls to translatesat (using the same structure above)
+          
+          %check something worked
+          assert(success,['Cannot translate satellite ''',in,'''.'])
       end
     end
     %% consistent reference frame names
@@ -484,19 +496,8 @@ classdef simpletimeseries < simpledata
         );
       otherwise
         success=false;
-        if sucess
-          try 
-            obj=grace.import_format(filename,format);
-            success=true;
-          catch ME
-            switch ME.identifier
-              case 'grace:BadImportFormat'
-                %do nothing
-              otherwise
-                rethrow(ME)
-            end
-          end
-        end
+        %grace.m
+        [obj,success]=machinery.trycatch(success,'grace:BadImportFormat',@grace.import_format,{filename,format});
         %add additional class calls to translatesat (using the same structure above)
 
         %check something worked
