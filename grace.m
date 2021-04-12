@@ -4,8 +4,53 @@ classdef grace
       '~/data/grace';...
       './data/grace';...
     };
+    % data_name, version, ...
+    l1b_data={...
+      'KBR1B','03';...
+      'SCA1B','03';...
+      'AHK1B','02';...
+      'GNV1B','02';...
+      'MAS1B','02';...
+      'THR1B','02';...
+      'CLK1B','02';...
+      'GPS1B','02';...
+      'IHK1B','02';...
+      'MAG1B','02';...
+      'TIM1B','02';...
+      'TNK1B','02';...
+      'USO1B','02';...
+      'VSL1B','02';...
+     };
+    %list of data fields
+    %NOTICE: needs updated when adding a new data type
+    data_type_list={'scaA','scaB'};
+    %default value of parameters
+    %NOTICE: needs updated when adding a new parameter
+    parameter_list={...
+      'verbose',   false,    @islogical;...
+    };
+    %These parameter are considered when checking if two data sets are
+    %compatible (and only these).
+    %NOTICE: needs updated when adding a new data type (if relevant)
+    compatible_parameter_list={};
+  end
+  %NOTICE: needs updated when adding a new parameter
+  properties
+    %parameters
+    verbose
+  end
+  %NOTICE: needs updated when adding a new data type
+  properties(SetAccess=private)
+    %data types
+    scaA,scaB
+    initialized
+  end
+  %calculated only when asked for
+  properties(Dependent)
+    time
   end
   methods(Static)
+    %% directories
     function out=dir(type)
       switch type
         case 'l1b'
@@ -17,6 +62,21 @@ classdef grace
           end
         %add more directories here
       end
+    end
+    %% interface methods to object constants
+    function out=data_types
+      out=grace.data_type_list;
+    end
+    function out=parameters(varargin)
+      persistent v
+      if isempty(v); v=varargs(grace.parameter_list); end
+      out=v.picker(varargin{:});
+    end
+    function out=datatype2product(data_type)
+      out=[upper(data_type(1:3)),'1B'];
+    end
+    function out=datatype2satname(data_type)
+      out=[upper(data_type(1:3)),'1B'];
     end
     %% internally-consistent naming of satellites
     function out=translatesat(in)
@@ -436,6 +496,7 @@ i=i+1;dh{i}= '+eoh______';
     end
   end
 end
+
 function [out,fid]=parse_grace_L1B_headers(filename)
   %define header details to be retrieved
   header_anchors={...
