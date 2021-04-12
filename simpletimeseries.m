@@ -403,11 +403,11 @@ classdef simpletimeseries < simpledata
         [~,~,format]=fileparts(filename);
       end
       %call format interface aggregator
-      obj=import_format(filename,format);
+      obj=simpletimeseries.import_format(filename,format);
       %possibly save this object as a mat file
-      save_mat(obj,filename,'data_var','obj',varargin{:})
+      file.save_mat(obj,filename,'data_var','obj',varargin{:});
       %possibly delete uncompressed file
-      delete_uncompressed(filename,varargin{:})
+      file.delete_uncompressed(filename,varargin{:});
     end
     function obj=import_format(filename,format)
       %branch on extension/format ID
@@ -504,7 +504,6 @@ classdef simpletimeseries < simpledata
         assert(success,['Cannot handle files of type ''',format,'''.'])        
       end
     end
-
     %% utilities
     function out=list(start,stop,period)
       p=inputParser;
@@ -2136,6 +2135,7 @@ classdef simpletimeseries < simpledata
       out=pluck@simpledata(obj,x_now);
     end
     function export(obj,filename,filetype,varargin)
+      %NOTICE: GRACE-specific formats have been moved to grace.m
       p=inputParser;
       p.addRequired( 'filename',             @ischar);
       p.addRequired( 'filetype',             @ischar);
