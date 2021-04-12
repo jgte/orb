@@ -377,6 +377,44 @@ classdef file
         no_change_flag=str.iseq(filenames,in);
       end
     end
+    % wrapper for loading mat file
+    function [out,loaded_flag]=load_mat(filename,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired( 'filename',          @(i) ischar(i) || iscellstr(i)); 
+      p.addParameter('data_var'   ,'out', @ischar);
+      p.parse(filename,varargin{:})
+      %check if mat file is available
+      datafile=file.replace_ext(filename,'.mat',varargin{:});
+      if file.exist(datafile)
+        load(datafile,p.Results.data_var)
+        %sanity on the loaded data
+        if ~exist(p.Results.data_var,'var')
+          error([mfilename,': expecting to load variables ''obj'' from file ',datafile,'.'])
+        end
+        out=eval(p.Results.data_var);
+        loaded_flag=true;
+      else
+        out=[];
+        loaded_flag=false;
+      end
+    end
+    % wrapper for saving mat file (NOTICE: the non-mat file is given in 'filename')
+    function save_mat(out,filename,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired( 'datafile',       @(i) ischar(i));
+      p.addParameter('save_mat', true, @(i) isscalar(i) && islogical(i))
+      p.addParameter('data_var','out', @ischar);
+      p.parse(filename,varargin{:})
+      %save mat file if requested
+      if p.Results.save_mat && ~isempty(out)        
+        %propagate 'out' to p.Results.data_var
+        eval([p.Results.data_var,'=out']);
+        %save the data with the requested variable name (properly propagated above)
+        save(file.replace_ext(filename,'.mat',varargin{:}),p.Results.data_var)
+      end
+    end
     %% resolves wildcarded filenames
     function [filenames,wildcarded_flag]=resolve_wildcards(in,varargin)
       p=inputParser;
@@ -566,6 +604,24 @@ classdef file
             filenames=file.resolve_compressed(filenames,varargin{:});
             %we're done, no need to resolve other archive types (assumes there is only one type per expanded file, which is reasonable)
             break
+          end
+        end
+      end
+    end
+    function delete_uncompressed(filename,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired( 'filename',       @(i) ischar(i));
+      p.addParameter('del_arch', true, @(i) isscalar(i) && islogical(i))
+      p.parse(filename,varargin{:})
+      %delete uncompressed file if compressed file is there
+      if p.Results.del_arch
+        %loop over all supported compressed formats
+        for i=1:numel(file.archivedfilesext)
+          compressed_file=file.replace_ext(filename,file.archivedfilesext{i},varargin{:});
+          if file.exist(compressed_file)
+            delete(filename)
+            disp(['Deleted uncompressed file ''',filename,''' because compressed file exists: ''',compressed_file,'''.'])
           end
         end
       end
