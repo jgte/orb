@@ -81,22 +81,7 @@ classdef attitude
     %for the data of different formats
     %NOTICE: data_dir is the top-most data dir, without specifying the satellite, data, etc
     function filename=grace_l1b_filename(satname,start,version,data_dir)
-      global PROJECT
-      if ~exist('version','var') || isempty(version)
-        if ~isfield(PROJECT,'attitude_GRACE_RL')
-          version='03';
-        else
-          assert(ischar(PROJECT.attitude_GRACE_RL),...
-            ['Project parameter attitude_GRACE_RL must char, not ',...
-            class(PROJECT.attitude_GRACE_RL)])
-          version=PROJECT.attitude_GRACE_RL;
-        end
-      end
-      %NOTICE: empty data_dir gets handled in simpletimeseries.grace_l1b_filename
-      if ~exist('data_dir','var')
-        data_dir='';
-      end
-      filename=simpletimeseries.grace_l1b_filename('SCA1B',satname,start,version,data_dir);
+      filename=grace.grace_l1b_filename('SCA1B',satname,start,version,data_dir);
     end
     %NOTICE: add more <format>_filename wrapers here
 
