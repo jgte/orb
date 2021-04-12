@@ -296,6 +296,25 @@ classdef file
         end
       end
     end
+    function io=replace_ext(io,new_ext,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addParameter('default_dir',  '.', @ischar);
+      p.parse(varargin{:})
+      if iscellstr(io)
+        io=cellfun(@(i) file.replace_ext(i,new_ext,p.Results.default_dir),io,'UniformOutput', false);
+      else
+        [d,f]=fileparts(io);
+        %plug default dir, if no dir is given
+        if isempty(d) || strcmp(d,'.')
+          d=p.Results.default_dir;
+        end
+        %patch leading dot
+        if new_ext(1)~='.', new_ext=['.',new_ext]; end
+        %build filename with extension replaced
+        io=fullfile(d,[f,new_ext]);
+      end
+    end
     % prefers mat or non-mat file in a file list (that may mix mat with non-mat files)
     % a mat file has extension .mat, a non-mat file has a different extension (strangely enough)
     % this means that if in={'file1.dat','file1.dat.gz'} and file1.dat.mat exists, this function will
