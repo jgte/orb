@@ -42,7 +42,7 @@ classdef grace
   %NOTICE: needs updated when adding a new data type
   properties(SetAccess=private)
     %data types
-    scaA,scaB
+    scaa,scab
     initialized
   end
   %calculated only when asked for
@@ -76,7 +76,7 @@ classdef grace
       out=[upper(data_type(1:3)),'1B'];
     end
     function out=datatype2satname(data_type)
-      out=[upper(data_type(1:3)),'1B'];
+      out=grace.translatesat(['grace-',data_type(4)]);
     end
     %% internally-consistent naming of satellites
     function out=translatesat(in)
@@ -142,18 +142,17 @@ classdef grace
       end
     end
     %NOTICE: data_dir is the top-most data dir, without specifying the satellite, data, etc
-    function filename=grace_l1b_filename(product,satname,start,version,data_dir)
-      if ~exist('version','var') || isempty(version)
-        version=grace.grace_l1b_version(product);
-      end
-      %NOTICE: empty data_dir gets handled in grace_dirname
-      if ~exist('data_dir','var')
-        data_dir='';
-      end
+    function filename=grace_l1b_filename(product,satname,start,varargin)
+      v=varargs.wrap('sources',{{...
+        'version',grace.grace_l1b_version(product), @ischar;...
+      }},varargin{:});
+      %collect the models, unless given externally
+      v=varargs.wrap('sources',{v,{...
+        'data_dir',grace.grace_l1b_dirname(start,v.version),@ischar;...
+      }},varargin{:});
       sat=grace.grace_l1b_sat(satname);
       date=time.FromDateTime(start,'yyyy-MM-dd');
-      dirname=grace.grace_l1b_dirname(start,version,data_dir);
-      filename=fullfile(dirname,[product,'_',date,'_',sat,'_',version,'.dat']);
+      filename=fullfile(v.data_dir,[product,'_',date,'_',sat,'_',v.version,'.dat']);
     end
     %passes data_dir to dirname unless it is non-existing, empty or '.' (in which case, it
     %builds the default directory structure of the GRACE data dir
@@ -163,8 +162,7 @@ classdef grace
           || strcmp(data_dir,'.') ...
           || strcmp(data_dir,simpletimeseries.parameters('value','data_dir'))
         year=time.FromDateTime(start,'yyyy');
-        dirname=fullfile(simpletimeseries.parameters('value','data_dir'),...
-          'grace','L1B','JPL',['RL',version],year);
+        dirname=fullfile(grace.dir('l1b'),'L1B','JPL',['RL',version],year);
       else
         dirname=data_dir;
       end
@@ -252,6 +250,7 @@ classdef grace
       case {...
         'ACC1B','AHK1B','GNV1B','KBR1B','MAS1B','SCA1B','THR1B','CLK1B',...
         'GPS1B','IHK1B','MAG1B','TIM1B','TNK1B','USO1B','VSL1B'}
+        [d,f]=fileparts(filename);
         %get particles from filename
         [product,sat,date,version,dirname]=...
           grace.strings_from_grace_l1b_filename(fullfile(d,f));
@@ -492,6 +491,125 @@ i=i+1;dh{i}= '+eoh______';
           error(['Cannot handle exporting time series to files of type ''',filetype,'''.'])
         end
         fclose(fid);
+      end
+    end
+    %% testing for the current object
+    function out=test_parameters(field)
+      switch lower(field)
+      case 'start'
+        out=datetime('2010-01-01');
+      case 'stop'
+        out=datetime('2010-01-03');
+      otherwise
+        error([mfilename,': unknown field ',field,'.'])
+      end
+    end
+    function out=test(method)
+      if ~exist('method','var') || isempty(method)
+        method='all';
+      end
+      start=grace.test_parameters('start');
+      stop= grace.test_parameters('stop' );
+      test_list={'import'};
+      switch(method)
+        case 'all'
+          for i=1:numel(test_list)
+            out{i}=grace.test(test_list{i});
+          end
+        case 'import'
+          out=grace(start,stop);
+        otherwise
+          error(['Cannot handle test method ''',method,'''.'])
+      end
+    end
+  end
+  methods
+    %% constructor
+    function obj=grace(start,stop,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('start'); %defines the 1st  day of the data (can be char, double or datetime)
+      p.addRequired('stop' ); %defines the last day of the data (can be char, double or datetime)
+      %declare parameters p
+      [~,p]=varargs.wrap('parser',p,'sinks',{obj},'sources',{grace.parameters('obj')},...
+        'mandatory',{start,stop},varargin{:});
+      %get day list
+      startlist=time.day_list(p.Results.start,p.Results.stop);
+      %clean varargin
+      varargin=cells.vararginclean(varargin,p.Parameters);
+      % retrieve each data type
+      for i=1:numel(grace.data_types)
+        %shorter names
+        data_type=grace.data_types{i};
+        %derive product and satname
+        product=grace.datatype2product(data_type);
+        satname=grace.datatype2satname(data_type);
+        %loop over days
+        for j=1:numel(startlist)
+          %load the data
+          switch product
+            case 'SCA1B'
+              data_value=attitude.import('grace_l1b',satname,startlist(j));
+            otherwise
+              error(['Cannot handle product ''',product,'''.'])
+          end
+          %add/append data type
+          obj=obj.add_data_type(data_type,data_value,varargin{:});
+        end
+      end
+      %initialize internal records
+      obj.initialized=true;
+    end
+    function obj=add_data_type(obj,data_type,data_value)
+      %simplify things
+      data_type=lower(data_type);
+      %parse input
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('data_type' ,@(i) ischar(i) && cells.isincluded(lower(grace.data_types),i));
+      p.addRequired('data_value',@(i) machinery.isa(i,{'simpletimeseries','attitude','orbit'}));
+      % parse it
+      p.parse(data_type,data_value);
+      %create or append
+      if isempty(obj.(data_type))
+        obj.(data_type)=data_value;
+      else
+        obj.(data_type)=obj.(data_type).append(data_value);
+      end
+    end
+    function out=metadata(obj,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
+      end
+      warning off MATLAB:structOnObject
+      out=varargs(...
+        structs.filter(struct(obj),[grace.parameters('list');more_parameters(:)])...
+      ).varargin;
+      warning on MATLAB:structOnObject
+    end
+    function print(obj,tab)
+      if ~exist('tab','var') || isempty(tab)
+        tab=20;
+      end
+      disp(' --- Parameters --- ')
+      for i=1:numel(grace.parameters('list'))
+        %shorter names
+        p=grace.parameters('value',i);
+        disp([p,repmat(' ',1,tab-length(p)),' : ',str.show(obj.(p))])
+      end
+      d_list=grace.data_types;
+      for i=1:numel(d_list)
+        %shorter names
+        d=d_list{i};
+        if ~isempty(obj.(d))
+          disp([' --- ',d,' --- '])
+          obj.(d).print
+        end
+      end
+    end
+    function msg(obj,in)
+      if obj.verbose
+        disp(in)
       end
     end
   end
