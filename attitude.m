@@ -595,6 +595,26 @@ classdef attitude
         out=isempty(obj.(data_type)) || all(obj.(data_type).y(:)==0);
       end
     end
+    %% multiple object manipulation
+    function[obj1,idx1,idx2]=append(obj1,obj2,varargin)
+      %append all data types
+      for i=1:numel(attitude.data_types)
+        %simplify things
+        data_type=lower(attitude.data_types{i});
+        if obj1.isempty(data_type) || obj2.isempty(data_type)
+          continue
+        end
+        %call upstream method
+        [...
+          obj1.(data_type),...
+          idx1.(data_type),...
+          idx2.(data_type)...
+        ]=obj1.(data_type).append(...
+          obj2.(data_type),...
+          varargin{:}...
+        );
+      end
+    end
     %% operator
     % uses a method from a superclass over all non-empty data types
     function obj=op(obj,operation,varargin)
@@ -708,7 +728,7 @@ classdef attitude
     end
   end
 end
-% 
+
 % function euler=num_quaternion2euler(quat,scalar_first_flag,rotation_type)
 % %computes the euler angles associated with a rotation represented
 % %by the quaternion set <in>, which is assumed to be a list of
