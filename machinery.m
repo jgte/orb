@@ -1,7 +1,16 @@
 classdef machinery
   methods(Static)
+    %% handy overloads
+    function out=isa(var,types)
+      if iscellstr(types)
+        out=any(cellfun(@(i) isa(var,i),types));
+      else
+        out=isa(var,types);
+      end
+    end
+    %% flow control
     function [out,success]=trycatch(success,errorID,func,args)
-      if ~sucess
+      if ~success
         try 
           out=func(args{:});
           success=true;
@@ -13,6 +22,8 @@ classdef machinery
               rethrow(ME)
           end
         end
+      else
+        out=[];
       end
     end
   end
