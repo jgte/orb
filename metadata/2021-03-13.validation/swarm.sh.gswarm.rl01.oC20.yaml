@@ -4,4 +4,4 @@ model_types: [signal]
 wildcarded_filename: GSWARM_GF_SABC_COMBINED_*_09.gfc*
 model_format: gfc
 date_parser: gravity.parse_epoch_gswarm
-submetadata: [model.processing.replaceC20.submetadata,model.plotting.submetadata]
+submetadata: [model.processing.keepC20.submetadata,model.plotting.submetadata]
