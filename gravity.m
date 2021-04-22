@@ -577,6 +577,12 @@ classdef gravity < simpletimeseries
       out=datetime(year,month,1);
       out=out+(dateshift(out,'end','month')-out)/2;
     end
+    function out=parse_epoch_tn14(filename)
+      %TN-14_C30_C20_GSFC_SLR.55942.5.gfc
+      %1234567890123456789012345678901234567890
+      [~,file]=fileparts(filename);
+      out=time.ToDateTime(str2double(file(24:30)),'mjd');
+    end
     function [m,e]=load_dir(dirname,format,date_parser,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -3246,6 +3252,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
         error(['Could not find keyword PRODUCT in data file ',v.file])
       end
       found=any(str.contains(line,{'PRODUCT:','Product:'}));
+      %these strings should come in the same order as here
       if any(str.contains(line,{'TITLE:','Title:'}))
         d=strtrim(str.clean(line,{'TITLE:','Title:'}));
       end
@@ -3253,7 +3260,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
         d=strjoin({d,strtrim(strrep(line,'UPDATE HISTORY:',''))},newline);
       end
       if str.contains(line,'Data span:')
-        d=strjoin({d,strtrim(strrep(line,'UPDATE HISTORY:',''))},newline);
+        d=strjoin({d,strtrim(strrep(line,'Data span:',''))},newline);
       end
     end
 %     str.say('read through ',c,'header lines')
