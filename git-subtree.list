@@ -1,2 +1,2 @@
 --prefix=packages/+yaml https://github.com/jerelbn/yamlmatlab.git master
---prefix=packages/+gnss-toolbox https://github.com/spanikp/GNSS-toolbox.git master
+--prefix=packages/gnss-toolbox https://github.com/spanikp/GNSS-toolbox.git master
