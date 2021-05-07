@@ -1,7 +1,8 @@
-import_dir: <getenv('HOME')>/data/gswarm/aiub/gravity/
+import_dir: <getenv('HOME')>/data/SLR/TN-14/
 model_types: [signal]
 #the trailing wildcard here is needed to pick data that has not been decompressed
-wildcarded_filename: GSWARM_GF_SABC_COMBINED_*_09.gfc*
+wildcarded_filename: TN-14_C30_C20_GSFC_SLR*.gfc*
 model_format: gfc
-date_parser: gravity.parse_epoch_gswarm
+date_parser: gravity.parse_epoch_tn14
+max_degree: 3
 submetadata: [model.processing.keepC20.submetadata,model.plotting.submetadata]
