@@ -1,0 +1,55 @@
+method: gswarm.plot_stats
+submetadata: swarm.sh.gswarm.rl01.submetadata
+sources: [ #remember that plots with multiple sources pick the start/stop from the first source
+  gswarm.swarm.asu.ifg.v02,
+  gswarm.swarm.asu.aiub.v02,
+  gswarm.swarm.asu.tud.v02,
+  gswarm.swarm.aiub.aiub.v01,
+  gswarm.swarm.ifg.ifg.v03,
+  gswarm.swarm.osu.aiub.v02,
+  gswarm.gracefo.sh.rl06.csr.pd.ts,
+]
+
+stats_relative_to: gswarm.gracefo.sh.rl06.csr.pd.ts
+plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common time domain
+
+plot_legend_suppress: [SH,GSWARM,V01,V02,V03]
+plot_title_suppress:  [SH,GSWARM,V01,V02,V03]
+plot_legend_replace: [GRACEFO SH RL06 CSR PD TS,GRACE model,'diff w.r.t. GRACE model','']
+plot_title_replace:  [GRACEFO SH RL06 CSR PD TS,GRACE model,'diff w.r.t. GRACE model','']
+plot_functional: eqwh
+plot_std_caxis: [0,0.01]
+plot_rms_caxis: [0,0.01]
+plot_corrcoeff_caxis: [-1,1]
+plot_colormap: jetzero
+plot_legend_box: false
+
+plot_signal: true
+
+
+
+#plot_ops
+
+
+
+
+#plot_spatial_stats
+plot_spatial_mask: none
+plot_derived_quantity: [cumdas]
+plot_type: line
+plot_spatial_stat_list: [diff]
+
+# plot_temporal_stats
+# NOTICE: plot_temp_stat_list and plot_temp_stat_title both be declared and agree
+plot_temp_stat_list: [rms,corrcoeff] #[corrcoeff,rms,std]
+plot_temp_stat_title: [temporal RMS,temporal corr. coeff.] #[temporal corr. coeff.,temporal RMS,temporal STD]
+
+# plot_low_degrees (don't plot anything)
+degrees: -1
+orders: -1
+
+#plot_ops
+plot_smoothing_method: gauss
+plot_smoothing_degree: [750e3,750e3,750e3,750e3,750e3,750e3,750e3]
+plot_legend_include_smoothing: false
+
