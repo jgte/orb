@@ -1,0 +1,12 @@
+*~
+.DS*
+*.sublime-workspace
+data
+plot
+obsolete/
+log/
+reference/
+nohup.out
+*.tex
+logs/
+project.yaml

@@ -22,7 +22,7 @@ do
   j="$SOURCE/$(basename $i)"
   if [ -e "$j" ] && diff -q "$i" "$j" > /dev/null
   then
-    ln -sfv "../$(basename $i)" .
+    ln -sfv "../$(basename $SOURCE)/$(basename $i)" .
   fi
 done
 
