@@ -2785,6 +2785,9 @@ classdef gswarm
       %WORKFLOW                model); just delete the offending *.mat files:
       %WORKFLOW                rm -fv ~/data/gswarm/*/gravity/*.mat ~/data/grace/L2/CSR/RL06/*.mat
       %WORKFLOW                and re-import everything (by simply re-running gswarm.TYPE).
+      %WORKFLOW         5.6.5: Some analysis start in 2002-04 instead of 2016-01, particularly
+      %WORKFLOW                the product gswarm.swarm.validation.unsmoothed. Not sure why
+      %WORKFLOW                this is happening but running it another time fixes the problem.
       %WORKFLOW 6.  go through the report and update all %NEEDS UPDATING lines (some are 
       %WORKFLOW     automatically updated by new-analysis.sh)
       %WORKFLOW     6.1: There are plots that refer to the most recent months and cannot be 
@@ -2797,6 +2800,9 @@ classdef gswarm
       %WORKFLOW     be open in smerge):
       %WORKFLOW     ~/data/gswarm/analyses/<date>-TYPE/orb/
       %WORKFLOW     ~/data/gswarm/analyses/
+      %WORKFLOW     9.1: Run the script link-dup-metadatafiles.sh in directory
+      %WORKFLOW          ~/data/gswarm/analyses/<date>-TYPE/orb/metadata/ with arguments:
+      %WORKFLOW          <previous date>-TYPE <date>-TYPE
       %WORKFLOW 10. put the data into aristarchos (remove --dry-run, as usual):
       %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
       %WORKFLOW
