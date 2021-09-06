@@ -20,6 +20,7 @@ classdef plotting
         'plot_xdateformat',    '',        @ischar;...
         'plot_xlimits',        [-inf,inf],@(i) ( isnumeric(i) || isdatetime(i) || iscell(i) ) && numel(i)==2;...
         'plot_ylimits',        [-inf,inf],@(i) ( isnumeric(i) || iscell(i) ) && numel(i)==2;...
+        'plot_set_axis_limits'  true,     @str.islogical;...
         'plot_size',    200+[0,0,21,9]*50,@(i) isnumeric(i) && numel(i)==4;...
         'plot_units',          'points',  @ischar;...
         'plot_visible',         true,     @str.islogical;...
@@ -609,10 +610,12 @@ classdef plotting
           end
         end
         %enforce requested x date tick format
-        if ~isempty(v.plot_xdateformat)
-          datetick(out.axis_handle,'x',v.plot_xdateformat)
-        else
-          datetick(out.axis_handle,'x')
+        if ~str.none(v.plot_xdateformat)
+          if ~isempty(v.plot_xdateformat)
+            datetick(out.axis_handle,'x',v.plot_xdateformat)
+          else
+            datetick(out.axis_handle,'x')
+          end
         end
       else
         % enforce (possible) requested x-limits
@@ -622,8 +625,10 @@ classdef plotting
           end
         end
       end
-      % set axis limits (can be the ones matlab so wisely set)
-      xlim(out.axis_handle,ax);
+      if ~str.none(v.plot_set_axis_limits)     
+        % set axis limits (can be the ones matlab so wisely set)
+        xlim(out.axis_handle,ax);
+      end
       
       % enforce requested y-limits
       ay=plotting.ylim(out.axis_handle);
