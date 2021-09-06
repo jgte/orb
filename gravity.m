@@ -395,6 +395,10 @@ classdef gravity < simpletimeseries
     function obj=unit_rms(lmax,varargin)
       obj=gravity.unit(lmax,'scale_per_degree',gravity.unit(lmax).drms,varargin{:});
     end
+    % create a model with coefficients following Kaula's rule of thumb
+    function obj=kaula(lmax,varargin)
+      obj=gravity.unit(lmax,'scale_per_degree',[0,1e-5./(1:lmax).^2],varargin{:});
+    end  
     % Creates a random model with mean 0 and std 1 (per degree)
     function obj=unit_randn(lmax,varargin)
       obj=gravity.unit(lmax,'scale_per_coeff',randn(lmax+1),varargin{:});
@@ -1035,7 +1039,7 @@ classdef gravity < simpletimeseries
     %% CSR specific stuff
     function t=CSR_RL05_date(year,month,varargin)
       p=inputParser; p.KeepUnmatched=true;
-      p.addParameter('EstimDirs_file',fullfile(getenv('HOME'),'data','csr','EstimData','EstimDirs','EstimDirs_RL05'),@ischar);
+      p.addParameter('EstimDirs_file',fullfile(getenv('HOME'),'data','csr','mascons','RL05','EstimDirs_RL05'),@ischar);
       p.parse(varargin{:})
       %sanity on year
       if year<1000
@@ -1062,17 +1066,50 @@ classdef gravity < simpletimeseries
       p.parse(varargin{:})
       [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wildcarded_filename','*.GEO.*',varargin{:});
     end
-    function [m,e]=CSR_RL05_Mascons(varargin)
+    function [m,e]=CSR_Mascons(varargin)
       p=inputParser; p.KeepUnmatched=true;
-      p.addParameter('datadir',fullfile(getenv('HOME'),'data','csr','mascons'),@(i) ischar(i) && exist(i,'dir')~=0)
+      p.addParameter('lmax',60,@(i) isscalar(i) && isnumeric(i))
+      p.addParameter('RL','05',@(i) @ischar)
       p.parse(varargin{:})
-      [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wildcarded_filename','*.GEO',varargin{:});
-    end
-    function [m,e]=ggm05g(datafile)
-      if ~exist('datafile','var') || isempty(datafile)
-        datafile=fullfile(file.orbdir('aux'),'ggm05g.gfc');
+      p.addParameter('datadir',fullfile(getenv('HOME'),'data','csr','mascons',['RL',p.Results.RL]),@(i) ischar(i) && exist(i,'dir')~=0)
+      p.parse(varargin{:})
+      datafile=fullfile(p.Results.datadir,['alldata-deg',num2str(p.Results.lmax),'.mat']);
+      if file.exist(datafile)
+        disp(['Loading all RL',p.Results.RL,' Mascons from ',datafile,'...'])
+        load(datafile,'m','e')
+      else
+        [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wildcarded_filename','*.GEO',varargin{:});
+        switch p.Results.RL
+          case '05'
+            s=gravity.static('GIF48');
+          case '06'
+            s=gravity.static('GGM05C');
+          otherwise
+            error(['Cannot handle input ''RL'' with value ''',p.Results.RL,'''.'])
+        end
+        m.lmax=p.Results.lmax;
+        e.lmax=p.Results.lmax;
+        s.lmax=p.Results.lmax;
+        m=m-s;
+        disp(['Saving all RL05 Mascons to ',datafile,'...'])
+        save(datafile,'m','e')
       end
-      [m,e]=gravity.load(datafile,'gfc');
+    end
+    function [m,e]=static(model)
+      switch upper(model)
+        case 'GIF48'
+          datafile=fullfile(file.orbdir('aux'),'GIF48.2007.GEO');
+          fmt='GEO';
+        case 'GGM05C'
+          datafile=fullfile(file.orbdir('aux'),'GGM05C.gfc');
+          fmt='gcf';
+        case 'GGM05G'
+          datafile=fullfile(file.orbdir('aux'),'ggm05g.gfc');
+          fmt='gcf';
+        otherwise
+          error(['Cannot handle static model ''',model,'''.'])
+      end
+      [m,e]=gravity.load(datafile,fmt);
     end
     %% permanent (solid earth) tide
     function C20=zero_tide(C20,tide_system)
@@ -3001,6 +3038,49 @@ function [m,e]=load_mod(filename,time)
     'GM',header.GM,...
     'R',header.R,...
     'descriptor',header.name,...
+    'cdate',datetime('now'),...
+    'origin',filename...
+  );
+  %no error info on mod format
+  e=[];
+end
+function [m,e]=load_qlt(filename,time)
+
+  error('unfinished')
+
+  %default time
+  if ~exist('time','var') || isempty(time)
+    time=datetime('now');
+  end
+  %open the data file
+  fid = fopen('somefile', 'rt');
+  %count the data
+  c=0;
+  tline = fgetl(fid);
+  while ~isempty(tline) && any(strncmp(tline, {' corr', ' order'},6))
+     c=c+1;
+     tline = fgetl(fid);
+  end
+  %make room for data
+  shc=zeros(c,3);
+  %loading data
+  c=0; frewind(fid); tline = fgetl(fid);
+  while ~isempty(tline) && any(strncmp(tline, {' corr', ' order'},6))
+     c=c+1;
+     shc(c,:)=sscanf(tline,'%d %d %f');
+     tline = fgetl(fid);
+  end
+  %swarp degree/order columns
+  shc=shc(:,[2,1,3]);
+  %retrieve basenane
+  [~,f,e]=fileparts(filename);
+  %initializing data object
+  m=gravity(...
+    time,...
+    gravity.dtc('mod','y',mi),...
+    'GM',gravity.parameters('GM'),...
+    'R',gravity.parameters('R'),...
+    'descriptor',[f,e],...
     'cdate',datetime('now'),...
     'origin',filename...
   );
