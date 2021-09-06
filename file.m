@@ -740,8 +740,18 @@ classdef file
     function [out,result]=python3(com,varargin)
       [out,result]=file.system(['echo "',com,'" | python3'],varargin{:});
     end
-    function [out,s]=find(varargin)
-      com=['find ',strjoin(str.clean(varargin,'regex'),' ')];
+    function [out,s]=find(dirs,varargin)
+      if iscell(dirs)
+        assert(all(cellfun(@ischar,dirs)),'Need all elements of input ''dirs'' to be char.')
+      elseif ischar(dirs)
+        dirs={dirs};
+      else
+        error(['Need input ''dirs'' to be cellstr or char, not ',class(dirs)])
+      end  
+      com=['find "',strjoin(str.clean(dirs,'regex'),'" "'),'"'];
+      if numel(varargin)>0
+        com=[com,' ',strjoin(str.clean(varargin,'regex'),' ')];
+      end
       [s,r]=file.system(com);
       if s
         out=cells.rm_empty(strsplit(r,newline));
