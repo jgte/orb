@@ -1269,14 +1269,30 @@ classdef simpletimeseries < simpledata
     end
     %the detrend method can be called directly
     %the outlier method can be called directly
-    function obj=median(obj,span,keep_time_domain)
+    function obj=mean(obj,n,keep_time_domain)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
       if ~exist('keet_time_domain','var')
-        obj=obj.segstat(span,@median);
+        obj=obj.segstat(@mean,n);
       else
-        obj=obj.segstat(span,@median,keep_time_domain);
+        obj=obj.segstat(@mean,n,keep_time_domain);
       end
     end
-    function obj=segstat(obj,span,op,keep_time_domain)
+    function obj=median(obj,n,keep_time_domain)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
+      if ~exist('keet_time_domain','var')
+        obj=obj.segstat(@median,n);
+      else
+        obj=obj.segstat(@median,n,keep_time_domain);
+      end
+    end
+    function obj=segstat(obj,op,n,keep_time_domain)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
       if ~exist('keet_time_domain','var') || isempty(keep_time_domain)
         keep_time_domain=false;
       end
@@ -1285,16 +1301,16 @@ classdef simpletimeseries < simpledata
         t_now=obj.t;
       end
       %handle periods
-      if isduration(span)
+      if isduration(n)
         %compute (average) number of epochs within the requested t_span
-        span=round(span/obj.step);
+        n=round(n/obj.step);
       end
       %trivial call: ignore irrelevant spans
-      if span <= 1
+      if n <= 1
         return
       end
       %call superclass
-      obj=segstat@simpledata(obj,span,op);
+      obj=segstat@simpledata(obj,op,n);
       if keep_time_domain
         %resample (if needed, which is checked inside resample)
         obj=obj.interp(t_now,...
