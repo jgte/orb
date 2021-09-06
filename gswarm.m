@@ -984,7 +984,7 @@ classdef gswarm
           dat_idx=cellfun(@(j) j.nr_valid>0,dat);
           %gather error if requested
           if v.plot_spatial_monthly_error
-            try 
+            try
               dat_error=cellfun(@(j) j.interp(v.pod.t(i)),v.pod.source.error,'UniformOutput',false);
             catch
               v.plot_spatial_monthly_error=false;
@@ -2737,42 +2737,43 @@ classdef gswarm
     end
     function d=validation(varargin)
       %NOTICE: this method produces the plots in the dir defined in the project.yaml file,
-      %        which are needed to produce the pre-combination report in the 'report' dir 
+      %        which are needed to produce the pre-combination report in the 'report' dir
       %        at the same location, usually: ~/data/gswarm/analyses/<date>-validation
 
       %WORKFLOW Workflow of the TYPE={precombval|validation} report:
-      %WORKFLOW 1.  plug the thumb drive in (no need to mount-disk.sh)
-      %WORKFLOW 2.  go to ~/data/gswarm/analyses/report-TYPE/ and make sure everything
-      %WORKFLOW     is in synch.sh
+      %WORKFLOW 1.  OPTIONAL: plug the thumb drive in (no need to mount-disk.sh)
+      %WORKFLOW 2.  sure everything is in synch.sh:
+      %WORKFLOW     2.1: in ~/data/gswarm/analyses/report-TYPE/
+      %WORKFLOW     2.1:
       %WORKFLOW 3.  create a new TYPE dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
-      %WORKFLOW 4.  cd to the orb dir in the new TYPE dir (shown by new-analysis.sh 
+      %WORKFLOW 4.  cd to the orb dir in the new TYPE dir (shown by new-analysis.sh
       %WORKFLOW     script) and check the stop_date in project.yaml is the last day of the
       %WORKFLOW     last available model (the new-analysis.sh script automatically updates
       %WORKFLOW     this but better check if it's OK)
       %WORKFLOW 5.  fire up matlab and look at the gswarm.TYPE method:
       %WORKFLOW     5.1: check if all products are being used, some may be commented
       %WORKFLOW     5.2: check if the 'nodata' option is false:
-      %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need 
+      %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need
       %WORKFLOW                ~/data/gswarm/rsync.remote2local.sh)
-      %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need 
+      %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need
       %WORKFLOW                ~/data/grace/download-l2.sh, which
       %WORKFLOW                iterates over specific years, currently 2020)
       %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'nodata' to true.
       %WORKFLOW     5.3: if TYPE=validation, check if the 'git_ci' option is true:
-      %WORKFLOW         5.3.1: after the swarm data is processed, the quality is computed in 
+      %WORKFLOW         5.3.1: after the swarm data is processed, the quality is computed in
       %WORKFLOW                the gswarm.quality method, where it is added to the git repo
       %WORKFLOW         5.3.2: NOTICE: when doing tests, it's best to set 'git_ci' to false.
       %WORKFLOW     5.4: check that the C20 data is updated and the model evaluated at the
       %WORKFLOW          last 3 months
       %WORKFLOW         5.4.1: The easiest way to be sure is to run:
       %WORKFLOW                'gswarm.c20model('plot',file.orbdir('plot'))'
-      %WORKFLOW         5.4.2: For TYPE=precombval, TN-14 is used, so this is a good opportunity 
-      %WORKFLOW                to send the email  to Bryant Loomis and ask for the updated 
+      %WORKFLOW         5.4.2: For TYPE=precombval, TN-14 is used, so this is a good opportunity
+      %WORKFLOW                to send the email  to Bryant Loomis and ask for the updated
       %WORKFLOW                weekly C20 data.
       %WORKFLOW         5.4.3: For TYPE=validation, make sure the data Bryant sent is saved as
       %WORKFLOW                ~/data/gswarm/analyses/<date>-validation/orb/aux/GSFC_SLR_C20_7day.txt
-      %WORKFLOW     5.5: run the gswarm.TYPE method and keep an eye the last epoch of the 
-      %WORKFLOW          data as it is being loaded, it has to be the same as the last 
+      %WORKFLOW     5.5: run the gswarm.TYPE method and keep an eye the last epoch of the
+      %WORKFLOW          data as it is being loaded, it has to be the same as the last
       %WORKFLOW          available month; otherwise the analysis is incomplete
       %WORKFLOW     5.6: things that may go wrong:
       %WORKFLOW         5.6.1: the C20 data is not up-to-date
@@ -2780,23 +2781,30 @@ classdef gswarm
       %WORKFLOW                was not updated to that
       %WORKFLOW         5.6.3: AIUB names the models incorrectly or does not compress them
       %WORKFLOW         5.6.4: You changed a matlab class and the *.mat files in the GRACE
-      %WORKFLOW                L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell 
-      %WORKFLOW                this is the case when the error happens only on the first new 
+      %WORKFLOW                L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell
+      %WORKFLOW                this is the case when the error happens only on the first new
       %WORKFLOW                model); just delete the offending *.mat files:
       %WORKFLOW                rm -fv ~/data/gswarm/*/gravity/*.mat ~/data/grace/L2/CSR/RL06/*.mat
       %WORKFLOW                and re-import everything (by simply re-running gswarm.TYPE).
-      %WORKFLOW 6.  go through the report and update all %NEEDS UPDATING lines (some are 
+      %WORKFLOW         5.6.5: Some analysis start in 2002-04 instead of 2016-01, particularly
+      %WORKFLOW                the product gswarm.swarm.validation.unsmoothed. Not sure why
+      %WORKFLOW                this is happening but running it another time fixes the problem.
+      %WORKFLOW 6.  go through the report and update all %NEEDS UPDATING lines (some are
       %WORKFLOW     automatically updated by new-analysis.sh)
-      %WORKFLOW     6.1: There are plots that refer to the most recent months and cannot be 
-      %WORKFLOW          named automatically, look for '%NEEDS UPDATING (MAPS)' and run 
+      %WORKFLOW     6.1: There are plots that refer to the most recent months and cannot be
+      %WORKFLOW          named automatically, look for '%NEEDS UPDATING (MAPS)' and run
       %WORKFLOW          ./ls-missing-figures.sh to see which plots are being wrongly picked.
       %WORKFLOW 7.  compile it and compare this report with the previous one
-      %WORKFLOW 8.  go to the report dir in the new TYPE dir and make sure everything 
+      %WORKFLOW 8.  go to the report dir in the new TYPE dir and make sure everything
       %WORKFLOW     is in synch.sh (don't synch %NEEDS UPDATING lines)
-      %WORKFLOW 9.  check the following git repos to make sure things are up to date (should 
-      %WORKFLOW     be open in smerge):
-      %WORKFLOW     ~/data/gswarm/analyses/<date>-TYPE/orb/
-      %WORKFLOW     ~/data/gswarm/analyses/
+      %WORKFLOW 9.  Submit changes to GitHub:
+      %WORKFLOW     9.1: Run the script link-dup-metadatafiles.sh in directory
+      %WORKFLOW          ~/data/gswarm/analyses/<date>-TYPE/orb/metadata/ with arguments:
+      %WORKFLOW          source=<previous date>-TYPE sink=<date>-TYPE [echo]
+      %WORKFLOW     9.2: check the following git repos to make sure things are up to date (should
+      %WORKFLOW          be open in smerge):
+      %WORKFLOW          - ~/data/gswarm/analyses/<date>-TYPE/orb/
+      %WORKFLOW          - ~/data/gswarm/analyses/
       %WORKFLOW 10. put the data into aristarchos (remove --dry-run, as usual):
       %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
       %WORKFLOW
@@ -2914,7 +2922,7 @@ classdef gswarm
       %plot it
       tstart=tic;
       for i=1:numel(p)
-        d.init(p{i});
+        d.init(p{i},varargin{:});
         disp(['Finished plotting product ',p{i}.str,' after ',time.str(toc(tstart)),' elapsed'])
       end
     end
