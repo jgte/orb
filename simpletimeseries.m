@@ -532,6 +532,15 @@ classdef simpletimeseries < simpledata
         assert(success,['Cannot handle files of type ''',format,'''.'])        
       end
     end
+    function obj=GRACEaltitude(varargin)
+      p=inputParser;
+      p.addParameter('datafile',file.resolve_home(fullfile('~','data','grace','altitude','GRACE.altitude.dat')));
+      p.parse(varargin{:});
+      obj=simpletimeseries.import(p.Results.datafile,...
+        'format','mjd',...
+        'cut24hrs',false...
+      );    
+		end
     %% utilities
     function out=list(start,stop,period)
       p=inputParser;
