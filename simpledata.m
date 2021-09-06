@@ -1819,41 +1819,22 @@
       %propagate (mask is updated inside)
       obj=obj.assign(y_data,'mask',all(y_data~=0,2));
     end
-    function obj=median(obj,n)
-      obj=obj.segstat(n,@median);
-%       %create x-domain of medianed data, cutting it into segments of
-%       %length n, putting each segment in one column of matrix t (x
-%       %increases first row-wise, then column-wise)
-%       %NOTICE: this function decimates the data!
-%
-%       %init matrix that stores the segmented x_temp
-%       x_temp=nan(n,ceil(obj.length/n));
-%       x_temp(1:obj.length)=obj.x;
-%       x_mean=transpose(mean(x_temp,'omitnan'));
-%       %make room for medianed data
-%       y_median=nan(ceil(obj.length/n),obj.width);
-%       %compute media of the data
-%       s.msg=[mfilename,': computing mean and decimating every ',num2str(n),' data points.'];s.n=obj.width;
-%       for i=1:obj.width
-%         %cut the data into segments of length n, putting each segment in
-%         %one column of matrix y_seg (x increases first row-wise, then
-%         %column-wise)
-%         y_seg=nan(n,ceil(obj.length/n));
-%         y_seg(1:obj.length)=obj.y(:,i);
-%         y_median(:,i)=transpose(median(y_seg,'omitnan'));
-%         %user feedback
-%         s=time.progress(s,i);
-%       end
-%       %sanity
-%       if numel(x_mean) ~=size(y_median,1)
-%         error([mfilename,': x-domain length inconsistent with data length, debug needed!'])
-%       end
-%       %propagate the x-domain and data
-%       obj=assign(obj,y_median,'x',x_mean);
-%       %update descriptor
-%       obj.descriptor=['median of ',obj.descriptor];
+    function obj=mean(obj,n)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
+      obj=obj.segstat(@mean,n);
     end
-    function obj=segstat(obj,n,op)
+    function obj=median(obj,n)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
+      obj=obj.segstat(@median,n);
+    end
+    function obj=segstat(obj,op,n)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
       %create x-domain of segmented data, cutting it into segments of
       %length n, putting each segment in one column of matrix t (x
       %increases first row-wise, then apply the statistic in 'mode' column-wise)
