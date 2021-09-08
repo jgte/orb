@@ -18,6 +18,9 @@ do
         | column -t -s \|
       exit
     ;;
+    -x) #set bash's -x
+      set -x
+    ;;
     echo) #show what would have been done but don't do anything
       ECHO=echo
     ;;
@@ -57,9 +60,9 @@ fi
 
 cd $SINK
 
-for i in $SINK/*.yaml
+for i in *.yaml
 do
-  j="$SOURCE/$(basename $i)"
+  j="../$SOURCE/$(basename $i)"
   if [ -e "$j" ] && diff -q "$i" "$j" > /dev/null
   then
     $ECHO ln -sfv "../$(basename $SOURCE)/$(basename $i)" .
