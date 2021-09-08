@@ -2732,6 +2732,7 @@ classdef gswarm
           'swarm.sh.gswarm.rl01.individual.maps';...
         },...
         'nodata',false,...
+        'plot_pause_on_save',false,...
         varargin{:}...
       );
     end
@@ -2744,7 +2745,7 @@ classdef gswarm
       %WORKFLOW 1.  OPTIONAL: plug the thumb drive in (no need to mount-disk.sh)
       %WORKFLOW 2.  sure everything is in synch.sh:
       %WORKFLOW     2.1: in ~/data/gswarm/analyses/report-TYPE/
-      %WORKFLOW     2.1:
+      %WORKFLOW     2.2: ~/data/gswarm/rsync.remote2local-subset.sh --dry-run
       %WORKFLOW 3.  create a new TYPE dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
       %WORKFLOW 4.  cd to the orb dir in the new TYPE dir (shown by new-analysis.sh
       %WORKFLOW     script) and check the stop_date in project.yaml is the last day of the
@@ -2757,7 +2758,7 @@ classdef gswarm
       %WORKFLOW                ~/data/gswarm/rsync.remote2local.sh)
       %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need
       %WORKFLOW                ~/data/grace/download-l2.sh, which
-      %WORKFLOW                iterates over specific years, currently 2020)
+      %WORKFLOW                iterates over specific years, currently 2021)
       %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'nodata' to true.
       %WORKFLOW     5.3: if TYPE=validation, check if the 'git_ci' option is true:
       %WORKFLOW         5.3.1: after the swarm data is processed, the quality is computed in
@@ -2767,9 +2768,9 @@ classdef gswarm
       %WORKFLOW          last 3 months
       %WORKFLOW         5.4.1: The easiest way to be sure is to run:
       %WORKFLOW                'gswarm.c20model('plot',file.orbdir('plot'))'
-      %WORKFLOW         5.4.2: For TYPE=precombval, TN-14 is used, so this is a good opportunity
-      %WORKFLOW                to send the email  to Bryant Loomis and ask for the updated
-      %WORKFLOW                weekly C20 data.
+      %WORKFLOW         5.4.2: For TYPE=precombval, a TN-14 model is used, so this is a good 
+      %WORKFLOW                opportunity to send the email to Bryant Loomis and ask for 
+      %WORKFLOW                the updated weekly C20 data.
       %WORKFLOW         5.4.3: For TYPE=validation, make sure the data Bryant sent is saved as
       %WORKFLOW                ~/data/gswarm/analyses/<date>-validation/orb/aux/GSFC_SLR_C20_7day.txt
       %WORKFLOW     5.5: run the gswarm.TYPE method and keep an eye the last epoch of the
