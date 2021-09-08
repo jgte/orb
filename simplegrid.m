@@ -1905,14 +1905,14 @@ classdef simplegrid < simpletimeseries
       'cb_loc',     'SouthOutside', @ischar;...
       'cb_title',               '', @ischar;...
       'bias',                    0, @num.isscalar;...
-      'boxes',                  {}, @iscell;...
+      'boxes',                  {}, @iscell;...s
       'boxes_fmt',         {'r--'}, @iscellstr;...
       }},varargin{:});
       %interpolate at the requested time and 
       obj_interp=obj.interp(v.t);
       %upsample if needed
       if v.plot_spatial_step>0
-        obj=spatial_interp(obj,simplegrid.lon_stepped(v.plot_spatial_step),simplegrid.lon_stepped(v.plot_spatial_step));
+        obj_interp=spatial_interp(obj_interp,simplegrid.lon_stepped(v.plot_spatial_step),simplegrid.lon_stepped(v.plot_spatial_step));
       end
       %resample to center of grid if requested 
       if v.center_resample
