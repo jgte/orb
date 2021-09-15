@@ -2908,6 +2908,9 @@ classdef gswarm
       % - ensure EWH axis are consistent for global, land and ocean plots
       % - fix titles of maps contain 'AIUB AIUB' and 'IFG IFG'
       
+      %TODO: gswarm.swarm.validation.unsmoothed is broken in the first run, the time series 
+      %      starts in April 2002
+      
       %produce plots for the report
       d=gswarm.production(...
         'products',  {...
