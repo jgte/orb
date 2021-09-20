@@ -2100,6 +2100,10 @@ classdef gswarm
     function d=grace_animation(varargin)
       %need global project variable (forces the user to think about the context of this analysis)
       global PROJECT
+      if ~isfield(PROJECT,'stop_date')
+        PROJECT.stop_date=datetime('now');
+      end
+      PROJECT.name='2020-06-02.grace_animation';
       v=varargs.wrap('sources',{....
         {...
           'debug',     true,                        @islogical;...
