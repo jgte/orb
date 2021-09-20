@@ -2134,6 +2134,7 @@ classdef gswarm
           'stop',v.stop...
         ).init(v.end_product...
         ).data_get_scalar(v.end_product);
+      close all
       %build animation
       n_frames=floor(d.nr_valid/v.decimate_rate);
       fig=plotting.figure('plot_size',200+[0,0,21,9]*50,'plot_visible','off');
