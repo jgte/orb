@@ -46,7 +46,10 @@ classdef gswarm
         'overwrite_common_t',v.overwrite_common_t...
       );
       %apply model processing options
-      [s,e]=gswarm.load_models_op('all',v,product,s,e);
+      s=gravity.common_ops('all',s,v.varargin{:},'product_name',product.str);
+      if ~isempty(e)
+        e=gravity.common_ops('all',e,v.varargin{:},'product_name',product.str,'model_type','error');
+      end
       %make sure we got a gravity object
       assert(isa(s,'gravity'),['failed to load product ',product.codename])
       % resolve dataname to save the data to: sometimes, the 'signal' field path is given explicitly and
