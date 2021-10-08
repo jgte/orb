@@ -2740,7 +2740,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         end
       end
       %apply model processing options
-      g=gswarm.load_models_op('all',v,product,g);
+      g=gravity.common_ops('all',v,product,g);
       %save model
       obj=obj.data_set(product.dataname,g);
       obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
@@ -2772,7 +2772,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       %propagate the data
       g=g.setC(v.degrees,v.orders,ts.y,ts.t);
       %apply model processing options
-      g=gswarm.load_models_op('all',v,product,g);
+      g=gravity.common_ops('all',v,product,g);
       %save model
       obj=obj.data_set(product.dataname,g);
       obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
