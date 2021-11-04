@@ -102,8 +102,8 @@ classdef simplefreqseries < simpletimeseries
       p=inputParser;
       p.KeepUnmatched=true;
       % add stuff as needed
-      p.addRequired( 'fn', @(i) isnumeric(i) && isvector(i));
-      p.addRequired( 'Wn', @(i) isnumeric(i) && isvector(i) && numel(i) == numel(fn));
+      p.addRequired( 'fn', @(i) (isnumeric(i) && isvector(i)) || ischar(i));
+      p.addRequired( 'Wn', @(i) isnumeric(i) && isvector(i) && numel(i) == numel(fn) || isempty(i));
       p.addRequired( 'tn', @(i) simpletimeseries.valid_t(i));
       p.addParameter('seed','default',@(i)...   % does not support the form RNG(SD,GENERATOR)
         ischar(i) || ...                        % can be 'shuffle' or 'default'
@@ -117,6 +117,15 @@ classdef simplefreqseries < simpletimeseries
       p.parse(fn,Wn,tn,varargin{:});
       %init RNG
       rng(p.Results.seed);
+      %branch on the type of data represented by 'fn'
+      if ischar(fn)
+        assert(file.exist(fn),['Cannot find file with spectrum: ',fn])
+        %NOTICE: expecting data to be in two columns: fn, Wn; '#' are comments
+        fnWn=file.textscan(fn,'%f %f',[],'#');
+        %propagate data
+        fn=fnWn(:,1);
+        Wn=fnWn(:,2);
+      end
       %trivial call: empty data, output is the same as input
       if all(Wn==0)
         yn=zeros(size(tn));
@@ -166,7 +175,7 @@ classdef simplefreqseries < simpletimeseries
         yn=interp1(to,yo,tn);
       end
       %build object
-      obj=simplefreqseries(tn,yn,'descriptor','noise',varargin{:});
+      obj=simplefreqseries(tn(:),yn(:),'descriptor','noise',varargin{:});
       %show plot, if requested
       if p.Results.plot_column>0
         c=p.Results.plot_column;
