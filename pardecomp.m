@@ -4,6 +4,7 @@ classdef pardecomp
     %NOTE: edit this if you add a new parameter
     parameter_list={...
       'debug',     false,               @(i) islogical(i) && isscalar(i);...
+      'peekwidth', 10,       @num.isscalar;...
     };
   end
   properties(GetAccess=public,SetAccess=public)
@@ -13,6 +14,8 @@ classdef pardecomp
     np %polynomidal order
     t0 %zero-epoch
     xi %regression coefficients
+    peekwidth
+    Qy %observation/data covariance matrix (a.k.a. Cd)
   end
   properties(Dependent)
     ns %number of sine and cosine coefficients
@@ -31,6 +34,12 @@ classdef pardecomp
     rrn %relative norm of the residuals
     rn %norm of the residuals
     A  %design matrix
+    AtQy
+    N  %normal matrix
+    h  %right-hand vector
+    Qx %variance-covariance
+    e  %postfit residuals
+    Pa %projection matrix
   end
   methods(Static)
     %% object static methods
@@ -417,41 +426,48 @@ classdef pardecomp
       end
     end
     %% general test for the current object
-    function test
+    function obj=test(varargin)
+        v=varargs.wrap('sources',{...
+        {...
+          'plot',   false, @islogical;...
+          'print',   true, @islogical;...
+        }},...
+      varargin{:});
       %test parameters
       step=1;
       n=10000;
       poly_coeffs=[1 3 5]./[1 n n^2];
       sin_periods=n/step./[2 5];
-      sin_periods_assumed=sin_periods+randn(size(sin_periods))*n/1e2;
+      sin_periods_assumed=sin_periods;
        sin_coeffs=[0.5 3];
        cos_coeffs=[2 0.8];
-      randn_scale=0.5;
-      %inform
-      disp(['sin_periods : ',num2str(sin_periods(:)')])
-      disp(['poly_coeffs : ',num2str(poly_coeffs(:)')])
-      disp(['sin_coeffs  : ',num2str(sin_coeffs(:)')])
-      disp(['cos_coeffs  : ',num2str(cos_coeffs(:)')])
-      disp(['randn_scale : ',num2str(randn_scale(:)')])
+      randn_scale=0.1;
       %derived parameters
       t=transpose(1:step:(n*step));
-      obj=pardecomp(t,[],...
+      %forward modelling
+      ref=pardecomp(t,[],...
         'np',numel(poly_coeffs),...
         'T',sin_periods,...
         'p',poly_coeffs,...
         's',sin_coeffs,...
         'c',cos_coeffs...
       );
-      y=obj.y_sum;
+      y=ref.y_sum;
       %add noise
       y=y+randn_scale*randn(size(y));
-      %decompose
+      %inversion
       obj=pardecomp(t,y,...
         'np',numel(poly_coeffs),...
         'T',sin_periods_assumed...
       ).lsq;
       %show results
-      obj.plot;
+      if v.plot
+        obj.plot(varargin{:});
+      end
+      %inform
+      if v.print
+        obj.print([],ref)
+      end
     end
   end
   methods
@@ -459,6 +475,7 @@ classdef pardecomp
       p=inputParser;
       p.addRequired( 't', @(i) pardecomp.valid_t(i));
       p.addRequired( 'y', @(i) pardecomp.valid_y(i));
+      p.addParameter('Qy',[],@(i) @isnumeric);
       [~,~,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{....
         pardecomp.parameters('obj'),...
         {...
@@ -474,6 +491,54 @@ classdef pardecomp
       %need to assign the mandatory arguments
       obj.t=t;
       obj.y=y;
+      %patch missing information
+      if isempty(obj.Qy)
+        %WARNING: this is a ny-by-ny matrix (i.e. potentially huge)
+        obj.Qy=eye(obj.ny);
+      end
+    end
+    %% info functions
+    function disp_field(obj,field,tab,value,label,fmt)
+      if ~exist('value','var') || isempty(value)
+        value=obj.(field);
+        if isnumeric(value) || iscell(value)
+          value=value(1:min([numel(value),obj.peekwidth]));
+        end
+      end
+      if ~exist('fmt','var')
+        fmt='';
+      end
+      if ~exist('label','var') || isempty(label)
+        disp([str.tabbed(field,tab),' : ',str.show(transpose(value(:)),fmt)])
+      else
+        disp([str.tabbed(label,tab),' : ',str.show(transpose(value(:)),fmt)])
+      end
+    end
+    function print(obj,tab,ref)
+      if ~exist('tab','var') || isempty(tab)
+        tab=10;
+      end
+      if exist('ref','var')
+        flag=true;
+      else
+        flag=false;
+      end
+      fmtf=['%',num2str(tab),'.',num2str(tab-2),'f '];
+      fmte=['%',num2str(tab),'.',num2str(tab-7),'e '];
+               obj.disp_field('T'      ,tab,[]               ,''     ,fmtf);
+      if flag; ref.disp_field('T'      ,tab,[]               ,'T ref',fmtf);
+               obj.disp_field('T delta',tab,obj.T(:)-ref.T(:),''     ,fmte); end
+               obj.disp_field('p'      ,tab,[]               ,''     ,fmtf);
+      if flag; ref.disp_field('p'      ,tab,[]               ,'p ref',fmtf)
+               obj.disp_field('p delta',tab,obj.p(:)-ref.p(:),''     ,fmte); end
+               obj.disp_field('s'      ,tab,[]               ,''     ,fmtf);
+      if flag; ref.disp_field('s'      ,tab,[]               ,'s ref',fmtf)
+               obj.disp_field('s delta',tab,obj.s(:)-ref.s(:),''     ,fmte); end
+               obj.disp_field('c'      ,tab,[]               ,''     ,fmtf);
+      if flag; ref.disp_field('c'      ,tab,[]               ,'c ref',fmtf)
+               obj.disp_field('c delta',tab,obj.c(:)-ref.c(:),''     ,fmte); end
+      obj.disp_field('nx',tab)
+      obj.disp_field('ny',tab)
     end
     %% length functions
     function out=get.ns(obj); out=numel(obj.T);  end
@@ -553,6 +618,25 @@ classdef pardecomp
         out(:,i)=cos(2*pi/obj.T(i-obj.np-obj.ns)*t_now);
       end
     end
+    function out=get.AtQy(obj)
+      out=transpose(obj.A)/obj.Qy;
+    end
+    function out=get.N(obj)
+      out=obj.AtQy*obj.A; 
+    end
+    function out=get.h(obj)
+      out=obj.AtQy*obj.y;
+    end
+    function out=get.Qx(obj)
+      out=inv(obj.N);
+    end
+    %notice, this is a ny-by-ny matrix
+    function out=get.Pa(obj)
+      out=obj.A/obj.N*obj.AtQy;
+    end
+    function out=get.e(obj)
+      out=(eye(obj.ny)-obj.Pa)*obj.y;
+    end
     %% forward modelling
     function out=get.y_sum(obj)
       out=obj.A*obj.x(:);
@@ -584,19 +668,19 @@ classdef pardecomp
     function obj=lsq(obj)
       if ~obj.issolved
         %solve the system of linear equations
-        obj.x=obj.A\obj.y;
+        obj.x=obj.N\obj.h;
       end
     end
     %% general plotting
-    function plot(obj)
+    function plot(obj,varargin)
       screen_position=200+[0,0,21,9]*50;
       figure('Position',screen_position,'PaperPosition',screen_position)
       legend_str=cell(1,obj.nx+2);
-      plot(obj.t,obj.y,'b','LineWidth',2), hold on
       counter=0;
-      counter=counter+1;legend_str{counter}='residual';
-      plot(obj.t,obj.yr,'k','LineWidth',2)
+      plot(obj.t,obj.y,'b','LineWidth',2), hold on
       counter=counter+1;legend_str{counter}='original';
+      plot(obj.t,obj.yr,'k','LineWidth',2)
+      counter=counter+1;legend_str{counter}='residual';
       for i=1:numel(obj.p)
         plot(obj.t,obj.yp(:,i),'r','LineWidth',2)
         counter=counter+1;legend_str{counter}=['t^',num2str(i-1),':',num2str(obj.p(i))];
