@@ -10,3 +10,4 @@ nohup.out
 *.tex
 logs/
 project.yaml
+GRACE_animation.gif
