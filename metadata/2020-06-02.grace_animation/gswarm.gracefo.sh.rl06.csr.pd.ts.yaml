@@ -1,4 +1,3 @@
-
 method: datastorage.pardecomp_join
 sources: [gswarm.gracefo.sh.rl06.csr.pd]
 storage_period: yearly
@@ -8,5 +7,10 @@ start: 2002-01-01
 time_step: 7
 time_step_unit: days
 explicit_fields: true
-
 never_force: true
+
+plot_smoothing_degree: 750e3
+plot_smoothing_method: gauss
+plot_functional: eqwh
+plot_cb_title: 'EqWH [m]'
+plot_colormap: 'jetzero'
