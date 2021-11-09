@@ -64,7 +64,7 @@ classdef slr < gravity
       end
       start=slr.test_parameters('start');
       stop= slr.test_parameters('stop' );
-      test_list={'CSR2x2'};
+      test_list={'CSR2x2','CSR5x5'};
       switch(method)
         case 'all'
           for i=1:numel(test_list)
@@ -72,7 +72,7 @@ classdef slr < gravity
           end
         case {'CSR5x5','CSR2x2'}
           out=slr(method);
-          out.plot('method','timeseries','degrees',2,'orders',0);
+          out.plot('method','timeseries','degrees',[2,2,2,2,2],'orders',[-2,-1,-0,1,2],'zeromean',true);
         otherwise
           error(['Cannot handle test method ''',method,'''.'])
       end
@@ -80,20 +80,24 @@ classdef slr < gravity
   end
   methods
     %% constructor
-    function obj=slr(type,varargin)
+    function obj=slr(source,varargin)
       %NOTICE: to define a start/stop, pass it in varargin; gravity.common_ops will handle that
+      % input parsing
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired('source',@ischar)
       %declare parameters p
-      v=varargs.wrap('sources',{slr.parameters('obj')},'mandatory',{type},varargin{:});
+      v=varargs.wrap('parser',p,'sources',{slr.parameters('obj')},'mandatory',{source},varargin{:});
       %branch on type of SLR data
-      switch type
+      switch source
         case 'CSR2x2'
           [t,y]=import_CSR2x2(v.varargin{:});
         case 'CSR5x5'
           [t,y]=import_CSR5x5(v.varargin{:});
         otherwise
-          error(['Cannot handle SLR data of type ''',type,'''.'])
+          error(['Cannot handle SLR data of type ''',source,'''.'])
       end
-      obj=obj@gravity(t,y,varargin{:},'descriptor',['SLR ',type]);
+      obj=obj@gravity(t,y,varargin{:},'descriptor',['SLR ',source]);
       %apply model processing options
       obj=gravity.common_ops('all',obj,v.varargin{:},'product_name',obj.descriptor);
     end
@@ -135,12 +139,14 @@ classdef slr < gravity
   end
 end
 
+%TODO: need to retreive y_out_error in this function
 function [t_out,y_out]=import_CSR2x2(varargin)
   % add input arguments and metadata to collection of parameters 'v'
   v=varargs.wrap('sources',{...
     {...
       'import_dir',   '/tmp',@ischar;...
       'format',        'csr',@ischar;...
+      'data_dir_url', 'http://ftp.csr.utexas.edu/pub/slr/degree_2',@ischar;...
       'suffix',       'RL06',@ischar;...
       'prefixes',{'C20','C21_S21','C22_S22'},@iscellstr;
       'degrees', [    2,        2,       2] ,@isnumeric;
@@ -163,7 +169,7 @@ function [t_out,y_out]=import_CSR2x2(varargin)
     else
       %download the data
       file.system(...
-        ['wget http://ftp.csr.utexas.edu/pub/slr/degree_2/',data_file],...
+        ['wget ',v.data_dir_url,'/',data_file],...
         'cd',v.import_dir,...
         'disp',true,...
         'stop_if_error',true...
@@ -223,68 +229,145 @@ function [t_out,y_out]=import_CSR2x2(varargin)
   end  
 end
 
-
-function [t_out,y_out,header]=import_CSR5x5(varargin)
+function [t_out,y_out,y_out_error,y_out_AOD,header]=import_CSR5x5(varargin)
   % add input arguments and metadata to collection of parameters 'v'
   v=varargs.wrap('sources',{...
     {...
       'import_dir',   '/tmp',@ischar;...
+      'data_dir_url', 'http://ftp.csr.utexas.edu/pub/slr/degree_5',@ischar;...
+      'data_file',    'CSR_Monthly_5x5_Gravity_Harmonics.txt',@ischar;...
+      'data_labels',  {'n','m','Cnm','Snm','Cnm+AOD','Snm+AOD','C-sigma','S-sigma','Year_mid_point'},@iscellstr;
+      'lmax',         5,   @(i) isscalar(i) && isnumeric(i);...
     },...
   },varargin{:});
-  %define the data file name
-  data_file='CSR_Monthly_5x5_Gravity_Harmonics.txt';
-  local_data=fullfile(v.import_dir,data_file);
+  %define the local data file name
+  local_data=fullfile(v.import_dir,v.data_file);
   if file.exist(local_data)
     disp(['NOTICE: not downloading updated SLR data because file exists: ',local_data])
   else
-    %download the data
+    %download the data 
     file.system(...
-      ['wget http://ftp.csr.utexas.edu/pub/slr/degree_2/',data_file],...
+      ['wget ',v.data_dir_url,'/',data_file],...
       'cd',v.import_dir,...
       'disp',true,...
       'stop_if_error',true...
     );
   end
+  %declare header structure
+  header=struct('GM',0,'radius',0,'lmax',v.lmax,'tide_system','unknown','modelname','unknown',...
+    'static',[],'labels',{{}},'idx',struct([]),'units',1);
   %define known details
-  modelname='UT/CSR monthly 5x5 gravity harmonics';
+  header.modelname='UT/CSR monthly 5x5 gravity harmonics';
   %open the file
   fid=file.open(local_data);
-  header=struct('GM','radius','Lmax','tide_system='};
   % Read header
   while true
-     s=fgets(fid); 
-     if keyword_search(s,'end of header')
-       break
-     end
-     if keyword_search(s,'earth_gravity_constant')
-        header.GM = str2double(strtrim(strrep(s,'earth_gravity_constant','')));
-     end
-     if (keyword_search(s, 'radius'))
-        header.radius=str2double(strtrim(strrep(s,'radius','')));
-     end
-     if (keyword_search(s, 'tide_system'))
-        header.tide_system=strtrim(strrep(s,'tide_system',''));
-     end
+    s=fgets(fid); 
+    if keyword_search(s,'end of header')
+      break
+    end
+    if keyword_search(s,'earth_gravity_constant')
+      header.GM = str2double(strtrim(strrep(s,'earth_gravity_constant','')));
+    end
+    if (keyword_search(s, 'radius'))
+      header.radius=str2double(strtrim(strrep(s,'radius','')));
+    end
+    if (keyword_search(s, 'tide_system'))
+      header.tide_system=strtrim(strrep(s,'tide_system',''));
+    end
+    if (keyword_search(s, 'Units'))
+      header.units=str2double(strtrim(strrep(s,'Units','')));
+    end
+    if (keyword_search(s, 'Coefficients:'))
+      header.labels=cells.rm_empty(strsplit(strtrim(str.rep(s,'Coefficients:','',',',''))));
+      %build index records
+      for i=1:numel(v.data_labels)
+        %build fieldname (label may have ilegal characters)
+        fn=str.clean(v.data_labels{i},'fieldname');
+        %find where this data label is located in the header labels
+        header.idx(1).(fn)=cells.strequal(header.labels,v.data_labels{i});
+        %make sure it is found
+        assert(~isempty(header.idx(1).(fn)),['Cannot find reference to data label ''',...
+          v.data_labels{i},''' in the header of ',local_data])
+      end
+    end
+    if (keyword_search(s, '===================='))
+      %init loop variables
+      counter=0;
+      %read the static coefficients
+      while true
+        %get the next line
+        s=fgets(fid);
+        %split line into columns and remove empty entries
+        s=cells.rm_empty(strsplit(s));
+        %exist criteria
+        if numel(s)~=6
+          break
+        end
+        %increment line counter
+        counter=counter+1;
+        %save the data
+        header.static(counter,:)=cells.c2m(cells.num(s));
+      end
+      %convert the header.static data to gravity-friendly format
+      for j=1:size(header.static,1)
+        d=header.static(j,1);
+        %skip if this degree is above the requested lmax
+        if d>header.lmax; continue; end
+        %cosine coefficients are in the 3rd column (errors in the 5th)
+        o=header.static(j,2);
+        static_signal(gravity.colidx(d,o,header.lmax))=header.static(j,3); %#ok<AGROW>
+        static_error( gravity.colidx(d,o,header.lmax))=header.static(j,5); %#ok<AGROW>
+        if o==0, continue;end
+        %sine coefficients are in the 4th column (errors in the 6th)
+        o=-o;
+        static_signal(gravity.colidx(d,o,header.lmax))=header.static(j,4); %#ok<AGROW>
+        static_error( gravity.colidx(d,o,header.lmax))=header.static(j,6); %#ok<AGROW>
+      end
+    end
   end
+  % some sanity
+  assert(~isempty(header.static),'Could not retrieve the static gravity field coefficients')
   % read data
   while true
     s=fgets(fid);
     if ~ischar(s)
       break
     end
-    %split line into columns
-    s=strsplit(s);
+    %split line into columns and remove empty entries
+    s=cells.c2m(cells.num(cells.rm_empty(strsplit(s))));
     %branch on the number of columns
     switch numel(s)
-      case 7
-      %do nothing
+    case 7
+      arc=s(1);
     case 10
-      continuar aqui
+      %get degree and order
+      d=s(header.idx.n);
+      o=s(header.idx.m);
+      %skip if this degree is above the requested lmax
+      if d>header.lmax; continue; end
+      %get the epoch 
+      t_out(arc)=datetime([0 0 0 0 0 0])+years(s(header.idx.Year_mid_point)); %#ok<AGROW>
+      %save cosine coefficient, error and value with AOD
+      y_out(      arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Cnm);    %#ok<AGROW>
+      y_out_error(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Csigma); %#ok<AGROW>
+      y_out_AOD(  arc,gravity.colidx(d,o,header.lmax))=s(header.idx.CnmAOD); %#ok<AGROW>
+      if o==0, continue;end
+      %save sine coefficient, error and value with AOD
+      o=-o;
+      y_out(      arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Snm);    %#ok<AGROW>
+      y_out_error(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Ssigma); %#ok<AGROW>
+      y_out_AOD(  arc,gravity.colidx(d,o,header.lmax))=s(header.idx.SnmAOD); %#ok<AGROW>
     otherwise
       disp(['WARNING: ignoring line: ',strjoin(s,' ')])
     end
   end
-  fclose(fid)
+  fclose(fid);
+  %add static signal and error
+  units=header.units*ones(size(y_out,1),1);
+  y_out      =     y_out          +  units*static_signal;
+  y_out_AOD  =     y_out_AOD      +  units*static_signal;
+  y_out_error=sqrt(y_out_error.^2 + (units*static_error).^2);
 end
 
 %% Aux functions
