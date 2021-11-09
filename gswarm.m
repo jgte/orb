@@ -2650,7 +2650,7 @@ classdef gswarm
       %WORKFLOW                opportunity to send the email to Bryant Loomis and ask for 
       %WORKFLOW                the updated weekly C20 data.
       %WORKFLOW         5.4.3: For TYPE=validation, make sure the data Bryant sent is saved as
-      %WORKFLOW                ~/data/gswarm/analyses/<date>-validation/orb/aux/GSFC_SLR_C20_7day.txt
+      %WORKFLOW                ~/data/gswarm/analyses/<date>-validation/orb/auxiliary/GSFC_SLR_C20_7day.txt
       %WORKFLOW     5.5: run the gswarm.TYPE method and keep an eye the last epoch of the
       %WORKFLOW          data as it is being loaded, it has to be the same as the last
       %WORKFLOW          available month; otherwise the analysis is incomplete

@@ -750,8 +750,8 @@ classdef simplegrid < simpletimeseries
       p.addParameter('cutoff',-1, @num.isscalar); 
       p.parse(lon,lat,varargin{:});
       %load the data
-      fmat=fullfile(file.orbdir('aux'),'landmask.mat');
-      fdat=fullfile(file.orbdir('aux'),'landmask.dat');
+      fmat=fullfile(file.orbdir('auxiliary'),'landmask.mat');
+      fdat=fullfile(file.orbdir('auxiliary'),'landmask.dat');
       if exist(fmat,'file')
         load(fmat,'landmask')
       elseif exist(fdat,'file')
@@ -785,7 +785,7 @@ classdef simplegrid < simpletimeseries
       p.addParameter('cutoff',1.4, @num.isscalar);
       p.parse(lon,lat,varargin{:});
       %load the data
-      fdat=fullfile(file.orbdir('aux'),'wahr.global_ocn_kernel.txt');
+      fdat=fullfile(file.orbdir('auxiliary'),'wahr.global_ocn_kernel.txt');
       oceanmask=gravity.load(fdat,'mod').grid;
       %resample to requested resolution
       if isscalar(lon) && isscalar(lat)
@@ -817,7 +817,7 @@ classdef simplegrid < simpletimeseries
     %% map add-ons
     function h=coast(varargin)
       p=inputParser;
-      p.addParameter('datafile',fullfile(file.orbdir('aux'),'coast.mat'));
+      p.addParameter('datafile',fullfile(file.orbdir('auxiliary'),'coast.mat'));
       p.addParameter('line_color','k',@ischar);
       p.addParameter('line_width',1.5,  @num.isscalar);
       p.addParameter('lon',[-180,180],  @(i) ~num.isscalar(i));

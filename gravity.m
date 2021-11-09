@@ -1246,13 +1246,13 @@ classdef gravity < simpletimeseries
     function [m,e]=static(model)
       switch upper(model)
         case 'GIF48'
-          datafile=fullfile(file.orbdir('aux'),'GIF48.2007.GEO');
+          datafile=fullfile(file.orbdir('auxiliary'),'GIF48.2007.GEO');
           fmt='GEO';
         case 'GGM05C'
-          datafile=fullfile(file.orbdir('aux'),'GGM05C.gfc');
+          datafile=fullfile(file.orbdir('auxiliary'),'GGM05C.gfc');
           fmt='gcf';
         case 'GGM05G'
-          datafile=fullfile(file.orbdir('aux'),'ggm05g.gfc');
+          datafile=fullfile(file.orbdir('auxiliary'),'ggm05g.gfc');
           fmt='gcf';
         otherwise
           error(['Cannot handle static model ''',model,'''.'])
@@ -3387,7 +3387,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       'mode',         'read', @ischar;...
       'start',time.zero_date, @isdatetime;...
       'stop',  time.inf_date, @isdatetime;...
-      'data_dir', file.orbdir('aux'),  @(i) ischar(i) && exist(i,'dir')~=0;
+      'data_dir', file.orbdir('auxiliary'),  @(i) ischar(i) && exist(i,'dir')~=0;
     },...
   },varargin{:});
   %some default parameters

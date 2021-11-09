@@ -32,7 +32,7 @@ classdef file
       out=fullfile(file.scriptdir,scriptname);
     end
     %returns the path of orb directories, which are by default sitting on the same dir
-    %as this script; typical dirs are: aux, packages, metadata, data, plot (the latter 2 are not in git)
+    %as this script; typical dirs are: auxiliary, packages, metadata, data, plot (the latter 2 are not in git)
     function out=orbdir(type)
       global PROJECT
       if isfield(PROJECT,[type,'_dir'])
