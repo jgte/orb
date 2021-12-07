@@ -2540,12 +2540,21 @@ classdef gswarm
       end
 
     end
-    function get_input_data
-      %NOTICE: the download-l2.sh script iterates over specific years (currently 2020)
-      disp('Downloading GRACE data')
-      file.system('./download-l2.sh CSR 06','disp',true,'cd',grace.dir('l1b'));
-      disp('Downloading Swarm data')
-      file.system('~/bin/rsyncf.sh aristarchos --no-l2r','disp',true,'cd',gswarm.dir('data'));
+    function get_input_data(mode)
+      switch mode
+      case('GRACE')
+        %NOTICE: the download-l2.sh script iterates over specific years (currently 2021)
+        disp('Downloading GRACE data')
+        file.system('./download-l2.sh CSR 06','disp',true,'cd',grace.dir('l1b'));
+      case ('Swarm')
+        disp('Downloading Swarm data')
+        file.system('~/bin/rsyncf.sh aristarchos --no-l2r','disp',true,'cd',gswarm.dir('data'));
+      case('all')
+        gswarm.get_input_data('GRACE')
+        gswarm.get_input_data('Swarm')
+      otherwise
+        error(['Cannot handle ''mode'' with value ''',mode,'''.'])
+      end
     end
     function out=c20model(mode,plot_dir,version)
       if ~exist('version','var') || isempty(version)
