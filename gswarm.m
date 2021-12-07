@@ -2558,9 +2558,6 @@ classdef gswarm
     end
     function out=c20model(mode,plot_dir,version)
       if ~exist('version','var') || isempty(version)
-        %NOTICE: TN-11 seems to remain outdated since the end of 2019
-        %version='TN-11';
-        %NOTICE: this needs to be in agreement with model.processing.replaceC20.submetadata.yaml
         version=dataproduct('model.processing.replaceC20.submetadata').metadata.use_GRACE_C20;
       end
       %check if this is a C20 model
@@ -2632,7 +2629,7 @@ classdef gswarm
       %WORKFLOW 1.  OPTIONAL: plug the thumb drive in (no need to mount-disk.sh)
       %WORKFLOW 2.  sure everything is in synch.sh:
       %WORKFLOW     2.1: in ~/data/gswarm/analyses/report-TYPE/
-      %WORKFLOW     2.2: ~/data/gswarm/rsync.remote2local-subset.sh --dry-run
+      %WORKFLOW     2.2: rsyncf.sh remotes-file=~/data/gswarm/rsyncf.list --no-l2r --dry-run aristarchos
       %WORKFLOW 3.  create a new TYPE dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
       %WORKFLOW 4.  cd to the orb dir in the new TYPE dir (shown by new-analysis.sh
       %WORKFLOW     script) and check the stop_date in project.yaml is the last day of the
@@ -2640,13 +2637,13 @@ classdef gswarm
       %WORKFLOW     this but better check if it's OK)
       %WORKFLOW 5.  fire up matlab and look at the gswarm.TYPE method:
       %WORKFLOW     5.1: check if all products are being used, some may be commented
-      %WORKFLOW     5.2: check if the 'nodata' option is false:
+      %WORKFLOW     5.2: check if the 'get_input_data' option is true:
       %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need
-      %WORKFLOW                ~/data/gswarm/rsync.remote2local.sh)
+      %WORKFLOW                rsyncf.sh and ~/data/gswarm/rsyncf.list)
       %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need
       %WORKFLOW                ~/data/grace/download-l2.sh, which
       %WORKFLOW                iterates over specific years, currently 2021)
-      %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'nodata' to true.
+      %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'get_input_data' to true.
       %WORKFLOW     5.3: if TYPE=validation, check if the 'git_ci' option is true:
       %WORKFLOW         5.3.1: after the swarm data is processed, the quality is computed in
       %WORKFLOW                the gswarm.quality method, where it is added to the git repo
