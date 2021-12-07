@@ -1498,7 +1498,7 @@ classdef simpletimeseries < simpledata
     function out=istequal(obj1,obj2)
       %NOTICE: this also handles the single-object operation
       if isdatetime(obj2)
-        out=~any(~simpletimeseries.ist('==',obj1.t,obj2.t,obj1.t_tol));
+        out=~any(~simpletimeseries.ist('==',obj1.t,obj2,obj1.t_tol));
       else
         out=~any(~simpletimeseries.ist('==',obj1.t,obj2.t,min([obj1.t_tol,obj2.t_tol])));
       end
