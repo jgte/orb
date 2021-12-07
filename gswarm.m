@@ -2752,7 +2752,7 @@ classdef gswarm
       assert(strcmp(mode,'start') || strcmp(mode,'stop'),...
         'input ''mode'' must either ''start'' or ''stop''.')
       mode=[mode,'_date'];
-      if isfield(mode,PROJECT)
+      if isfield(PROJECT,mode)
         out=datetime(PROJECT.(mode));
       else
         out=gswarm.(mode);
