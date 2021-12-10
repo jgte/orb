@@ -450,6 +450,8 @@ classdef gravity < simpletimeseries
           [m,e]=load_icgem(file_name,time);
         case 'mod'
           [m,e]=load_mod(file_name,time);
+        case 'esamtm'
+          error('BUG TRAP: The ''esamtm'' format is always storred in mat files')
         otherwise
           error([mfilename,': cannot handle models of type ''',fmt,'''.'])
         end
@@ -459,17 +461,22 @@ classdef gravity < simpletimeseries
           disp(['Could not save ''',mat_filename,'''.'])
         end
       else
-        %NOTICE: input argument 'time' is ignored here; only by coincidence (or design,
-        %        e.g. if gravity.load_dir is used) will time be same as the one saved
-        %        in the mat file.
-        load(mat_filename,'m','e')
-        %handle particular cases
-        if ~exist('m','var')
-          if exist('sol','var')
-            m=sol.mod.(sol.names{1}).dat;
-            e=[];
-          else
-            error(['Cannot handle mat file ',mat_filename,'; consider deleting so it is re-generated'])
+        switch lower(fmt)
+        case 'esamtm'
+          [m,e]=load_esamtm(mat_filename,time);
+        otherwise
+          %NOTICE: input argument 'time' is ignored here; only by coincidence (or design,
+          %        e.g. if gravity.load_dir is used) will time be same as the one saved
+          %        in the mat file.
+          load(mat_filename,'m','e')
+          %handle particular cases
+          if ~exist('m','var')
+            if exist('sol','var')
+              m=sol.mod.(sol.names{1}).dat;
+              e=[];
+            else
+              error(['Cannot handle mat file ',mat_filename,'; consider deleting so it is re-generated'])
+            end
           end
         end
       end
@@ -589,6 +596,12 @@ classdef gravity < simpletimeseries
       %1234567890123456789012345678901234567890
       [~,file]=fileparts(filename);
       out=time.ToDateTime(str2double(file(24:30)),'mjd');
+    end
+    function out=parse_epoch_esamtm(filename)
+      %mtmshc_A_19950104_06.180.mat
+      [~,file]=fileparts(filename);
+      file=strsplit(file,'_');
+      out=time.ToDateTime([file{3},'T',file{4}(1:2),'0000'],'yyyyMMdd''T''HHmmss');
     end
     function [m,e]=load_dir(dirname,format,date_parser,varargin)
       p=inputParser;
@@ -1258,6 +1271,65 @@ classdef gravity < simpletimeseries
           error(['Cannot handle static model ''',model,'''.'])
       end
       [m,e]=gravity.load(datafile,fmt);
+    end
+    %% ESA's Earth System Model
+    function out=ESA_MTM_dir(year,month,component)
+      out=fullfile(getenv('HOME'),'media','data','data','ESA-MTM','data',num2str(year,'%04i'),component,num2str(month,'%02i'));
+    end
+    %year      : year (numeric)
+    %month     : month (numeric)
+    %component : A, AOHIS, H, I, O or S (char)
+    function [m,e]=ESA_MTM(year,month,component,varargin)
+      p=inputParser; p.KeepUnmatched=true;
+      p.addParameter('datadir',gravity.ESA_MTM_dir(year,month,component),@(i) ischar(i) && exist(i,'dir')~=0)
+      p.parse(varargin{:})
+      [m,e]=gravity.load_dir(p.Results.datadir,'esamtm',@gravity.parse_epoch_esamtm,'wildcarded_filename','mtmshc_*.180.mat',varargin{:});
+    end
+    function m=ESA_MTM_all(component,varargin)
+      %init year-loop variables
+      firstyear=true;
+      %loop over the years
+      for year=1995:2006
+        %define yearly-aggregated data
+        fileyear=fullfile(gravity.ESA_MTM_dir(year,[],component),['gravity_',component,'_',num2str(year,'%04i'),'.mat']);
+        %load aggregated data is available
+        if file.exist(fileyear)
+          load(fileyear,'m_year');
+        else
+          %init month variables
+          firstmonth=true;
+          %loop over the months
+          for month=1:12
+            %define monthly-aggregated data
+            filemonth=fullfile(gravity.ESA_MTM_dir(year,month,component),['gravity_',component,'_',num2str(year,'%04i'),'-',num2str(month,'%02i'),'.mat']);
+            %load aggregated data is available
+            if file.exist(filemonth)
+              load(filemonth,'m_month');
+            else
+              %load every day
+              m_month=gravity.ESA_MTM(year,month,component,varargin{:});
+              %save this month for next time
+              save(filemonth,'m_month');
+            end
+            %create/append
+            if firstmonth
+              firstmonth=false;
+              m_year=m_month;
+            else
+              m_year=m_year.append(m_month);
+            end
+          end 
+          %save this year for next time
+          save(fileyear,'m_year');
+        end
+        %create/append
+        if firstyear
+          firstyear=false;
+          m=m_year;
+        else
+          m=m.append(m_year);
+        end
+      end
     end
     %% permanent (solid earth) tide
     function C20=zero_tide(C20,tide_system)
@@ -3192,50 +3264,26 @@ function [m,e]=load_mod(filename,time)
   %no error info on mod format
   e=[];
 end
-function [m,e]=load_qlt(filename,time)
-
-  error('unfinished')
-
+function [m,e]=load_esamtm(filename,time)
   %default time
   if ~exist('time','var') || isempty(time)
     time=datetime('now');
   end
-  %open the data file
-  fid = fopen('somefile', 'rt');
-  %count the data
-  c=0;
-  tline = fgetl(fid);
-  while ~isempty(tline) && any(strncmp(tline, {' corr', ' order'},6))
-     c=c+1;
-     tline = fgetl(fid);
-  end
-  %make room for data
-  shc=zeros(c,3);
   %loading data
-  c=0; frewind(fid); tline = fgetl(fid);
-  while ~isempty(tline) && any(strncmp(tline, {' corr', ' order'},6))
-     c=c+1;
-     shc(c,:)=sscanf(tline,'%d %d %f');
-     tline = fgetl(fid);
-  end
-  %swarp degree/order columns
-  shc=shc(:,[2,1,3]);
-  %retrieve basenane
-  [~,f,e]=fileparts(filename);
+  load(filename,'mod')
   %initializing data object
   m=gravity(...
     time,...
-    gravity.dtc('mod','y',mi),...
-    'GM',gravity.parameters('GM'),...
-    'R',gravity.parameters('R'),...
-    'descriptor',[f,e],...
+    gravity.dtc('mod','y',mod.mod),...
+    'GM',mod.GM,...
+    'R',mod.R,...
+    'descriptor','ESA Mass Transport Model',...
     'cdate',datetime('now'),...
     'origin',filename...
   );
   %no error info on mod format
   e=[];
 end
-
 %% Aux functions
 function out=keyword_search(line,keyword)
     out=strncmp(strtrim(line),       keyword,         length(keyword)) || ...
