@@ -412,69 +412,6 @@ classdef simpletimeseries < simpledata
     function obj=import_format(filename,format)
       %branch on extension/format ID
       switch format
-      case {'slr-csr','slr-csr-grace','slr-csr-corr'}
-        %load the header
-        header=file.header(filename,20);
-        %branch on files with one or two coefficients
-        if contains(header,'C21') || contains(header,'C22')
-          %2002.0411  2.43934614E-06 -1.40026049E-06  0.4565  0.4247 -0.0056  0.1782   20020101.0000   20020201.0000
-          file_fmt='%f %f %f %f %f %f %f %f %f';
-          data_cols=[2 3];
-          corr_cols=[5 6];
-          units={'',''};
-          if ~contains(header,'C21')
-            labels={'C2,1','C2,-1'};
-          else
-            labels={'C2,2','C2,-2'};
-          end
-        else
-          %2002.0411  -4.8416939379E-04  0.7852  0.3148  0.6149   20020101.0000   20020201.0000
-          file_fmt='%f %f %f %f %f %f %f';
-          data_cols=2;
-          corr_cols=5;
-          units={''};
-          if contains(header,'C20'); labels={'C2,0'}; end
-          if contains(header,'C40'); labels={'C4,0'}; end
-        end
-        raw=file.textscan(filename,file_fmt);
-        %build the time domain
-        t=datetime([0 0 0 0 0 0])+years(raw(:,1));
-        %building data domain
-        switch format
-        case 'slr-csr'
-          y=raw(:,data_cols);
-        case 'slr-csr-grace'
-          y=raw(:,data_cols)-raw(:,corr_cols)*1e-10;
-        case 'slr-csr-corr'
-          y=raw(:,corr_cols)*1e-10;
-        end
-        %building object
-        obj=simpletimeseries(t,y,...
-          'format','datetime',...
-          'units',units,...
-          'labels', labels,...
-          'timesystem','gps',...
-          'descriptor',['SLR Stokes coeff. from ',filename]...
-        );
-      case 'slr-csr-Cheng'
-        %define data cols
-        data_cols=3:9;
-        %load the data
-        [raw,header]=file.textscan(filename,'%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f');
-        %get the labels (from the header)
-        labels=strsplit(header,' ');
-        %build units
-        units=cell(size(data_cols));
-        units(:)={''};
-        t=datetime([0 0 0 0 0 0])+years(raw(:,2));
-        %building object
-        obj=simpletimeseries(t,raw(:,data_cols)*1e-10,...
-          'format','datetime',...
-          'units',units,...
-          'labels', labels(data_cols),...
-          'timesystem','gps',...
-          'descriptor',['SLR Stokes coeff. from ',filename]...
-        );
       case 'seconds'
         %define data cols
         data_cols=2:4;

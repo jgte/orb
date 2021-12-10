@@ -4,6 +4,8 @@ classdef gswarm
       '~/data/gswarm';...
       './data/gswarm';...
     };
+    start_date=datetime('2013-12-01');
+     stop_date=dateshift(datetime('now'),'start','quarter');
   end
   methods(Static)
     function out=dir(type)
@@ -28,7 +30,7 @@ classdef gswarm
           'consistent_GM',   false,@islogical;...
           'consistent_R',    false,@islogical;...
           'max_degree'           0,@num.isscalar;...
-          'use_GRACE_C20',   false,@islogical;...
+          'use_GRACE_C20',  'none',@ischar;...
           'delete_C00',      false,@islogical;...
           'delete_C20',      false,@islogical;...
           'model_span', {time.zero_date,time.inf_date},@(i) isnumeric(i) && numel(i)==2;...
@@ -46,7 +48,10 @@ classdef gswarm
         'overwrite_common_t',v.overwrite_common_t...
       );
       %apply model processing options
-      [s,e]=gswarm.load_models_op('all',v,product,s,e);
+      s=gravity.common_ops('all',s,v.varargin{:},'product_name',product.str);
+      if ~isempty(e)
+        e=gravity.common_ops('all',e,v.varargin{:},'product_name',product.str,'model_type','error');
+      end
       %make sure we got a gravity object
       assert(isa(s,'gravity'),['failed to load product ',product.codename])
       % resolve dataname to save the data to: sometimes, the 'signal' field path is given explicitly and
@@ -73,202 +78,6 @@ classdef gswarm
         otherwise
           error([mfilename,': unknown model type ''',v.model_types{i},'''.'])
         end
-      end
-    end
-    function [mod,err]=load_models_op(mode,v,product,mod,err)
-      if iscellstr(mode)
-        for i=1:numel(mode)
-          if exist('err','var')
-            [mod,err]=gswarm.load_models_op(mode{i},v,product,mod,err);
-          else
-            mod=gswarm.load_models_op(mode{i},v,product,mod);
-          end
-        end
-      else
-        %sanity
-        if exist('mod','var') && ~isa(mod,'gravity')
-          str.say(['Ignoring model ',mod.descriptor,' since it is of class ''',class(mod),''' and not of class ''gravity''.'])
-          return
-        end
-        %inits user feedback vars
-        msg='';show_msg=false;
-        switch mode
-        case 'mode_list'
-          mod={'consistent_GM','consistent_R','max_degree','use_GRACE_C20','delete_C00','delete_C20','start','stop','static_model'};
-        case 'all'
-          if exist('err','var')
-            [mod,err]=gswarm.load_models_op(gswarm.load_models_op('mode_list'),v,product,mod,err);
-          else
-            mod=gswarm.load_models_op(gswarm.load_models_op('mode_list'),v,product,mod);
-          end
-        case 'consistent_GM'
-          mod=mod.setGM(gravity.parameters('GM'));
-          if exist('err','var')
-            err=err.setGM(gravity.parameters('GM'));
-          end
-          show_msg=true;
-        case 'consistent_R'
-          mod=mod.setR( gravity.parameters('R'));
-          if exist('err','var')
-            err=err.setR( gravity.parameters('R'));
-          end
-          show_msg=true;
-        case 'max_degree'
-          %set maximum degree (if requested)
-          if v.isparameter('max_degree') && v.max_degree>0
-            mod.lmax=v.max_degree;
-            if exist('err','var')
-              err.lmax=v.max_degree;
-            end
-            msg=['set to ',num2str(v.max_degree)];
-            show_msg=true;
-          end
-        case 'use_GRACE_C20'
-          %set C20 coefficient
-          if v.isparameter('use_GRACE_C20') && ~str.none(v.use_GRACE_C20)
-            %some sanity
-            if strcmpi(v.date_parser,'static')
-              error([mfilename,': there''s no point in replacing GRACE C20 coefficients in a static model.'])
-            end
-            %legacy support
-            if islogical(v.use_GRACE_C20) && v.use_GRACE_C20
-              v.use_GRACE_C20='TN-07';
-            end
-            %parse using a model or the original data
-            if contains(v.use_GRACE_C20,'-model')
-              c20mode='model';
-              v.use_GRACE_C20=strrep(v.use_GRACE_C20,'-model','');
-            else
-              c20mode='interp';
-            end
-            %get C20 timeseries, interpolated to current time domain
-            c20=gravity.graceC20('version',v.use_GRACE_C20,'mode',c20mode,'time',mod.t);
-
-  %         figure
-  %         plot(c20.x_masked,c20.y_masked([],1),'x-','MarkerSize',10,'LineWidth',4), hold on
-  %         plot(c20.x,spline(c20.x_masked,c20.y_masked([],1),c20.x),'o-','MarkerSize',10,'LineWidth',2)
-  %         plot(c20.x,pchip(c20.x_masked,c20.y_masked([],1),c20.x),'+-','MarkerSize',10,'LineWidth',2)
-  %         legend('data','spline','pchip')
-%             %TODO: this is probably not a good idea because any gap in the C20 timeseries is blindly interpolated
-%                    better use the model version of it
-%             %interpolate in case there are gaps
-%             if c20.nr_gaps>0
-%               c20=c20.assign([...
-%                 interp1(c20.x_masked,c20.y_masked([],1),c20.x),...
-%                 interp1(c20.x_masked,c20.y_masked([],2),c20.x)...
-%               ],'t',c20.t,'mask',true(size(c20.x)));
-%             end
-            mod=mod.setC(2,0,c20.y(:,1),mod.t);
-            err=err.setC(2,0,c20.y(:,2),mod.t);
-%             figure
-%             plot(c20.t,c20.y(:,1),'o-'), hold on
-%             plot(mod.t,mod.C(2,0),'x-')
-%             legend('TN-11',mod.descriptor)
-%             msg=['set to ',v.use_GRACE_C20];
-            show_msg=true;
-          end
-        case 'delete_C00'
-          %remove C00 bias
-          if v.isparameter('delete_C00') && v.delete_C00
-            mod=mod.setC(0,0,0);
-            if exist('err','var')
-              err=err.setC(0,0,0);
-            end
-            show_msg=true;
-          end
-        case 'delete_C20'
-          %remove C20 bias
-          if v.isparameter('delete_C20') &&  v.delete_C20
-            mod=mod.setC(2,0,0);
-            if exist('err','var')
-              err=err.setC(2,0,0);
-            end
-            show_msg=true;
-          end
-        case 'model_span'
-          error('no longer supported')
-%           msg={};
-%           %append extremeties, if requested
-%           if v.isparameter('model_span') && v.model_span{1}~=time.zero_date && v.model_span{1}<mod.start
-%             mod=mod.append(gravity.nan(mod.lmax,'t',v.model_span{1},'R',mod.R,'GM',mod.GM));
-%             if exist('err','var')
-%               err=err.append(gravity.nan(err.lmax,'t',v.model_span{1},'R',err.R,'GM',err.GM));
-%             end
-%             msg{end+1}=['from ',datestr(v.model_span{1})];
-%             show_msg=true;
-%           end
-%           if v.isparameter('model_span') && v.model_span{2}~=time.inf_date && v.model_span{2}>mod.stop
-%             mod=mod.append(gravity.nan(mod.lmax,'t',v.model_span{2},'R',mod.R,'GM',mod.GM));
-%             if exist('err','var')
-%               err=err.append(gravity.nan(err.lmax,'t',v.model_span{2},'R',err.R,'GM',err.GM));
-%             end
-%             msg{end+1}=['to ',datestr(v.model_span{2})];
-%             show_msg=true;
-%           end
-%           msg=strjoin(msg,' ');
-        case 'start' %NOTICE: this is only done when loading the raw data (afterwards the matlab data is read directly, bypassing this routine altogher)
-          if v.isparameter('start') && v.start~=time.zero_date
-            if v.start<mod.start
-              %append extremeties
-              mod=mod.append(gravity.nan(mod.lmax,'t',v.start,'R',mod.R,'GM',mod.GM));
-              if exist('err','var')
-                err=err.append(gravity.nan(err.lmax,'t',v.start,'R',err.R,'GM',err.GM));
-              end
-            elseif v.start>mod.start
-              %trim extremeties (this is redundant unless data is saved before the start metadata is increased)
-              mod=mod.trim(v.start,mod.stop);
-              if exist('err','var')
-                err=err.trim(v.start,mod.stop);
-              end
-            end
-            msg=['at ',datestr(v.start)];
-            show_msg=true;
-          end
-        case 'stop'  %NOTICE: this is only done when loading the raw data (afterwards the matlab data is read directly, bypassing this routine altogher)
-          if v.isparameter('stop') && v.stop~=time.inf_date
-            if v.stop>mod.stop
-              %append extremeties
-              mod=mod.append(gravity.nan(mod.lmax,'t',v.stop,'R',mod.R,'GM',mod.GM));
-              if exist('err','var')
-                err=err.append(gravity.nan(err.lmax,'t',v.stop,'R',err.R,'GM',err.GM));
-              end
-            elseif v.stop<mod.stop
-              %trim extremeties (this is redundant unless data is saved before the stop metadata is decreased)
-              mod=mod.trim(mod.start,v.stop);
-              if exist('err','var')
-                err=err.trim(mod.start,v.stop);
-              end
-            end
-            msg=['at ',datestr(v.stop)];
-            show_msg=true;
-          end
-        case 'static_model'
-          %remove static field (if requested)
-          if v.isparameter('static_model') && ~strcmpi(v.static_model,'none')
-            static=datastorage().init(v.static_model).data_get_scalar(datanames(v.static_model).append_field_leaf('signal'));
-            %adjust the start/stop
-            switch static.length
-            case 1
-              static2=static;
-              static.t=mod.start;
-              static2.t=mod.stop;
-              static=static.append(static2);
-            case 2
-              static.t=[mod.start;mod.stop];
-            otherwise
-              error(['Cannot handle static object of class gravity with length ', num2str(static.length),'.'])
-            end
-            %make sure max degree matches
-            static.lmax=mod.lmax;
-            %subtract it
-            mod=mod-static.interp(mod.t);
-            msg=[': subtracted ',v.static_model];
-            show_msg=true;
-          end
-        otherwise
-          error(['Cannot handle operantion ''',mode,'''.'])
-        end
-        if show_msg;str.say(product.str,':',mode,msg);end
       end
     end
     function obj=load_project_models(obj,product,varargin)
@@ -2109,7 +1918,7 @@ classdef gswarm
           'debug',     true,                        @islogical;...
           'inclusive', true,                        @islogical;...
           'stop',      datetime(PROJECT.stop_date), @isdatetime;...
-          'nodata',    true,                        @islogical;... %NOTICE: consider turning this on to update all input data
+          'get_input_data',    false,               @islogical;... %NOTICE: consider turning this on to update all input data
           'c20model',  true,                        @islogical;...
           'end_product','gswarm.gracefo.sh.rl06.csr.pd.ts',@ischar;...
           'frame_rate', 30                          @(i) isnumeric(i) && isscalar(i);...
@@ -2118,7 +1927,7 @@ classdef gswarm
         },... 
       },varargin{:});
       %get input data
-      if ~v.nodata;file.system('~/data/grace/download-l2.sh CSR 06',true);end
+      if v.get_input_data;gswarm.get_input_data('GRACE');end
       %ensure C20 model is available
       if v.c20model && ~gswarm.c20model('done',file.orbdir('plot'))
         gswarm.c20model('plot',file.orbdir('plot'));
@@ -2731,25 +2540,24 @@ classdef gswarm
       end
 
     end
-    function get_input_data
-      %NOTICE: the download-l2.sh script iterates over specific years (currently 2020)
-      file.system('./download-l2.sh CSR 06','disp',true,'cd',grace.dir('l1b'));
-      file.system(strjoin({...
-        './rsync.remote2local.sh',...
-        '--exclude=analyses/',...
-        '--exclude=orbit/',...
-        '--exclude=old/',...
-        '--exclude=baseline/',...
-        '--exclude=wgt/',...
-        '--exclude=acceleration/',...
-        '--exclude=normaleq/',...
-        '--exclude=backup.*/'},' '),'disp',true,'cd',gswarm.dir('data'));
+    function get_input_data(mode)
+      switch mode
+      case('GRACE')
+        %NOTICE: the download-l2.sh script iterates over specific years (currently 2021)
+        disp('Downloading GRACE data')
+        file.system('./download-l2.sh CSR 06','disp',true,'cd',grace.dir('l1b'));
+      case ('Swarm')
+        disp('Downloading Swarm data')
+        file.system('~/bin/rsyncf.sh aristarchos --no-l2r','disp',true,'cd',gswarm.dir('data'));
+      case('all')
+        gswarm.get_input_data('GRACE')
+        gswarm.get_input_data('Swarm')
+      otherwise
+        error(['Cannot handle ''mode'' with value ''',mode,'''.'])
+      end
     end
     function out=c20model(mode,plot_dir,version)
       if ~exist('version','var') || isempty(version)
-        %NOTICE: TN-11 seems to remain outdated since the end of 2019
-        %version='TN-11';
-        %NOTICE: this needs to be in agreement with model.processing.replaceC20.submetadata.yaml
         version=dataproduct('model.processing.replaceC20.submetadata').metadata.use_GRACE_C20;
       end
       %check if this is a C20 model
@@ -2807,7 +2615,7 @@ classdef gswarm
           'swarm.sh.gswarm.rl01.individual';...
           'swarm.sh.gswarm.rl01.individual.maps';...
         },...
-        'nodata',false,...
+        'get_input_data',false,...
         'plot_pause_on_save',false,...
         varargin{:}...
       );
@@ -2821,7 +2629,7 @@ classdef gswarm
       %WORKFLOW 1.  OPTIONAL: plug the thumb drive in (no need to mount-disk.sh)
       %WORKFLOW 2.  sure everything is in synch.sh:
       %WORKFLOW     2.1: in ~/data/gswarm/analyses/report-TYPE/
-      %WORKFLOW     2.2: ~/data/gswarm/rsync.remote2local-subset.sh --dry-run
+      %WORKFLOW     2.2: rsyncf.sh remotes-file=~/data/gswarm/rsyncf.list --no-l2r --dry-run aristarchos
       %WORKFLOW 3.  create a new TYPE dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
       %WORKFLOW 4.  cd to the orb dir in the new TYPE dir (shown by new-analysis.sh
       %WORKFLOW     script) and check the stop_date in project.yaml is the last day of the
@@ -2829,13 +2637,13 @@ classdef gswarm
       %WORKFLOW     this but better check if it's OK)
       %WORKFLOW 5.  fire up matlab and look at the gswarm.TYPE method:
       %WORKFLOW     5.1: check if all products are being used, some may be commented
-      %WORKFLOW     5.2: check if the 'nodata' option is false:
+      %WORKFLOW     5.2: check if the 'get_input_data' option is true:
       %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need
-      %WORKFLOW                ~/data/gswarm/rsync.remote2local.sh)
+      %WORKFLOW                rsyncf.sh and ~/data/gswarm/rsyncf.list)
       %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need
       %WORKFLOW                ~/data/grace/download-l2.sh, which
       %WORKFLOW                iterates over specific years, currently 2021)
-      %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'nodata' to true.
+      %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'get_input_data' to true.
       %WORKFLOW     5.3: if TYPE=validation, check if the 'git_ci' option is true:
       %WORKFLOW         5.3.1: after the swarm data is processed, the quality is computed in
       %WORKFLOW                the gswarm.quality method, where it is added to the git repo
@@ -2848,7 +2656,7 @@ classdef gswarm
       %WORKFLOW                opportunity to send the email to Bryant Loomis and ask for 
       %WORKFLOW                the updated weekly C20 data.
       %WORKFLOW         5.4.3: For TYPE=validation, make sure the data Bryant sent is saved as
-      %WORKFLOW                ~/data/gswarm/analyses/<date>-validation/orb/aux/GSFC_SLR_C20_7day.txt
+      %WORKFLOW                ~/data/gswarm/analyses/<date>-validation/orb/auxiliary/GSFC_SLR_C20_7day.txt
       %WORKFLOW     5.5: run the gswarm.TYPE method and keep an eye the last epoch of the
       %WORKFLOW          data as it is being loaded, it has to be the same as the last
       %WORKFLOW          available month; otherwise the analysis is incomplete
@@ -2930,7 +2738,7 @@ classdef gswarm
           'gswarm.swarm.validation.maps';...
           'gswarm.swarm.validation.unsmoothed';...
         },...
-        'nodata',true,... #this is usually more problems that what it's worth; just copy the data manually
+        'get_input_data',false,... #this is usually more problems that what it's worth; just copy the data manually
         varargin{:}...
       );
       %export quality metrics
@@ -2939,9 +2747,19 @@ classdef gswarm
         varargin{:}...
       );
     end
+    function out=production_date(mode)
+      global PROJECT
+      assert(strcmp(mode,'start') || strcmp(mode,'stop'),...
+        'input ''mode'' must either ''start'' or ''stop''.')
+      mode=[mode,'_date'];
+      if isfield(PROJECT,mode)
+        out=datetime(PROJECT.(mode));
+      else
+        out=gswarm.(mode);
+      end
+    end
     function d=production(varargin)
       %need global project variable (forces the user to think about the context of this analysis)
-      global PROJECT
 
       %NOTICE: this method expects some input arguments, notably:
       % - products (cellstr)
@@ -2954,13 +2772,13 @@ classdef gswarm
       v=varargs.wrap('sources',{....
         {...
           'products',  {},                          @iscellstr;...
-          'start',     datetime(PROJECT.start_date),@isdatetime;...
-          'stop',      datetime(PROJECT.stop_date), @isdatetime;...
+          'start',     gswarm.production_date('start'),@isdatetime;...
+          'stop',      gswarm.production_date('stop') ,@isdatetime;...
           'debug',     true,                        @islogical;...
           'inclusive', true,                        @islogical;...
           'force',     false,                       @islogical;... %this affects datastorage.init
           'force_d',   false,                       @islogical;... %this affects load(datafilename,'d') if force is false
-          'nodata',    false,                       @islogical;... %NOTICE: consider turning this on to update all input data
+          'get_input_data',false,                   @islogical;... %NOTICE: consider turning this on to update all input data
           'c20model',  true,                        @islogical;...
          'grace_model',true,                        @islogical;...
         },...
@@ -2971,7 +2789,7 @@ classdef gswarm
         assert(~isempty(v.(required_args{i})),['need argument ''',required_args{i},'''.'])
       end
       %get input data
-      if ~v.nodata;gswarm.get_input_data; end
+      if v.get_input_data;gswarm.get_input_data('all'); end
       %ensure C20 model is available
       if v.c20model && ~gswarm.c20model('done',file.orbdir('plot'))
         gswarm.c20model('plot',file.orbdir('plot'));

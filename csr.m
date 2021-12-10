@@ -2700,83 +2700,8 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       out=sum(res.^2);
     end
     %% SLR data
-    function obj=import_slr_Ries(obj,product,varargin)
-      obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
-      % add input arguments and metadata to collection of parameters 'v'
-      v=varargs.wrap('sources',{...
-        {...
-          'import_dir','',@ischar;...
-          'format',    '',@ischar;...
-        },...
-        product.args...
-      },varargin{:});
-      %sanity
-      assert(numel(v.prefixes)==numel(v.degrees)&& numel(v.prefixes)==numel(v.orders),...
-        'Metadata ''prefixes'' ''degrees'' and ''orders'' must all have the same size.')
-      %init records
-      ts=cell(size(v.prefixes));
-      %loop over all data
-      for i=1:numel(v.prefixes)
-        %load the data
-        ts{i}=simpletimeseries.import(...
-          fullfile(v.import_dir,[v.prefixes{i},v.suffix]),...
-          'cut24hrs',false,...
-          'save_mat',false,...
-          'format',v.format...
-        );
-      end
-      %sanity on the time domain
-      for i=2:numel(ts)
-        if ~ts{1}.istequal(ts{i})
-          ts{i}=ts{i}.interp(ts{1}.t);
-        end
-      end
-      %init gravity object
-      g=gravity.unit(max(v.degrees),'scale',0,'t',ts{1}.t);
-      %propagate the data
-      for i=1:numel(v.degrees)
-        for j=1:numel(v.orders{i})
-          g=g.setC(v.degrees(i),cells.scalar(v.orders{i}(j),'get'),ts{i}.y(:,j),ts{i}.t);
-        end
-      end
-      %apply model processing options
-      g=gswarm.load_models_op('all',v,product,g);
-      %save model
-      obj=obj.data_set(product.dataname,g);
-      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
-    end
-    function obj=import_slr_Cheng(obj,product,varargin)
-      obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
-      % sanity
-      assert(time.isfinite(obj.start) && time.isfinite(obj.stop),'Need valid obj.start and obj.stop.')
-      % add input arguments and metadata to collection of parameters 'v'
-      v=varargs.wrap('sources',{...
-        {...
-          'import_dir',        '',@ischar;...
-          'filename',          '',@ischar;...
-          'format','slr-csr-Chen',@ischar;...
-        },...
-        product.args...
-      },varargin{:});
-      %sanity
-      assert(numel(v.degrees)==numel(v.orders),...
-        'Metadata ''degrees'' and ''orders'' must all have the same size.')
-      %load the data
-      ts=simpletimeseries.import(...
-        fullfile(v.import_dir,v.filename),...
-        'cut24hrs',false,...
-        'format',v.format...
-      );
-      %init gravity object
-      g=gravity.unit(max(v.degrees),'scale',0,'t',ts.t);
-      %propagate the data
-      g=g.setC(v.degrees,v.orders,ts.y,ts.t);
-      %apply model processing options
-      g=gswarm.load_models_op('all',v,product,g);
-      %save model
-      obj=obj.data_set(product.dataname,g);
-      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
-    end
+
+
     %% manual interfaces
     function obj=plot(start,stop,product,plot_dir)
       switch start

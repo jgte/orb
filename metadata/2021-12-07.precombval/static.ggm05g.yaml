@@ -4,7 +4,8 @@ model_types: [signal,error]
 wildcarded_filename: GGM05C.gfc
 model_format: gfc
 date_parser: static
-use_GRACE_C20: false
+use_GRACE_C20: none #this needs to be the full C20 value to honour what is given in the time-varying part
 delete_C20: false
 delete_C00: true
 storage_period: infinite
+test: bibi

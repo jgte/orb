@@ -688,6 +688,17 @@ function obj=load_AHK1B(filename)
   raw=str2double(raw);
   %building time domain
   t=time.gpssec2datetime(raw(:,1),header.gps_time);
+%               1  7                 8           9               10              11              12              13            14              15         16          17          18           19          20          21          22          23           24          25          26          27
+%               1  2                 3           4               5               6               7               8             9               10         11          12          13           14          15          16          17          18           19          20          21          22
+%222177690.893506  10.15329807017275 4.917429447 9.723482464e-09 2.481763683e-09 1.039316011e-08 1.959635476e-08 5.4534528e-09 5.740073306e-09 33.2671051 55.12400055 26.62501335 14.92129993 -14.91238022 5.074500084 21.62319946 14.02499962 -14.03499985 50.17699814 -50.44900131  00000001  60282
+  %NOTICE: from the original file format, the following columns are relevant
+  % Column 1: GPS seconds past J2000
+  % Column 2: fraction of seconds
+  % Column 6: the lines with the relevant information are tagged with ‘00000111111111111111111111000000’
+  % Column 15: ‘SU’ temperature
+  % Column 16: ‘ICU’ temperature
+  % Column 17: ‘core’ temperature
+  % Column 21: ‘ADC’ temperature
   %gather data domain
   y=raw(:,[10,12,11,16]);
   %skip empty data files
@@ -784,7 +795,7 @@ end
 %           timesystem='gps';
 %           sanity_check=@(raw) all(all([ raw{1}-2000==raw{6},raw{2}==raw{4},raw{3}==raw{5}]));
 %         end
-% 
+%
 %         if isempty(fmt)
 %           error([mfilename,': cannot handle the GraceAccCal file ''',filename,'''.'])
 %         end

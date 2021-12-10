@@ -27,6 +27,8 @@ classdef gravity < simpletimeseries
       'vertgravgrad',  struct('units','s^{-2}',    'name','Vert. Gravity Gradient'),...
       'gravity',       struct('units','m.s^{-2}',  'name','Gravity Acc.')...
     );
+  end
+  properties(Constant,GetAccess=private)
     %default value of some internal parameters
     parameter_list={...
       'GM',       398600.4415e9, @num.isscalar;...      % Standard gravitational parameter [m^3 s^-2]
@@ -925,6 +927,151 @@ classdef gravity < simpletimeseries
       p.parse(model_list)
       r=min(cell2mat(cellfun(@(i) i.R,model_list)));
     end
+    %% common operations
+    function mod=common_ops(mode,mod,varargin)
+      %handle vector call on mode
+      if iscellstr(mode)
+        for i=1:numel(mode)
+          mod=gravity.common_ops(mode{i},mod,varargin{:});
+        end
+      else
+        % parse input arguments
+        v=varargs.wrap('sources',{...
+          {...
+            'max_degree',            -1 , @(i) isnumeric(i) && isscalar(i);...
+            'use_GRACE_C20',     'none' , @ischar; ...
+            'use_GRACE_C20_plot', false , @islogical; ...
+            'date_parser',       'none' , @ischar; ...
+            'delete_C00',         false , @islogical; ...
+            'delete_C20',         false , @islogical; ...
+            'start',     time.zero_date , @isdatetime; ...
+            'stop',       time.inf_date , @isdatetime; ...
+            'static_model',      'none' , @ischar; ...
+            'product_name',    'unknown', @ischar;...
+            'model_type',       'signal', @ischar;...
+          },...
+        },varargin{:});
+        %sanity
+        if exist('mod','var') && ~isa(mod,'gravity')
+          str.say(['Ignoring model ',mod.descriptor,' since it is of class ''',class(mod),''' and not of class ''gravity''.'])
+          return
+        end
+        %inits user feedback vars
+        msg='';show_msg=true;
+        switch mode
+        case 'mode_list'
+          mod={'consistent_GM','consistent_R','max_degree','use_GRACE_C20','delete_C00','delete_C20','start','stop','static_model'};
+          show_msg=false;
+        case 'all'
+          mod=gravity.common_ops(gravity.common_ops('mode_list'),mod,v.varargin{:});
+          show_msg=false;
+        case 'consistent_GM'
+          mod=mod.setGM(gravity.parameters('GM'));
+        case 'consistent_R'
+          mod=mod.setR( gravity.parameters('R'));
+        case 'max_degree'
+          %set maximum degree (if requested)
+          if v.max_degree>0
+            mod.lmax=v.max_degree;
+            msg=['set to ',num2str(v.max_degree)];
+          end
+        case 'use_GRACE_C20'
+          %set C20 coefficient
+          if ~str.none(v.use_GRACE_C20) && strcmp(v.model_type,'signal')
+            %some sanity
+            if strcmpi(v.date_parser,'static')
+              error([mfilename,': there''s no point in replacing GRACE C20 coefficients in a static model.'])
+            end
+%             %legacy support
+%             if islogical(v.use_GRACE_C20) && v.use_GRACE_C20
+%               v.use_GRACE_C20='TN-07';
+%             end
+            %parse using a model or the original data
+            if contains(v.use_GRACE_C20,'-model')
+              c20mode='model';
+              v.use_GRACE_C20=strrep(v.use_GRACE_C20,'-model','');
+            else
+              c20mode='interp';
+            end
+            %get C20 timeseries, interpolated to current time domain
+            c20=gravity.graceC20('version',v.use_GRACE_C20,'mode',c20mode,'time',mod.t);
+            if v.use_GRACE_C20_plot
+              figure
+              plot(c20.x_masked,c20.y_masked([],1),'x-','MarkerSize',10,'LineWidth',4), hold on
+              plot(c20.x,spline(c20.x_masked,c20.y_masked([],1),c20.x),'o-','MarkerSize',10,'LineWidth',2)
+              plot(c20.x,pchip(c20.x_masked,c20.y_masked([],1),c20.x),'+-','MarkerSize',10,'LineWidth',2)
+              legend('data','spline','pchip')
+            end
+            mod=mod.setC(2,0,c20.y(:,1),mod.t);
+            if v.use_GRACE_C20_plot
+              figure
+              plot(c20.t,c20.y(:,1),'o-'), hold on
+              plot(mod.t,mod.C(2,0),'x-')
+              legend('TN-11',mod.descriptor)
+            end
+            msg=['set to ',v.use_GRACE_C20];
+          end
+        case 'delete_C00'
+          %remove C00 bias
+          if v.delete_C00
+            mod=mod.setC(0,0,0);
+          end
+        case 'delete_C20'
+          %remove C20 bias
+          if v.delete_C20
+            mod=mod.setC(2,0,0);
+          end
+        case 'start' %NOTICE: this is only done when loading the raw data (afterwards the matlab data is read directly, bypassing this routine altogher)
+          if v.start~=time.zero_date
+            if v.start<mod.start
+              %append extremeties
+              mod=mod.append(gravity.nan(mod.lmax,'t',v.start,'R',mod.R,'GM',mod.GM));
+            elseif v.start>mod.start
+              %trim extremeties (this is redundant unless data is saved before the start metadata is increased)
+              mod=mod.trim(v.start,mod.stop);
+            end
+            msg=['at ',datestr(v.start)];
+          end
+        case 'stop'  %NOTICE: this is only done when loading the raw data (afterwards the matlab data is read directly, bypassing this routine altogher)
+          if v.stop~=time.inf_date
+            if v.stop>mod.stop
+              %append extremeties
+              mod=mod.append(gravity.nan(mod.lmax,'t',v.stop,'R',mod.R,'GM',mod.GM));
+            elseif v.stop<mod.stop
+              %trim extremeties (this is redundant unless data is saved before the stop metadata is decreased)
+              mod=mod.trim(mod.start,v.stop);
+            end
+            msg=['at ',datestr(v.stop)];
+          end
+        case 'static_model'
+          %remove static field (if requested)
+          if ~strcmpi(v.static_model,'none') && strcmp(v.model_type,'signal')
+            %TODO: make this handle filenames as well, not only datastorage products
+            static=datastorage().init(v.static_model).data_get_scalar(datanames(v.static_model).append_field_leaf('signal'));
+            %adjust the start/stop
+            switch static.length
+            case 1
+              static2=static;
+              static.t=mod.start;
+              static2.t=mod.stop;
+              static=static.append(static2);
+            case 2
+              static.t=[mod.start;mod.stop];
+            otherwise
+              error(['Cannot handle static object of class gravity with length ', num2str(static.length),'.'])
+            end
+            %make sure max degree matches
+            static.lmax=mod.lmax;
+            %subtract it
+            mod=mod-static.interp(mod.t);
+            msg=[': subtracted ',v.static_model];
+          end
+        otherwise
+          error(['Cannot handle operantion ''',mode,'''.'])
+        end
+        if show_msg;str.say(v.product_name,':',mode,msg);end
+      end
+    end
     %% model combination
     function out=combine(model_list,varargin)
       p=inputParser;
@@ -1099,13 +1246,13 @@ classdef gravity < simpletimeseries
     function [m,e]=static(model)
       switch upper(model)
         case 'GIF48'
-          datafile=fullfile(file.orbdir('aux'),'GIF48.2007.GEO');
+          datafile=fullfile(file.orbdir('auxiliary'),'GIF48.2007.GEO');
           fmt='GEO';
         case 'GGM05C'
-          datafile=fullfile(file.orbdir('aux'),'GGM05C.gfc');
+          datafile=fullfile(file.orbdir('auxiliary'),'GGM05C.gfc');
           fmt='gcf';
         case 'GGM05G'
-          datafile=fullfile(file.orbdir('aux'),'ggm05g.gfc');
+          datafile=fullfile(file.orbdir('auxiliary'),'ggm05g.gfc');
           fmt='gcf';
         otherwise
           error(['Cannot handle static model ''',model,'''.'])
@@ -3240,7 +3387,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       'mode',         'read', @ischar;...
       'start',time.zero_date, @isdatetime;...
       'stop',  time.inf_date, @isdatetime;...
-      'data_dir', file.orbdir('aux'),  @(i) ischar(i) && exist(i,'dir')~=0;
+      'data_dir', file.orbdir('auxiliary'),  @(i) ischar(i) && exist(i,'dir')~=0;
     },...
   },varargin{:});
   %some default parameters

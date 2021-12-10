@@ -188,6 +188,13 @@ classdef cells
         out=cellfun(@(i) all(size(i)==size(strin)) && all(i==strin),cellstrin);
       end
     end
+    function out=strequal(cellstrin,strin)
+      if isempty(cellstrin)
+        out={};
+      else
+        out=find(cells.isstrequal(cellstrin,strin));
+      end
+    end
     function out=strcount(cellstrin,strin) 
       if isempty(cellstrin)
         out=0;
