@@ -3485,7 +3485,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   %append v.file and v.url
   v=varargs.wrap('sources',{v,{...
         'file',fullfile(v.data_dir,datfil),  @ischar;...
-        'url',daturl,                         @ischar;...
+        'url',daturl,                        @ischar;...
       }},varargin{:});
   switch lower(v.mode)
   case 'data_file'
@@ -3564,10 +3564,9 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     end
   case 'set' %download the data
     if url.is(v.url)
-      fid=file.open(v.file,'w+');
-      t=webread(v.url);
-      fprintf(fid,'%s',t);
-      fclose(fid);
+      websave(v.file,v.url);
+      t=file.strload(v.file);
+      disp(t)
     else
       t=[];
     end
