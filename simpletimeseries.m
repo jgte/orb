@@ -324,8 +324,6 @@ classdef simpletimeseries < simpledata
       % - file.save_mat:
       % p.addParameter('save_mat', true, @(i) isscalar(i) && islogical(i))
       % p.addParameter('data_var','out', @ischar);
-      % - file.replace_ext:
-      % p.addParameter('default_dir',  '.', @ischar);
       % - file.delete_compressed:
       % p.addParameter('del_arch', true, @(i) isscalar(i) && islogical(i))
       p=inputParser;
@@ -374,8 +372,6 @@ classdef simpletimeseries < simpledata
       % - file.save_mat:
       % p.addParameter('save_mat', true, @(i) isscalar(i) && islogical(i))
       % p.addParameter('data_var','out', @ischar);
-      % - file.replace_ext:
-      % p.addParameter('default_dir',  '.', @ischar);
       % - file.delete_compressed:
       % p.addParameter('del_arch', true, @(i) isscalar(i) && islogical(i))
       p=inputParser;
