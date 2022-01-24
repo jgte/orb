@@ -1128,7 +1128,7 @@ classdef file
     function [newest_file,newest_date]=newest(in,varargin)
       newest_date=0;
       if ~iscellstr(in)
-        in=cells.scalar(file.unwrap(in,varargin{:}),'set');
+        in=file.unwrap(in,varargin{:});
       end
       newest_file='';
       for i=1:numel(in)

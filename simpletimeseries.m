@@ -334,7 +334,7 @@ classdef simpletimeseries < simpledata
       p.addParameter('cut24hrs', true, @(i) isscalar(i) && islogical(i))
       p.parse(filename,varargin{:})
       %unwrap wildcards and place holders (output is always a cellstr)
-      filename=cells.scalar(file.unwrap(filename,varargin{:}),'set');
+      filename=file.unwrap(filename,varargin{:});
       %loop over all files (maybe only one, resolved by cells.scalar)
       for i=1:numel(filename)
         disp([mfilename,': reading data from file ',filename{i}])
