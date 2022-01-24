@@ -334,6 +334,9 @@ classdef file
       if iscellstr(io)
         io=cellfun(@(i) file.ext(i,ext,direction),io,'UniformOutput', false);
       else
+        if ext(1)~='.'
+          warning(['Expecting input ''ext'' to start with a period, not ''',ext,'''.'])
+        end
         switch lower(direction)
         case 'set'; if ~file.isext(io,ext); io=[io,ext]; end
         case 'get'; if  file.isext(io,ext); io=io(1:end-length(ext));          end
