@@ -1108,6 +1108,13 @@ classdef file
       end
     end
     function out=datenum(in)
+      %reduce scalar cell to char (avoids infinite loops with vector mode)
+      in=cells.scalar(in);
+      %vector mode
+      if iscellstr(in)
+        out=arrayfun(@(i) file.datenum(i),in);
+        return
+      end
       fileinfo=dir(file.resolve_home(in));
       if exist(in,'dir')
         assert(fileinfo(1).name=='.',['Expecting the first entry of ''fileinfo'' to be relative to ''.'', not to ''',fileinfo(1).name,'''.'])
