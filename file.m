@@ -1145,6 +1145,9 @@ classdef file
         end
       end
     end
+    function out=age(in)
+      out=datetime('now')-file.datetime(in);
+    end
     function out=up(path,n)
       if ~exist('n','var') || isempty(n)
         n=1;
