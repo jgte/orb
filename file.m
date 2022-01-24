@@ -385,10 +385,13 @@ classdef file
         %convert to string if requested
         out=file.ensure_scalar(out,p.Results.scalar_as_strings);
       else
+        %NOTICE: it is assumed that in/out are scalar below
         %first get non-ext file
         nonext=file.ext(in,ext,'get'); nonextexists=file.exist(nonext);
+        if p.Results.debug; str.say('nonext:',nonext); end
         %get ext file name
         yesext=file.ext(nonext,ext,'set'); yesextexists=file.exist(yesext);
+        if p.Results.debug; str.say('yesext:',yesext); end
         %if there's only the ext file, then preference is irrelevant
         if ~nonextexists && yesextexists
           out=yesext;
@@ -406,7 +409,7 @@ classdef file
           out=nonext;
           if p.Results.debug; str.say('picked nonext:',nonext,'(preferred)'); end
         %if there's no preferences and both files exists, return the newest
-        else
+        elseif yesextexists && nonextexists
           if p.Results.debug
             str.say('mat:',datetime(file.datenum(yesext),'convertfrom','datenum'),yesext   )
             str.say('out:',datetime(file.datenum(nonext),'convertfrom','datenum'),nonext)
@@ -418,6 +421,10 @@ classdef file
             out=nonext;
             if p.Results.debug; str.say('picked nonext:',nonext,'(newer)'); end
           end
+        %if neither file exists, make some noise
+        else
+          out=in;
+          warning(['Cannot find neither ''',yesext,''' nor ''',nonext,'''.'])
         end
       end
       %handle additional outputs
