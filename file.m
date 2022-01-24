@@ -1000,13 +1000,13 @@ classdef file
       out=['Result of "',git_com,'" is:',newline,out];
     end
     %% general utils
-    function io=ensure_scalar(io,force)
+    function io=ensure_scalar(io,scalar_as_strings)
       %convert to string if requested
       if iscellstr(io)
-        if force
+        if scalar_as_strings
           assert(numel(io)==1,['If ''scalar_as_strings'' is true, then results must be scalar, not with length ',...
             num2str(numel(io)),'.'])
-          io=io{1};
+          io=cells.scalar(io,'get');
         end
       elseif ischar(io)
         %do nothing
