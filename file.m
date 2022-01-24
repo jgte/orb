@@ -127,8 +127,8 @@ classdef file
       for i=1:max_header_len
         header{i} = fgetl(fid);
         %error checking
-        if isempty(header{i})
-          error([mfilename,': error reading header of file ',filename,'. Error message:',10,ferror(fid)])
+        if isempty(header{i}) && ~isempty(ferror(fid))
+          error([mfilename,': error reading header of file ',filename,'. Error message:',newline,ferror(fid)])
         end
         %end-of-file checking
         if header{i}==-1
