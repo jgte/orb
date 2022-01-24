@@ -469,80 +469,75 @@ classdef file
         out=unique(cells.rm_empty(cells.flatten(...
           cellfun(@(i) file.resolve_wildcards(i,varargin{:}),in,'UniformOutput',false)...
         )));
-        %convert to string if requested
-        filenames=file.ensure_scalar(filenames,p.Results.scalar_as_strings);
-        return
-      end
-      %trivial call
+      else
+        %NOTICE: it is NOT assumed that out are scalar below
+        %trivial call
+        if isempty(in)
+          if p.Results.scalar_as_strings
             out='';
           else
             out={''};
-        else
-          filenames={''};
-        end
-        return
-      end
-      %wildcard character '*' needs to be translated to '.*' (if not already)
-      [in,wildcarded_flag]=translate_wildcard(file.resolve_home(in));
-      %finding relevant directory
-      [a,f,e]=fileparts(in);
-      if isempty(a)
-          a='.';
-      end
-      %rebuilding complete filename
-      f_in=[f,e];
-      %check if a simple directory has been passed
-      if isempty(f_in) && ~wildcarded_flag
-        if p.Results.scalar_as_strings
-          filenames=a;
-        else
-          filenames={a};
-        end
-        return
-      end
-      %fetching directory listing
-      f=dir(a);
-      f=struct2cell(f);
-      %branch on options
-      if p.Results.directories_only
-        idx=[f{end-1,:}];
-      elseif p.Results.files_only
-        idx=~[f{end-1,:}];
-      else
-        idx=true(1,size(f,2));
-      end
-      f=f(1,idx);
-      %greping
-      f1=reduce_cell_array(regexp(f(:),['^',f_in,'$'],'match'));
-      %inform user if no files found
-      if isempty(f1)
-        msg=['found no files named ''',in,'''.'];
-        if p.Results.stop_if_empty
-          error(msg)
-        end
-        if p.Results.passtrough_if_empty
-          filenames=fullfile(a,f_in);
+          end
           return
         end
-        if p.Results.disp
-          str.say('stack_delta',p.Results.stack_delta,['WARNING: ',msg])
+        %wildcard character '*' needs to be translated to '.*' (if not already)
+        [in,wildcarded_flag]=file.translate_wildcard(file.resolve_home(in));
+        %finding relevant directory
+        [a,f,e]=fileparts(in);
+        if isempty(a)
+            a='.';
         end
-        filenames='';
-        return
-      end
-      %add path
-      root=fileparts(in);
-      filenames=cellfun(@(i) fullfile(root,i),f1,'UniformOutput',false);
-      %inform user
-      if p.Results.disp && wildcarded_flag
-        str.say('stack_delta',p.Results.stack_delta,['found ',num2str(numel(filenames)),' filenames in wildcarded string ''',in,'''.'])
+        %rebuilding complete filename
+        f_in=[f,e];
+        %check if a simple directory has been passed
+        if isempty(f_in) && ~wildcarded_flag
+          if p.Results.scalar_as_strings
+            out=a;
+          else
+            out={a};
+          end
+          return
+        end
+        %fetching directory listing
+        f=dir(a);
+        f=struct2cell(f);
+        %branch on options
+        if p.Results.directories_only
+          idx=[f{end-1,:}];
+        elseif p.Results.files_only
+          idx=~[f{end-1,:}];
+        else
+          idx=true(1,size(f,2));
+        end
+        f=f(1,idx);
+        %greping
+        f1=reduce_cell_array(regexp(f(:),['^',f_in,'$'],'match'));
+        %inform user if no files found
+        if isempty(f1)
+          msg=['found no files named ''',in,'''.'];
+          if p.Results.stop_if_empty
+            error(msg)
+          end
+          if p.Results.passtrough_if_empty
+            out=fullfile(a,f_in);
+            return
+          end
+          if p.Results.disp
+            str.say('stack_delta',p.Results.stack_delta,['WARNING: ',msg])
+          end
+          out='';
+          return
+        end
+        %add path
+        root=fileparts(in);
+        out=cellfun(@(i) fullfile(root,i),f1,'UniformOutput',false);
+        %inform user
+        if p.Results.disp && wildcarded_flag
+          str.say('stack_delta',p.Results.stack_delta,['found ',num2str(numel(out)),' filenames in wildcarded string ''',in,'''.'])
+        end
       end
       %convert to string if requested
-      if p.Results.scalar_as_strings
-        assert(numel(filenames)==1,['If ''scalar_as_strings'' is true, then results must be scalar, not with length ',...
-          num2str(numel(filenames)),'.'])
-        filenames=filenames{1};
-      end
+      out=file.ensure_scalar(out,p.Results.scalar_as_strings);
     end
     %% resolves compressed files (expanding them as needed)
     function out=iscompressed(in)
@@ -572,71 +567,73 @@ classdef file
         )));
         %convert to string if requested
         out=file.ensure_scalar(out,p.Results.scalar_as_strings);
-        return
-      end
-      %resolve homes
-      in=file.resolve_home(in);
-      %branch on type of file
-      if file.iscompressed(in)
-        %need fileparts
-        [~,f,e]=fileparts(in);
-        %now handling compressed files: prepend tar to extension if there
-        if strcmp(f(max([1,end-3]):end),'.tar')
-          e=['.tar',e];
-        end
-        %check if uncompressed is already available
-        in=file.resolve_ext(in,e,'prefer_ext_files',p.Results.prefer_compressed_files,varargin{:});
-        %need fileparts again
-        [d,~,e]=fileparts(in);
-        %try to uncompress archives
-        try
-          switch lower(e)
-          case {'.z','.zip'}
-            arch=true;
-            filenames=unzip(in,d);
-          case {'.tgz','.tar.gz','.tar'}
-            arch=true;
-            filenames=untar(in,d);
-            %get rid of PaxHeaders
-            filenames(cells.cellstrin(filenames,'PaxHeaders'))=[];
-          case {'.gz','.gzip'}
-            arch=true;
-            filenames=gunzip(in,d);
-          otherwise
-            arch=false;
-            filenames=in;
-          end
-          if arch
-            str.say('stack_delta',p.Results.stack_delta,['From archive ''',in,''' extracted the following files:'],newline,...
-              strjoin(filenames,newline))
-          end
-        catch
-          %if the zip file is corrupted, assume data file is missing
-          str.say('stack_delta',p.Results.stack_delta,['WARNING: error extracting archive ''',in,'''.'])
-          return
-        end
-        %handle zipped files
-        if arch
-          %some sanity
-          if ~iscellstr(filenames)
-            error([mfilename,': expecting variable ''unzipped_filename'' to be a cellstr, not a ''',...
-              class(filenames),'''.'])
-          end
-          if numel(filenames)~=1
-            error([mfilename,': expecting zip archive ''',filenames,''' to contain one file only, not ',...
-              num2str(numel(filenames)),':',10,strjoin(filenames,'\n')])
-          end
-        end
       else
-        %look for the compressed file (resolve_mat resolved according to file creation date)
-        for i=file.archivedfilesext
-          [filenames,no_change_flag]=file.resolve_ext(in,i{1},'prefer_ext_files',p.Results.prefer_compressed_files,varargin{:});
-          %check if things changes
-          if ~no_change_flag
-            %run again this routine, so that compressed files can be expanded
-            filenames=file.resolve_compressed(filenames,varargin{:});
-            %we're done, no need to resolve other archive types (assumes there is only one type per expanded file, which is reasonable)
-            break
+        %NOTICE: it is assumed that in/out are scalar below
+        %resolve homes
+        in=file.resolve_home(in);
+        %branch on type of file
+        if file.iscompressed(in)
+          %need fileparts
+          [~,f,e]=fileparts(in);
+          %now handling compressed files: prepend tar to extension if there
+          if strcmp(f(max([1,end-3]):end),'.tar')
+            e=['.tar',e];
+          end
+          %check if uncompressed is already available
+          in=file.resolve_ext(in,e,'prefer_ext_files',p.Results.prefer_compressed_files,varargin{:});
+          %need fileparts again
+          [d,~,e]=fileparts(in);
+          %try to uncompress archives
+          try
+            switch lower(e)
+            case {'.z','.zip'}
+              arch=true;
+              out=unzip(in,d);
+            case {'.tgz','.tar.gz','.tar'}
+              arch=true;
+              out=untar(in,d);
+              %get rid of PaxHeaders
+              out(cells.cellstrin(out,'PaxHeaders'))=[];
+            case {'.gz','.gzip'}
+              arch=true;
+              out=gunzip(in,d);
+            otherwise
+              arch=false;
+              out=in;
+            end
+            if arch
+              str.say('stack_delta',p.Results.stack_delta,['From archive ''',in,''' extracted the following files:'],newline,...
+                strjoin(out,newline))
+            end
+          catch
+            %if the zip file is corrupted, assume data file is missing
+            str.say('stack_delta',p.Results.stack_delta,['WARNING: error extracting archive ''',in,'''.'])
+            out=in;
+            return
+          end
+          %handle zipped files
+          if arch
+            %some sanity
+            if ~iscellstr(out)
+              error([mfilename,': expecting variable ''unzipped_filename'' to be a cellstr, not a ''',...
+                class(out),'''.'])
+            end
+            if numel(out)~=1
+              error([mfilename,': expecting zip archive ''',out,''' to contain one file only, not ',...
+                num2str(numel(out)),':',10,strjoin(out,'\n')])
+            end
+          end
+        else
+          %look for the compressed file (resolve_mat resolved according to file creation date)
+          for i=file.archivedfilesext
+            [out,no_change_flag]=file.resolve_ext(in,i{1},'prefer_ext_files',p.Results.prefer_compressed_files,varargin{:});
+            %check if things changes
+            if ~no_change_flag
+              %run again this routine, so that compressed files can be expanded
+              out=file.resolve_compressed(out,varargin{:});
+              %we're done, no need to resolve other archive types (assumes there is only one type per expanded file, which is reasonable)
+              break
+            end
           end
         end
       end
@@ -659,7 +656,7 @@ classdef file
         end
       end
     end
-    %% resolves timestamps
+    %% build a list of filenames from 'start' to 'stop' with 'period' step, if file.dateplaceholder is present in 'in'
     function out=resolve_timestamps(in,varargin)
       p=inputParser; p.KeepUnmatched=true;
       p.addRequired( 'in',                                         @(i) ischar(i)   || iscellstr(i)); 
@@ -667,7 +664,6 @@ classdef file
       p.addParameter( 'stop',        time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
       p.addParameter( 'period',      days(1),                      @(i) isscalar(i) && isduration(i));
       p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @ischar);
-      p.addParameter( 'only_existing',true,                        @islogical);
       p.addParameter( 'scalar_as_strings',false,                   @(i) islogical(i) && isscalar(i));
       p.parse(in,varargin{:})
       %reduce scalar
@@ -677,39 +673,122 @@ classdef file
         out=unique(cells.rm_empty(cells.flatten(...
           cellfun(@(i) file.resolve_timestamps(i,varargin{:}),in,'UniformOutput',false)...
         )));
+      else
+        %trivial calll
+        if ~contains(in,file.dateplaceholder)
+          out=in;
+          return
+        end
+        %sanity
+        assert(p.Results.start<p.Results.stop,[...
+          'input ''start'' (',datestr(p.Results.start),') is later than ',...
+          'input ''stop'' (',datestr(p.Results.stop),').'...
+        ])
+        %NOTICE: it is NOT assumed that out are scalar below
+        % build a cell string with the dates
+        date_list=time.list(p.Results.start,p.Results.stop,p.Results.period);
+        out=cell(size(date_list));
+        for i=1:numel(date_list)
+          out{i}=strrep(in,file.dateplaceholder,datestr(date_list(i),p.Results.date_fmt));
+        end
+      end
+      %convert to string if requested
+      out=file.ensure_scalar(out,p.Results.scalar_as_strings);
+    end
+    %% retrive remote file if needed
+    %NOTICE: this function will always return scalar strings
+    function out=resolve_remote(in,varargin)
+      p=inputParser; p.KeepUnmatched=true;
+      p.addRequired( 'in',                          @(i) ischar(i)   || iscellstr(i)); 
+      p.addParameter('remote_url'       , ''      , @(i) url.is(i));
+      p.addParameter('expiration_period', days(30), @(i) isscalar(i) && isduration(i));
+      p.addParameter('data_age'         , days(0) , @(i) isscalar(i) && isduration(i));
+      p.addParameter('debug'            , false   , @islogical);
+      p.parse(in,varargin{:})
+      %trivial call (most of the times there's not need to retrieve remote data)
+      if isempty(p.Results.remote_url)
+        out=in;
+        return
+      end
+      %reduce scalar cell to char (avoids infinite loops with vector mode)
+      in=cells.scalar(in);
+      %vector mode
+      if iscellstr(in)
+        out=unique(cells.rm_empty(cells.flatten(...
+          cellfun(@(i) file.resolve_remote(i,varargin{:}),in,'UniformOutput',false)...
+        )));
         %convert to string if requested
-        filenames=file.ensure_scalar(filenames,p.Results.scalar_as_strings);
+        out=file.ensure_scalar(out,p.Results.scalar_as_strings);
         return
       end
-      %trivial calll
-      if ~contains(in,file.dateplaceholder)
-        filenames=in;
-        return
+      %NOTICE: it is assumed that in/out are scalar below
+      %find reasons to download the data
+      download_flag=false;
+      %check if data age is higher than expiration period
+      if p.Results.data_age > p.Results.expiration_period
+        if p.Results.debug, str.say('Downloading because data_age > expiration_period'); end
+        download_flag=true;
       end
-      %sanity
-      assert(p.Results.start<p.Results.stop,[...
-        'input ''start'' (',datestr(p.Results.start),') is later than ',...
-        'input ''stop'' (',datestr(p.Results.stop),').'...
-      ])
-      % build a cell string with the dates
-      date_list=time.list(p.Results.start,p.Results.stop,p.Results.period);
-      filenames=cell(size(date_list));
-      for i=1:numel(date_list)
-        filenames{i}=strrep(in,file.dateplaceholder,datestr(date_list(i),p.Results.date_fmt));
+      %check if all files exist
+      if ~all(file.exist(in))
+        if p.Results.debug, str.say('Downloading because local files are missing'); end
+        download_flag=true;
+      end
+      if ~all(file.age(in)<p.Results.expiration_period)
+        if p.Results.debug, str.say('Downloading because local files are too old'); end
+        download_flag=true;
+      end
+      %download if needed
+      if download_flag
+        [d,f,e]=fileparts(in);
+        if isempty(d); d='./'; end
+        f=[f,e];
+        file.ensuredir(in);
+        if file.iswildcarded(in)
+          if p.Results.debug, str.say('Using wget to download wildcarded file:',in); end
+          file.system(...
+            ['wget ',p.Results.remote_url,'/',f],...
+            'cd',d,...
+            'disp',true,...
+            'stop_if_error',true...
+          );
+          %patch output (wildcards must be resolved externally, possibly with file.resolve_wildcards)
+          out=in;
+        else
+          if p.Results.debug, str.say('Using websave to download non-wildcarded file:',in); end
+          out=websave(in,[p.Results.remote_url,'/',f]);
+        end
+        assert(file.exist(out),['BUG TRAP: cannot find downloaded file: ',out])
+        if p.Results.debug, str.say('Finished downloading file:',out); end
+      else
+        %patch output
+        out=in;
+        if p.Results.debug, str.say('No need to re-download file:',out); end
       end
     end
     %% resolves anything
+    %NOTICE: this function only deals with resolving filenames:
+    % - replaces file.dateplaceholder with list of dates (from 'start','stop','period')
+    % - checks if local files are older than 'outdated_period' and downloads them from 'remote_url' (assumed to be a directory)
+    % - retrieve directory contents according to wildcarded filenames ('passtrough_if_empty' controls what happens if not file found)
+    % - looks for compressed files and extracts them if they are newer than the uncompressed (i.e., the input)
+    % - looks for .mat files and returns them if they exist
+    %NOTICE: this is done elsewhere:
+    % - loading/saving in mat format (see file.load_mat and file.save_mat
+    % - loading/saving in ascii/other format (each class has its own)
     function io=unwrap(io,varargin) %used to be simpletimeseries.unwrap_datafiles
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired( 'io',          @(i) ischar(i) || iscellstr(i));
       p.addParameter('op_sequence', {...
         @file.resolve_timestamps;...
+        @file.resolve_remote;...
         @file.resolve_wildcards;...
         @file.resolve_compressed;...
         @file.resolve_ext;...
       },                            @(i) isfun(i) || iscell(i) && all(cellfun(@(j) isa(j,'function_handle'), i))); 
-      p.addParameter('debug', false,  @islogical);
+      p.addParameter('debug'            , false, @islogical);
+      p.addParameter('scalar_as_strings', false, @(i) islogical(i) && isscalar(i));
       p.parse(io,varargin{:})
       %loop over all operations
       for i=1:numel(p.Results.op_sequence)
@@ -739,6 +818,10 @@ classdef file
           end
         end
       end
+      %always return cell arrays
+      io=cells.scalar(io,'set');
+      %... unless explicitly requested to get a scalar
+      io=file.ensure_scalar(io,p.Results.scalar_as_strings);
     end
     %% CLI interfaces
     function [out,result]=system(com,varargin)
