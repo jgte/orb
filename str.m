@@ -727,7 +727,7 @@ classdef str
         end
         msg=tmp;
       end
-      fid = fopen(filename,'a');  
+      fid = file.open(filename,'a');  
       fprintf(fid,[strjoin(msg,'\n'),'\n']);
       fclose(fid);
     end

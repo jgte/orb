@@ -404,10 +404,7 @@ classdef orbit
       % retrieve the ascii format from the first line of the file, if not given in input arguments.
       if isempty(p.Results.asciiformat)
         %read first line of file
-        [fid,errmsg] = fopen(filename);
-        if fid<0
-          error([mfilename,': ',errmsg])
-        end
+        [fid,~,~,errmsg] = file.open(filename);
         hline = fgetl(fid);
         fclose(fid);
         %assign format ID
@@ -1352,7 +1349,7 @@ function [t,pos,pos_cor,header] = read_ifg(filename)
   formatSpec='%21.15f %15.4f %15.4f %15.4f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f';
   %open the file
   disp([mfilename,': loading file ',filename])
-  fid=fopen(filename);
+  fid=file.open(filename);
   %retrieve first line
   hline = fgetl(fid);
   %find geodetic datum
@@ -1397,7 +1394,7 @@ function [t,pos,pos_cor,mask,header] = read_aiub(filename)
   HeaderLines=6;
   %open the file
   disp([mfilename,': loading file ',filename])
-  fid=fopen(filename);
+  fid=file.open(filename);
   %retrieve third line
   for i=1:3; hline = fgetl(fid); end
   %find geodetic datum
@@ -1455,7 +1452,7 @@ function [t,pos,pos_cor,clk,clk_cor,header] = read_numeric(filename)
   HeaderLines=0;
   %open the file
   disp([mfilename,': loading file ',filename])
-  fid=fopen(filename);
+  fid=file.open(filename);
   %read the data (robustly)
   try
     d=textscan(fid,formatSpec,'HeaderLines',HeaderLines,'Delimiter',' ','MultipleDelimsAsOne',true);
@@ -1547,7 +1544,7 @@ function [t,pos,vel,pos_cor,clk,clk_cor,header] = read_sp3(filename,show_details
 
   %open the file
   disp([mfilename,': loading file ',filename])
-  fid=fopen(filename);
+  fid=file.open(filename);
 
   %first reading of the data, to get header and count data
   n=0;i=0;nP=0;nV=0;nEP=0;nEPx=0;

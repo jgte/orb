@@ -805,7 +805,7 @@ classdef simplegrid < simpletimeseries
       end
     end
     function out=load(filename,t)
-      fid=fopen(filename);
+      fid=file.open(filename);
       d=textscan(fid,'%f %f %s');
       fclose(fid);
       out=simplegrid(t,...            %time

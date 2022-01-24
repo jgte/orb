@@ -79,7 +79,7 @@ classdef file
         frewind(fid);
       end
     end
-    function [fid,filename,close_file]=open(filename,perm)
+    function [fid,filename,close_file,msg]=open(filename,perm)
       if ~exist('perm','var') || isempty(perm)
         perm = 'r';
       end
@@ -91,6 +91,8 @@ classdef file
         filename=fopen(fid);
         %don't close this file afterwards
         close_file=false;
+        %patch outputs
+        msg=['fid ',num2str(fid),' attributed to file ''',filename,'''.'];
       else
         %make sure dir exists
         d=fileparts(filename);
