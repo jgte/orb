@@ -367,7 +367,7 @@ classdef file
     % a mat file has extension .mat, a non-mat file has a different extension (strangely enough)
     % this means that if in={'file1.dat','file1.dat.gz'} and file1.dat.mat exists, this function will
     % return {'file1.dat.mat','file1.dat.gz'} because it looks for file1.dat.gz.mat as the corresponding mat file.
-    function [filenames,no_change_flag]=resolve_ext(in,ext,varargin)
+    function [out,no_change_flag]=resolve_ext(in,ext,varargin)
       p=inputParser; p.KeepUnmatched=true;
       p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i)); 
       p.addRequired( 'ext',                           @ischar); 
@@ -379,11 +379,11 @@ classdef file
       %sanity
       assert(~(p.Results.prefer_non_ext_files && p.Results.prefer_ext_files),'Cannot both prefer non-ext and ext files')
       if iscellstr(in)
-        filenames=unique(cells.rm_empty(cells.flatten(...
+        out=unique(cells.rm_empty(cells.flatten(...
           cellfun(@(i) file.resolve_ext(i,ext,varargin{:}),in,'UniformOutput', false)...
         )));
         %convert to string if requested
-        filenames=file.ensure_scalar(filenames,p.Results.scalar_as_strings);
+        out=file.ensure_scalar(out,p.Results.scalar_as_strings);
       else
         %first get non-ext file
         nonext=file.ext(in,ext,'get'); nonextexists=file.exist(nonext);
@@ -391,19 +391,19 @@ classdef file
         yesext=file.ext(nonext,ext,'set'); yesextexists=file.exist(yesext);
         %if there's only the ext file, then preference is irrelevant
         if ~nonextexists && yesextexists
-          filenames=yesext;
+          out=yesext;
           if p.Results.debug; str.say('picked yesext:',yesext,'(nonext file non-existing:',nonext,')'); end
         %if there's only the non-ext file, then preference is irrelevant
         elseif nonextexists && ~yesextexists
-          filenames=nonext;
+          out=nonext;
           if p.Results.debug; str.say('picked nonext:',nonext,'(yesext file non-existing:',yesext,')'); end
         %if there's a ext file and that is prefered, take it
-        elseif yesextexists&& p.Results.prefer_ext_files
-          filenames=yesext;
+        elseif yesextexists && p.Results.prefer_ext_files
+          out=yesext;
           if p.Results.debug; str.say('picked yesext:',yesext,'(preferred)'); end
         %if there's a non-ext file and that is prefered, take it
-        elseif nonextexists&& p.Results.prefer_non_ext_files
-          filenames=nonext;
+        elseif nonextexists && p.Results.prefer_non_ext_files
+          out=nonext;
           if p.Results.debug; str.say('picked nonext:',nonext,'(preferred)'); end
         %if there's no preferences and both files exists, return the newest
         else
@@ -412,17 +412,17 @@ classdef file
             str.say('out:',datetime(file.datenum(nonext),'convertfrom','datenum'),nonext)
           end
           if file.datenum(yesext)>file.datenum(nonext)
-            filenames=yesext;
+            out=yesext;
             if p.Results.debug; str.say('picked yesext:',yesext,'(newer)'); end
           else
-            filenames=nonext;
+            out=nonext;
             if p.Results.debug; str.say('picked nonext:',nonext,'(newer)'); end
           end
         end
       end
       %handle additional outputs
       if nargout>1
-        no_change_flag=str.iseq(filenames,in);
+        no_change_flag=str.iseq(out,in);
       end
     end
     %% resolves wildcarded filenames
@@ -442,8 +442,7 @@ classdef file
         end
       end
     end
-    %% resolves wildcarded filenames
-    function [filenames,wildcarded_flag]=resolve_wildcards(in,varargin)
+    function [out,wildcarded_flag]=resolve_wildcards(in,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
       p.addRequired( 'in',                         @(i) ischar(i)   || iscellstr(i)); 
@@ -460,7 +459,7 @@ classdef file
       in=cells.scalar(in);
       %vector mode
       if iscellstr(in)
-        filenames=unique(cells.rm_empty(cells.flatten(...
+        out=unique(cells.rm_empty(cells.flatten(...
           cellfun(@(i) file.resolve_wildcards(i,varargin{:}),in,'UniformOutput',false)...
         )));
         %convert to string if requested
@@ -468,9 +467,9 @@ classdef file
         return
       end
       %trivial call
-      if isempty(in)
-        if p.Results.scalar_as_strings
-          filenames='';
+            out='';
+          else
+            out={''};
         else
           filenames={''};
         end
@@ -550,7 +549,7 @@ classdef file
         end
       end
     end
-    function filenames=resolve_compressed(in,varargin)
+    function out=resolve_compressed(in,varargin)
       p=inputParser; p.KeepUnmatched=true;
       p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i)); 
       p.addParameter('prefer_compressed_files',false, @(i) islogical(i) && isscalar(i));
@@ -561,11 +560,11 @@ classdef file
       in=cells.scalar(in);
       %vector mode
       if iscellstr(in)
-        filenames=unique(cells.rm_empty(cells.flatten(...
+        out=unique(cells.rm_empty(cells.flatten(...
           cellfun(@(i) file.resolve_compressed(i,varargin{:},'scalar_as_strings',true),in,'UniformOutput',false)...
         )));
         %convert to string if requested
-        filenames=file.ensure_scalar(filenames,p.Results.scalar_as_strings);
+        out=file.ensure_scalar(out,p.Results.scalar_as_strings);
         return
       end
       %resolve homes
@@ -654,7 +653,7 @@ classdef file
       end
     end
     %% resolves timestamps
-    function filenames=resolve_timestamps(in,varargin)
+    function out=resolve_timestamps(in,varargin)
       p=inputParser; p.KeepUnmatched=true;
       p.addRequired( 'in',                                         @(i) ischar(i)   || iscellstr(i)); 
       p.addParameter( 'start',       time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
@@ -668,7 +667,7 @@ classdef file
       in=cells.scalar(in);
       %vector mode
       if iscellstr(in)
-        filenames=unique(cells.rm_empty(cells.flatten(...
+        out=unique(cells.rm_empty(cells.flatten(...
           cellfun(@(i) file.resolve_timestamps(i,varargin{:}),in,'UniformOutput',false)...
         )));
         %convert to string if requested
