@@ -272,6 +272,49 @@ classdef file
     function io=unresolve_home(io)
       io=str.rep(io,'~',getenv('HOME'));
     end
+    %% mat file saving/loading
+    function [out,loaded_flag]=load_mat(filename,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired( 'filename',          @(i) ischar(i) || iscellstr(i)); 
+      p.addParameter('data_var'   ,'out', @ischar);
+      p.parse(filename,varargin{:})
+      %check if mat file is available
+      datafile=file.ext(filename,'.mat','set');
+      if file.exist(datafile)
+        load(datafile,p.Results.data_var)
+        %sanity on the loaded data
+        if ~exist(p.Results.data_var,'var')
+          error([mfilename,': expecting to load variable ''',p.Results.data_var,''' from file ',datafile,'.'])
+        end
+        if ~strcmp(p.Results.data_var,'out')
+          %propagate p.Results.data_var to 'out' 
+          out=eval(p.Results.data_var);
+        end
+        loaded_flag=true;
+      else
+        out=[];
+        loaded_flag=false;
+      end
+    end
+    % wrapper for saving mat file (NOTICE: the non-mat file is given in 'filename')
+    function save_mat(out,filename,varargin)
+      p=inputParser;
+      p.KeepUnmatched=true;
+      p.addRequired( 'datafile',       @(i) ischar(i));
+      p.addParameter('save_mat', true, @(i) isscalar(i) && islogical(i))
+      p.addParameter('data_var','out', @ischar);
+      p.parse(filename,varargin{:})
+      %save mat file if requested
+      if p.Results.save_mat && ~isempty(out)
+        if ~strcmp(p.Results.data_var,'out')
+          %propagate 'out' to p.Results.data_var
+          eval([p.Results.data_var,'=out']);
+        end
+        %save the data with the requested variable name (properly propagated above)
+        save(file.ext(filename,'.mat','set'),p.Results.data_var)
+      end
+    end
     %% mat-file resolving (also works with any other extension)
     %checks if is mat file
     function out=isext(in,ext) %used to be called ismat
@@ -379,42 +422,21 @@ classdef file
         no_change_flag=str.iseq(filenames,in);
       end
     end
-    % wrapper for loading mat file
-    function [out,loaded_flag]=load_mat(filename,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired( 'filename',          @(i) ischar(i) || iscellstr(i)); 
-      p.addParameter('data_var'   ,'out', @ischar);
-      p.parse(filename,varargin{:})
-      %check if mat file is available
-      datafile=file.replace_ext(filename,'.mat',varargin{:});
-      if file.exist(datafile)
-        load(datafile,p.Results.data_var)
-        %sanity on the loaded data
-        if ~exist(p.Results.data_var,'var')
-          error([mfilename,': expecting to load variables ''obj'' from file ',datafile,'.'])
-        end
-        out=eval(p.Results.data_var);
-        loaded_flag=true;
-      else
-        out=[];
-        loaded_flag=false;
-      end
+    %% resolves wildcarded filenames
+    function out=iswildcarded(in)
+      out=contains(in,'*');
     end
-    % wrapper for saving mat file (NOTICE: the non-mat file is given in 'filename')
-    function save_mat(out,filename,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired( 'datafile',       @(i) ischar(i));
-      p.addParameter('save_mat', true, @(i) isscalar(i) && islogical(i))
-      p.addParameter('data_var','out', @ischar);
-      p.parse(filename,varargin{:})
-      %save mat file if requested
-      if p.Results.save_mat && ~isempty(out)        
-        %propagate 'out' to p.Results.data_var
-        eval([p.Results.data_var,'=out']);
-        %save the data with the requested variable name (properly propagated above)
-        save(file.replace_ext(filename,'.mat',varargin{:}),p.Results.data_var)
+    function [io,wildcarded_flag] = translate_wildcard(io)
+      wildcarded_flag=file.iswildcarded(io);
+      if wildcarded_flag
+        io=str.rep(io,'.*','<dotasterisc>','*','.*','<dotasterisc>','.*');
+      end
+      %handle special characters, reduce them to literals
+      special_chars={'+'};
+      for i=1:numel(special_chars)
+        if contains(io,special_chars{i})
+          io=str.rep(io,special_chars{i},['\',special_chars{i}]);
+        end
       end
     end
     %% resolves wildcarded filenames
@@ -1134,30 +1156,7 @@ function out = isnumstr(in)
   %    disp([mfilename,':debug: non-numerical chars: ',in])
   %end
 end
-function [io,wildcarded_flag] = translate_wildcard(io)
-  wildcarded_flag=contains(io,'*');
-  if wildcarded_flag
-    io=str.rep(io,'.*','<dotasterisc>','*','.*','<dotasterisc>','.*');
-%     idx=strfind(io,'*');
-%     for i=1:numel(idx)
-%       if idx(i) > 1 && ~strcmp(io(idx(i)-1),'.')
-%         io=translate_wildcard([io(1:idx(i)-1),'.',io(idx(i):end)]);
-%         return
-%       end
-%       if idx(i) == 1
-%         io=translate_wildcard(['.',io(idx(i):end)]);
-%         return
-%       end
-%     end
-  end
-  %handle special characters, reduce them to literals
-  special_chars={'+'};
-  for i=1:numel(special_chars)
-    if contains(io,special_chars{i})
-      io=str.rep(io,special_chars{i},['\',special_chars{i}]);
-    end
-  end
-end
+
 function out = reduce_cell_array(in)
   out=cell(size(in));
   for i=1:numel(in)
