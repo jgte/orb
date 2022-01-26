@@ -1108,7 +1108,7 @@ classdef gravity < simpletimeseries
     %   produces a permanent deformation and a consequent time independent
     %   contribution to the geopotential coefficient C20.
       switch tide_system
-      case {'zero_tide'}
+      case {'zero_tide','zero tide'}
         % the zero-frequency value includes the indirect distortion, but not the direct distortion
         % NOTICE: do nothing, this is the default
       case {'free_tide','tide_free','tide_tide','non_tidal'}
