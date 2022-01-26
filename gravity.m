@@ -335,7 +335,7 @@ classdef gravity < simpletimeseries
     end
     function [l,u]=labels(lmax,units_str)
       map=gravity.mapping(lmax);
-      l=cell(1,size(map,1));
+      l=cell(1,size(map,2));
       for i=1:size(map,2)
         if map(2,i)<0
           l{i}=['S',num2str(map(1,i)),',',num2str(-map(2,i))];
@@ -1331,7 +1331,7 @@ classdef gravity < simpletimeseries
       p.KeepUnmatched=true;
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
-      %create argument object, declare and parse parameters, save them to obj
+      % create argument object, declare and parse parameters, save them to obj
       [v,p]=varargs.wrap('parser',p,'sources',{gravity.parameters('obj')},'mandatory',{t,y},varargin{:});
       % get some parameters
       lmax=gravity.y_lmax(y(1,:));
@@ -3050,6 +3050,7 @@ function [m,e]=load_esamtm(filename,time)
   %no error info on mod format
   e=[];
 end
+
 %% Aux functions
 function out=keyword_search(line,keyword)
     out=strncmp(strtrim(line),       keyword,         length(keyword)) || ...
