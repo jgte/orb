@@ -38,7 +38,18 @@ classdef slr < gravity
               return
             end
           end
+        case 'CSR2x2';         out=fullfile(slr.dir('data'),'csr' ,'2x2'  );
+        case 'CSR5x5';         out=fullfile(slr.dir('data'),'csr' ,'5x5'  );
+        case 'TN-07';          out=fullfile(slr.dir('data'),'csr' ,'TN-07');
+        case 'TN-11';          out=fullfile(slr.dir('data'),'csr' ,'TN-11');
+        case 'CSR-RL06';       out=fullfile(slr.dir('data'),'csr' ,'RL06' );
+        case 'GSFC5x5';        out=fullfile(slr.dir('data'),'gsfc','5x5'  );
+        case 'TN-14';          out=fullfile(slr.dir('data'),'gsfc','TN-14');
+        case 'GSFC';           out=fullfile(slr.dir('data'),'gsfc','C20'  );
+        case 'GSFC-7DAY';      out=fullfile(slr.dir('data'),'gsfc','7day' );
         %add more directories here
+        otherwise
+          error(['Cannot handle type ''',type,'''.'])
       end
     end
     %% interface methods to object constants
@@ -282,6 +293,64 @@ classdef slr < gravity
         end
       end
     end
+    %% load predefined SLR data
+    function obj=load(source,varargin)
+     %handle producing the parametric model
+      if contains(source,'-C20-model')
+        %save data source
+        data_source=strrep(source,'-C20-model','');
+        %build parametric model data filename
+        [p,n]=fileparts(fullfile(slr.dir(data_source),data_source));
+        datafile=fullfile(p,[n,'_C20_pd.mat']);
+        %check if data file is missing or it's old
+        if ~file.exist(datafile) || file.age(datafile)>days(30)
+          %need to clean vararing of 'start' and 'stop' so that the model can be built from all data
+          varargin_now=cells.vararginclean(varargin,{'start','stop'});
+          %load the data
+          data=slr.load(data_source,varargin_now{:});
+          %get the modelled coefficients; NOTICE: always use data.t so that f_pdset is not dependent on inputs
+          [~,pd_set]=data.ts_C(2,0).parametric_decomposition_search(...
+            'np',2,...
+            'T',[1,1/2]*days(years(1)),...
+            'timescale','days'...
+          ); 
+          %append important information
+          pd_set.GM=data.GM;
+          pd_set.R=data.R;
+          pd_set.descriptor=data.descriptor;
+          %save the data
+          save(datafile,'pd_set')
+        else
+          %load the data
+          load(datafile,'pd_set')
+        end
+        %evaluate model at the data source time domain
+        model=pardecomp.join( pd_set,'time',pd_set.time);
+        %propagate relevant information
+        t=model.t;
+        y=zeros(numel(t),gravity.y_length(2));
+        y(:,gravity.colidx(2,0,2))=model.y;
+        %TODO: test that the metadata gets all the way here
+        header=struct(...
+          'GM'  ,pd_set.GM,...
+          'R'   ,pd_set.R,...
+          'name',['model of ',pd_set.descriptor]...
+        );
+      else
+        %branch on type of SLR data
+        switch source
+          case 'CSR2x2'
+            [t,y,header]=import_CSR2x2(varargin{:});
+          case 'CSR5x5'
+            [t,y,header]=import_CSR5x5(varargin{:});
+          case 'GSFC5x5'
+            [t,y,header]=import_GSFC5x5(varargin{:});
+          otherwise
+            error(['Cannot handle SLR data of type ''',source,'''.'])
+        end
+      end
+      obj=slr(t,y,'GM',header.GM,'R',header.R,'descriptor',header.name);
+    end
     %% testing for the current object
     function out=test_parameters(field)
       switch lower(field)
@@ -299,11 +368,26 @@ classdef slr < gravity
       end
       start=slr.test_parameters('start');
       stop= slr.test_parameters('stop' );
-      test_list={'CSR2x2','CSR5x5'};
+      test_list={'CSR2x2','CSR5x5','GSFC5x5'};
       switch(method)
         case 'all'
+          plotting.figure;
+          cellfun(@(i) slr.load(...
+            i,'start',start,'stop',stop...
+          ).plot(...
+            'method','timeseries','degrees',2,'orders',0 ...
+          ),test_list);
+          plotting.enforce(...
+            'plot_legend',test_list...
+          );
+        case 'C20-model'
           for i=1:numel(test_list)
-            out{i}=slr(test_list{i},'start',start,'stop',stop); %#ok<AGROW>
+            plotting.figure;
+            slr.load( test_list{i},          'start',start,'stop',stop).plot('method','timeseries','degrees',2,'orders',0);
+            slr.load([test_list{i},'-C20-model'],'start',start,'stop',stop).plot('method','timeseries');
+            plotting.enforce(...
+              'plot_legend',{test_list{i},'model'}...
+            );
           end
         case {'CSR5x5','CSR2x2','GSFC5x5'}
           out=slr(method);
@@ -315,27 +399,21 @@ classdef slr < gravity
   end
   methods
     %% constructor
-    function obj=slr(source,varargin)
+    function obj=slr(t,y,varargin)
       %NOTICE: to define a start/stop, pass it in varargin; gravity.common_ops will handle that
-      % input parsing
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired('source',@ischar)
-      %declare parameters p
-      v=varargs.wrap('parser',p,'sources',{slr.parameters('obj')},'mandatory',{source},varargin{:});
-      %branch on type of SLR data
-      switch source
-        case 'CSR2x2'
-          [t,y]=import_CSR2x2(v.varargin{:});
-        case 'CSR5x5'
-          [t,y]=import_CSR5x5(v.varargin{:});
-        case 'GSFC5x5'
-          [t,y]=import_GSFC5x5(v.varargin{:});
-        otherwise
-          error(['Cannot handle SLR data of type ''',source,'''.'])
-      end
-      obj=obj@gravity(t,y,varargin{:},'descriptor',['SLR ',source]);
-      %apply model processing options
+      %input parsing
+      p=machinery.inputParser;
+      p.addRequired( 't' ); %this can be char, double or datetime
+      p.addRequired( 'y', @(i) simpledata.valid_y(i));
+      % create argument object, declare and parse parameters, save them to obj
+      [v,~]=varargs.wrap('parser',p,'sources',{slr.parameters('obj')},'mandatory',{t,y},varargin{:});
+      %init the object
+      %NOTICE: generally, the following options should be in varargin: 'GM', 'R' and 'descriptor'
+      obj=obj@gravity(t,y,varargin{:});
+      
+      %TODO: move common_ops to the init of gravity
+    
+      %apply model processing options  
       obj=gravity.common_ops('all',obj,v.varargin{:},'product_name',obj.descriptor);
     end
     function out=metadata(obj,more_parameters)
@@ -377,11 +455,11 @@ classdef slr < gravity
 end
 
 %TODO: need to retreive y_out_error in this function
-function [t_out,y_out]=import_CSR2x2(varargin)
+function [t_out,y_out,header]=import_CSR2x2(varargin)
   % add input arguments and metadata to collection of parameters 'v'
   v=varargs.wrap('sources',{...
     {...
-      'import_dir',   fullfile(slr.dir('data'),'csr','2x2'),@ischar;...
+      'import_dir',   slr.dir('CSR2x2'),@ischar;...
       'format',        'csr',@ischar;...
       'data_dir_url', 'http://ftp.csr.utexas.edu/pub/slr/degree_2',@ischar;...
       'suffix',       'RL06',@ischar;...
@@ -411,13 +489,20 @@ function [t_out,y_out]=import_CSR2x2(varargin)
       %unpack the data
       t_out=out.t_out;
       y_out=out.y_out;
+      header=out.header;
     else
       %need to make sure file.unwrap returned the txt file
       assert(file.isext(local_data,'.txt'),'BUG TRAP: expecting a txt file')
-      %load the header (search for the end of the header up until line 30)
-      header=file.header(local_data,30);
+      %build the header info (GM, R and tide_system is assumed to be the same as CSR5x5)
+      header=struct(...
+        'name','UT/CSR monthly 2x2 RL-06 time series from SLR',...
+        'raw',file.header(local_data,30),... %load the text (search for the end of the header up until line 30)
+        'GM',3.986004415E+14,...
+        'R',6.378136300E+06,...
+        'tide_system','zero_tide'...
+      );
       %branch on files with one or two coefficients
-      if contains(header,'C21') || contains(header,'C22')
+      if contains(header.raw,'C21') || contains(header.raw,'C22')
         %2002.0411  2.43934614E-06 -1.40026049E-06  0.4565  0.4247 -0.0056  0.1782   20020101.0000   20020201.0000
         file_fmt='%f %f %f %f %f %f %f %f %f';
         data_cols=[2 3];
@@ -465,18 +550,16 @@ function [t_out,y_out]=import_CSR2x2(varargin)
         o=v.orders{i}(j);
         y_out(:,gravity.colidx(d,o,max(v.degrees)))=y(:,j); %#ok<AGROW>
       end
-      %pack the data
-      out=struct('t_out',t_out,'y_out',y_out);
       %save the data in mat format
-      file.save_mat(out,local_data,'data_var','out')
+      file.save_mat(struct('t_out',t_out,'y_out',y_out,'header',header),local_data,'data_var','out')
     end
   end  
 end
-function [t_out,y_out,y_out_error,y_out_AOD,header]=import_CSR5x5(varargin)
+function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
   % add input arguments and metadata to collection of parameters 'v'
   v=varargs.wrap('sources',{...
     {...
-      'import_dir',   fullfile(slr.dir('data'),'csr','5x5'),@ischar;...
+      'import_dir',   slr.dir('CSR5x5'),@ischar;...
       'data_dir_url', 'http://ftp.csr.utexas.edu/pub/slr/degree_5',@ischar;...
       'data_file',    'CSR_Monthly_5x5_Gravity_Harmonics.txt',@ischar;...
       'data_labels',  {'n','m','Cnm','Snm','Cnm+AOD','Snm+AOD','C-sigma','S-sigma','Year_mid_point'},@iscellstr;
@@ -497,14 +580,15 @@ function [t_out,y_out,y_out_error,y_out_AOD,header]=import_CSR5x5(varargin)
     y_out      =out.y_out;
     y_out_AOD  =out.y_out_AOD;
     y_out_error=out.y_out_error;
+    header     =out.header;
   else
     %need to make sure file.unwrap returned the txt file
     assert(file.isext(local_data,'.txt'),'BUG TRAP: expecting a txt file')
     %declare header structure
-    header=struct('GM',0,'radius',0,'lmax',v.lmax,'tide_system','unknown','modelname','unknown',...
+    header=struct('GM',0,'radius',0,'lmax',v.lmax,'tide_system','unknown','name','unknown',...
       'static',[],'labels',{{}},'idx',struct([]),'units',1);
     %define known details
-    header.modelname='UT/CSR monthly 5x5 gravity harmonics';
+    header.name='UT/CSR monthly 5x5 gravity harmonics';
     %open the file
     fid=file.open(local_data);
     % Read header
@@ -517,7 +601,7 @@ function [t_out,y_out,y_out_error,y_out_AOD,header]=import_CSR5x5(varargin)
         header.GM = str2double(strtrim(strrep(s,'earth_gravity_constant','')));
       end
       if (keyword_search(s, 'radius'))
-        header.radius=str2double(strtrim(strrep(s,'radius','')));
+        header.R=str2double(strtrim(strrep(s,'radius','')));
       end
       if (keyword_search(s, 'tide_system'))
         header.tide_system=strtrim(strrep(s,'tide_system',''));
@@ -612,22 +696,23 @@ function [t_out,y_out,y_out_error,y_out_AOD,header]=import_CSR5x5(varargin)
     fclose(fid);
     %add static signal and error
     units=header.units*ones(size(y_out,1),1);
-    y_out      =     y_out          +  units*static_signal;
-    y_out_AOD  =     y_out_AOD      +  units*static_signal;
-    y_out_error=sqrt(y_out_error.^2 + (units*static_error).^2);
-    %pack the data
-    out=struct('t_out',t_out,'y_out',y_out,'y_out_AOD',y_out_AOD,'y_out_error',y_out_error);
+    y_out      =      units.*y_out           +  static_signal;
+    y_out_AOD  =      units.*y_out_AOD       +  static_signal;
+    y_out_error=sqrt((units.*y_out_error).^2 +  static_error.^2);
+    %fix the permanent tide
+    y_out(:,gravity.colidx(2,0,header.lmax))=gravity.zero_tide(...
+    y_out(:,gravity.colidx(2,0,header.lmax)),header.tide_system);
     %save the data in mat format
-    file.save_mat(out,local_data,'data_var','out')
+    file.save_mat(struct('t_out',t_out,'y_out',y_out,'y_out_AOD',y_out_AOD,'y_out_error',y_out_error,'header',header),local_data,'data_var','out')
   end
 end
-function [t_out,y_out,y_out_error,y_out_AOD,header]=import_GSFC5x5(varargin)
+function [t_out,y_out,header]=import_GSFC5x5(varargin)
   % add input arguments and metadata to collection of parameters 'v'
   v=varargs.wrap('sources',{...
     {...
-      'import_dir',   fullfile(slr.dir('data'),'gsfc','5x5'),@ischar;...
+      'import_dir',   slr.dir('GSFC5x5'),@ischar;...
       'data_dir_url', 'https://earth.gsfc.nasa.gov/sites/default/files/2021-12',@ischar;...
-      'data_file',    'GSFC_SLR_5x5c61s61_200001_202111.txt',@ischar;...
+      'data_file',    'GSFC_SLR_5x5c61s61.txt',@ischar;...
       'data_labels',  {'n','m','C','S'},@iscellstr;
       'lmax',         5,   @(i) isscalar(i) && isnumeric(i);...
     },...
@@ -644,6 +729,7 @@ function [t_out,y_out,y_out_error,y_out_AOD,header]=import_GSFC5x5(varargin)
     %unpack the data
     t_out=out.t_out;
     y_out=out.y_out;
+    header=out.header;
   else
     %need to make sure file.unwrap returned the txt file
     assert(file.isext(local_data,'.txt'),'BUG TRAP: expecting a txt file')
@@ -651,7 +737,7 @@ function [t_out,y_out,y_out_error,y_out_AOD,header]=import_GSFC5x5(varargin)
     header=struct('GM',0,'radius',0,'lmax',v.lmax,'tide_system','unknown','modelname','unknown',...
       'labels',{{}},'idx',struct([]),'units',1);
     %define known details
-    header.modelname='GSFC weekly 5x5 gravity harmonics';
+    header.name='NASA GSFC SLR 5x5+C61/S61 time variable gravity';
     %open the file
     fid=file.open(local_data);
     % Read header
@@ -660,13 +746,16 @@ function [t_out,y_out,y_out_error,y_out_AOD,header]=import_GSFC5x5(varargin)
       if keyword_search(s,'end of header')
         break
       end
+      if keyword_search(s,'Title: ')
+        header.name = strtrim(strrep(s,'Title: ',''));
+      end
       if keyword_search(s,'GM:')
         l=strsplit(s);
         header.GM = str2double(l{3});
       end
       if (keyword_search(s, 'R:'))
         l=strsplit(s);
-        header.radius=str2double(l{3});
+        header.R=str2double(l{3});
       end
       if (keyword_search(s, 'C20 is'))
         header.tide_system=strtrim(strrep(s,'C20 is',''));
@@ -731,10 +820,11 @@ function [t_out,y_out,y_out_error,y_out_AOD,header]=import_GSFC5x5(varargin)
       end
     end
     fclose(fid);
-    %pack the data
-    out=struct('t_out',t_out,'y_out',y_out);
+    %fix the permanent tide
+    y_out(:,gravity.colidx(2,0,header.lmax))=gravity.zero_tide(...
+      y_out(:,gravity.colidx(2,0,header.lmax)),header.tide_system);
     %save the data in mat format
-    file.save_mat(out,local_data,'data_var','out')
+    file.save_mat(struct('t_out',t_out,'y_out',y_out,'header',header),local_data,'data_var','out')
   end
 end
 
