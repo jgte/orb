@@ -1683,7 +1683,7 @@
         mode='linear';
       end
       if ~exist('disp','var') || isempty(disp)
-        disp=true;
+        disp=false;
       end
       %trivial call
       if str.none(mode)
