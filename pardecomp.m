@@ -91,7 +91,7 @@ classdef pardecomp
       assert(isnumeric(T)  || isempty(T),  'Ilegal input T')
       assert(isnumeric(np) && isscalar(np),'Ilegal input np')
       if iscellstr(name)
-        %NOTICE: if the error 'Non-scalar in Uniform output, at index 3, output 1.' is triggered, 
+        %NOTICE: if the error 'Non-scalar in Uniform output, at index 3, output 1.' is triggered,
         %        it means one of the entries in 'name' is not a valid x-name
         out=cellfun(@(i) pardecomp.idx(np,T,i),name,'UniformOutput',true);
       else
@@ -107,8 +107,8 @@ classdef pardecomp
     %% decomposition into pd_set
     function pd_set=split(obj,varargin)
       % NOTICE: the following parameters are pretty much mandatory to define the parametric regression (see below)
-      % 'T',[2*min(diff(t)),(t(end)-t(1))/2], @(i) isnumeric(i) || isempty(i);... 
-      % 'np',0,                               @num.isscalar;... 
+      % 'T',[2*min(diff(t)),(t(end)-t(1))/2], @(i) isnumeric(i) || isempty(i);...
+      % 'np',0,                               @num.isscalar;...
       % NOTICE: this method expect obj to be simpledata-esque
       v=varargs.wrap('sources',{....
         {...
@@ -122,13 +122,16 @@ classdef pardecomp
       %init loop vars
       t_pd=pardecomp.to_timescaled(obj.x_masked,v.timescale);
       y_pd=obj.y_masked;
+
+      % TODO: pardecomp().lsq may well handle y_pd as an array
+
       % parfor wide objects
       % TODO: can't seem to get this to work: Error using pardecomp (line 313) Not enough input arguments.)
       if v.parallel
         parfor i=1:obj.width
           %create temporary var
           varargin_now=varargin;
-          % call mother routine, solve and implement higher x-domain resolution 
+          % call mother routine, solve and implement higher x-domain resolution
           % for the model if needed (trivial check done inside)
           % TODO: the latter needs checking
           d(i)=pardecomp(t_pd,y_pd(:,i),varargin_now{:});
@@ -137,7 +140,7 @@ classdef pardecomp
       else
         s.msg=['Parametric decomposition of ',obj.descriptor]; s.n=obj.width;
         for i=1:obj.width
-          % call mother routine, solve and implement higher x-domain resolution 
+          % call mother routine, solve and implement higher x-domain resolution
           % for the model if needed (trivial check done inside)
           % TODO: the latter needs checking
           d(i)=pardecomp(...
@@ -200,7 +203,7 @@ classdef pardecomp
         'descriptor',obj.descriptor,...
         'timescale',v.timescale,...
         pd_args{:});
-      %this is the abcissae defined in obj, excluding gaps    
+      %this is the abcissae defined in obj, excluding gaps
       pd_set.t_masked=obj.t_masked;
       %save residuals
       o=init(obj.t_masked,num.struct_deal(d,'yr',[],1));
@@ -229,7 +232,7 @@ classdef pardecomp
       %parse inputs
       v=varargs.wrap('sources',{....
         {...
-          'time',      pd_set.time, @isdatetime;... 
+          'time',      pd_set.time, @isdatetime;...
           'coeffnames',coeffnamall,    @iscellstr;...
           'add_res',   false,       @islogical;...
         },...
@@ -243,7 +246,7 @@ classdef pardecomp
       %match epochs (very important and not done with copying the metadata)
       obj.epoch=pd_set.epoch;
       %update descriptor (not done with copying the metadata)
-      obj.descriptor=pd_set.descriptor; 
+      obj.descriptor=pd_set.descriptor;
       %initialize coefficient containers
       coeffval=zeros(pardecomp.xlength(pd_set.np,pd_set.T),pd_set.width);
       coeffidx=zeros(pardecomp.xlength(pd_set.np,pd_set.T),1);
@@ -286,9 +289,9 @@ classdef pardecomp
     end
     function out=default
       out={...
-        't',                     [], @(i)  isnumeric(i) || isempty(i);... 
-        'T',                     [], @(i)  isnumeric(i) || isempty(i);... 
-        'np',                     0, @num.isscalar;... 
+        't',                     [], @(i)  isnumeric(i) || isempty(i);...
+        'T',                     [], @(i)  isnumeric(i) || isempty(i);...
+        'np',                     0, @num.isscalar;...
         't0',                     0, @num.isscalar;...
         'epoch',     time.zero_date, @(i)  isdatetime(i) && isscalar(i);...
         'timescale',      'seconds', @ischar;...
@@ -309,7 +312,7 @@ classdef pardecomp
       v=varargs.wrap('sources',{v,pardecomp.default},varargin{:});
       v=varargs.wrap('sources',{v,....
         {...
-          'time',v.epoch+pardecomp.from_timescaled(v.t,v.timescale), @isdatetime;... 
+          'time',v.epoch+pardecomp.from_timescaled(v.t,v.timescale), @isdatetime;...
         },...
       },varargin{:});
       %initialize output
@@ -411,7 +414,7 @@ classdef pardecomp
             period=num2str(v.time_unit(sec));
           otherwise
             period='-';
-        end            
+        end
         if v.tablify
           out{c}=str.tablify(v.tabw,name,period,pd_set.(i{1}).y(v.cols));
         else
@@ -441,6 +444,8 @@ classdef pardecomp
       sin_periods_assumed=sin_periods;
        sin_coeffs=[0.5 3];
        cos_coeffs=[2 0.8];
+      %TODO: implement multiple columns in Y
+%       randn_scale=[0.1,1,10];
       randn_scale=0.1;
       %derived parameters
       t=transpose(1:step:(n*step));
@@ -454,7 +459,7 @@ classdef pardecomp
       );
       y=ref.y_sum;
       %add noise
-      y=y+randn_scale*randn(size(y));
+      y=y*ones(size(randn_scale))+randn(size(y))*randn_scale;
       %inversion
       obj=pardecomp(t,y,...
         'np',numel(poly_coeffs),...
@@ -462,7 +467,9 @@ classdef pardecomp
       ).lsq;
       %show results
       if v.plot
-        obj.plot(varargin{:});
+        for i=1:numel(randn_scale)
+          obj.plot(varargin{:},'columns',{i});
+        end
       end
       %inform
       if v.print
@@ -479,8 +486,8 @@ classdef pardecomp
       [~,~,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{....
         pardecomp.parameters('obj'),...
         {...
-          'T',[2*min(diff(t)),(t(end)-t(1))/2], @(i) isnumeric(i) || isempty(i);... 
-          'np',0,   @num.isscalar;... 
+          'T',[2*min(diff(t)),(t(end)-t(1))/2], @(i) isnumeric(i) || isempty(i);...
+          'np',0,   @num.isscalar;...
           't0',t(1),@num.isscalar;...
           'p', [],  @(i) (isnumeric(i) && isvector(i)) || isempty(i);...
           's', [],  @(i) (isnumeric(i) && isvector(i)) || isempty(i);...
@@ -548,7 +555,7 @@ classdef pardecomp
         assert(~isempty(obj.t),'Both y and t are empty, this is ilegal')
         out=numel(obj.t);
       else
-        out=numel(obj.y);
+        out=size(obj.y,1);
       end
     end
     %% coeffcients idx functions
@@ -560,28 +567,33 @@ classdef pardecomp
       if isempty(obj.xi)
         assert(~isempty(obj.p) || ~isempty(obj.s),'Cannot determine the x-vector because no coefficient record is defined')
         obj.xi=[obj.p(:);obj.s(:);obj.c(:)];
+      else
+        assert(numel(obj.xi)==obj.nx,'Ilegal sizes of the x-vector')
       end
-      out=obj.xi;
+      out=obj.xi(:);
     end
     function out=get.p(obj)
       if obj.np==0; out=[]; return; end
       assert(~isempty(obj.xi),'Cannot determine the polynomial coefficients because the x-vector is undefined')
-      out=obj.x(obj.p_idx);
+      out=obj.x(obj.p_idx,:);
     end
     function out=get.s(obj)
       if obj.ns==0; out=[]; return; end
       assert(~isempty(obj.xi),'Cannot determine the sine coefficients because the x-vector is undefined')
-      out=obj.x(obj.s_idx);
+      out=obj.x(obj.s_idx,:);
     end
     function out=get.c(obj)
       if obj.ns==0; out=[]; return; end
       assert(~isempty(obj.xi),'Cannot determine the cosine coefficients because the x-vector is undefined')
-      out=obj.x(obj.c_idx);
+      out=obj.x(obj.c_idx,:);
     end
     %% coefficients set functions
+
+    %TODO: these functions break when there are multiple columns in y
+
     function obj=set.x(obj,x_in)
       if isempty(x_in); return; end
-      assert(numel(x_in)==obj.nx,['input x_in must have length ',num2str(obj.nx),', not ',num2str(numel(x_in))])
+      assert(size(x_in,1)==obj.nx,['input x_in must have ',num2str(obj.nx),' rows, not ',num2str(size(x_in,1))])
       obj.xi=x_in;
     end
     function obj=set.p(obj,p_in)
@@ -622,7 +634,7 @@ classdef pardecomp
       out=transpose(obj.A)/obj.Qy;
     end
     function out=get.N(obj)
-      out=obj.AtQy*obj.A; 
+      out=obj.AtQy*obj.A;
     end
     function out=get.h(obj)
       out=obj.AtQy*obj.y;
@@ -639,12 +651,12 @@ classdef pardecomp
     end
     %% forward modelling
     function out=get.y_sum(obj)
-      out=obj.A*obj.x(:);
+      out=obj.A*obj.x;
     end
     function out=get.y_comp(obj)
       out=zeros(obj.ny,obj.nx);
       for j=1:obj.nx
-        out(:,j)=obj.A(:,j)*obj.x(j);
+        out(:,j)=obj.A(:,j)*obj.x(j,:);
       end
     end
     function out=get.yp(obj); out=obj.y_comp(:,obj.p_idx); end
@@ -673,35 +685,43 @@ classdef pardecomp
     end
     %% general plotting
     function plot(obj,varargin)
+      % parse input arguments
+      v=varargs.wrap('sources',{...
+        {...
+          'columns',        {1} , @iscell; ...
+        },...
+      },varargin{:});
       screen_position=200+[0,0,21,9]*50;
-      figure('Position',screen_position,'PaperPosition',screen_position)
-      legend_str=cell(1,obj.nx+2);
-      counter=0;
-      plot(obj.t,obj.y,'b','LineWidth',2), hold on
-      counter=counter+1;legend_str{counter}='original';
-      plot(obj.t,obj.yr,'k','LineWidth',2)
-      counter=counter+1;legend_str{counter}='residual';
-      for i=1:numel(obj.p)
-        plot(obj.t,obj.yp(:,i),'r','LineWidth',2)
-        counter=counter+1;legend_str{counter}=['t^',num2str(i-1),':',num2str(obj.p(i))];
+      for j=1:numel(v.columns)
+        figure('Position',screen_position,'PaperPosition',screen_position)
+        legend_str=cell(1,obj.nx+2);
+        counter=0;
+        plot(obj.t,obj.y(:,j),'b','LineWidth',2), hold on
+        counter=counter+1;legend_str{counter}='original';
+        plot(obj.t,obj.yr(:,j),'k','LineWidth',2)
+        counter=counter+1;legend_str{counter}='residual';
+        for i=1:numel(obj.p)
+          plot(obj.t,obj.yp(:,i),'r','LineWidth',2)
+          counter=counter+1;legend_str{counter}=['t^',num2str(i-1),':',num2str(obj.p(i))];
+        end
+        for i=1:numel(obj.s)
+          plot(obj.t,obj.ys(:,i),'g','LineWidth',2)
+          counter=counter+1;legend_str{counter}=['sin_',num2str(i),':',num2str(obj.s(i))];
+        end
+        for i=1:numel(obj.c)
+          plot(obj.t,obj.yc(:,i),'m','LineWidth',2)
+          counter=counter+1;legend_str{counter}=['cos_',num2str(i),':',num2str(obj.c(i))];
+        end
+        legend(legend_str,'location','eastoutside')
+        title(['norm(x+res-y)=',num2str(norm(sum([obj.yp,obj.ys,obj.yc,obj.yr,-obj.y],2))),...
+          newline,'T=',num2str(obj.T(:)')])
+        fs=16;
+        set(    gca,          'FontSize',fs);
+        set(get(gca,'Title' ),'FontSize',round(fs*1.3));
+        set(get(gca,'XLabel'),'FontSize',round(fs*1.1));
+        set(get(gca,'YLabel'),'FontSize',round(fs*1.2));
+        grid on
       end
-      for i=1:numel(obj.s)
-        plot(obj.t,obj.ys(:,i),'g','LineWidth',2)
-        counter=counter+1;legend_str{counter}=['sin_',num2str(i),':',num2str(obj.s(i))];
-      end
-      for i=1:numel(obj.c)
-        plot(obj.t,obj.yc(:,i),'m','LineWidth',2)
-        counter=counter+1;legend_str{counter}=['cos_',num2str(i),':',num2str(obj.c(i))];
-      end
-      legend(legend_str,'location','eastoutside')
-      title(['norm(x+res-y)=',num2str(norm(sum([obj.yp,obj.ys,obj.yc,obj.yr,-obj.y],2))),...
-        newline,'T=',num2str(obj.T(:)')])
-      fs=16;
-      set(    gca,          'FontSize',fs);
-      set(get(gca,'Title' ),'FontSize',round(fs*1.3));
-      set(get(gca,'XLabel'),'FontSize',round(fs*1.1));
-      set(get(gca,'YLabel'),'FontSize',round(fs*1.2));
-      grid on
     end
   end
 end
