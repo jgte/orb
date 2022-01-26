@@ -163,8 +163,7 @@ classdef dataproduct
         return
       end
       % input parsing (relevant to the parameters defined in dataproduct.parameter_list)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('field_path',    '',@(i) ischar(i) || iscell(i));
       p.addParameter('metadata_from', '',@isstruct);
       %create argument object, declare and parse parameters, save them to obj
@@ -203,8 +202,7 @@ classdef dataproduct
       [~,~,obj.metadata]=varargs.wrap('sources',{obj.default_metadata,obj.metadata},'sinks',{obj.metadata},varargin{:});
     end
     function obj=rm_data(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('rm_args',[], @ischar);
       p.addParameter('mode','data', @ischar);
       % parse it
@@ -247,8 +245,7 @@ classdef dataproduct
     end
     function [out,startlist,stoplist]=file(obj,mode,varargin)
       %NOTICE: this procedure ALWAYS returns cell arrays!
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('start',     datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',      datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('start_timestamp_only', true, @islogical);
@@ -453,7 +450,7 @@ classdef dataproduct
     end
     %% metadata parsing
     function out=mdget(obj,metadatafieldname,varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'metadatafieldname',            @(i) ischar(i) || iscell(i));
       p.addParameter('return_empty_if_missing',false,@islogical);
       p.addParameter('always_cell_array',      false,@islogical);

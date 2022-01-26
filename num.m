@@ -137,8 +137,7 @@ classdef num
     %assuming homogeneous x-domain step equal to 'dt'
     %using a central stencial scheme with npoints*2+1
     function [df,out]=diff(f,dt,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('npoints',3, @(i) isnumeric(i) && isscalar(i));
       p.addParameter('nderiv', 1, @(i) isnumeric(i));
       % NOTICE: extremeties can be:
@@ -531,8 +530,7 @@ classdef num
 %         continuar aqui
         
       end
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 't', @(i)  isnumeric(i) && isvector(i) && size(i,2)==1          && ~any(isnan(i)) );
       p.addRequired( 'y', @(i) (isnumeric(i) && isvector(i) && all(size(i)==size(t)) && ~any(isnan(i))) || isempty(i) );
       %number of polynomial coefficients (not order): 1 constant, 2 constant+linear, 3 constant+linear+quadratic, etc
@@ -662,7 +660,7 @@ classdef num
     end
     function x_opt=param_search1(fun,x,varargin)
       % input parsing
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'fun',                   @(i) isa(i,'function_handle'));
       p.addRequired( 'xrange',                @isnumeric);
       p.addParameter('searchspace', 'linear', @ischar);
@@ -716,7 +714,7 @@ classdef num
     end
     function [x_opt,y,x]=param_brute(fun,x_lower,x_upper,varargin)
       % input parsing
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'fun',                   @(i) isa(i,'function_handle'));
       p.addRequired( 'x_upper',               @isnumeric);
       p.addRequired( 'x_lower',               @isnumeric);

@@ -403,7 +403,7 @@ classdef str
     end
     function out=just(in,len,varargin)
       % parse mandatory arguments
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'in',           @ischar);
       p.addRequired( 'len',          @isfinite);
       p.addParameter('just','center',@(i) any(strcmp(i,{'left','center','right'})));
@@ -709,7 +709,7 @@ classdef str
     end
     function log(filename,msg,varargin)
       % parse mandatory arguments
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'filename',    @ischar);
       p.addRequired( 'msg',         @(i) iscellstr(i) || ischar(i));
       p.addParameter('clear',false, @islogical);

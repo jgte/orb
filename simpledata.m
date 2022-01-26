@@ -291,8 +291,7 @@
       %       routine.
 
       % Handle Inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'in',                       @isnumeric);
       p.addParameter('outlier_sigma',...
          simpledata.parameters('outlier_sigma'), @num.isscalar);
@@ -373,8 +372,7 @@
     end
     %% vector operators
     function out=vmean(obj_list,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'obj_list', @iscell);
       p.addParameter('weights',ones(size(obj_list))/numel(obj_list),@(i) isnumeric(i) && all(size(obj_list)==size(i)))
       p.parse(obj_list,varargin{:})
@@ -384,8 +382,7 @@
       end
     end
     function out=vtimes(obj_list1,obj_list2)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'obj_list1', @iscell);
       p.addRequired( 'obj_list2', @(i) iscell(i) && all(size(obj_list1)==size(obj_list2)) )
       p.parse(obj_list1,obj_list2)
@@ -395,8 +392,7 @@
       end
     end
     function out=vscale(obj_list,scales)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'obj_list', @iscell);
       p.addRequired( 'scales',   @(i) isnumeric(i) && all(numel(obj_list)==numel(scales)) )
       p.parse(obj_list,scales)
@@ -406,8 +402,7 @@
       end
     end
     function out=vsqrt(obj_list)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'obj_list', @iscell);
       p.parse(obj_list)
       out=cell(size(obj_list));
@@ -432,8 +427,7 @@
     %% aux routines
     function out=parametric_component_fieldnames(varargin)
       %converts {'polynomial',[1 1 1],'sinusoidal',[n1, n2, n3]} into {p0,p1,p2,s1,s2,s3,c1,c2,c3}
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('polynomial',[], @(i) isnumeric(i) || isempty(i));
       p.addParameter('sinusoidal',[], @(i) isnumeric(i) || isduration(i) || isempty(i));
       p.parse(varargin{:});
@@ -792,8 +786,7 @@
     %% constructor
     function obj=simpledata(x,y,varargin)
       % input parsing
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'x'      ,                  @(i) simpledata.valid_x(i));
       p.addRequired( 'y'      ,                  @(i) simpledata.valid_y(i));
       p.addParameter('mask'   ,true(size(x(:))), @(i) simpledata.valid_mask(i));
@@ -830,8 +823,7 @@
     end
     %NOTICE: unlike the assign_* methods above, this method does some checking
     function obj=assign(obj,y,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'y'          ,         @(i) simpledata.valid_y(i));
       p.addParameter('x'          ,obj.x,   @(i) simpledata.valid_x(i));
       p.addParameter('mask'       ,obj.mask,@(i) simpledata.valid_mask(i));
@@ -984,8 +976,7 @@
       end
     end
     function out=stats(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('mode',          'struct',          @ischar);
       p.addParameter('frmt',          '%-16.3g',         @ischar);
       p.addParameter('tab',           8,                 @isscalar);
@@ -1107,8 +1098,7 @@
       end
     end
     function out=stats2(obj1,obj2,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('mode',       'struct', @ischar);
       p.addParameter('minlen',            2, @isscalar);
       p.addParameter('columns', 1:min([obj1.width,obj2.width]), @(i) isnumeric(i) || iscell(i));
@@ -1601,8 +1591,7 @@
     end
     function obj=interp(obj,x_now,varargin)
       % parse inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('interp_over_gaps_narrower_than',0,@(i) num.isscalar(i) && ~isnan(i))
       p.addParameter('interp1_args',cell(0),@iscell);
       % parse it
@@ -1889,8 +1878,7 @@
       %This method checks if the objects are referring to the same
       %type of data, i.e. the data length is not important.
       % parse inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('compatible_parameters',simpledata.compatible_parameter_list,@iscellstr)
       p.addParameter('check_width',true,@islogical);
       p.addParameter('skip_par_check',{''},@iscellstr)
@@ -2028,8 +2016,7 @@
       % - notice that common=true,new=*,old=true is the same as common=false,new=*,old=true: old data
       %   is not deleted in both cases, so the common data is never copied anyway
       % Parse inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % optional arguments
       p.addParameter('quiet',       false, @(i)islogical(i) && isscalar(i));
       p.addParameter('common',      true,  @(i)islogical(i) && isscalar(i));
@@ -2416,8 +2403,7 @@
     end
     %% differentiation
     function obj=diff(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('mode','central', @ischar);
       % parse it
       p.parse(varargin{:});
@@ -2788,8 +2774,7 @@
     end
     function out=data(obj,varargin)
       % Parse inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % optional arguments
       p.addParameter('mode',  'xy',              @ischar);
       p.addParameter('masked',false,             @(i)islogical(i) && isscalar(i));

@@ -342,7 +342,7 @@ classdef orbit
     end
     %wrapper for the <format>_filename routines, transparent for different <format>s
     function out=filename(format,satname,start,varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'satname',     @ischar);
       p.addRequired( 'format',      @ischar);
       p.addRequired( 'start',       @(i) isdatetime(i) && isscalar(i));
@@ -360,8 +360,7 @@ classdef orbit
     %is discovered from the header. Also handles compressed files.
     %TODO: most of the zip-handling functionalityhas been implemented in simpletimeseries as is probably duplicate here.
     function obj=load_ascii(filename,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'filename',                          @ischar);
       p.addParameter('asciiformat','',                    @ischar);
       % parse it
@@ -459,8 +458,7 @@ classdef orbit
     end
     %reads data in any format, over any time period
     function obj=import(format,satname,start,stop,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'format',             @ischar);
       p.addRequired( 'satname',            @ischar);
       p.addRequired( 'start',              @(i) isdatetime(i) && isscalar(i));
@@ -715,8 +713,7 @@ classdef orbit
   methods
     %% constructor
     function obj=orbit(t,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('t',@(i) ~isscalar(i) || (isstruct(i) && isscalar(i))); %this can be vector char, double, datetime or scalar struct
       %parse the arguments with the names defined in orbit.data_type_list
       for j=1:numel(orbit.data_types)
@@ -755,8 +752,7 @@ classdef orbit
       %simplify things
       data_type=lower(data_type);
       %parse input
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('t'         ,@(i) ~isscalar(i)); %this can be char, double, datetime
       p.addRequired('data_type' ,@(i)    ischar(i) && cells.isincluded(fieldnames(orbit.data_type_list),i)); 
       p.addRequired('data_value',@(i) isnumeric(i) && all(size(data_value)==[numel(t),orbit.data_type_list.(data_type).size])); 

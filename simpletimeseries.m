@@ -149,8 +149,7 @@ classdef simpletimeseries < simpledata
       end
     end
     function out=timestep(in,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'in',                @isdatetime);
       p.addParameter('nsigma',    4,      @num.isscalar);
       p.addParameter('max_iter',  10,     @num.isscalar);
@@ -326,8 +325,7 @@ classdef simpletimeseries < simpledata
       % p.addParameter('data_var','out', @ischar);
       % - file.delete_compressed:
       % p.addParameter('del_arch', true, @(i) isscalar(i) && islogical(i))
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'filename',       @(i) ischar(i) || iscellstr(i)); 
       p.addParameter('cut24hrs', true, @(i) isscalar(i) && islogical(i))
       p.parse(filename,varargin{:})
@@ -374,8 +372,7 @@ classdef simpletimeseries < simpledata
       % p.addParameter('data_var','out', @ischar);
       % - file.delete_compressed:
       % p.addParameter('del_arch', true, @(i) isscalar(i) && islogical(i))
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter( 'format','',@ischar);
       p.parse(varargin{:})
       %resolve scalar cell
@@ -466,7 +463,7 @@ classdef simpletimeseries < simpledata
       end
     end
     function obj=GRACEaltitude(varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addParameter('datafile',file.resolve_home(fullfile('~','data','grace','altitude','GRACE.altitude.dat')));
       p.parse(varargin{:});
       obj=simpletimeseries.import(p.Results.datafile,...
@@ -476,7 +473,7 @@ classdef simpletimeseries < simpledata
 		end
     %% utilities
     function out=list(start,stop,period)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
       p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
       p.addRequired( 'period',  @(i) isscalar(i) && isduration(i));
@@ -690,8 +687,7 @@ classdef simpletimeseries < simpledata
     %% constructor
     function obj=simpletimeseries(t,y,varargin)
       % input parsing
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
       %create argument object, declare and parse parameters, save them to obj
@@ -710,8 +706,7 @@ classdef simpletimeseries < simpledata
       obj.format=f;
     end
     function obj=assign(obj,y,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'y'         ,          @(i) simpledata.valid_y(i));
       p.addParameter('t'         ,obj.t,    @(i) simpletimeseries.valid_t(i));
       p.addParameter('epoch'     ,obj.epoch,@(i) simpletimeseries.valid_epoch(i));
@@ -771,8 +766,7 @@ classdef simpletimeseries < simpledata
       print@simpledata(obj,tab)
     end
     function out=stats(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('period', seconds(inf), @isduration);
       p.addParameter('overlap',seconds(0),   @isduration);
       p.addParameter('mode',  'struct',      @ischar);
@@ -823,8 +817,7 @@ classdef simpletimeseries < simpledata
       end
     end
     function out=stats2(obj1,obj2,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('period', seconds(inf), @isduration); %30*max([obj1.step,obj2.step])
       p.addParameter('overlap',seconds(0),   @isduration);
       % parse it
@@ -1500,8 +1493,7 @@ classdef simpletimeseries < simpledata
       end
     end
     function compatible(obj1,obj2,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('skip_par_check',{''},@iscellstr)
       p.parse(varargin{:});
       %call mother routine
@@ -1688,8 +1680,7 @@ classdef simpletimeseries < simpledata
     end
     %% frequency analysis
     function [obj,filter_response]=bandpass(obj,T,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % add stuff as needed
       p.addRequired('T',                 @(i) isduration(i) && numel(i)==2 && i(1)>i(2));
       p.addParameter('gaps',  'zeroed',  @ischar);
@@ -2122,7 +2113,7 @@ classdef simpletimeseries < simpledata
     end
     function export(obj,filename,filetype,varargin)
       %NOTICE: GRACE-specific formats have been moved to grace.m
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'filename',             @ischar);
       p.addRequired( 'filetype',             @ischar);
       v=varargs.wrap('parser',p,'sources',{{...

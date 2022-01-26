@@ -96,8 +96,7 @@ classdef simpletemplate < simpletimeseries
     %% constructor
     function obj=simpletemplate(t,y,varargin)
       % input parsing
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
       %create argument object, declare and parse parameters, save them to obj

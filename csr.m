@@ -2775,8 +2775,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
     end
     %% legacy (needs checking)
     function obj=import_acc_resid_test(obj,product,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('product',@(i) isa(i,'dataproduct'));
       p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));

@@ -8,6 +8,18 @@ classdef machinery
         out=isa(var,types);
       end
     end
+    %% parser with some defaults and quicker declaration
+    function p=machinery.inputParser(varargin)
+      %init the object      
+      p=machinery.inputParser;
+      %implement reasonable and safe input parser options
+      p.KeepUnmatched=true;
+      p.PartialMatching=false;
+      %implement requested options (may overwrite the defaults forced above)
+      for i=1:numel(varargin)/2
+        p.(varargin{2*i-1})=varargin{2*i};
+      end
+    end
     %% flow control
     function [out,success]=trycatch(success,errorID,func,args)
       if ~success

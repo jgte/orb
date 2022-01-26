@@ -216,8 +216,7 @@ classdef attitude
   methods
     %% constructor
     function obj=attitude(varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       %parse the arguments with the names defined in attitude.data_type_list
       for j=1:numel(attitude.data_types)
         %shorter names
@@ -252,8 +251,7 @@ classdef attitude
       %simplify things
       data_type=lower(data_type);
       %parse input
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('data_type' ,@(i) ischar(i) && cells.isincluded(attitude.data_types,i));
       p.addRequired('data_value',@(i) isa(i,'simpletimeseries'));
       % parse it

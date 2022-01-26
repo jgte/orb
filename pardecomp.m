@@ -472,7 +472,7 @@ classdef pardecomp
   end
   methods
     function obj=pardecomp(t,y,varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 't', @(i) pardecomp.valid_t(i));
       p.addRequired( 'y', @(i) pardecomp.valid_y(i));
       p.addParameter('Qy',[],@(i) @isnumeric);

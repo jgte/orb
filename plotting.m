@@ -1002,7 +1002,7 @@ classdef plotting
     end
     %% nice plotting stuff
     function out=hist(x,varargin)
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'x', @isnumeric);
       % add input arguments to collection of parameters 'v'
       v=varargs.wrap(...
@@ -1038,7 +1038,7 @@ classdef plotting
       out.fig_handle=fig_handle;
     end
     function out=dhist(x,y,z,varargin)
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'x', @isnumeric);
       p.addRequired( 'y', @(i) isnumeric(i) && numel(i)==numel(x));
       p.addRequired( 'z', @(i) isnumeric(i) && numel(i)==numel(x));

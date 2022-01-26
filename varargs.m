@@ -51,7 +51,7 @@ classdef varargs < dynamicprops
       %need list of field names in the template
       template_fieldnames=fieldnames(varargs.template);
       %init parser
-      p=inputParser;
+      p=machinery.inputParser;
       %declare (mandatory and optional) input parameters
       for i=1:numel(template_fieldnames)
         switch template_fieldnames{i}
@@ -143,9 +143,7 @@ classdef varargs < dynamicprops
       %set with the (possible) values of any parameter passed in 'parser', 'sources' or varargin, as implemented in the 
       %varargs.save methods.
       %this is the parser for this method (there's an additional parser going in and out if this method)
-      pn=inputParser;
-      pn.KeepUnmatched=true;
-      pn.PartialMatching=false;
+      pn=machinery.inputParser;
       pn.addParameter('parser',    inputParser, @(i) isa(i,'inputParser'));
       pn.addParameter('mandatory', {}, @iscell);
       pn.addParameter('sources',   {}, @(i) all(cellfun(@(j) varargs.isvarargs(j),i)));

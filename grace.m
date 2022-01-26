@@ -340,7 +340,7 @@ classdef grace
     end
     %% utils
     function obj=GRACEaltitude(varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addParameter('datafile',file.resolve_home(fullfile('~','data','grace','altitude','GRACE.altitude.dat')));
       p.parse(varargin{:});
       obj=simpletimeseries.import(p.Results.datafile,...
@@ -353,7 +353,7 @@ classdef grace
       %NOTICE: this function is a functional duplicate of simpletimeseries.export, but
       %        implements GRACE-specific formats
       %TODO: needs testing
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'filename',             @ischar);
       p.addRequired( 'filetype',             @ischar);
       v=varargs.wrap('parser',p,'sources',{{...
@@ -526,8 +526,7 @@ i=i+1;dh{i}= '+eoh______';
   methods
     %% constructor
     function obj=grace(start,stop,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('start'); %defines the 1st  day of the data (can be char, double or datetime)
       p.addRequired('stop' ); %defines the last day of the data (can be char, double or datetime)
       %declare parameters p
@@ -564,8 +563,7 @@ i=i+1;dh{i}= '+eoh______';
       %simplify things
       data_type=lower(data_type);
       %parse input
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('data_type' ,@(i) ischar(i) && cells.isincluded(lower(grace.data_types),i));
       p.addRequired('data_value',@(i) machinery.isa(i,{'simpletimeseries','attitude','orbit'}));
       % parse it

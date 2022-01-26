@@ -686,7 +686,7 @@ classdef simplegrid < simpletimeseries
     end
     %% constructors
     function obj=unit(n_lon,n_lat,varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'n_lon',  @isnumeric);
       p.addRequired( 'n_lat',  @isnumeric);
       p.addParameter('scale',1,@num.isscalar);
@@ -711,7 +711,7 @@ classdef simplegrid < simpletimeseries
     end
     % Creates a random model with mean 0 and std 1
     function obj=unit_randn(n_lon,n_lat,varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'n_lon',  @num.isscalar);
       p.addRequired( 'n_lat',  @num.isscalar);
       p.addParameter('scale',1,@num.isscalar);
@@ -725,7 +725,7 @@ classdef simplegrid < simpletimeseries
       );
     end
     function obj=slanted(n_lon,n_lat,varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'n_lon',  @num.isscalar);
       p.addRequired( 'n_lat',  @num.isscalar);
       p.addParameter('scale',1,@num.isscalar);
@@ -742,7 +742,7 @@ classdef simplegrid < simpletimeseries
     end
     %NOTICE: inpupts lon and lat can be scalar (domain size) or vectors (domain entries)
     function obj=landmask(lon,lat,varargin)
-      p=inputParser;p.KeepUnmatched=true;p.PartialMatching=false; p.CaseSensitive=true;
+      p=machinery.inputParser('CaseSensitive',true);
       p.addRequired( 'lon',  @isnumeric);
       p.addRequired( 'lat',  @isnumeric);
       p.addParameter('t',     datetime('now'),@isdatetime);
@@ -778,7 +778,7 @@ classdef simplegrid < simpletimeseries
       end
     end
     function obj=oceanmask(lon,lat,varargin)
-      p=inputParser;p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'lon',  @isnumeric);
       p.addRequired( 'lat',  @isnumeric);
       p.addParameter('t',     datetime('now'),@isdatetime);
@@ -816,7 +816,7 @@ classdef simplegrid < simpletimeseries
     end
     %% map add-ons
     function h=coast(varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addParameter('datafile',fullfile(file.orbdir('auxiliary'),'coast.mat'));
       p.addParameter('line_color','k',@ischar);
       p.addParameter('line_width',1.5,  @num.isscalar);
@@ -1060,8 +1060,7 @@ classdef simplegrid < simpletimeseries
   methods
     %% constructor
     function obj=simplegrid(t,map,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('t',  @(i) ischar(i) || isnumeric(i) || isdatetime(i)); %this can be char, double or datetime
       p.addRequired('map',@(i) isnumeric(i) || iscell(i));
       p.addParameter('lat',simplegrid.lat_default(size(map,1)), @isnumeric);
@@ -1080,8 +1079,7 @@ classdef simplegrid < simpletimeseries
       obj=v.save(obj,{'t','map','lat','lon'});
     end
     function obj=assign(obj,map,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'map',         @(i) isnumeric(map) || iscell(map));
       p.addParameter('t',   obj.t,  @(i) simpletimeseries.valid_t(i));
       p.addParameter('lon', obj.lon,@(i) isnumeric(i) && ~isempty(i));
@@ -1843,8 +1841,7 @@ classdef simplegrid < simpletimeseries
     end
     %% multiple operands
     function compatible(obj1,obj2,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('skip_par_check',{''},@iscellstr)
       p.parse(varargin{:});
       %call mother routine
@@ -2071,7 +2068,7 @@ function out_grid = grid_constructor(varargin)
   THRS = 1E-8; % Allow input grid to deviate from regular one by this relative amount.
 
   % Define default inputs
-  p=inputParser;
+  p=machinery.inputParser;
   % xlist  can be many this, so no check is made.
   p.addOptional('xlist',[],@(x)isgrid(x) | isnumeric(x) | ischar(x) | iscell(x));
   p.addOptional('ylist',[],@(x)isnumeric(x));

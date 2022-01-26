@@ -172,8 +172,7 @@ classdef segmentedfreqseries < simplefreqseries
   methods
     %% constructor
     function obj=segmentedfreqseries(t,y,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y',     @(i) isnumeric(i) && ~isscalar(i));
       %create argument object, declare and parse parameters, save them to obj
@@ -331,8 +330,7 @@ classdef segmentedfreqseries < simplefreqseries
     end
     %% operate segment-wise
     function out=op(obj,operation,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'operation',                   @ischar);
       p.addParameter('idx',        1:numel(obj.seg),@isnumeric)
       p.addParameter('self_assign',false,           @(i) islogical(i) && isscalar(i))
@@ -401,14 +399,3 @@ classdef segmentedfreqseries < simplefreqseries
     end
   end
 end
-
-
-
-
-
-
-
-
-
-
-

@@ -274,8 +274,7 @@ classdef file
     end
     %% mat file saving/loading
     function [out,loaded_flag]=load_mat(filename,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'filename',          @(i) ischar(i) || iscellstr(i)); 
       p.addParameter('data_var'   ,'out', @ischar);
       p.parse(filename,varargin{:})
@@ -299,8 +298,7 @@ classdef file
     end
     % wrapper for saving mat file (NOTICE: the non-mat file is given in 'filename')
     function save_mat(out,filename,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'datafile',       @(i) ischar(i));
       p.addParameter('save_mat', true, @(i) isscalar(i) && islogical(i))
       p.addParameter('data_var','out', @ischar);
@@ -345,8 +343,7 @@ classdef file
       end
     end
     function io=replace_ext(io,new_ext,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('default_dir',  '.', @ischar);
       p.parse(varargin{:})
       if iscellstr(io)
@@ -368,7 +365,7 @@ classdef file
     % this means that if in={'file1.dat','file1.dat.gz'} and file1.dat.mat exists, this function will
     % return {'file1.dat.mat','file1.dat.gz'} because it looks for file1.dat.gz.mat as the corresponding mat file.
     function [out,no_change_flag]=resolve_ext(in,ext,varargin)
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i)); 
       p.addRequired( 'ext',                           @ischar); 
       p.addParameter('prefer_non_ext_files',   false, @(i) islogical(i) && isscalar(i));
@@ -450,8 +447,7 @@ classdef file
       end
     end
     function [out,wildcarded_flag]=resolve_wildcards(in,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'in',                         @(i) ischar(i)   || iscellstr(i)); 
       p.addParameter('disp',                true,  @(i) islogical(i) && isscalar(i));
       p.addParameter('directories_only',    false, @(i) islogical(i) && isscalar(i));
@@ -552,7 +548,7 @@ classdef file
       end
     end
     function out=resolve_compressed(in,varargin)
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i)); 
       p.addParameter('prefer_compressed_files',false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',      false, @(i) islogical(i) && isscalar(i));
@@ -639,8 +635,7 @@ classdef file
       end
     end
     function delete_uncompressed(filename,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'filename',       @(i) ischar(i));
       p.addParameter('del_arch', true, @(i) isscalar(i) && islogical(i))
       p.parse(filename,varargin{:})
@@ -658,7 +653,7 @@ classdef file
     end
     %% build a list of filenames from 'start' to 'stop' with 'period' step, if file.dateplaceholder is present in 'in'
     function out=resolve_timestamps(in,varargin)
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'in',                                         @(i) ischar(i)   || iscellstr(i)); 
       p.addParameter( 'start',       time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
       p.addParameter( 'stop',        time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
@@ -698,7 +693,7 @@ classdef file
     %% retrive remote file if needed
     %NOTICE: this function will always return scalar strings
     function out=resolve_remote(in,varargin)
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'in',                          @(i) ischar(i)   || iscellstr(i)); 
       p.addParameter('remote_url'       , ''      , @(i) url.is(i));
       p.addParameter('expiration_period', days(30), @(i) isscalar(i) && isduration(i));
@@ -777,8 +772,7 @@ classdef file
     % - loading/saving in mat format (see file.load_mat and file.save_mat
     % - loading/saving in ascii/other format (each class has its own)
     function io=unwrap(io,varargin) %used to be simpletimeseries.unwrap_datafiles
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'io',          @(i) ischar(i) || iscellstr(i));
       p.addParameter('op_sequence', {...
         @file.resolve_timestamps;...
@@ -825,8 +819,7 @@ classdef file
     end
     %% CLI interfaces
     function [out,result]=system(com,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('com',                   @ischar);
       p.addParameter('cd',            '',    @ischar); 
       p.addParameter('disp',          false, @islogical); 
