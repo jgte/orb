@@ -338,17 +338,28 @@ classdef varargs < dynamicprops
       end
     end
     function out=picker(obj,mode,name)
-      switch mode
-        case 'length';    out=obj.length;
-        case 'list';      out=obj.Parameters;
-        case 'obj';       out=obj;
-        case 'get';       out=obj.get(name);
-        %these also make sense when name (the input var) is an idx (integer)
-        case 'value';     out=obj.get(name).value;
-        case 'name';      out=obj.get(name).name;      
-        case 'validation';out=obj.get(name).validation;
-        otherwise;        out=obj.(mode);
-      end   
+      if iscellstr(mode)
+        out=cell(size(mode));
+        if exist('name','var')
+          for i=1:numel(mode)
+            out{i}=obj.picker(mode{i},name{i});
+          end
+        else
+          out=cellfun(@obj.picker,mode,'UniformOutput',false);
+        end
+      else
+        switch mode
+          case 'length';    out=obj.length;
+          case 'list';      out=obj.Parameters;
+          case 'obj';       out=obj;
+          case 'get';       out=obj.get(name);
+          %these also make sense when name (the input var) is an idx (integer)
+          case 'value';     out=obj.get(name).value;
+          case 'name';      out=obj.get(name).name;      
+          case 'validation';out=obj.get(name).validation;
+          otherwise;        out=obj.(mode);
+        end
+      end
     end
     %% get methods
     %abstracts string or index
