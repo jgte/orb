@@ -334,7 +334,7 @@ classdef slr < gravity
         header=struct(...
           'GM'  ,pd_set.GM,...
           'R'   ,pd_set.R,...
-          'name',['model of ',pd_set.descriptor]...
+          'descriptor',['model of ',pd_set.descriptor]...
         );
       else
         %branch on type of SLR data
@@ -351,7 +351,7 @@ classdef slr < gravity
             error(['Cannot handle SLR data of type ''',source,'''.'])
         end
       end
-      obj=slr(t,y,'GM',header.GM,'R',header.R,'descriptor',header.name);
+      obj=slr(t,y,varargs(header).varargin{:});
     end
     %% testing for the current object
     function out=test_parameters(field)
@@ -420,7 +420,7 @@ classdef slr < gravity
       %TODO: move common_ops to the init of gravity
     
       %apply model processing options  
-      obj=gravity.common_ops('all',obj,v.varargin{:},'product_name',obj.descriptor);
+      obj=gravity.common_ops('all',obj,v.varargin{:});
     end
     function out=metadata(obj,more_parameters)
       if ~exist('more_parameters','var')
@@ -568,7 +568,7 @@ function [t_out,y_out,header]=import_CSR2x2(varargin)
     end  
     %aggregate the data from the separate files, define header
     header=struct(...
-      'name','UT/CSR monthly 2x2 RL-06 time series from SLR',...
+      'descriptor','UT/CSR monthly 2x2 RL-06 time series from SLR',...
       'GM',3.986004415E+14,...
       'R',6.378136300E+06,...
       'raw',{cell(1,numel(h))},... %NOTICE: this {} syntax is needed so that header is not a vector
@@ -628,10 +628,20 @@ function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
     %need to make sure file.unwrap returned the txt file
     assert(file.isext(local_data,'.txt'),'BUG TRAP: expecting a txt file')
     %declare header structure
-    header=struct('GM',0,'R',0,'lmax',v.lmax,'tide_system','unknown','name','unknown',...
-      'static',[],'labels',{{}},'idx',struct([]),'units',1);
+    header=struct(...
+      'GM',0,...
+      'R',0,...
+      'lmax',v.lmax,...
+      'tide_system','unknown',...
+      'descriptor','unknown',...
+      'source',local_data,...
+      'static',[],...
+      'labels',{{}},...
+      'idx',struct([]),...
+      'scale',1 ...
+    );
     %define known details
-    header.name='UT/CSR monthly 5x5 gravity harmonics';
+    header.descriptor='UT/CSR monthly 5x5 gravity harmonics';
     %open the file
     fid=file.open(local_data);
     % Read header
@@ -650,7 +660,7 @@ function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
         header.tide_system=strtrim(strrep(s,'tide_system',''));
       end
       if (contains(s, 'Units'))
-        header.units=str2double(strtrim(strrep(s,'Units','')));
+        header.scale=str2double(strtrim(strrep(s,'Units','')));
       end
       if (contains(s, 'Coefficients:'))
         header.labels=cells.rm_empty(strsplit(strtrim(str.rep(s,'Coefficients:','',',',''))));
@@ -741,13 +751,10 @@ function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
     end
     fclose(fid);
     %add static signal and error
-    units=header.units*ones(size(y_out,1),1);
-    y_out      =      units.*y_out           +  static_signal;
-    y_out_AOD  =      units.*y_out_AOD       +  static_signal;
-    y_out_error=sqrt((units.*y_out_error).^2 +  static_error.^2);
-    %fix the permanent tide
-    y_out(:,gravity.colidx(2,0,header.lmax))=gravity.zero_tide(...
-      y_out(:,gravity.colidx(2,0,header.lmax)),header.tide_system);
+    scale=header.scale*ones(size(y_out,1),1);
+    y_out      =      scale.*y_out           +  static_signal;
+    y_out_AOD  =      scale.*y_out_AOD       +  static_signal;
+    y_out_error=sqrt((scale.*y_out_error).^2 +  static_error.^2);
     %save the data in mat format
     file.save_mat(struct('t_out',t_out,'y_out',y_out,'y_out_AOD',y_out_AOD,'y_out_error',y_out_error,'header',header),local_data,'data_var','out')
   end
@@ -780,10 +787,19 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
     %need to make sure file.unwrap returned the txt file
     assert(file.isext(local_data,'.txt'),'BUG TRAP: expecting a txt file')
     %declare header structure
-    header=struct('GM',0,'R',0,'lmax',v.lmax,'tide_system','unknown','name','unknown',...
-      'labels',{{}},'idx',struct([]),'units',1);
+    header=struct(...
+      'GM',0,...
+      'R',0,...
+      'lmax',v.lmax,...
+      'tide_system','unknown',...
+      'descriptor','unknown',...
+      'source',local_data,...
+      'labels',{{}},...
+      'idx',struct([]),...
+      'scale',1 ...
+    );
     %define known details
-    header.name='NASA GSFC SLR 5x5+C61/S61 time variable gravity';
+    header.descriptor='NASA GSFC SLR 5x5+C61/S61 time variable gravity';
     %open the file
     fid=file.open(local_data);
     % Read header
@@ -793,7 +809,7 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
         break
       end
       if contains(s,'Title: ')
-        header.name = strtrim(strrep(s,'Title: ',''));
+        header.descriptor = strtrim(strrep(s,'Title: ',''));
       end
       if contains(s,'GM:')
         l=strsplit(s);
@@ -961,10 +977,11 @@ function [t_out,y_out,header]=import_C20(varargin)
     %default header
     %NOTICE: most of this info is assumed, becase there's no info on the data files
     header=struct(...
-      'name',v.source,...
+      'descriptor',v.source,...
       'GM',3.986004415E+14,...
       'R',6.378136300E+06,...
       'lmax',2,...
+      'source',local_data,...
       'tide_system','zero_tide'... 
     );
     %open the file
@@ -991,7 +1008,7 @@ function [t_out,y_out,header]=import_C20(varargin)
     %propagate data
     y_out(:,gravity.colidx(2,0,header.lmax))=dat{v.signal_column};
     %inform
-    str.say('start/stop of',header.name,':',t_out(1),t_out(end))
+    str.say('start/stop of',header.descriptor,':',t_out(1),t_out(end))
     %save the data in mat format
     file.save_mat(struct('t_out',t_out,'y_out',y_out,'header',header),local_data,'data_var','out')
 

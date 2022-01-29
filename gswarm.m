@@ -48,9 +48,9 @@ classdef gswarm
         'overwrite_common_t',v.overwrite_common_t...
       );
       %apply model processing options
-      s=gravity.common_ops('all',s,v.varargin{:},'product_name',product.str);
+      s=gravity.common_ops('all',s,v.varargin{:},'descriptor',product.str);
       if ~isempty(e)
-        e=gravity.common_ops('all',e,v.varargin{:},'product_name',product.str,'model_type','error');
+        e=gravity.common_ops('all',e,v.varargin{:},'descriptor',product.str,'model_type','error');
       end
       %make sure we got a gravity object
       assert(isa(s,'gravity'),['failed to load product ',product.codename])
