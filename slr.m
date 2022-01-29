@@ -345,6 +345,8 @@ classdef slr < gravity
             [t,y,header]=import_CSR5x5(varargin{:});
           case 'GSFC5x5'
             [t,y,header]=import_GSFC5x5(varargin{:});
+          case {'TN-07','TN-11','CSR-RL06','TN-14','GSFC','GSFC-7DAY'}
+            [t,y,header]=import_C20('source',source,varargin{:});
           otherwise
             error(['Cannot handle SLR data of type ''',source,'''.'])
         end
@@ -368,7 +370,7 @@ classdef slr < gravity
       end
       start=slr.test_parameters('start');
       stop= slr.test_parameters('stop' );
-      test_list={'CSR2x2','CSR5x5','GSFC5x5'};
+      test_list={'CSR2x2','CSR5x5','GSFC5x5','TN-07','TN-11','CSR-RL06','TN-14','GSFC','GSFC-7DAY'};
       switch(method)
         case 'all'
           plotting.figure;
@@ -392,6 +394,9 @@ classdef slr < gravity
         case {'CSR5x5','CSR2x2','GSFC5x5'}
           out=slr.load(method);
           out.plot('method','timeseries','degrees',[2,2,2,2,2],'orders',[-2,-1,-0,1,2],'zeromean',true);
+        case {'TN-07','TN-11','CSR-RL06','TN-14','GSFC','GSFC-7DAY'} %MAY NEED UPDATE WHEN ADDING A NEW MODEL
+          out=slr.load(method);
+          out.plot('method','timeseries','degrees',2,'orders',0);
         otherwise
           error(['Cannot handle test method ''',method,'''.'])
       end
@@ -825,6 +830,137 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
       y_out(:,gravity.colidx(2,0,header.lmax)),header.tide_system);
     %save the data in mat format
     file.save_mat(struct('t_out',t_out,'y_out',y_out,'header',header),local_data,'data_var','out')
+  end
+end
+function [t_out,y_out,header]=import_C20(varargin)
+
+%TODO: there is a 1 month timeshift between:
+% - GSFC-7DAY and GSFC5x5
+% - CSR2x2 and CSR-RL06
+% - TN-07 and TN-11 (half a month?)
+
+  % add input arguments and metadata to collection of parameters 'v'
+  v=varargs.wrap('sources',{...
+    {...
+      'source'       , 'TN-14',@ischar;...
+      'import_dir'   , slr.dir('TN-14'),@ischar;...
+      'data_dir_url' ,      '',@ischar;...
+      'data_file'    ,      '',@ischar;...
+      'time_column'  ,       1,@isnumeric;...
+      'signal_column',       3,@isnumeric;...
+      'error_column' ,       5,@isnumeric;...
+      'comment_style',     '*',@iscahr;...
+      'data_format'  , '%7.1f%10.4f%22.13f%8.4f%8.4f',@ischar;...
+    },...
+  },varargin{:});
+  %upper-case version name 
+  v.source=upper(v.source);
+  %update local import dir
+  v.import_dir=slr.dir(v.source);
+  %parse dependent arguments (can be over-written)
+  switch v.source
+    case 'TN-07'
+      v.data_file=[v.source,'_C20_SLR.txt'];
+%       v.data_dir_url='ftp://podaac.jpl.nasa.gov/allData/grace/docs/'; %NOTICE: this no longer works
+      v.data_dir_url='none';
+    case 'TN-11'
+      v.data_file=[v.source,'_C20_SLR.txt'];
+%       v.data_dir_url=['https://podaac-w10n.jpl.nasa.gov/w10n/allData/grace/docs/',v.data_file];
+      v.data_dir_url='https://podaac-tools.jpl.nasa.gov/drive/files/allData/grace/docs/';
+      v.data_format='%7.1f%10.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
+      v.time_column=[1 6];
+    case 'CSR-RL06'
+      v.data_file='C20_RL06.txt';
+      v.data_dir_url='http://download.csr.utexas.edu/pub/slr/degree_2/';
+      v.data_format='%10.4f%19.10f%8.4f%8.4f%8.4f%16.4f%16.4f';
+      v.comment_style='#';
+      v.signal_column=2;
+      v.error_column=4;
+    case 'TN-14'
+      v.data_file=[v.source,'_C30_C20_GSFC_SLR.txt'];
+      v.data_dir_url='https://podaac-tools.jpl.nasa.gov/drive/files/allData/grace/docs/';
+      v.data_format='%7.1f%10.4f%22.13f%8.4f%8.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
+    case 'GSFC'
+      v.data_file='GSFC_SLR_C20_GSM_replacement.txt';
+      v.data_dir_url='https://earth.gsfc.nasa.gov/sites/default/files/neptune/images_db/';
+    case 'GSFC-7DAY'
+      v.data_file='GSFC_SLR_C20_7day.txt';
+      v.data_dir_url='none';
+      v.data_format='%10.4f%23.13f';
+      v.time_column=1;
+      v.signal_column=2;
+      v.error_column=0;
+    otherwise
+      warning([...
+        'Loading ',v.source,' C20 timeseries with externally-defined details:',newline,...
+        'import_dir   :',v.import_dir,newline,...
+        'data_dir_url :',v.data_dir_url,newline,...
+        'data_file    :',v.data_file,newline,...
+        'time_column  :',v.time_column,newline, ...
+        'signal_column:',v.signal_column,newline,...
+        'error_column :',v.error_column,newline,...
+        'comment_style:',v.comment_style,newline,...
+        'data_format  :',v.data_format,newline,...
+      ])
+  end
+  %define the local data file name
+  local_data=fullfile(v.import_dir,v.data_file);
+  %download the data (done inside file.unwrap)
+  local_data=file.unwrap(local_data,'remote_url',v.data_dir_url,'scalar_as_strings',true,varargin{:});
+  %check the format of the data
+  if file.isext(local_data,'.mat')
+     %load the data
+    [out,loaded_flag]=file.load_mat(local_data,'data_var','out');
+    assert(loaded_flag,['BUG TRAP: could not load the data from ',local_data])
+    %unpack the data
+    t_out=out.t_out;
+    y_out=out.y_out;
+    header=out.header;
+  else
+    %default header
+    %NOTICE: most of this info is assumed, becase there's no info on the data files
+    header=struct(...
+      'name',v.source,...
+      'GM',3.986004415E+14,...
+      'R',6.378136300E+06,...
+      'lmax',2,...
+      'tide_system','zero_tide'... 
+    );
+    %open the file
+    fid=file.open(local_data);
+    %skip headers, except for some sources which textscan can handle directly
+    while ~contains(v.source,{'GSFC-7DAY','CSR-RL06'})
+      if contains(fgetl(fid),{'Product:','PRODUCT:'})
+        break
+      end
+    end
+    %read the data
+    dat=textscan(fid,v.data_format,'CommentStyle',v.comment_style);
+    %close the file
+    fclose(fid);
+    % outputs 
+    switch v.source
+    case {'GSFC-7DAY','CSR-RL06'}
+      t_out=years(mean([dat{v.time_column}],2))+datetime('0000-01-01 00:00:00');
+    otherwise
+      t_out=datetime(mean([dat{v.time_column}],2),'ConvertFrom','modifiedjuliandate');
+    end
+    %init outputs
+    y_out=zeros(numel(t_out),gravity.y_length(header.lmax));
+    %propagate data
+    y_out(:,gravity.colidx(2,0,header.lmax))=dat{v.signal_column};
+    %inform
+    str.say('start/stop of',header.name,':',t_out(1),t_out(end))
+    %save the data in mat format
+    file.save_mat(struct('t_out',t_out,'y_out',y_out,'header',header),local_data,'data_var','out')
+
+%     %TODO: implement importing errors
+%     if e_idx>0
+%       e=dat{v.error_column}(idx)*1e-10;
+%     else
+%       e=zeros(size(s));
+%     end
+  
   end
 end
 
