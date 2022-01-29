@@ -9,9 +9,9 @@ classdef machinery
       end
     end
     %% parser with some defaults and quicker declaration
-    function p=machinery.inputParser(varargin)
+    function p=inputParser(varargin)
       %init the object      
-      p=machinery.inputParser;
+      p=inputParser;
       %implement reasonable and safe input parser options
       p.KeepUnmatched=true;
       p.PartialMatching=false;
