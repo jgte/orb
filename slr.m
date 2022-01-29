@@ -882,9 +882,6 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
       end
     end
     fclose(fid);
-    %fix the permanent tide
-    y_out(:,gravity.colidx(2,0,header.lmax))=gravity.zero_tide(...
-      y_out(:,gravity.colidx(2,0,header.lmax)),header.tide_system);
     %save the data in mat format
     file.save_mat(struct('t_out',t_out,'y_out',y_out,'header',header),local_data,'data_var','out')
   end
