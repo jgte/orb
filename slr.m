@@ -475,90 +475,127 @@ function [t_out,y_out,header]=import_CSR2x2(varargin)
   },varargin{:});
   %sanity
   assert(numel(v.prefixes)==numel(v.degrees)&& numel(v.prefixes)==numel(v.orders),...
-    'Metadata ''prefixes'' ''degrees'' and ''orders'' must all have the same size.') 
-  %init records
-  t_out=cell(size(v.prefixes));
-  y_out=[];
-  %loop over all data
-  for i=1:numel(v.prefixes)
-    %define the data file name
-    data_file=[v.prefixes{i},'_',v.suffix,'.txt'];
-    local_data=fullfile(v.import_dir,data_file);
-    %download the data (done inside file.unwrap)
-    local_data=file.unwrap(local_data,'remote_url',v.data_dir_url,'scalar_as_strings',true,varargin{:});
-    %check the format of the data
-    if file.isext(local_data,'.mat')
-       %load the data
-      [out,loaded_flag]=file.load_mat(local_data,'data_var','out');
-      assert(loaded_flag,['BUG TRAP: could not load the data from ',local_data])
-      %unpack the data
-      t_out=out.t_out;
-      y_out=out.y_out;
-      header=out.header;
-    else
-      %need to make sure file.unwrap returned the txt file
-      assert(file.isext(local_data,'.txt'),'BUG TRAP: expecting a txt file')
-      %build the header info (GM, R and tide_system is assumed to be the same as CSR5x5)
-      header=struct(...
-        'name','UT/CSR monthly 2x2 RL-06 time series from SLR',...
-        'raw',file.header(local_data,30),... %load the text (search for the end of the header up until line 30)
-        'GM',3.986004415E+14,...
-        'R',6.378136300E+06,...
-        'tide_system','zero_tide'...
-      );
-      %branch on files with one or two coefficients
-      if contains(header.raw,'C21') || contains(header.raw,'C22')
-        %2002.0411  2.43934614E-06 -1.40026049E-06  0.4565  0.4247 -0.0056  0.1782   20020101.0000   20020201.0000
-        file_fmt='%f %f %f %f %f %f %f %f %f';
-        data_cols=[2 3];
-        sigm_cols=[4 5];
-        corr_cols=[6 7];
-%         units={'',''};
-%         if ~contains(header,'C21')
-%           labels={'C2,1','C2,-1'};
-%         else
-%           labels={'C2,2','C2,-2'};
-%         end
+    'Metadata ''prefixes'' ''degrees'' and ''orders'' must all have the same size.')
+  %shortcuts
+  lmax=max(v.degrees);
+  %look for aggregated data file
+  agg_data=fullfile(v.import_dir,'CSR2x2.mat');
+  %check the format of the data
+  if file.exist(agg_data)
+     %load the data
+    [out,loaded_flag]=file.load_mat(agg_data,'data_var','out');
+    assert(loaded_flag,['BUG TRAP: could not load the data from ',agg_data])
+    %unpack the data
+    t_out=out.t_out;
+    y_out=out.y_out;
+    header=out.header;
+  else
+    %init records
+    t=cell(1,numel(v.prefixes)); y=cell(1,numel(v.prefixes)); h=cell(1,numel(v.prefixes));
+    %loop over all data files
+    for i=1:numel(v.prefixes)
+      %define the data file name
+      data_file=[v.prefixes{i},'_',v.suffix,'.txt'];
+      local_data=fullfile(v.import_dir,data_file);
+      %download the data (done inside file.unwrap)
+      local_data=file.unwrap(local_data,'remote_url',v.data_dir_url,'scalar_as_strings',true,varargin{:});
+      %check the format of the data
+      if file.isext(local_data,'.mat')
+         %load the data
+        [out,loaded_flag]=file.load_mat(local_data,'data_var','out');
+        assert(loaded_flag,['BUG TRAP: could not load the data from ',local_data])
+        %unpack the data
+        t{i}=out.t;
+        y{i}=out.y;
+        h{i}=out.header;
       else
-        %2002.0411  -4.8416939379E-04  0.7852  0.3148  0.6149   20020101.0000   20020201.0000
-        file_fmt='%f %f %f %f %f %f %f';
-        data_cols=2;
-        sigm_cols=4;
-        corr_cols=5;
-%         units={''};
-%         if contains(header,'C20'); labels={'C2,0'}; end
-%         if contains(header,'C40'); labels={'C4,0'}; end
+        %need to make sure file.unwrap returned the txt file
+        assert(file.isext(local_data,'.txt'),'BUG TRAP: expecting a txt file')
+        %build the header info (GM, R and tide_system is assumed to be the same as CSR5x5)
+        h{i}=struct(...
+          'source',local_data,...
+          'raw',file.header(local_data,30),... %load the text (search for the end of the header up until line 30)
+          'd',v.degrees(i),... 
+          'o',v.orders{i}...
+        );
+        %branch on files with one or two coefficients
+        if contains(h{i}.raw,'C21') || contains(h{i}.raw,'C22')
+          %2002.0411  2.43934614E-06 -1.40026049E-06  0.4565  0.4247 -0.0056  0.1782   20020101.0000   20020201.0000
+          file_fmt='%f %f %f %f %f %f %f %f %f';
+          data_cols=[2 3];
+          sigm_cols=[4 5];
+          corr_cols=[6 7];
+  %         units={'',''};
+  %         if ~contains(header,'C21')
+  %           labels={'C2,1','C2,-1'};
+  %         else
+  %           labels={'C2,2','C2,-2'};
+  %         end
+        else
+          %2002.0411  -4.8416939379E-04  0.7852  0.3148  0.6149   20020101.0000   20020201.0000
+          file_fmt='%f %f %f %f %f %f %f';
+          data_cols=2;
+          sigm_cols=4;
+          corr_cols=5;
+  %         units={''};
+  %         if contains(header,'C20'); labels={'C2,0'}; end
+  %         if contains(header,'C40'); labels={'C4,0'}; end
+        end
+        raw=file.textscan(local_data,file_fmt);
+        %build the time domain
+        t{i}=datetime('0000-01-01 00:00:00')+years(raw(:,1));
+        %building data domain
+        switch v.format
+        case 'csr'       %NOTICE: this includes AOD mean for the solution period (aka correction, or 'corr')
+          y_raw=raw(:,data_cols);
+        case 'csr-grace' %NOTICE: this removes the AOD correction from SLR, making it more suitable to replace the GRACE C20
+          y_raw=raw(:,data_cols)-raw(:,corr_cols)*1e-10;
+        case 'csr-corr'  %NOTICE: this is the AOD correction
+          y_raw=raw(:,corr_cols)*1e-10;
+        case 'csr-sigma' %NOTICE: this is the solution sigma
+          y_raw=raw(:,sigm_cols)*1e-10;
+        end
+        %building aggregated records
+        for j=1:numel(v.orders{i}) %NOTICE: this is why v.degrees{i} should be scalar
+          d=v.degrees(i);
+          o=v.orders{i}(j);
+          y{i}(:,gravity.colidx(d,o,lmax))=y_raw(:,j);
+        end
+        %save the data in mat format
+        file.save_mat(struct('t',t{i},'y',y{i},'header',h{i}),local_data,'data_var','out')
       end
-      raw=file.textscan(local_data,file_fmt);
-      %build the time domain
-      t=datetime([0 0 0 0 0 0])+years(raw(:,1));
-      %building data domain
-      switch v.format
-      case 'csr'       %NOTICE: this includes AOD mean for the solution period (aka correction, or 'corr')
-        y=raw(:,data_cols);
-      case 'csr-grace' %NOTICE: this removes the AOD correction from SLR, making it more suitable to replace the GRACE C20
-        y=raw(:,data_cols)-raw(:,corr_cols)*1e-10;
-      case 'csr-corr'  %NOTICE: this is the AOD correction
-        y=raw(:,corr_cols)*1e-10;
-      case 'csr-sigma' %NOTICE: this is the solution sigma
-        y=raw(:,sigm_cols)*1e-10;
-      end
-      %sanity
+    end  
+    %aggregate the data from the separate files, define header
+    header=struct(...
+      'name','UT/CSR monthly 2x2 RL-06 time series from SLR',...
+      'GM',3.986004415E+14,...
+      'R',6.378136300E+06,...
+      'raw',{cell(1,numel(h))},... %NOTICE: this {} syntax is needed so that header is not a vector
+      'source',{cell(1,numel(h))},...
+      'lmax',lmax,...
+      'tide_system','zero_tide'...
+    );
+    %init y_out
+    y_out=zeros(numel(t{1}),gravity.y_length(lmax));
+    for i=1:numel(v.prefixes)
+      %retrieve/sanitize time
       if i==1
-        t_out=t;
+        t_out=t{i};
       else
-        assert(~any(~simpletimeseries.ist('==',t,t_out)),'time domain inconsistency')
+        assert(~any(~simpletimeseries.ist('==',t{i},t_out)),'time domain inconsistency')
       end
-      %building aggregated records
-      for j=1:numel(v.orders{i})
-        d=v.degrees(i);
-        o=v.orders{i}(j);
-        y_out(:,gravity.colidx(d,o,max(v.degrees)))=y(:,j); %#ok<AGROW>
+      %aggregate coefficients
+      for j=1:numel(v.orders{i}) %NOTICE: this is why v.degrees{i} should be scalar
+        colidx=gravity.colidx(h{i}.d,h{i}.o(j),lmax);
+        y_out(:,colidx)=y{i}(:,colidx); 
       end
-      %save the data in mat format
-      file.save_mat(struct('t_out',t_out,'y_out',y_out,'header',header),local_data,'data_var','out')
+      %save header info
+      header.raw{i}=h{i}.raw;
+      header.source{i}=h{i}.source;
     end
-  end  
+    %save the data in mat format
+    file.save_mat(struct('t_out',t_out,'y_out',y_out,'header',header),agg_data,'data_var','out')
+  end
 end
 function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
   % add input arguments and metadata to collection of parameters 'v'
