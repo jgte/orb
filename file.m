@@ -695,7 +695,7 @@ classdef file
     function out=resolve_remote(in,varargin)
       p=machinery.inputParser;
       p.addRequired( 'in',                          @(i) ischar(i)   || iscellstr(i)); 
-      p.addParameter('remote_url'       , ''      , @(i) url.is(i));
+      p.addParameter('remote_url'       , ''      , @(i) url.is(i) || str.none(i));
       p.addParameter('expiration_period', days(30), @(i) isscalar(i) && isduration(i));
       p.addParameter('data_age'         , days(0) , @(i) isscalar(i) && isduration(i));
       p.addParameter('debug'            , false   , @islogical);
@@ -729,9 +729,14 @@ classdef file
         if p.Results.debug, str.say('Downloading because local files are missing'); end
         download_flag=true;
       end
+      %check if all files are not too old
       if ~all(file.age(in)<p.Results.expiration_period)
         if p.Results.debug, str.say('Downloading because local files are too old'); end
         download_flag=true;
+      end
+      %check if not downloading is explicily asked
+      if str.none(p.Results.remote_url)
+        download_flag=false;
       end
       %download if needed
       if download_flag
