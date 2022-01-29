@@ -390,7 +390,7 @@ classdef slr < gravity
             );
           end
         case {'CSR5x5','CSR2x2','GSFC5x5'}
-          out=slr(method);
+          out=slr.load(method);
           out.plot('method','timeseries','degrees',[2,2,2,2,2],'orders',[-2,-1,-0,1,2],'zeromean',true);
         otherwise
           error(['Cannot handle test method ''',method,'''.'])
