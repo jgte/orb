@@ -459,7 +459,7 @@ classdef slr < gravity
   end
 end
 
-%TODO: need to retreive y_out_error in this function
+%TODO: need to retreive y_out_error in all import_* function
 function [t_out,y_out,header]=import_CSR2x2(varargin)
   % add input arguments and metadata to collection of parameters 'v'
   v=varargs.wrap('sources',{...
@@ -469,8 +469,8 @@ function [t_out,y_out,header]=import_CSR2x2(varargin)
       'data_dir_url', 'http://ftp.csr.utexas.edu/pub/slr/degree_2',@ischar;...
       'suffix',       'RL06',@ischar;...
       'prefixes',{'C20','C21_S21','C22_S22'},@iscellstr;
-      'degrees', [    2,        2,       2] ,@isnumeric;
-      'orders',  {    0,[  1, -1],[  2, -2]},@isnumeric;
+      'degrees', [    2,        2,       2] ,@isnumeric; %NOTICE: this cannot be a cell because each entry must be scalar
+      'orders',  {    0,[  1, -1],[  2, -2]},@(i) all(cellfun(@isnumeric,i));
     },...
   },varargin{:});
   %sanity
@@ -627,7 +627,7 @@ function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
     %need to make sure file.unwrap returned the txt file
     assert(file.isext(local_data,'.txt'),'BUG TRAP: expecting a txt file')
     %declare header structure
-    header=struct('GM',0,'radius',0,'lmax',v.lmax,'tide_system','unknown','name','unknown',...
+    header=struct('GM',0,'R',0,'lmax',v.lmax,'tide_system','unknown','name','unknown',...
       'static',[],'labels',{{}},'idx',struct([]),'units',1);
     %define known details
     header.name='UT/CSR monthly 5x5 gravity harmonics';
@@ -701,6 +701,9 @@ function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
     end
     % some sanity
     assert(~isempty(header.static),'Could not retrieve the static gravity field coefficients')
+    %init output
+    y_out=zeros(1,gravity.y_length(header.lmax));
+    y_out_error=y_out;y_out_AOD=y_out;
     % read data
     while true
       s=fgets(fid);
@@ -722,15 +725,15 @@ function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
         %get the epoch 
         t_out(arc)=datetime([0 0 0 0 0 0])+years(s(header.idx.Year_mid_point)); %#ok<AGROW>
         %save cosine coefficient, error and value with AOD
-        y_out(      arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Cnm);    %#ok<AGROW>
-        y_out_error(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Csigma); %#ok<AGROW>
-        y_out_AOD(  arc,gravity.colidx(d,o,header.lmax))=s(header.idx.CnmAOD); %#ok<AGROW>
+        y_out(      arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Cnm);    
+        y_out_error(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Csigma); 
+        y_out_AOD(  arc,gravity.colidx(d,o,header.lmax))=s(header.idx.CnmAOD); 
         if o==0, continue;end
         %save sine coefficient, error and value with AOD
         o=-o;
-        y_out(      arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Snm);    %#ok<AGROW>
-        y_out_error(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Ssigma); %#ok<AGROW>
-        y_out_AOD(  arc,gravity.colidx(d,o,header.lmax))=s(header.idx.SnmAOD); %#ok<AGROW>
+        y_out(      arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Snm);    
+        y_out_error(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Ssigma); 
+        y_out_AOD(  arc,gravity.colidx(d,o,header.lmax))=s(header.idx.SnmAOD); 
       otherwise
         disp(['WARNING: ignoring line: ',strjoin(s,' ')])
       end
@@ -743,7 +746,7 @@ function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
     y_out_error=sqrt((units.*y_out_error).^2 +  static_error.^2);
     %fix the permanent tide
     y_out(:,gravity.colidx(2,0,header.lmax))=gravity.zero_tide(...
-    y_out(:,gravity.colidx(2,0,header.lmax)),header.tide_system);
+      y_out(:,gravity.colidx(2,0,header.lmax)),header.tide_system);
     %save the data in mat format
     file.save_mat(struct('t_out',t_out,'y_out',y_out,'y_out_AOD',y_out_AOD,'y_out_error',y_out_error,'header',header),local_data,'data_var','out')
   end
@@ -776,7 +779,7 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
     %need to make sure file.unwrap returned the txt file
     assert(file.isext(local_data,'.txt'),'BUG TRAP: expecting a txt file')
     %declare header structure
-    header=struct('GM',0,'radius',0,'lmax',v.lmax,'tide_system','unknown','modelname','unknown',...
+    header=struct('GM',0,'R',0,'lmax',v.lmax,'tide_system','unknown','name','unknown',...
       'labels',{{}},'idx',struct([]),'units',1);
     %define known details
     header.name='NASA GSFC SLR 5x5+C61/S61 time variable gravity';
@@ -829,7 +832,7 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
       end
     end
     %init loop variables
-    arc=0;
+    arc=0; y_out=zeros(1,gravity.y_length(header.lmax));
     % read data
     while true
       s=fgets(fid);
@@ -844,7 +847,7 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
         %increment loop var
         arc=arc+1;
         %get the epoch 
-        t_out(arc)=datetime([0 0 0 0 0 0])+years(s(2)); %#ok<AGROW>
+        t_out(arc)=time.ToDateTime(s(1),'modifiedjuliandate'); %#ok<AGROW>
       case 4
         %get degree and order
         d=s(header.idx.n);
@@ -852,11 +855,11 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
         %skip if this degree is above the requested lmax
         if d>header.lmax; continue; end
         %save cosine coefficient
-        y_out(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.C);    %#ok<AGROW>
+        y_out(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.C);    
         if o==0, continue;end
         %save sine coefficient
         o=-o;
-        y_out(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.S);    %#ok<AGROW>
+        y_out(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.S);    
       otherwise
         disp(['WARNING: ignoring line: ',strjoin(s,' ')])
       end
@@ -1195,7 +1198,7 @@ function obj=import_slr_Cheng(obj,product,varargin)
   %build units
   units=cell(size(data_cols));
   units(:)={''};
-  t=datetime([0 0 0 0 0 0])+years(raw(:,2));
+  t=datetime('0000-01-01 00:00:00')+years(raw(:,2));
   %building object
   obj=simpletimeseries(t,raw(:,data_cols)*1e-10,...
     'format','datetime',...
