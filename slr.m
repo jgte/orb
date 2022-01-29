@@ -637,22 +637,22 @@ function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
     % Read header
     while true
       s=fgets(fid); 
-      if keyword_search(s,'end of header')
+      if contains(s,'end of header')
         break
       end
-      if keyword_search(s,'earth_gravity_constant')
+      if contains(s,'earth_gravity_constant')
         header.GM = str2double(strtrim(strrep(s,'earth_gravity_constant','')));
       end
-      if (keyword_search(s, 'radius'))
+      if (contains(s, 'radius'))
         header.R=str2double(strtrim(strrep(s,'radius','')));
       end
-      if (keyword_search(s, 'tide_system'))
+      if (contains(s, 'tide_system'))
         header.tide_system=strtrim(strrep(s,'tide_system',''));
       end
-      if (keyword_search(s, 'Units'))
+      if (contains(s, 'Units'))
         header.units=str2double(strtrim(strrep(s,'Units','')));
       end
-      if (keyword_search(s, 'Coefficients:'))
+      if (contains(s, 'Coefficients:'))
         header.labels=cells.rm_empty(strsplit(strtrim(str.rep(s,'Coefficients:','',',',''))));
         %build index records
         for i=1:numel(v.data_labels)
@@ -665,7 +665,7 @@ function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
             v.data_labels{i},''' in the header of ',local_data])
         end
       end
-      if (keyword_search(s, '===================='))
+      if (contains(s, '===================='))
         %init loop variables
         counter=0;
         %read the static coefficients
@@ -789,24 +789,24 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
     % Read header
     while true
       s=fgets(fid); 
-      if keyword_search(s,'end of header')
+      if contains(s,'end of header')
         break
       end
-      if keyword_search(s,'Title: ')
+      if contains(s,'Title: ')
         header.name = strtrim(strrep(s,'Title: ',''));
       end
-      if keyword_search(s,'GM:')
+      if contains(s,'GM:')
         l=strsplit(s);
         header.GM = str2double(l{3});
       end
-      if (keyword_search(s, 'R:'))
+      if (contains(s, 'R:'))
         l=strsplit(s);
         header.R=str2double(l{3});
       end
-      if (keyword_search(s, 'C20 is'))
+      if (contains(s, 'C20 is'))
         header.tide_system=strtrim(strrep(s,'C20 is',''));
       end
-      if (keyword_search(s, 'Coefficient lines:'))
+      if (contains(s, 'Coefficient lines:'))
         header.labels=cells.rm_empty(...
           strsplit(...
             str.clean(...
@@ -828,7 +828,7 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
             v.data_labels{i},''' in the header of ',local_data])
         end
       end
-      if keyword_search(s, 'Product:')
+      if contains(s, 'Product:')
         break      
       end
     end
@@ -1003,11 +1003,6 @@ function [t_out,y_out,header]=import_C20(varargin)
 %     end
   
   end
-end
-
-%% Aux functions
-function out=keyword_search(line,keyword)
-    out=strncmp(strtrim(line),       keyword,         length(keyword));
 end
 
 %% Auxiliarly data
