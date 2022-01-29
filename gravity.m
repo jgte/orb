@@ -721,7 +721,7 @@ classdef gravity < simpletimeseries
             'use_GRACE_C20_plot', false , @islogical; ...
             'date_parser',       'none' , @ischar; ...
             'static_model',      'none' , @ischar; ...
-            'product_name',    'unknown', @ischar;...
+            'tide_system',   'zero_tide', @ischar;...
             'model_type',       'signal', @ischar;...
             'debug',              false , @islogical;...
           },...
@@ -735,15 +735,25 @@ classdef gravity < simpletimeseries
         msg='';show_msg=true;
         switch mode
         case 'mode_list'
-          mod={'consistent_GM','consistent_R','max_degree','use_GRACE_C20','delete_C00','delete_C20','start','stop','static_model'};
+          mod={...
+            'consistent_GM','consistent_R','max_degree',...
+            'use_GRACE_C20','delete_C00','delete_C20',...
+            'start','stop','static_model','permanent_tide'...
+          };
           show_msg=false;
         case 'all'
           mod=gravity.common_ops(gravity.common_ops('mode_list'),mod,v.varargin{:});
           show_msg=false;
         case 'consistent_GM'
-          mod=mod.setGM(gravity.parameters('GM'));
+          if str.logical(v.consistent_GM)
+            mod=mod.setGM(gravity.parameters('GM'));
+            msg=['set to ',num2str(gravity.parameters('GM'))];
+          end
         case 'consistent_R'
-          mod=mod.setR( gravity.parameters('R'));
+          if str.logical(v.consistent_R)
+            mod=mod.setR( gravity.parameters('R'));
+            msg=['set to ',num2str(gravity.parameters('R'))];
+          end
         case 'max_degree'
           %set maximum degree (if requested)
           if v.max_degree>0
@@ -790,11 +800,13 @@ classdef gravity < simpletimeseries
           %remove C00 bias
           if v.delete_C00
             mod=mod.setC(0,0,0);
+            msg=['set to ',v.use_GRACE_C20];
           end
         case 'delete_C20'
           %remove C20 bias
           if v.delete_C20
             mod=mod.setC(2,0,0);
+            msg='done';
           end
         case 'start' %NOTICE: this is only done when loading the raw data (afterwards the matlab data is read directly, bypassing this routine altogher)
           if v.start~=time.zero_date
@@ -805,7 +817,7 @@ classdef gravity < simpletimeseries
               %trim extremeties (this is redundant unless data is saved before the start metadata is increased)
               mod=mod.trim(v.start,mod.stop);
             end
-            msg=['at ',datestr(v.start)];
+            msg=['set at ',datestr(v.start)];
           end
         case 'stop'  %NOTICE: this is only done when loading the raw data (afterwards the matlab data is read directly, bypassing this routine altogher)
           if v.stop~=time.inf_date
@@ -816,7 +828,7 @@ classdef gravity < simpletimeseries
               %trim extremeties (this is redundant unless data is saved before the stop metadata is decreased)
               mod=mod.trim(mod.start,v.stop);
             end
-            msg=['at ',datestr(v.stop)];
+            msg=['set at ',datestr(v.stop)];
           end
         case 'static_model'
           %remove static field (if requested)
@@ -841,10 +853,14 @@ classdef gravity < simpletimeseries
             mod=mod-static.interp(mod.t);
             msg=[': subtracted ',v.static_model];
           end
+        case 'permanent_tide'
+          mod=mod.setC(2,0,gravity.permanent_tide(mod.C(2,0),v.tide_system),mod.t);
+          msg=['set to ',v.tide_system];
         otherwise
           error(['Cannot handle operantion ''',mode,'''.'])
         end
-        if show_msg && v.debug;str.say(v.product_name,':',mode,msg);end
+        %only show a message if something happened
+        if ~isempty(msg) && (show_msg || v.debug);str.say(mod.descriptor,':',mode,msg);end
       end
     end
     %% model combination
@@ -1093,7 +1109,7 @@ classdef gravity < simpletimeseries
       end
     end
     %% permanent (solid earth) tide
-    function C20=zero_tide(C20,tide_system)
+    function C20=permanent_tide(C20,tide_system)
     % https://geodesyworld.github.io/SOFTS/solid.htm
     %?http://www.springerlink.com/index/V1646106J6746210.pdf
     % https://www.ngs.noaa.gov/PUBS_LIB/EGM96_GEOID_PAPER/egm96_geoid_paper.html
