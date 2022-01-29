@@ -30,7 +30,7 @@ classdef slr < gravity
   methods(Static)
     %% directories
     function out=dir(type)
-      switch type
+      switch type %NEEDS UPDATE WHEN ADDING A NEW MODEL
         case 'data'
           for i=1:numel(slr.data_options)
             if file.exist(slr.data_options{i})
@@ -338,7 +338,7 @@ classdef slr < gravity
         );
       else
         %branch on type of SLR data
-        switch source
+        switch source %NEEDS UPDATE WHEN ADDING A NEW MODEL
           case 'CSR2x2'
             [t,y,header]=import_CSR2x2(varargin{:});
           case 'CSR5x5'
@@ -392,7 +392,7 @@ classdef slr < gravity
               'plot_legend',{test_list{i},'model'}...
             );
           end
-        case {'CSR5x5','CSR2x2','GSFC5x5'}
+        case {'CSR5x5','CSR2x2','GSFC5x5'} %MAY NEED UPDATE WHEN ADDING A NEW MODEL
           out=slr.load(method);
           out.plot('method','timeseries','degrees',[2,2,2,2,2],'orders',[-2,-1,-0,1,2],'zeromean',true);
         case {'TN-07','TN-11','CSR-RL06','TN-14','GSFC','GSFC-7DAY'} %MAY NEED UPDATE WHEN ADDING A NEW MODEL
