@@ -73,11 +73,11 @@ classdef slr < gravity
         },...
       },varargin{:});
       %parse using a model or the original data
-      if contains(v.version,'-model')
+      if contains(v.source,'-model')
         new_mode=['model-',strrep(v.mode,'model-','')];
-        new_version=strrep(v.version,'-model','');
+        new_version=strrep(v.source,'-model','');
         str.say('WARNING: over-writing input mode',str.quote(v.mode),'with',str.quote(new_mode),...
-          'since input version is',str.quote(v.version),', now passed along as',str.quote(new_version),'.')
+          'since input version is',str.quote(v.source),', now passed along as',str.quote(new_version),'.')
         out=gravity.graceC20(varargin{:},'mode',new_mode,'version',new_version);
         return
       end
@@ -85,7 +85,7 @@ classdef slr < gravity
       case 'model-poly'
         out=2;
       case 'model-periods-datfile'
-        [p,n]=fileparts(GetGRACEC20('mode','data_file','version',v.version));
+        [p,n]=fileparts(GetGRACEC20('mode','data_file','version',v.source));
         out=fullfile(p,[n,'_periods.mat']);
       case {'model-compute','model-periods'}
         %get data file
@@ -229,8 +229,8 @@ classdef slr < gravity
         out=gravity.graceC20(varargin{:},'mode','read');
         out=out.interp(v.time);
       case 'plot-all'
-        if iscellstr(v.version)
-          version_list=v.version;
+        if iscellstr(v.source)
+          version_list=v.source;
         else
           version_list={'GSFC-7day','GSFC','CSR-RL06','TN-14','TN-11','TN-07'};
         end
@@ -852,15 +852,15 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   CommentStyle='*';
   datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f';
   %upper-case version name 
-  v.version=upper(v.version);
+  v.source=upper(v.source);
   %parse dependent arguments (can be over-written)
   %(NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
-  switch upper(v.version)
+  switch upper(v.source)
     case 'TN-07'
-      datfil=[v.version,'_C20_SLR.txt'];
+      datfil=[v.source,'_C20_SLR.txt'];
       daturl=['ftp://podaac.jpl.nasa.gov/allData/grace/docs/',datfil]; %NOTICE: this no longer works
     case 'TN-11'
-      datfil=[v.version,'_C20_SLR.txt'];
+      datfil=[v.source,'_C20_SLR.txt'];
 %       daturl=['https://podaac-w10n.jpl.nasa.gov/w10n/allData/grace/docs/',datfil];
       daturl=['https://podaac-tools.jpl.nasa.gov/drive/files/allData/grace/docs/',datfil];
       datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
@@ -873,7 +873,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       s_idx=2;
       e_idx=4;
     case 'TN-14'
-      datfil=[v.version,'_C30_C20_GSFC_SLR.txt'];
+      datfil=[v.source,'_C30_C20_GSFC_SLR.txt'];
       daturl=['https://podaac-tools.jpl.nasa.gov/drive/files/allData/grace/docs/',datfil];
       datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
     case 'GSFC'
@@ -887,7 +887,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       s_idx=2;
       e_idx=0;
     otherwise
-      error(['Cannot handle version ''',v.version,'''.'])
+      error(['Cannot handle version ''',v.source,'''.'])
   end
   %append v.file and v.url
   v=varargs.wrap('sources',{v,{...
@@ -899,12 +899,12 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     t=v.file;
   case 'read' %'set' if not already, then 'get'
     if ~file.exist(v.file)
-      GetGRACEC20('mode','set','version',v.version,'data_dir',v.data_dir);
+      GetGRACEC20('mode','set','version',v.source,'data_dir',v.data_dir);
     end
-    [t,s,e,d]=GetGRACEC20('mode','get','version',v.version,'file',v.file,'start',v.start,'stop',v.stop);
+    [t,s,e,d]=GetGRACEC20('mode','get','version',v.source,'file',v.file,'start',v.start,'stop',v.stop);
   case 'reload' %'set' then 'get'
-    GetGRACEC20('mode','set','version',v.version,'data_dir',v.data_dir);
-    [t,s,e,d]=GetGRACEC20('mode','get','version',v.version,'file',v.file,'start',v.start,'stop',v.stop);
+    GetGRACEC20('mode','set','version',v.source,'data_dir',v.data_dir);
+    [t,s,e,d]=GetGRACEC20('mode','get','version',v.source,'file',v.file,'start',v.start,'stop',v.stop);
   case 'plot'
     %NOTICE: this is a low-level plot, without much features
     [t,s,e,d]=GetGRACEC20(varargin{:},'mode','read');
@@ -919,9 +919,9 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       error([mfilename,': cannot open the data file ''',v.file,'''.'])
     end
     %default descriptor
-    d=['C20 time series, version ',v.version];
+    d=['C20 time series, version ',v.source];
     %get header info (NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
-    switch upper(v.version)
+    switch upper(v.source)
     case {'GSFC-7DAY','CSR-RL06'}
       found=true;
     otherwise
@@ -952,7 +952,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     %close the file
     fclose(fid);
     % outputs (NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
-    switch upper(v.version)
+    switch upper(v.source)
     case {'GSFC-7DAY','CSR-RL06'}
       t=years(mean([dat{t_idx}],2))+datetime('0000-01-01 00:00:00');
     otherwise
