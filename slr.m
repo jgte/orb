@@ -994,6 +994,12 @@ function [t_out,y_out,header]=import_C20(varargin)
       t_out=years(mean([dat{v.time_column}],2))+datetime('0000-01-01 00:00:00');
     otherwise
       t_out=datetime(mean([dat{v.time_column}],2),'ConvertFrom','modifiedjuliandate');
+%       %plot difference between MJD and years columns
+%       t_alt=years(mean([dat{v.time_column+1}],2))+datetime('0000-01-01 00:00:00');
+%       plotting.figure;
+%       plot(t_out-t_alt)
+%       plotting.enforce('plot_title',v.source);
+%       keyboard
     end
     %init outputs
     y_out=zeros(numel(t_out),gravity.y_length(header.lmax));
