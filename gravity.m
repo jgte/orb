@@ -1124,6 +1124,11 @@ classdef gravity < simpletimeseries
     %   value that is nonzero. This time independent (nm) = (20) potential
     %   produces a permanent deformation and a consequent time independent
     %   contribution to the geopotential coefficient C20.
+      %trivial call
+      if str.none(tide_system)
+        return
+      end
+      %branch on the tide system
       switch tide_system
       case {'zero_tide','zero tide'}
         % the zero-frequency value includes the indirect distortion, but not the direct distortion
