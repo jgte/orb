@@ -727,6 +727,7 @@ classdef gravity < simpletimeseries
             'tide_system',   'zero_tide', @ischar;...
             'model_type',       'signal', @ischar;...
             'debug',              false , @islogical;...
+            'silent',             false , @islogical;...
           },...
         },varargin{:});
         %sanity
@@ -735,7 +736,7 @@ classdef gravity < simpletimeseries
           return
         end
         %inits user feedback vars
-        msg='';show_msg=true;
+        msg='';
         switch mode
         case 'mode_list'
           mod={...
@@ -743,10 +744,12 @@ classdef gravity < simpletimeseries
             'use_GRACE_C20','delete_C00','delete_C20',...
             'start','stop','static_model','permanent_tide'...
           };
-          show_msg=false;
+          %get out so that no message is shown for sure
+          return
         case 'all'
           mod=gravity.common_ops(gravity.common_ops('mode_list'),mod,v.varargin{:});
-          show_msg=false;
+          %get out so that no message is shown for sure
+          return
         case 'consistent_GM'
           if str.logical(v.consistent_GM)
             mod=mod.setGM(gravity.parameters('GM'));
@@ -863,7 +866,7 @@ classdef gravity < simpletimeseries
           error(['Cannot handle operantion ''',mode,'''.'])
         end
         %only show a message if something happened
-        if ~isempty(msg) && (show_msg || v.debug);str.say(mod.descriptor,':',mode,msg);end
+        if ( ~isempty(msg) || v.debug ) && ~v.silent ;str.say(mod.descriptor,':',mode,msg);end
       end
     end
     %% model combination
