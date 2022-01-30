@@ -47,11 +47,6 @@ classdef gswarm
         'descriptor',product.name,...
         'overwrite_common_t',v.overwrite_common_t...
       );
-      %apply model processing options
-      s=gravity.common_ops('all',s,v.varargin{:},'descriptor',product.str);
-      if ~isempty(e)
-        e=gravity.common_ops('all',e,v.varargin{:},'descriptor',product.str,'model_type','error');
-      end
       %make sure we got a gravity object
       assert(isa(s,'gravity'),['failed to load product ',product.codename])
       % resolve dataname to save the data to: sometimes, the 'signal' field path is given explicitly and

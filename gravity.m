@@ -1336,10 +1336,18 @@ classdef gravity < simpletimeseries
   methods
     %% constructor
     function obj=gravity(t,y,varargin)
+      %NOTICE: notable arguments that may be a good idea to pass:
+      % - 'GM'
+      % - 'R'
+      % - 'descriptor'
+      % - 'tide_system'
+      % - 'origin'
+      % - 'start'/'stop'
       % input parsing
       p=machinery.inputParser;
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
+      p.addParameter('skip_common_ops',false,@islogical)
       % create argument object, declare and parse parameters, save them to obj
       [v,p]=varargs.wrap('parser',p,'sources',{gravity.parameters('obj')},'mandatory',{t,y},varargin{:});
       % get some parameters
@@ -1352,6 +1360,10 @@ classdef gravity < simpletimeseries
       );
       % save the arguments v into this object
       obj=v.save(obj,{'t','y'});
+      %apply model processing options (unless requested otherwise)
+      if ~v.skip_common_ops
+        obj=gravity.common_ops('all',obj,v.varargin{:});
+      end
     end
     function obj=assign(obj,y,varargin)
       %pass it upstream

@@ -416,11 +416,6 @@ classdef slr < gravity
       %init the object
       %NOTICE: generally, the following options should be in varargin: 'GM', 'R' and 'descriptor'
       obj=obj@gravity(t,y,varargin{:});
-      
-      %TODO: move common_ops to the init of gravity
-    
-      %apply model processing options  
-      obj=gravity.common_ops('all',obj,v.varargin{:});
     end
     function out=metadata(obj,more_parameters)
       if ~exist('more_parameters','var')
