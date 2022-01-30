@@ -406,13 +406,21 @@ classdef slr < gravity
   methods
     %% constructor
     function obj=slr(t,y,varargin)
-      %NOTICE: to define a start/stop, pass it in varargin; gravity.common_ops will handle that
-      %input parsing
-      p=machinery.inputParser;
-      p.addRequired( 't' ); %this can be char, double or datetime
-      p.addRequired( 'y', @(i) simpledata.valid_y(i));
-      % create argument object, declare and parse parameters, save them to obj
-      [v,~]=varargs.wrap('parser',p,'sources',{slr.parameters('obj')},'mandatory',{t,y},varargin{:});
+      %NOTICE: a bunch of options get handled in the gravity init, notably:
+      % - 'GM'
+      % - 'R'
+      % - 'descriptor'
+      % - 'tide_system'
+      % - 'origin'
+      % - 'start'/'stop'
+%       %input parsing
+%       p=machinery.inputParser;
+%       p.addRequired( 't' ); %this can be char, double or datetime
+%       p.addRequired( 'y', @(i) simpledata.valid_y(i));
+%       % parse it
+%       p.parse(in,varargin{:});
+%       % create argument object, declare and parse parameters, save them to obj
+%       [v,~]=varargs.wrap('parser',p,'sources',{slr.parameters('obj')},'mandatory',{t,y},varargin{:});
       %init the object
       %NOTICE: generally, the following options should be in varargin: 'GM', 'R' and 'descriptor'
       obj=obj@gravity(t,y,varargin{:});
@@ -883,10 +891,7 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
 end
 function [t_out,y_out,header]=import_C20(varargin)
 
-%TODO: there is a 1 month timeshift between:
-% - GSFC-7DAY and GSFC5x5
-% - CSR2x2 and CSR-RL06
-% - TN-07 and TN-11 (half a month?)
+%TODO: - TN-07 and TN-11 (half a month?)
 
   % add input arguments and metadata to collection of parameters 'v'
   v=varargs.wrap('sources',{...

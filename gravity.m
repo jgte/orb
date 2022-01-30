@@ -2595,6 +2595,8 @@ classdef gravity < simpletimeseries
 end
 
 %% load interfaces
+% NOTICE: these functions generally do not accept varargin so that the model parameters
+%         defined in the data files are honoured and cannot be overwriten
 function [m,e]=load_gsm(filename,time)
   %default time
   if ~exist('time','var') || isempty(time)
