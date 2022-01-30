@@ -13,6 +13,7 @@
       'plot_zeros',   true,     @(i) islogical(i) && isscalar(i);...
       'invalid',      999999999,@num.isscalar;...
       'outlier_sigma',4,        @num.isscalar;...
+      'cdate',datetime('now'),  @isdatetime;...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -41,6 +42,7 @@
     plot_zeros
     invalid
     outlier_sigma
+    cdate
   end
   methods(Static)
     function out=parameters(varargin)

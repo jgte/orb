@@ -73,7 +73,6 @@ classdef gravity < simpletimeseries
     R
     functional
     origin
-    cdate
   end
   %calculated only when asked for
   properties(Dependent)
