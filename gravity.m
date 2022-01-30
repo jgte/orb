@@ -407,103 +407,7 @@ classdef gravity < simpletimeseries
     function obj=nan(lmax,varargin)
       obj=gravity.unit(lmax,'scale',nan,varargin{:},'skip_common_ops',true);
     end
-    function [m,e]=load(file_name,fmt,time,force,force_time)
-      %default type
-      if ~exist('fmt','var') || isempty(fmt) || strcmp(fmt,'auto')
-        [~,fn,fmt]=fileparts(file_name);
-        %get rid of the dot
-        fmt=fmt(2:end);
-        %check if this is CSR format
-        if strcmp(fn,'GEO') || strcmp(fmt,'.GEO')
-          fmt='csr';
-        end
-      end
-      %default time
-      if ~exist('time','var') || isempty(time)
-        time=datetime('now');
-      end
-      %default force
-      if ~exist('force','var') || isempty(force)
-        force=false;
-      end
-      %default force_time
-      if ~exist('force_time','var') || isempty(force_time)
-        force_time=false;
-      end
-      %handle mat files
-      [~,~,ext]=fileparts(file_name);
-      if strcmp(ext,'.mat')
-        mat_filename=file_name;
-        file_name=strrep(file_name,'.mat','');
-      else
-        mat_filename=[file_name,'.mat'];
-      end
-      %check if mat file is already available
-      if ~file.exist(mat_filename) || force
-        switch lower(fmt)
-        case 'gsm'
-          [m,e]=load_gsm(file_name,time);
-        case 'csr'
-          [m,e]=load_csr(file_name,time);
-        case {'icgem','gfc'}
-          [m,e]=load_icgem(file_name,time);
-        case 'mod'
-          [m,e]=load_mod(file_name,time);
-        case 'esamtm'
-          error('BUG TRAP: The ''esamtm'' format is always storred in mat files')
-        otherwise
-          error([mfilename,': cannot handle models of type ''',fmt,'''.'])
-        end
-        try
-          save(mat_filename,'m','e')
-        catch
-          disp(['Could not save ''',mat_filename,'''.'])
-        end
-      else
-        switch lower(fmt)
-        case 'esamtm'
-          [m,e]=load_esamtm(mat_filename,time);
-        otherwise
-          %NOTICE: input argument 'time' is ignored here; only by coincidence (or design,
-          %        e.g. if gravity.load_dir is used) will time be same as the one saved
-          %        in the mat file.
-          load(mat_filename,'m','e')
-          %handle particular cases
-          if ~exist('m','var')
-            if exist('sol','var')
-              m=sol.mod.(sol.names{1}).dat;
-              e=[];
-            else
-              error(['Cannot handle mat file ',mat_filename,'; consider deleting so it is re-generated'])
-            end
-          end
-        end
-      end
-      %enforce input 'time', if requested
-      %NOTICE: this is used to be done automatically when loading the mat file
-      %        (and there's no practical use for it at the moment)
-      if force_time
-        if m.t~=time;m.t=time;end 
-        if ~isempty(e) && e.t~=time;e.t=time;end 
-      end
-      %update start/stop for static fields, i.e. those with time=gravity.static_start_date
-      if time==gravity.static_select_date
-        %enforece static start date
-        m.t=gravity.static_start_date;
-        %duplicate model and set it to static stop date
-        m_stop=m;
-        m_stop.t=gravity.static_stop_date;
-        %append them together
-        m=m.append(m_stop);
-        %do the same to the error model if there is one
-        if ~isempty(e)
-          e.t=gravity.static_start_date;
-          e_stop=e;
-          e_stop.t=gravity.static_stop_date;
-          e=e.append(e_stop);
-        end
-      end
-    end
+    % epoch-parsing functions, needed by the load functions below
     function out=parse_epoch_grace(filename)
       [~,f]=fileparts(filename);
       %GSM-2_2015180-2015212_0027_JPLEM_0001_0005.gsm
@@ -602,6 +506,106 @@ classdef gravity < simpletimeseries
       file=strsplit(file,'_');
       out=time.ToDateTime([file{3},'T',file{4}(1:2),'0000'],'yyyyMMdd''T''HHmmss');
     end
+    % load functions
+    % NOTICE: these functions generally do not accept varargin so that the model parameters
+    %         defined in the data files are honoured and cannot be overwriten
+    function [m,e]=load(file_name,fmt,time,force,force_time)
+      %default type
+      if ~exist('fmt','var') || isempty(fmt) || strcmp(fmt,'auto')
+        [~,fn,fmt]=fileparts(file_name);
+        %get rid of the dot
+        fmt=fmt(2:end);
+        %check if this is CSR format
+        if strcmp(fn,'GEO') || strcmp(fmt,'.GEO')
+          fmt='csr';
+        end
+      end
+      %default time
+      if ~exist('time','var') || isempty(time)
+        time=datetime('now');
+      end
+      %default force
+      if ~exist('force','var') || isempty(force)
+        force=false;
+      end
+      %default force_time
+      if ~exist('force_time','var') || isempty(force_time)
+        force_time=false;
+      end
+      %handle mat files
+      [~,~,ext]=fileparts(file_name);
+      if strcmp(ext,'.mat')
+        mat_filename=file_name;
+        file_name=strrep(file_name,'.mat','');
+      else
+        mat_filename=[file_name,'.mat'];
+      end
+      %check if mat file is already available
+      if ~file.exist(mat_filename) || force
+        switch lower(fmt)
+        case 'gsm'
+          [m,e]=load_gsm(file_name,time);
+        case 'csr'
+          [m,e]=load_csr(file_name,time);
+        case {'icgem','gfc'}
+          [m,e]=load_icgem(file_name,time);
+        case 'mod'
+          [m,e]=load_mod(file_name,time);
+        case 'esamtm'
+          error('BUG TRAP: The ''esamtm'' format is always storred in mat files')
+        otherwise
+          error([mfilename,': cannot handle models of type ''',fmt,'''.'])
+        end
+        try
+          save(mat_filename,'m','e')
+        catch
+          disp(['Could not save ''',mat_filename,'''.'])
+        end
+      else
+        switch lower(fmt)
+        case 'esamtm'
+          [m,e]=load_esamtm(mat_filename,time);
+        otherwise
+          %NOTICE: input argument 'time' is ignored here; only by coincidence (or design,
+          %        e.g. if gravity.load_dir is used) will time be same as the one saved
+          %        in the mat file.
+          load(mat_filename,'m','e')
+          %handle particular cases
+          if ~exist('m','var')
+            if exist('sol','var')
+              m=sol.mod.(sol.names{1}).dat;
+              e=[];
+            else
+              error(['Cannot handle mat file ',mat_filename,'; consider deleting so it is re-generated'])
+            end
+          end
+        end
+      end
+      %enforce input 'time', if requested
+      %NOTICE: this is used to be done automatically when loading the mat file
+      %        (and there's no practical use for it at the moment)
+      if force_time
+        if m.t~=time;m.t=time;end 
+        if ~isempty(e) && e.t~=time;e.t=time;end 
+      end
+      %update start/stop for static fields, i.e. those with time=gravity.static_start_date
+      if time==gravity.static_select_date
+        %enforece static start date
+        m.t=gravity.static_start_date;
+        %duplicate model and set it to static stop date
+        m_stop=m;
+        m_stop.t=gravity.static_stop_date;
+        %append them together
+        m=m.append(m_stop);
+        %do the same to the error model if there is one
+        if ~isempty(e)
+          e.t=gravity.static_start_date;
+          e_stop=e;
+          e_stop.t=gravity.static_stop_date;
+          e=e.append(e_stop);
+        end
+      end
+        end
     function [m,e]=load_dir(dirname,format,date_parser,varargin)
       p=machinery.inputParser;
       p.addRequired( 'dirname',     @ischar);
