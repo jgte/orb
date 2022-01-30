@@ -330,12 +330,13 @@ classdef slr < gravity
         t=model.t;
         y=zeros(numel(t),gravity.y_length(2));
         y(:,gravity.colidx(2,0,2))=model.y;
-        %TODO: test that the metadata gets all the way here
+        disp('TODO: the permanent tide has been moved to gravity.common_ops, so it''s important to be sure all metadata gets all the way here through pd_set and implement passing it properly to slr.init, not like this:')
         header=struct(...
           'GM'  ,pd_set.GM,...
           'R'   ,pd_set.R,...
           'descriptor',['model of ',pd_set.descriptor]...
         );
+        keyboard
       else
         %branch on type of SLR data
         switch source %NEEDS UPDATE WHEN ADDING A NEW MODEL
