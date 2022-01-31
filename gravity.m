@@ -1220,7 +1220,7 @@ classdef gravity < simpletimeseries
       disp(['--- ',method,': l=',num2str(l)])
       switch lower(method)
       case 'all'
-         for i={'reps','unit','unit rms','r','gm','minus','grid','ggm05g','stats','c','smoothing','deepoceanmaskplot','gracec20'}
+         for i={'reps','unit','unit rms','r','gm','minus','grid','mascons','stats','c','smoothing','deepoceanmaskplot','gracec20'}
            gravity.test(i{1},l);
          end
       case 'reps'
@@ -1287,18 +1287,20 @@ classdef gravity < simpletimeseries
       case 'grid'
         figure
         gravity.unit_randn(120,'t',t).grid.imagesc
-      case 'ggm05g'
-        m=gravity.ggm05g;
+      case 'mascons'
+        m=gravity.CSR_Mascons;
         disp('- print gravity')
         m.print
         disp('- print grid')
         m.grid.print
       case 'stats'
-        m=gravity.ggm05g.setC(0,0,0).setC(2,0,0);
-        for i={'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
-          figure
-          m.plot('method',i{1},'functional','geoid','title',[m.descriptor,' - ',i{1}]);
+        m=gravity.static('GGM05C').setC(0,0,0).setC(2,0,0);
+        stats_list={'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'};
+        plotting.figure;
+        for i=1:numel(stats_list)
+          m.plot('method',stats_list{i},'functional','geoid');
         end
+        plotting.enforce('plot_legend',stats_list,'plot_line_color','spiral');
       case 'c'
         if numel(t)<3
           now=juliandate(datetime('now'),'modifiedjuliandate');
@@ -1338,8 +1340,6 @@ classdef gravity < simpletimeseries
         colormap(c)
         colorbar off
         plotting.enforce('plot_legend_location','none');
-      case 'gracec20'
-        slr.graceC20('mode','plot-all','version',{'GSFC-7DAY','GSFC','TN-14','TN-11'});
       otherwise
         error(['Cannot handle test method ''',method,'''.'])
       end
