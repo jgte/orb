@@ -1815,7 +1815,7 @@ classdef gswarm
         if ~exist(filename,'file')
           stmn=dataproduct(p{1}).mdget('static_model');
           stc20=datastorage().init(stmn).data_get_scalar(datanames(stmn).append_field_leaf('signal')).C(2,0);
-          tn=gravity.graceC20('mode','read');
+          tn=slr.graceC20('mode','read');
           tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);
           plotting.figure;
           for i=1:size(a,1)
@@ -2078,7 +2078,7 @@ classdef gswarm
         plotfilename=fullfile(v.check_figs_dir,'checks','C20.png');
         if ~file.exist(plotfilename)
           plotting.figure;
-          out=gravity.graceC20('mode','plot','version',gswarm.paper('type','C20-source'));
+          out=slr.graceC20('mode','plot','version',gswarm.paper('type','C20-source'));
           plotting.save(plotfilename,v.varargin{:});
         else
           out=[];
@@ -2088,7 +2088,7 @@ classdef gswarm
         if ~file.exist(plotfilename)
 %         version_list={'GSFC-7day','GSFC','TN-14','TN-11','TN-07'};
           version_list={'GSFC-7day','TN-11','TN-11-model'};
-          gravity.graceC20('mode','plot-all','version',version_list);
+          slr.graceC20('mode','plot-all','version',version_list);
           plotting.enforce('plot_legend',version_list);
           plotting.save(plotfilename,v.varargin{:});
         else
@@ -2097,14 +2097,14 @@ classdef gswarm
       case 'TN11'                 %checking only (not used anymore)
         plotfilename=fullfile(v.figures_dir,'checks','C20.TN11.png');
         if ~file.exist(plotfilename)
-          gravity.graceC20(...
+          slr.graceC20(...
             'mode','model-plot',...
             v.varargin{:},...
             'start',time.zero_date,...
             'stop',datetime('2019-10-31')...
           )
           if str.none(v.plot_title); title(''); end
-          %gravity.graceC20('mode','model-list')
+          %slr.graceC20('mode','model-list')
           plotting.save(plotfilename,v.varargin{:});
         else
           out=[];
@@ -2419,7 +2419,7 @@ classdef gswarm
           plotting.figure(varargin{:});
           grs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).plot('zeromean',true);
           grm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).plot('zeromean',true);
-          tn=gravity.graceC20('version',C20_name).plot('columns',1,'zeromean',true);
+          tn=slr.graceC20('version',C20_name).plot('columns',1,'zeromean',true);
           plotting.enforce('plot_legend',{...
             str.rep(grs.legend{1},'C2,0','GRACE data');...
             str.rep(grm.legend{1},'C2,0','GRACE model');...
@@ -2460,11 +2460,11 @@ classdef gswarm
           sw=d.data_get_scalar(p.swm.dataname).ts_C(2,0).addgaps(days(45)); swp=sw.plot;
           gs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).addgaps(days(45)); gsp=gs.plot;
           gm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).addgaps(days(45)); gmp=gm.plot;
-          tn=gravity.graceC20('mode','read','version',strrep(C20_name,'-model',''));
+          tn=slr.graceC20('mode','read','version',strrep(C20_name,'-model',''));
           tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);
           tn.plot('columns',1);
           if contains(C20_name,'-model')
-            tm=gravity.graceC20('mode','model','time',gm.t,'version',strrep(C20_name,'-model',''));
+            tm=slr.graceC20('mode','model','time',gm.t,'version',strrep(C20_name,'-model',''));
             tm=tm.addgaps(days(45))-stc20(1);
             tm.plot('columns',1);
           end
@@ -2572,13 +2572,13 @@ classdef gswarm
       case 'plot'
         if ~gswarm.c20model('done',plot_dir)
           %this updates the coefficient time series, to make sure it has recent-enough data
-          gravity.graceC20('mode','set','version',strrep(version,'-model',''));
+          slr.graceC20('mode','set','version',strrep(version,'-model',''));
           if model
             %this updates the model itself
-            gravity.graceC20('mode','set','version',strrep(version,'-model',''));
-            out=gravity.graceC20('mode','model-plot','version',version);
+            slr.graceC20('mode','set','version',strrep(version,'-model',''));
+            out=slr.graceC20('mode','model-plot','version',version);
           else
-            out=gravity.graceC20('mode','plot-all','version',unique({'GSFC-7DAY','GSFC','TN-14','TN-11',upper(version)}));
+            out=slr.graceC20('mode','plot-all','version',unique({'GSFC-7DAY','GSFC','TN-14','TN-11',upper(version)}));
           end
           plotting.save(gswarm.c20model('filename',plot_dir))
         else
@@ -2587,7 +2587,7 @@ classdef gswarm
       case 'latex'
         latexfile=strrep(plotfile,'.png','.tex');
         if model
-          out=gravity.graceC20('mode','model-list-tex','version',version);
+          out=slr.graceC20('mode','model-list-tex','version',version);
           if ~file.exist(latexfile)
             file.strsave(latexfile,out);
             disp(['Saved C20 coefficients to ',latexfile])

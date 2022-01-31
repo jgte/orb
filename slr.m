@@ -78,7 +78,7 @@ classdef slr < gravity
         new_version=strrep(v.source,'-model','');
         str.say('WARNING: over-writing input mode',str.quote(v.mode),'with',str.quote(new_mode),...
           'since input version is',str.quote(v.source),', now passed along as',str.quote(new_version),'.')
-        out=gravity.graceC20(varargin{:},'mode',new_mode,'version',new_version);
+        out=slr.graceC20(varargin{:},'mode',new_mode,'version',new_version);
         return
       end
       switch v.mode
@@ -89,12 +89,12 @@ classdef slr < gravity
         out=fullfile(p,[n,'_periods.mat']);
       case {'model-compute','model-periods'}
         %get data file
-        f=gravity.graceC20(varargin{:},'mode','model-periods-datfile');
+        f=slr.graceC20(varargin{:},'mode','model-periods-datfile');
         %check if periods were already computed
         if ~file.exist(f)
           %loading necessary data
-          c20=gravity.graceC20(varargin{:},'mode','read');
-           np=gravity.graceC20(varargin{:},'mode','model-poly');
+          c20=slr.graceC20(varargin{:},'mode','read');
+           np=slr.graceC20(varargin{:},'mode','model-poly');
           %compute periods
           [~,pd]=c20.parametric_decomposition_search('np',np,'T',[365.2426,182.6213],'timescale','days');
           out=pd.T;
@@ -113,7 +113,7 @@ classdef slr < gravity
 %             arrayfun(@(i) ['  ',num2str(i,'%.12e'),';...'],out(:),'UniformOutput',false);...
 %             {'];'};...
 %           ],newline);
-%         f=gravity.graceC20(varargin{:},'mode','model-periods-datfile');
+%         f=slr.graceC20(varargin{:},'mode','model-periods-datfile');
 %         b=file.strsave(f,s);
 %         str.say('Written',b,'bytes of data to file:',newline,f,newline,'related to the periods of:',newline,c20.descriptor);
       case 'model-datfile'
@@ -126,37 +126,37 @@ classdef slr < gravity
         out=file.md5(GetGRACEC20(varargin{:},'mode','data_file'));
       case 'model-md5set'
         out=file.strsave(...
-          gravity.graceC20(varargin{:},'mode','model-md5file'),...
-          gravity.graceC20(varargin{:},'mode','model-md5')...
+          slr.graceC20(varargin{:},'mode','model-md5file'),...
+          slr.graceC20(varargin{:},'mode','model-md5')...
         );
       case 'model-md5get'
-        md5file=gravity.graceC20(varargin{:},'mode','model-md5file');
+        md5file=slr.graceC20(varargin{:},'mode','model-md5file');
         if ~file.exist(md5file)
-          gravity.graceC20(varargin{:},'mode','model-md5set');
+          slr.graceC20(varargin{:},'mode','model-md5set');
         end
         out=file.strload(md5file);
       case 'model-md5check'
         out=strcmp(...
-          gravity.graceC20(varargin{:},'mode','model-md5get'),...
-          gravity.graceC20(varargin{:},'mode','model-md5')...
+          slr.graceC20(varargin{:},'mode','model-md5get'),...
+          slr.graceC20(varargin{:},'mode','model-md5')...
         );
       case {'model','model-get','model-set','model-read','model-reload'}
         %loading necessary data
-        c20=gravity.graceC20(varargin{:},'mode','read');
-         np=gravity.graceC20(varargin{:},'mode','model-poly');
-          T=gravity.graceC20(varargin{:},'mode','model-periods');
+        c20=slr.graceC20(varargin{:},'mode','read');
+         np=slr.graceC20(varargin{:},'mode','model-poly');
+          T=slr.graceC20(varargin{:},'mode','model-periods');
         %check if pdset is already available
-        f_pdset=gravity.graceC20(varargin{:},'mode','model-list-datfile');
-        f_pd   =gravity.graceC20(varargin{:},'mode','model-datfile');
+        f_pdset=slr.graceC20(varargin{:},'mode','model-list-datfile');
+        f_pd   =slr.graceC20(varargin{:},'mode','model-datfile');
         if ~file.exist(f_pdset) || ~file.exist(f_pd) || ~...
-          gravity.graceC20(varargin{:},'mode','model-md5check')  
+          slr.graceC20(varargin{:},'mode','model-md5check')  
           %get the coefficients; NOTICE: always use c20.t so that f_pdset is not dependent on inputs
           [~,pd_set]=c20.parametric_decomposition('np',np,'T',T,...
             'timescale','days','time',c20.t_domain(days(7))); 
           %save them
           save(f_pdset,'pd_set')
           %update md5 of data
-          gravity.graceC20(varargin{:},'mode','model-md5set')  
+          slr.graceC20(varargin{:},'mode','model-md5set')  
         else
           load(f_pdset,'pd_set')
         end
@@ -174,10 +174,10 @@ classdef slr < gravity
         out=fullfile(p,[n,'_pdset.mat']);
       case {'model-list','model-list-tex'}
         %check if pdset is already available
-        f=gravity.graceC20(varargin{:},'mode','model-list-datfile');
+        f=slr.graceC20(varargin{:},'mode','model-list-datfile');
         if ~file.exist(f)
           %compute the model (saving is done inside)
-          gravity.graceC20(varargin{:},'mode','model');
+          slr.graceC20(varargin{:},'mode','model');
         end
         %load it
         load(f,'pd_set')
@@ -188,13 +188,13 @@ classdef slr < gravity
         end       
       case 'model-plot'
         %retrieve the orignal data
-        c20o=gravity.graceC20(varargin{:},'mode','read');
+        c20o=slr.graceC20(varargin{:},'mode','read');
         %resample to a finer time domain
         c20r=c20o.interp(c20o.t_domain(days(7)),...
           'interp_over_gaps_narrower_than',days(45),...
           'interp1_args',{'pchip'}...
         );
-        c20m=gravity.graceC20(varargin{:},'mode','model','time',c20o.t_domain(days(7)));
+        c20m=slr.graceC20(varargin{:},'mode','model','time',c20o.t_domain(days(7)));
         c20e=c20r-c20m;
         %compute means
         c20om=c20o.stats('mode','mean');
@@ -226,7 +226,7 @@ classdef slr < gravity
         out=c20e;
       case 'interp'
         assert(~isempty(v.time),['If mode is ''',v.mode,''', need argument ''time''.'])
-        out=gravity.graceC20(varargin{:},'mode','read');
+        out=slr.graceC20(varargin{:},'mode','read');
         out=out.interp(v.time);
       case 'plot-all'
         if iscellstr(v.source)
@@ -244,17 +244,17 @@ classdef slr < gravity
           case 'model'
             if i>1
               %NOTICE: to get the model with the most complete time domain, out it last in the 'version' input
-              dat_list{i}=gravity.graceC20('mode','model',...
+              dat_list{i}=slr.graceC20('mode','model',...
                 'version',strrep(version_list{i},'-model',''),...
                 'time',time.union(cellfun(@(j) j.t,dat_list(1:i-1),'UniformOutput',false),days(7))...
               );
             else
-              dat_list{i}=gravity.graceC20('mode','model',...
+              dat_list{i}=slr.graceC20('mode','model',...
                 'version',strrep(version_list{i},'-model','')...
               );
             end              
           otherwise
-            dat_list{i}=gravity.graceC20('mode','read','version',version_list{i});
+            dat_list{i}=slr.graceC20('mode','read','version',version_list{i});
             dat_list{i}=dat_list{i}.interp(dat_list{i}.t_domain(days(7)),...
               'interp_over_gaps_narrower_than',days(45)...
             );
