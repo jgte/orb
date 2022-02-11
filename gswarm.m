@@ -5,7 +5,25 @@ classdef gswarm
       './data/gswarm';...
     };
     start_date=datetime('2013-12-01');
-     stop_date=dateshift(datetime('now'),'start','quarter');
+    % for i=1:12
+    %   disp([num2str(i),' : ',datestr(...
+    %     dateshift(dateshift(datetime(['2022-',num2str(i,'%02i'),'-15']),'start','months')-calmonths(2),'start','quarter')-days(1)...
+    %   )]);
+    % end
+    %NOTICE: assigns the end date of the processing according to the current month as follows:
+    % 1  : 30-Sep-2021
+    % 2  : 30-Sep-2021
+    % 3  : 31-Dec-2021
+    % 4  : 31-Dec-2021
+    % 5  : 31-Dec-2021
+    % 6  : 31-Mar-2022
+    % 7  : 31-Mar-2022
+    % 8  : 31-Mar-2022
+    % 9  : 30-Jun-2022
+    % 10 : 30-Jun-2022
+    % 11 : 30-Jun-2022
+    % 12 : 30-Sep-2022
+     stop_date=dateshift(dateshift(datetime('now'),'start','months')-calmonths(2),'start','quarter')-days(1);
   end
   methods(Static)
     function out=dir(type)
