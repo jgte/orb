@@ -383,7 +383,7 @@ classdef slr < gravity
       stop= slr.test_parameters('stop' );
       test_list={'CSR2x2','CSR5x5','GSFC5x5','TN-07','TN-11','CSR-RL06','TN-14','GSFC','GSFC-7DAY'};
       switch(method)
-        case 'all'
+        case {'all','C20'}
           plotting.figure;
           cellfun(@(i) slr.load(...
             i,'start',start,'stop',stop...
