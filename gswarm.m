@@ -2649,7 +2649,7 @@ classdef gswarm
       %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need
       %WORKFLOW                ~/data/grace/download-l2.sh, which
       %WORKFLOW                iterates over specific years, currently 2021)
-      %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'get_input_data' to true.
+      %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'get_input_data' to false.
       %WORKFLOW     5.3: if TYPE=validation, check if the 'git_ci' option is true:
       %WORKFLOW         5.3.1: after the swarm data is processed, the quality is computed in
       %WORKFLOW                the gswarm.quality method, where it is added to the git repo
@@ -2674,7 +2674,7 @@ classdef gswarm
       %WORKFLOW         5.6.4: You changed a matlab class and the *.mat files in the GRACE
       %WORKFLOW                L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell
       %WORKFLOW                this is the case when the error happens only on the first new
-      %WORKFLOW                model); just delete the offending *.mat files:
+      %WORKFLOW                models); just delete the offending *.mat files:
       %WORKFLOW                rm -fv ~/data/gswarm/*/gravity/*.mat ~/data/grace/L2/CSR/RL06/*.mat
       %WORKFLOW                and re-import everything (by simply re-running gswarm.TYPE).
       %WORKFLOW         5.6.5: Some analysis start in 2002-04 instead of 2016-01, particularly
