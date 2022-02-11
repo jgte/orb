@@ -1815,7 +1815,7 @@ classdef gswarm
         if ~exist(filename,'file')
           stmn=dataproduct(p{1}).mdget('static_model');
           stc20=datastorage().init(stmn).data_get_scalar(datanames(stmn).append_field_leaf('signal')).C(2,0);
-          tn=slr.graceC20('mode','read');
+          tn=slr.load(dataproduct(p{1}).mdget('use_GRACE_C20'));
           tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);
           plotting.figure;
           for i=1:size(a,1)
@@ -2078,7 +2078,7 @@ classdef gswarm
         plotfilename=fullfile(v.check_figs_dir,'checks','C20.png');
         if ~file.exist(plotfilename)
           plotting.figure;
-          out=slr.graceC20('mode','plot','version',gswarm.paper('type','C20-source'));
+          slr.load(gswarm.paper('type','C20-source')).plot;
           plotting.save(plotfilename,v.varargin{:});
         else
           out=[];
@@ -2087,9 +2087,17 @@ classdef gswarm
         plotfilename=fullfile(v.figures_dir,'checks','C20-sources.png');
         if ~file.exist(plotfilename)
 %         version_list={'GSFC-7day','GSFC','TN-14','TN-11','TN-07'};
-          version_list={'GSFC-7day','TN-11','TN-11-model'};
-          slr.graceC20('mode','plot-all','version',version_list);
-          plotting.enforce('plot_legend',version_list);
+          version_list={'GSFC-7day','TN-11','TN-11-C20-model'};
+          plotting.figure;
+          cellfun(@(i) slr.load(...
+            i...
+          ).plot(...
+            'method','timeseries','degrees',2,'orders',0 ...
+          ),version_list);
+          plotting.enforce(...
+            'plot_line_color','spiral',...
+            'plot_legend',version_list...
+          );
           plotting.save(plotfilename,v.varargin{:});
         else
           out=[];
@@ -2097,14 +2105,13 @@ classdef gswarm
       case 'TN11'                 %checking only (not used anymore)
         plotfilename=fullfile(v.figures_dir,'checks','C20.TN11.png');
         if ~file.exist(plotfilename)
-          slr.graceC20(...
-            'mode','model-plot',...
-            v.varargin{:},...
+          slr.load('TN-11',...
             'start',time.zero_date,...
             'stop',datetime('2019-10-31')...
+          ).plot(...
+            'method','timeseries','degrees',2,'orders',0 ...
           )
           if str.none(v.plot_title); title(''); end
-          %slr.graceC20('mode','model-list')
           plotting.save(plotfilename,v.varargin{:});
         else
           out=[];
@@ -2419,11 +2426,11 @@ classdef gswarm
           plotting.figure(varargin{:});
           grs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).plot('zeromean',true);
           grm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).plot('zeromean',true);
-          tn=slr.graceC20('version',C20_name).plot('columns',1,'zeromean',true);
+          c20=slr.load(               C20_name).ts_C(2,0).plot('zeromean',true);
           plotting.enforce('plot_legend',{...
             str.rep(grs.legend{1},'C2,0','GRACE data');...
             str.rep(grm.legend{1},'C2,0','GRACE model');...
-            str.rep( tn.legend{1},'C20',[C20_name,' (w/ static)']);...
+            str.rep( c20.legend{1},'C20',[C20_name,' (w/ static)']);...
           },'plot_title','C20','plot_ylabel','non-dim');
           saveas(gcf,fn{1})
           str.say('plotted',fn{1})
@@ -2460,9 +2467,9 @@ classdef gswarm
           sw=d.data_get_scalar(p.swm.dataname).ts_C(2,0).addgaps(days(45)); swp=sw.plot;
           gs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).addgaps(days(45)); gsp=gs.plot;
           gm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).addgaps(days(45)); gmp=gm.plot;
-          tn=slr.graceC20('mode','read','version',strrep(C20_name,'-model',''));
-          tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);
-          tn.plot('columns',1);
+          c20=slr.load(strrep(C20_name,'-c-model',''));
+          c20=c20.trim(v.start,v.stop).addgaps(days(45))-stc20(1);
+          c20.plot('columns',1);
           if contains(C20_name,'-model')
             tm=slr.graceC20('mode','model','time',gm.t,'version',strrep(C20_name,'-model',''));
             tm=tm.addgaps(days(45))-stc20(1);

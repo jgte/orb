@@ -773,12 +773,8 @@ classdef gravity < simpletimeseries
             if strcmpi(v.date_parser,'static')
               error([mfilename,': there''s no point in replacing GRACE C20 coefficients in a static model.'])
             end
-%             %legacy support
-%             if islogical(v.use_GRACE_C20) && v.use_GRACE_C20
-%               v.use_GRACE_C20='TN-07';
-%             end
             %parse using a model or the original data
-            if contains(v.use_GRACE_C20,'-model')
+            if contains(v.use_GRACE_C20,'-C20-model')
               c20mode='model';
               v.use_GRACE_C20=strrep(v.use_GRACE_C20,'-model','');
             else
