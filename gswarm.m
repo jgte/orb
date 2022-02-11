@@ -5,7 +5,25 @@ classdef gswarm
       './data/gswarm';...
     };
     start_date=datetime('2013-12-01');
-     stop_date=dateshift(datetime('now'),'start','quarter');
+    % for i=1:12
+    %   disp([num2str(i),' : ',datestr(...
+    %     dateshift(dateshift(datetime(['2022-',num2str(i,'%02i'),'-15']),'start','months')-calmonths(2),'start','quarter')-days(1)...
+    %   )]);
+    % end
+    %NOTICE: assigns the end date of the processing according to the current month as follows:
+    % 1  : 30-Sep-2021
+    % 2  : 30-Sep-2021
+    % 3  : 31-Dec-2021
+    % 4  : 31-Dec-2021
+    % 5  : 31-Dec-2021
+    % 6  : 31-Mar-2022
+    % 7  : 31-Mar-2022
+    % 8  : 31-Mar-2022
+    % 9  : 30-Jun-2022
+    % 10 : 30-Jun-2022
+    % 11 : 30-Jun-2022
+    % 12 : 30-Sep-2022
+     stop_date=dateshift(dateshift(datetime('now'),'start','months')-calmonths(2),'start','quarter')-days(1);
   end
   methods(Static)
     function out=dir(type)
@@ -186,10 +204,14 @@ classdef gswarm
           'model_types',        {'*'} ,@iscellstr;...
           'plot_lines_over_gaps_narrower_than',days(120),@isduration;...
           'plot_time_domain_source',0 ,@num.isscalar;...
+          'inclusive',          false ,@islogical;... %generally we want plots to be exclusive, i.e. not show non-common data (e.g. C20 from 2002-04)
         },...
         product.args({'stats_relative_to','model_types'}),...
         product.plot_args...
       },varargin{:});
+      % update start/stop considering the requested inclusive
+      obj=obj.startstop_update('start',gswarm.production_date('start'),'stop',gswarm.production_date('stop'),'inclusive',v.inclusive);
+      obj.log('@','startstop_update','product',product,'start',obj.start,'stop',obj.stop)
       %retrieve load/saving of plotdata: handles plot_force and plot_save_data
       [loaddata,savedata]=plotting.forcing(v.varargin{:});
       %first build data filename;
@@ -557,12 +579,6 @@ classdef gswarm
         },...
         product.plot_args...
       },varargin{:});
-      %make sure this model type is relevant
-      if ~isempty(product.dataname.field_path) && ~ismember(product.mdget('model_types'),product.dataname.field_path{end})
-        disp(['WARNING: ignoring ',product.codename,' because model type is none of ',...
-          strjoin(product.mdget('model_types'),', '),'.'])
-        return
-      end
       %collect the models, unless given externally
       v=varargs.wrap('sources',{v,...
         {...
@@ -570,13 +586,7 @@ classdef gswarm
         }...
       },varargin{:});
       if isempty(v.pod); v.pod=gswarm.plot_ops(obj,product,v.varargin{:}); end
-      %NOTICE: this is needed when metadata filenames are changed after saving plot data
-      if ~strcmp(v.pod.file_root,gswarm.file_root(obj,product))
-        str.say('NOTICE: renaming file root',newline,...
-          'from:',v.pod.file_root,newline,...
-          '  to:',gswarm.file_root(obj,product))
-        v.pod.file_root=gswarm.file_root(obj,product);
-      end
+
       %check if this plot is requested
       if cells.isincluded(v.plot_spatial_stat_list,'diff')
 
@@ -908,9 +918,6 @@ classdef gswarm
         },...
         product.plot_args...
       },varargin{:});
-      %legacy checking
-      assert(~v.isparameter('plot_temp_stat_func'),...
-        'the ''plot_temp_stat_func'' metadata entry is no longer supported, use ''plot_functional'' instead.')
       %collect the models, unless given externally
       v=varargs.wrap('sources',{v,...
         {...
@@ -1168,7 +1175,6 @@ classdef gswarm
         },...
         product.args...
       },varargin{:});
-
       %collect the models, unless given externally
       v=varargs.wrap('sources',{v,...
         {...
@@ -2645,7 +2651,7 @@ classdef gswarm
       %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need
       %WORKFLOW                ~/data/grace/download-l2.sh, which
       %WORKFLOW                iterates over specific years, currently 2021)
-      %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'get_input_data' to true.
+      %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'get_input_data' to false.
       %WORKFLOW     5.3: if TYPE=validation, check if the 'git_ci' option is true:
       %WORKFLOW         5.3.1: after the swarm data is processed, the quality is computed in
       %WORKFLOW                the gswarm.quality method, where it is added to the git repo
@@ -2670,7 +2676,7 @@ classdef gswarm
       %WORKFLOW         5.6.4: You changed a matlab class and the *.mat files in the GRACE
       %WORKFLOW                L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell
       %WORKFLOW                this is the case when the error happens only on the first new
-      %WORKFLOW                model); just delete the offending *.mat files:
+      %WORKFLOW                models); just delete the offending *.mat files:
       %WORKFLOW                rm -fv ~/data/gswarm/*/gravity/*.mat ~/data/grace/L2/CSR/RL06/*.mat
       %WORKFLOW                and re-import everything (by simply re-running gswarm.TYPE).
       %WORKFLOW         5.6.5: Some analysis start in 2002-04 instead of 2016-01, particularly
@@ -2822,7 +2828,7 @@ classdef gswarm
       %plot it
       tstart=tic;
       for i=1:numel(p)
-        d.init(p{i},varargin{:});
+        d.init(p{i},v.varargin{:});
         disp(['Finished plotting product ',p{i}.str,' after ',time.str(toc(tstart)),' elapsed'])
       end
     end
