@@ -240,8 +240,8 @@ classdef pardecomp
       %init output and copy metadata
       pd_set.metadata=varargs(pd_set.metadata).rm_empty.varargin;
       switch func2str(pd_set.init)
-        case 'gravity';obj=pd_set.init.unit(gravity.width2lmax(pd_set.width),'t',v.time,pd_set.metadata{:},'scale',0);
-        otherwise;     obj=pd_set.init.zero(v.time,pd_set.width,pd_set.metadata{:});
+        case 'gravity';obj=eval([func2str(pd_set.init),'.unit(gravity.width2lmax(pd_set.width),''t'',v.time,pd_set.metadata{:},''scale'',0);']);
+        otherwise;     obj=eval([func2str(pd_set.init),'.zero(v.time,pd_set.width,pd_set.metadata{:});']);
       end
       %match epochs (very important and not done with copying the metadata)
       obj.epoch=pd_set.epoch;
