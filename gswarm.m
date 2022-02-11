@@ -2826,7 +2826,7 @@ classdef gswarm
       %plot it
       tstart=tic;
       for i=1:numel(p)
-        d.init(p{i},varargin{:});
+        d.init(p{i},v.varargin{:});
         disp(['Finished plotting product ',p{i}.str,' after ',time.str(toc(tstart)),' elapsed'])
       end
     end
