@@ -3476,7 +3476,8 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     case 'GSFC-7DAY'
       datfil='GSFC_SLR_C20_7day.txt';
       daturl='personal communication: email from bryant.d.loomis@nasa.gov';
-      datfmt='%10.4f%23.13f';
+%       datfmt='%10.4f%23.13f'; %NOTICE: this was used for the format of the data sent by email
+      datfmt='%12.6f%21.13f'; %NOTICE: this is used for the format of the data resulting from the online file
       t_idx=1;
       s_idx=2;
       e_idx=0;
