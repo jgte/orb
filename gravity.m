@@ -962,6 +962,7 @@ classdef gravity < simpletimeseries
             'static_model',      'none' , @ischar; ...
             'product_name',    'unknown', @ischar;...
             'model_type',       'signal', @ischar;...
+            'show_msg',            true , @islogical;...
           },...
         },varargin{:});
         %sanity
@@ -970,14 +971,14 @@ classdef gravity < simpletimeseries
           return
         end
         %inits user feedback vars
-        msg='';show_msg=true;
+        msg='';
         switch mode
         case 'mode_list'
           mod={'consistent_GM','consistent_R','max_degree','use_GRACE_C20','delete_C00','delete_C20','start','stop','static_model'};
-          show_msg=false;
+          v.show_msg=false;
         case 'all'
-          mod=gravity.common_ops(gravity.common_ops('mode_list'),mod,v.varargin{:});
-          show_msg=false;
+          mod=gravity.common_ops(gravity.common_ops('mode_list'),mod,v.varargin{:},'show_msg',false);
+          return
         case 'consistent_GM'
           mod=mod.setGM(gravity.parameters('GM'));
         case 'consistent_R'
@@ -1060,7 +1061,7 @@ classdef gravity < simpletimeseries
           %remove static field (if requested)
           if ~strcmpi(v.static_model,'none') && strcmp(v.model_type,'signal')
             %TODO: make this handle filenames as well, not only datastorage products
-            static=datastorage().init(v.static_model).data_get_scalar(datanames(v.static_model).append_field_leaf('signal'));
+            static=datastorage().init(v.static_model,'show_msg',false).data_get_scalar(datanames(v.static_model).append_field_leaf('signal'));
             %adjust the start/stop
             switch static.length
             case 1
@@ -1082,7 +1083,7 @@ classdef gravity < simpletimeseries
         otherwise
           error(['Cannot handle operantion ''',mode,'''.'])
         end
-        if show_msg;str.say(v.product_name,':',mode,msg);end
+        if v.show_msg;str.say(v.product_name,':',mode,msg);end
       end
     end
     %% model combination
