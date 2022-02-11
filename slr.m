@@ -297,6 +297,12 @@ classdef slr < gravity
     function obj=load(source,varargin)
      %handle producing the parametric model
       if contains(source,'-C20-model')
+        %parse arguments that are required later
+        v=varargs.wrap('sources',{...
+          {...
+            'time',        [], @(i) isdatetime(i) || isempty(i);...
+          },...
+        },varargin{:});
         %save data source
         data_source=strrep(source,'-C20-model','');
         %build parametric model data filename
@@ -324,8 +330,12 @@ classdef slr < gravity
           %load the data
           load(datafile,'pd_set')
         end
+        %patch the time domain if none was given
+        if isempty(v.time)
+          v.time=pd_set.time;
+        end
         %evaluate model at the data source time domain
-        model=pardecomp.join( pd_set,'time',pd_set.time);
+        model=pardecomp.join( pd_set,'time',v.time);
         %propagate relevant information
         t=model.t;
         y=zeros(numel(t),gravity.y_length(2));
