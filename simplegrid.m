@@ -2009,12 +2009,12 @@ classdef simplegrid < simpletimeseries
       m=obj.vecmat;
       for f=1:size(m.map,3)
         %build file for the current time
-        f_now=fullfile(fd,[fn,'.',datestr(obj.t(f),'yyyyMMddThhmmss'),fe]);
+        f_now=fullfile(fd,[fn,'.',datestr(obj.t(f),'yyyymmddTHHMMSS'),fe]);
         if ~exist(f_now,'file') || v.force
           %open the file (sanity done inside)
           fid=file.open(f_now,'w');
           %save the data
-          s.msg=['exporting ',obj.descriptor,' for ',datestr(obj.t(f),'yyyy-MM-dd hh:mm:ss'),' to file ',f_now];s.n=size(m.map,2);
+          s.msg=['exporting ',obj.descriptor,' for ',datestr(obj.t(f),'yyyy-mm-dd HH:MM:SS'),' to file ',f_now];s.n=size(m.map,2);
           for j=1:size(m.map,2)
             for i=1:size(m.map,1)
               fprintf(fid,v.fmt,m.lon(j),m.lat(i),m.map(i,j,f));
