@@ -1556,6 +1556,22 @@ classdef gravity < simpletimeseries
         plotting.enforce('plot_legend_location','none');
       case 'gracec20'
         gravity.graceC20('mode','plot-all','version',{'GSFC-7DAY','GSFC','TN-14','TN-11'});
+      case 'sh2grid'
+        datadir='~/data/gswarm/aiub/gravity/';
+        datafiles='GSWARM_GF_SABC_COMBINED_2020-*_09.gfc';
+        functional='eqwh';
+        %load the data
+        g=gravity.load_dir(datadir,'gfc',@gravity.parse_epoch_gswarm,'wildcarded_filename',datafiles,'descriptor','Swarm');
+        %remove static model
+        g=g-gravity.static('ggm05c').set_lmax(g.lmax).scale(g);
+        %convert to equivalent water height
+        g=g.scale(750e3,'gauss').scale(functional,'functional');
+        %conver to grid
+        out=g.grid('spatial_step',2);
+        %show the grid
+        out.imagesc
+        %export to xyz format
+        out.xyz(['./GSWARM_GF_SABC_COMBINED-',functional,'.xyz'])
       otherwise
         error(['Cannot handle test method ''',method,'''.'])
       end
