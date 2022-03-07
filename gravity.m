@@ -585,6 +585,9 @@ classdef gravity < simpletimeseries
       out=out+(dateshift(out,'end','month')-out)/2;
     end
     function out=parse_epoch_tn14(filename)
+      %NOTICE: these data live in ~/data/SLR/TN-14/ (not set explicitly)
+      %NOTICE: these data need to be converted with ~/data/SLR/TN-14/convert_TN-14.sh 
+      %NOTICE: graceC20 handles these data directly from the published data file
       %TN-14_C30_C20_GSFC_SLR.55942.5.gfc
       %1234567890123456789012345678901234567890
       [~,file]=fileparts(filename);
@@ -3556,4 +3559,3 @@ end
 %     error(['Cannot handle version ''',version,'''.'])
 %   end
 % end
-
