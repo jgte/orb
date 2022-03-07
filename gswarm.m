@@ -5,7 +5,25 @@ classdef gswarm
       './data/gswarm';...
     };
     start_date=datetime('2013-12-01');
-     stop_date=dateshift(datetime('now'),'start','quarter');
+    % for i=1:12
+    %   disp([num2str(i),' : ',datestr(...
+    %     dateshift(dateshift(datetime(['2022-',num2str(i,'%02i'),'-15']),'start','months')-calmonths(2),'start','quarter')-days(1)...
+    %   )]);
+    % end
+    %NOTICE: assigns the end date of the processing according to the current month as follows:
+    % 1  : 30-Sep-2021
+    % 2  : 30-Sep-2021
+    % 3  : 31-Dec-2021
+    % 4  : 31-Dec-2021
+    % 5  : 31-Dec-2021
+    % 6  : 31-Mar-2022
+    % 7  : 31-Mar-2022
+    % 8  : 31-Mar-2022
+    % 9  : 30-Jun-2022
+    % 10 : 30-Jun-2022
+    % 11 : 30-Jun-2022
+    % 12 : 30-Sep-2022
+     stop_date=dateshift(dateshift(datetime('now'),'start','months')-calmonths(2),'start','quarter')-days(1);
   end
   methods(Static)
     function out=dir(type)
@@ -30,7 +48,7 @@ classdef gswarm
           'consistent_GM',   false,@islogical;...
           'consistent_R',    false,@islogical;...
           'max_degree'           0,@num.isscalar;...
-          'use_GRACE_C20',   false,@islogical;...
+          'use_GRACE_C20',  'none',@ischar;...
           'delete_C00',      false,@islogical;...
           'delete_C20',      false,@islogical;...
           'model_span', {time.zero_date,time.inf_date},@(i) isnumeric(i) && numel(i)==2;...
@@ -191,10 +209,14 @@ classdef gswarm
           'model_types',        {'*'} ,@iscellstr;...
           'plot_lines_over_gaps_narrower_than',days(120),@isduration;...
           'plot_time_domain_source',0 ,@num.isscalar;...
+          'inclusive',          false ,@islogical;... %generally we want plots to be exclusive, i.e. not show non-common data (e.g. C20 from 2002-04)
         },...
         product.args({'stats_relative_to','model_types'}),...
         product.plot_args...
       },varargin{:});
+      % update start/stop considering the requested inclusive
+      obj=obj.startstop_update('start',gswarm.production_date('start'),'stop',gswarm.production_date('stop'),'inclusive',v.inclusive);
+      obj.log('@','startstop_update','product',product,'start',obj.start,'stop',obj.stop)
       %retrieve load/saving of plotdata: handles plot_force and plot_save_data
       [loaddata,savedata]=plotting.forcing(v.varargin{:});
       %first build data filename;
@@ -562,12 +584,6 @@ classdef gswarm
         },...
         product.plot_args...
       },varargin{:});
-      %make sure this model type is relevant
-      if ~isempty(product.dataname.field_path) && ~ismember(product.mdget('model_types'),product.dataname.field_path{end})
-        disp(['WARNING: ignoring ',product.codename,' because model type is none of ',...
-          strjoin(product.mdget('model_types'),', '),'.'])
-        return
-      end
       %collect the models, unless given externally
       v=varargs.wrap('sources',{v,...
         {...
@@ -575,13 +591,7 @@ classdef gswarm
         }...
       },varargin{:});
       if isempty(v.pod); v.pod=gswarm.plot_ops(obj,product,v.varargin{:}); end
-      %NOTICE: this is needed when metadata filenames are changed after saving plot data
-      if ~strcmp(v.pod.file_root,gswarm.file_root(obj,product))
-        str.say('NOTICE: renaming file root',newline,...
-          'from:',v.pod.file_root,newline,...
-          '  to:',gswarm.file_root(obj,product))
-        v.pod.file_root=gswarm.file_root(obj,product);
-      end
+
       %check if this plot is requested
       if cells.isincluded(v.plot_spatial_stat_list,'diff')
 
@@ -913,9 +923,6 @@ classdef gswarm
         },...
         product.plot_args...
       },varargin{:});
-      %legacy checking
-      assert(~v.isparameter('plot_temp_stat_func'),...
-        'the ''plot_temp_stat_func'' metadata entry is no longer supported, use ''plot_functional'' instead.')
       %collect the models, unless given externally
       v=varargs.wrap('sources',{v,...
         {...
@@ -1173,7 +1180,6 @@ classdef gswarm
         },...
         product.args...
       },varargin{:});
-
       %collect the models, unless given externally
       v=varargs.wrap('sources',{v,...
         {...
@@ -1918,7 +1924,7 @@ classdef gswarm
           'debug',     true,                        @islogical;...
           'inclusive', true,                        @islogical;...
           'stop',      datetime(PROJECT.stop_date), @isdatetime;...
-          'nodata',    true,                        @islogical;... %NOTICE: consider turning this on to update all input data
+          'get_input_data',    false,               @islogical;... %NOTICE: consider turning this on to update all input data
           'c20model',  true,                        @islogical;...
           'end_product','gswarm.gracefo.sh.rl06.csr.pd.ts',@ischar;...
           'frame_rate', 30                          @(i) isnumeric(i) && isscalar(i);...
@@ -1927,7 +1933,7 @@ classdef gswarm
         },... 
       },varargin{:});
       %get input data
-      if ~v.nodata;file.system('~/data/grace/download-l2.sh CSR 06',true);end
+      if v.get_input_data;gswarm.get_input_data('GRACE');end
       %ensure C20 model is available
       if v.c20model && ~gswarm.c20model('done',file.orbdir('plot'))
         gswarm.c20model('plot',file.orbdir('plot'));
@@ -2540,18 +2546,24 @@ classdef gswarm
       end
 
     end
-    function get_input_data
-      %NOTICE: the download-l2.sh script iterates over specific years (currently 2020)
-      disp('Downloading GRACE data')
-      file.system('./download-l2.sh CSR 06','disp',true,'cd',grace.dir('l1b'));
-      disp('Downloading Swarm data')
-      file.system('~/bin/rsyncf.sh aristarchos --no-l2r','disp',true,'cd',gswarm.dir('data'));
+    function get_input_data(mode)
+      switch mode
+      case('GRACE')
+        %NOTICE: the download-l2.sh script iterates over specific years (currently 2021)
+        disp('Downloading GRACE data')
+        file.system('./download-l2.sh CSR 06','disp',true,'cd',grace.dir('l1b'));
+      case ('Swarm')
+        disp('Downloading Swarm data')
+        file.system('~/bin/rsyncf.sh aristarchos --no-l2r','disp',true,'cd',gswarm.dir('data'));
+      case('all')
+        gswarm.get_input_data('GRACE')
+        gswarm.get_input_data('Swarm')
+      otherwise
+        error(['Cannot handle ''mode'' with value ''',mode,'''.'])
+      end
     end
     function out=c20model(mode,plot_dir,version)
       if ~exist('version','var') || isempty(version)
-        %NOTICE: TN-11 seems to remain outdated since the end of 2019
-        %version='TN-11';
-        %NOTICE: this needs to be in agreement with model.processing.replaceC20.submetadata.yaml
         version=dataproduct('model.processing.replaceC20.submetadata').metadata.use_GRACE_C20;
       end
       %check if this is a C20 model
@@ -2609,7 +2621,7 @@ classdef gswarm
           'swarm.sh.gswarm.rl01.individual';...
           'swarm.sh.gswarm.rl01.individual.maps';...
         },...
-        'nodata',false,...
+        'get_input_data',false,...
         'plot_pause_on_save',false,...
         varargin{:}...
       );
@@ -2623,7 +2635,7 @@ classdef gswarm
       %WORKFLOW 1.  OPTIONAL: plug the thumb drive in (no need to mount-disk.sh)
       %WORKFLOW 2.  sure everything is in synch.sh:
       %WORKFLOW     2.1: in ~/data/gswarm/analyses/report-TYPE/
-      %WORKFLOW     2.2: ~/data/gswarm/rsync.remote2local-subset.sh --dry-run
+      %WORKFLOW     2.2: rsyncf.sh remotes-file=~/data/gswarm/rsyncf.list --no-l2r --dry-run aristarchos
       %WORKFLOW 3.  create a new TYPE dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
       %WORKFLOW 4.  cd to the orb dir in the new TYPE dir (shown by new-analysis.sh
       %WORKFLOW     script) and check the stop_date in project.yaml is the last day of the
@@ -2631,13 +2643,13 @@ classdef gswarm
       %WORKFLOW     this but better check if it's OK)
       %WORKFLOW 5.  fire up matlab and look at the gswarm.TYPE method:
       %WORKFLOW     5.1: check if all products are being used, some may be commented
-      %WORKFLOW     5.2: check if the 'nodata' option is false:
+      %WORKFLOW     5.2: check if the 'get_input_data' option is true:
       %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need
-      %WORKFLOW                ~/data/gswarm/rsync.remote2local.sh)
+      %WORKFLOW                rsyncf.sh and ~/data/gswarm/rsyncf.list)
       %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need
       %WORKFLOW                ~/data/grace/download-l2.sh, which
       %WORKFLOW                iterates over specific years, currently 2021)
-      %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'nodata' to true.
+      %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'get_input_data' to false.
       %WORKFLOW     5.3: if TYPE=validation, check if the 'git_ci' option is true:
       %WORKFLOW         5.3.1: after the swarm data is processed, the quality is computed in
       %WORKFLOW                the gswarm.quality method, where it is added to the git repo
@@ -2662,7 +2674,7 @@ classdef gswarm
       %WORKFLOW         5.6.4: You changed a matlab class and the *.mat files in the GRACE
       %WORKFLOW                L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell
       %WORKFLOW                this is the case when the error happens only on the first new
-      %WORKFLOW                model); just delete the offending *.mat files:
+      %WORKFLOW                models); just delete the offending *.mat files:
       %WORKFLOW                rm -fv ~/data/gswarm/*/gravity/*.mat ~/data/grace/L2/CSR/RL06/*.mat
       %WORKFLOW                and re-import everything (by simply re-running gswarm.TYPE).
       %WORKFLOW         5.6.5: Some analysis start in 2002-04 instead of 2016-01, particularly
@@ -2732,7 +2744,7 @@ classdef gswarm
           'gswarm.swarm.validation.maps';...
           'gswarm.swarm.validation.unsmoothed';...
         },...
-        'nodata',true,... #this is usually more problems that what it's worth; just copy the data manually
+        'get_input_data',false,... #this is usually more problems that what it's worth; just copy the data manually
         varargin{:}...
       );
       %export quality metrics
@@ -2746,7 +2758,7 @@ classdef gswarm
       assert(strcmp(mode,'start') || strcmp(mode,'stop'),...
         'input ''mode'' must either ''start'' or ''stop''.')
       mode=[mode,'_date'];
-      if isfield(mode,PROJECT)
+      if isfield(PROJECT,mode)
         out=datetime(PROJECT.(mode));
       else
         out=gswarm.(mode);
@@ -2772,7 +2784,7 @@ classdef gswarm
           'inclusive', true,                        @islogical;...
           'force',     false,                       @islogical;... %this affects datastorage.init
           'force_d',   false,                       @islogical;... %this affects load(datafilename,'d') if force is false
-          'nodata',    false,                       @islogical;... %NOTICE: consider turning this on to update all input data
+          'get_input_data',false,                   @islogical;... %NOTICE: consider turning this on to update all input data
           'c20model',  true,                        @islogical;...
          'grace_model',true,                        @islogical;...
         },...
@@ -2783,7 +2795,7 @@ classdef gswarm
         assert(~isempty(v.(required_args{i})),['need argument ''',required_args{i},'''.'])
       end
       %get input data
-      if ~v.nodata;gswarm.get_input_data; end
+      if v.get_input_data;gswarm.get_input_data('all'); end
       %ensure C20 model is available
       if v.c20model && ~gswarm.c20model('done',file.orbdir('plot'))
         gswarm.c20model('plot',file.orbdir('plot'));
@@ -2814,7 +2826,7 @@ classdef gswarm
       %plot it
       tstart=tic;
       for i=1:numel(p)
-        d.init(p{i},varargin{:});
+        d.init(p{i},v.varargin{:});
         disp(['Finished plotting product ',p{i}.str,' after ',time.str(toc(tstart)),' elapsed'])
       end
     end

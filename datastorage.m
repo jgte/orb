@@ -474,6 +474,7 @@ classdef datastorage
       obj=obj.data_set(dn_out,result);
     end
     %% start/stop operations
+    %returns   the start date out of the vector of dates 'io', according to the current valid criteria (as defined in obj.inclusive)
     function io=start_criteria(obj,io)
       assert(~isempty(io),'Cannot handle empty ''io''.')
       %NOTICE: this makes it possible to have time-independent field paths, which need to
@@ -500,6 +501,7 @@ classdef datastorage
         io=max([io{:}]);
       end
     end
+    %returns   the  stop date out of the vector of dates 'io', according to the current valid criteria (as defined in obj.inclusive)
     function io=stop_criteria(obj,io)
       assert(~isempty(io),'Cannot handle empty ''values''.')
       %NOTICE: this makes it possible to have time-independent field paths, which need to
@@ -526,25 +528,24 @@ classdef datastorage
         io=min([io{:}]);
       end
     end
+    %retrieves the start date ouf of products 'dn',            according to the current valid criteria (as defined in obj.inclusive)
     function out=start_retrieve(obj,dn)
       out=obj.start_criteria(obj.vector_method_tr(dn,'start'));
     end
+    %retrieves the  stop date ouf of products 'dn',            according to the current valid criteria (as defined in obj.inclusive)
     function out=stop_retrieve(obj,dn)
       out=obj.stop_criteria(obj.vector_method_tr(dn,'stop'));
     end
-    function out=get.start(obj)
-      out=obj.starti;
-    end
-    function out=get.stop(obj)
-      out=obj.stopi;
-    end
+    function out=get.start(obj); out=obj.starti; end
+    function out=get.stop(obj);  out=obj.stopi;  end
+    %NOTICE: use obj.startstop_update instead of this method so that the inclusive flag is handled properly
     function obj=set.start(obj,start)
       %save current global start value
       old_start=obj.starti;
       %check if updating is needed
       if isempty(obj.starti) || start==obj.start_criteria({obj.starti,start})
         %don't report routine inits
-        if ~time.iszero(start)
+        if ~time.iszero(start) && ~isempty(obj.starti) && obj.starti~=start
           obj.log('@','start update','from',obj.starti,'to',start)
         end
         %update internal record
@@ -556,13 +557,14 @@ classdef datastorage
         obj=obj.vector_method_set('all','start',obj.starti);
       end
     end
+    %NOTICE: use obj.startstop_update instead of this method so that the inclusive flag is handled properly
     function obj=set.stop(obj,stop)
       %save current global stop value
       old_stop=obj.stopi;
       %update if needed
       if isempty(obj.stopi) || stop==obj.stop_criteria({obj.stopi,stop})
         %don't report routine inits
-        if ~time.isinf(stop)
+        if ~time.isinf(stop) && ~isempty(obj.stopi) && obj.stopi~=stop
           obj.log('@','stop update','from',obj.stopi,'to',stop)
         end
         %update internal record
@@ -574,6 +576,7 @@ classdef datastorage
         obj=obj.vector_method_set('all','stop',obj.stopi);
       end
     end
+    %NOTICE: this is the same as obj.startstop_update, except is can act on specific products (with 'dn_list')
     function obj_out=trim(obj,varargin)
       p=inputParser;
       p.KeepUnmatched=true;
@@ -582,41 +585,61 @@ classdef datastorage
       p.addParameter('dn_list',obj.data_list('all'), @iscell);
       p.parse(varargin{:});
       obj_out=obj.data_init.data_set(p.Results.dn_list,obj.data_get(p.Results.dn_list));
-      obj_out.start=p.Results.start;
-      obj_out.stop=p.Results.stop;
+      obj_out.inclusive=obj.inclusive;
+      obj_out=obj_out.startstop_update('start',p.Results.start,'stop',p.Results.stop,varargin{:});
     end
-    function obj=startstop_update(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
-      p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));
-      % parse it
-      p.parse(varargin{:});
-      % check if start/stop were part of varargin
-      for i={'start','stop'}
-        if ~any(strcmp(p.UsingDefaults,i{1}))
-          obj.(i{1})=p.Results.(i{1});
-        end
+    %NOTICE: resolves the inclusing flag according to the following pecking order:
+    % 1. what is defined in all(product(s)) (can be empty)
+    % 2. what is passed in varargin
+    % 3. what is defined in obj.inclusive
+    function out=is_inclusive(obj,varargin)
+      v=varargs.wrap('sources',{...
+        {...
+          'inclusive', obj.inclusive , @(i) islogical(i)  &&  isscalar(i); ...
+          'product',              {} , @(i) iscell(i) && all(cellfun(@(j) isa(j,'dataproduct'),i)); ...
+        },...
+      },varargin{:});
+      % resolve it
+      if isempty(v.product)
+        out=v.inclusive;
+      else
+        %NOTICE: all products need to be inclusive, for this to resolve to inclusive as well
+        out=all(cellfun(@(i) i.mdget('inclusive','default',v.inclusive),v.product));
       end
     end
-    function obj=startstop_retrieve_update(obj,product,inclusive_now)
+    %NOTICE: temporarily sets obj.inclusive according to obj.is_inclusive, so that product and varargin inclusive flags are enforced
+    %NOTICE: will resolve start/stop from varargin and product, so to force a certain start/stop, do not pass a product
+    function obj=startstop_update(obj,varargin)
+        v=varargs.wrap('sources',{...
+          {...
+            'start',          obj.start , @isdatetime; ...
+             'stop',           obj.stop , @isdatetime; ...
+          'product',                 {} , @(i) iscell(i) && all(cellfun(@(j) isa(j,'dataproduct'),i)); ...
+          },...
+        },varargin{:});
+      obj.log('@','in','product(s)',cellfun(@(i) i.name,v.product,'UniformOutput',false),'start',obj.start,'stop',obj.stop,'inclusive',obj.inclusive)
       %save current value of object-wide inclusive flag
       inclusive_old=obj.inclusive;
-      %handle inclusive flag
-      if exist('inclusive_now','var') && ~isempty(inclusive_now)
-        obj.inclusive=inclusive_now;
-      elseif product.ismdfield('inclusive')
-        obj.inclusive=product.mdget('inclusive');       
+      % force input inclusive flag
+      obj.inclusive=obj.is_inclusive(varargin{:});
+      obj.log('updated inclusive',obj.inclusive)
+      % handle potential input products
+      if ~isempty(v.product)
+        start_list=obj.vector_method_tr(v.product,'start');
+         stop_list=obj.vector_method_tr(v.product,'stop');
+      else
+        start_list={};
+         stop_list={};
       end
-      %retrieve start/stop
-      start_now=obj.start_retrieve(product);
-      stop_now=obj.stop_retrieve(product);
-      %update start/stop
-      obj=obj.startstop_update('start',start_now,'stop',stop_now);
-      %inform
-      obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
+      % append start/stop from varargin
+      start_list{end+1}=v.start;
+       stop_list{end+1}=v.stop;
+      %enforce start/stop
+      obj.start=obj.start_criteria(start_list);
+       obj.stop=obj.stop_criteria(  stop_list);
       %recover old value of inclusive flag
       obj.inclusive=inclusive_old;
+      obj.log('@','out','product(s)',cellfun(@(i) i.name,v.product,'UniformOutput',false),'start',obj.start,'stop',obj.stop,'inclusive',obj.inclusive)
     end
     function [startlist,stoplist]=startstop_list(~,s_in)
       if isstruct(s_in)
@@ -743,11 +766,13 @@ classdef datastorage
       if nargout>1; dn=product.dataname; end
     end
     %% load/save operations
-    function out=data_edges(obj,product,mode,exclusive_switch)
-      if ~exist('exclusive_switch','var') || isempty(exclusive_switch)
-        exclusive_switch=true;
+    %NOTICE: data_edges is only relevant to the load method; for operations, better use the startstop_update methods (and friends)
+    %Compares the product start/stop values (if any) with the object start/stop and updates object according to exclusive_loading
+    function out=data_edges(obj,product,mode,exclusive_loading)
+      if ~exist('exclusive_loading','var') || isempty(exclusive_loading)
+        exclusive_loading=true;
       end
-      if exclusive_switch
+      if exclusive_loading
         switch mode
         case 'start'; f=@max;
         case 'stop';  f=@min;
@@ -768,7 +793,7 @@ classdef datastorage
       %gather inputs
       v=varargs.wrap('sources',{{...
         'plot_product',        false,@(i) islogical(i) && isscalar(i);...
-        'exclusive_mode',      false,@(i) islogical(i) && isscalar(i);... %exclusive mode is false so that it is possible to ingest products with different time spans
+        'exclusive_loading',   false,@(i) islogical(i) && isscalar(i);... %exclusive loading is false so that it is possible to ingest products with different time spans
         'start_timestamp_only',datastorage.parameters('start_timestamp_only'),@islogical;... %this needs to be in agreement with what is used in datastorage.save
       },product.metadata},varargin{:});
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
@@ -777,15 +802,19 @@ classdef datastorage
         %update the start/stop if any if these metadata entries are given
         for i={'start','stop'}
           if product.ismdfield(i{1})
+            %NOTICE: we're not using exclusive_loading here but ~obj.inclusive because this is a processing step, not a loading step
             obj.(i{1})=obj.data_edges(product,i{1},~obj.inclusive);
           end
         end
         success=false;
       else
+        % get loading start/stop
+        start_load=obj.data_edges(product,'start',v.exclusive_loading);
+         stop_load=obj.data_edges(product,'stop', v.exclusive_loading);
         % get the file list
         file_list=product.file('data',...
-          'start',obj.data_edges(product,'start',v.exclusive_mode),... 
-          'stop', obj.data_edges(product,'stop', v.exclusive_mode),...
+          'start',start_load,... 
+          'stop',  stop_load,...
           'start_timestamp_only',v. start_timestamp_only,...
           'discover',false,... %this needs to be false so that data stops after the one in the data produce names of non-existing files
           'ensure_dir',false,...
@@ -793,8 +822,8 @@ classdef datastorage
         );
         % get file existence
         file_exists=product.isfile('data',...
-          'start',obj.data_edges(product,'start',v.exclusive_mode),...
-          'stop', obj.data_edges(product,'stop', v.exclusive_mode),...
+          'start',start_load,...
+          'stop', stop_load,...
           'start_timestamp_only',v. start_timestamp_only,...
         varargin{:});
         % check if any file is missing
@@ -842,11 +871,11 @@ classdef datastorage
         % enforce start/stop in metadata
         %NOTICE: this handles the case when data is saved first and the start/stop metadata entries are increased/decreased (trimming the saved data)
         %NOTICE: this does not handle decreasing/increased the start/stop metadata such that no new data file(s) is created (e.g. when using yearly or global storage_period)
-        s_out=structs.objmethod('trim',s_out,obj.data_edges(product,'start'),obj.data_edges(product,'stop'));
+        s_out=structs.objmethod('trim',s_out,start_load,stop_load);
         % save the data in the object
         obj=obj.data_set(product,s_out);
         % update start/stop
-        obj=obj.startstop_retrieve_update(product);
+        obj=obj.startstop_update('start',start_load,'stop',stop_load,'inclusive',~v.exclusive_loading);
         % debug output
         success=true;
       end
@@ -1130,10 +1159,10 @@ classdef datastorage
             success=false;
           else
             %try to load saved data
-            %NOTICE: exclusive_mode will be true (the default is false) so that it is possible to load a product without having
+            %NOTICE: exclusive_loading will be true (the default is false) so that it is possible to load a product without having
             %        to specify the start/stop as datastorage('start',...,'stop',...).init(...) and rely on the start/stop
             %        metadata.
-            [obj,success]=obj.load(product_list{i},varargin{:},'exclusive_mode',numel(product_list)==1);
+            [obj,success]=obj.load(product_list{i},varargin{:},'exclusive_loading',numel(product_list)==1);
           end
           %check if data was not loaded
           if success
@@ -1178,16 +1207,8 @@ classdef datastorage
               obj.save(product_list{i},varargin{:});
             end
             % update start/stop
-            % NOTE: this has to come after saving so that data that is saved in long chunks (i.e. monthly) can be effectively
-            %       saved.
-            switch product.mdget('method')
-            case 'csr.estimate_temp_corr'
-              %TODO: maybe product.inclusive can help with this
-              obj.log('@','save: skipped saving because this product truncates data internally.')
-            otherwise
-              if ~product.mdget('plot_product','default',false)
-                obj=obj.startstop_retrieve_update(product_list{i});
-              end
+            if ~product.mdget('plot_product','default',false)
+              obj=obj.startstop_update('product',product_list(i));
             end
           end
         else
