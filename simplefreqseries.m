@@ -175,7 +175,7 @@ classdef simplefreqseries < simpletimeseries
         yn=interp1(to,yo,tn);
       end
       %build object
-      obj=simplefreqseries(tn(:),yn(:),'descriptor','noise',varargin{:});
+      obj=simplefreqseries(tn,yn,'descriptor','noise',varargin{:});
       %show plot, if requested
       if p.Results.plot_column>0
         c=p.Results.plot_column;
@@ -325,7 +325,7 @@ classdef simplefreqseries < simpletimeseries
           end
         case {'noise-step-down','noise-step-up','noise-pink','noise-brown','noise-blue','noise-violet'}
           if l<5000
-            disp(['NOTICE: input ''l'' is ',num2str(l),'which is lower than the advised value of 5000'])
+            disp(['NOTICE: input ''l'' is ',num2str(l),', which is lower than the advised value of 5000'])
           end
           switch method
             case 'noise-step-down'
