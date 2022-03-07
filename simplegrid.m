@@ -2000,17 +2000,17 @@ classdef simplegrid < simpletimeseries
         'force',   false,       @islogical;...
         'fmt',     '%10.4f %10.4f %14.8e\n', @ischar;
       }},varargin{:});
-      if ~exist(filename,'file') || v.force
-        disp([datestr(now),': start exporting ',filename])
-        %make sure this directory exists
-        assert(file.ensuredir(filename),['Error creating directory of file ',filename,'.'])
-        %get extension and filename
-        [fd,fn,fe]=fileparts(filename);
-        %get the map
-        m=obj.vecmat;
-        for f=1:size(m.map,3)
-          %build file for the current time
-          f_now=fullfile(fd,[fn,'.',datestr(obj.t(f),'yyyyMMddThhmmss'),fe]);
+      disp([datestr(now),': start exporting ',filename])
+      %make sure this directory exists
+      assert(file.ensuredir(filename),['Error creating directory of file ',filename,'.'])
+      %get extension and filename
+      [fd,fn,fe]=fileparts(filename);
+      %get the map
+      m=obj.vecmat;
+      for f=1:size(m.map,3)
+        %build file for the current time
+        f_now=fullfile(fd,[fn,'.',datestr(obj.t(f),'yyyyMMddThhmmss'),fe]);
+        if ~exist(f_now,'file') || v.force
           %open the file (sanity done inside)
           fid=file.open(f_now,'w');
           %save the data
