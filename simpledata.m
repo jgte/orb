@@ -1236,13 +1236,19 @@
         end
       end
     end
-    function obj=at(obj,x_now,varargin)
-      i=obj.idx(x_now,varargin{:});
+    function obj=at_idx(obj,i,varargin)
+      if i<0
+        i=obj.length+i+1;
+      end
       obj=obj.assign(...
         obj.y(i,:),...
         'x',obj.x(i,:),...
-        'mask',obj.mask(i,:)...
+        'mask',obj.mask(i,:),...
+        varargin{:}...
       );
+    end
+    function obj=at(obj,x_now,varargin)
+      obj=obj.at_idx(obj.idx(x_now,varargin{:}),varargin{:});
     end
     function [obj,idx_add,idx_old,x_old]=x_merge(obj,x_add,y_new)
       if ~exist('y_new','var') || isempty(y_new)
@@ -1457,8 +1463,14 @@
     function out=nr_gaps(obj)
       out=sum(~obj.mask);
     end
+    function out=is_all_gaps(obj)
+      out=all(~obj.mask);
+    end
     function out=nr_valid(obj)
       out=sum(obj.mask);
+    end
+    function out=is_all_valid(obj)
+      out=all(obj.mask);
     end
     function [obj1,obj2]=mask_match(obj1,obj2,errmsg)
       if ~exist('errmsg','var') || isempty(errmsg)
