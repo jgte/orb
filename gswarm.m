@@ -1677,9 +1677,20 @@ classdef gswarm
       if isempty(v.plot_time)
         v.plot_time=v.pod.t;
       elseif isnumeric(v.plot_time)
-        %translate negative indexes to point to the end extremity
-        negative_idx=v.plot_time<0;
-        v.plot_time(negative_idx)=numel(v.pod.t)+v.plot_time(negative_idx)+1;
+        %translate negative indexes to point to the upper extremity
+        negative_idx=v.plot_time<0; 
+        %skip code in case there are no negative indexes
+        if any(negative_idx)
+          %get time domain length
+          time_length=numel(v.pod.t);
+          %resolve NaN upper extremity, skip the last entry because it is a gap
+          if all(cellfun(@(i) i.at_idx(-1).is_all_gaps,v.pod.source.dat))
+            time_length=time_length-1;
+          end
+          %resolve negative indexes to point to the upper end
+          v.plot_time(negative_idx)=time_length+v.plot_time(negative_idx)+1;
+        end
+        %update the time domain
         v.plot_time=sort(v.pod.t(v.plot_time));
       end
 
@@ -2621,7 +2632,7 @@ classdef gswarm
           'swarm.sh.gswarm.rl01.individual';...
           'swarm.sh.gswarm.rl01.individual.maps';...
         },...
-        'get_input_data',false,...
+        'get_input_data',false,... #this is usually more problems that what it's worth; just copy the data manually
         'plot_pause_on_save',false,...
         varargin{:}...
       );
