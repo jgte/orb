@@ -485,7 +485,7 @@ classdef varargs < dynamicprops
       %remove the dynamic properties associated with the deleted parameters (if any)
       if any(idx);rmprops(obj,parameters{idx});end
     end
-    function obj=pluck(obj,varargin)
+    function obj=isolate(obj,varargin) %deletes all parameters except those given in varargin
       if iscell(varargin{1})
         parameters=varargin{1};
       else
