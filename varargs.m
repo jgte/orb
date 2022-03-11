@@ -552,6 +552,39 @@ classdef varargs < dynamicprops
         obj.set(obj_new.get(i));
       end
     end    
+    %checks if two objs are equal, overloads with ==
+    function [out,msg]=eq(obj1,obj2)
+      %defaults
+      out=false;
+      %check equality
+      if ~cells.isequal(obj1.template_fields,obj2.template_fields)
+        msg='template_fields differ';
+        return
+      end
+      if ~cells.isequal(obj1.reserved_fields,obj2.reserved_fields)
+        msg='reserved_fields differ';
+        return
+      end
+      if ~numel(obj1.S)==numel(obj2.S)
+        msg='obj length differs';
+        return
+      end
+      if any(arrayfun(@(i,j) ~strcmp(i.name,j.name),obj1.S,obj2.S))
+        msg='obj field names differs';
+        return
+      end
+      if any(arrayfun(@(i,j) ~cells.isequal(i.value,j.value),obj1.S,obj2.S))
+        msg='obj field values differs';
+        return
+      end
+      if any(arrayfun(@(i,j) ~strcmp(func2str(i.validation),func2str(j.validation)),obj1.S,obj2.S))
+        msg='obj field validation differs';
+        return
+      end
+      %equality verified
+      out=true;
+      msg='';
+    end
     %% parser
     function [p,obj]=declare(obj,p)
       p.PartialMatching=false;
