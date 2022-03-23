@@ -52,13 +52,20 @@ classdef cells
             continue
           end
         end
+        if isdatetime(c1{i})
+          if c1{i} ~= c2{i}
+            return
+          else
+            continue
+          end
+        end
         try
           if ~c1{i}.isequal(c2{i})
             return
           else
             continue
           end
-        catch
+        catch ME
           error(['Cannot handle data of class ',class(c1{i}),'.'])
         end
       end
