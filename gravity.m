@@ -444,7 +444,7 @@ classdef gravity < simpletimeseries
         switch lower(fmt)
         case 'gsm'
           [m,e]=load_gsm(file_name,time);
-        case 'csr'
+        case {'csr','geo'}
           [m,e]=load_csr(file_name,time);
         case {'icgem','gfc'}
           [m,e]=load_icgem(file_name,time);
@@ -702,8 +702,12 @@ classdef gravity < simpletimeseries
       if contains(v.version,'-model')
         new_mode=['model-',strrep(v.mode,'model-','')];
         new_version=strrep(v.version,'-model','');
-        str.say('WARNING: over-writing input mode',str.quote(v.mode),'with',str.quote(new_mode),...
-          'since input version is',str.quote(v.version),', now passed along as',str.quote(new_version),'.')
+        if strcmp(str.quote(v.mode),str.quote(new_mode))
+          str.say('WARNING: input version has been updated from',str.quote(v.version),'to',str.quote(new_version),'.')
+        else
+          str.say('WARNING: over-writing input mode',str.quote(v.mode),'with',str.quote(new_mode),...
+            'since input version is',str.quote(v.version),', now passed along as',str.quote(new_version),'.')
+        end
         out=gravity.graceC20(varargin{:},'mode',new_mode,'version',new_version);
         return
       end
@@ -881,8 +885,8 @@ classdef gravity < simpletimeseries
                 'version',strrep(version_list{i},'-model','')...
               );
             end              
-          otherwise
-            dat_list{i}=gravity.graceC20('mode','read','version',version_list{i});
+            otherwise
+            dat_list{i}=gravity.graceC20('mode','read','version',version_list{i}, v.delete({'version','mode'}).varargin{:});
             dat_list{i}=dat_list{i}.interp(dat_list{i}.t_domain(days(7)),...
               'interp_over_gaps_narrower_than',days(45)...
             );
@@ -1271,6 +1275,9 @@ classdef gravity < simpletimeseries
         case 'GGM05G'
           datafile=fullfile(file.orbdir('auxiliary'),'ggm05g.gfc');
           fmt='gcf';
+        case 'WGS84'
+          datafile=fullfile(file.orbdir('auxiliary'),'WGS84.GEO');
+          fmt='GEO';
         otherwise
           error(['Cannot handle static model ''',model,'''.'])
       end
@@ -2962,30 +2969,38 @@ function [m,e]=load_csr(filename,time)
   if sum(s)<0
     error([mfilename,': Problem with reading the CSR file ''',filename,'''.'])
   end
+  % skip third line
+  fgets(fid);
   %make room for coefficients
   mi.C=zeros(Lmax+1);
   mi.S=zeros(Lmax+1);
   ei.C=zeros(Lmax+1);
   ei.S=zeros(Lmax+1);
   Lmax=0;
+  % get first line with coefficients
+  s=fgets(fid);
   % read coefficients
   while (s>=0)
-    %skip irrelevant lines
-    if strncmp(s, 'RECOEF', 6) == 0 && strncmp(s, 'SUMGEO', 6) == 0
-      s=fgets(fid);
-      continue
-    end
-    %save degree and order
-    d=str.num(s(7:9))+1;
-    if d>Lmax;Lmax=d;end
-    o=str.num(s(10:12))+1;
-    mi.C(d,o)=str.num(s(13:33));
-    mi.S(d,o)=str.num(s(34:54));
-    ei.C(d,o)=str.num(s(55:65));
-    try 
-      ei.S(d,o)=str.num(s(66:76));
-    catch
-      ei.S(d,o)=str.num(s(66:74));
+%     %skip irrelevant lines
+%     if strncmp(s, 'RECOEF', 6) == 0 && strncmp(s, 'SUMGEO', 6) == 0
+%       s=fgets(fid);
+%       continue
+%     end
+    if length(s)==81
+      %save degree and order
+      d=str.num(s(7:9))+1;
+      if d>Lmax;Lmax=d;end
+      o=str.num(s(10:12))+1;
+      mi.C(d,o)=str.num(s(13:33));
+      mi.S(d,o)=str.num(s(34:54));
+      ei.C(d,o)=str.num(s(55:65));
+      try 
+        ei.S(d,o)=str.num(s(66:76));
+      catch
+        ei.S(d,o)=str.num(s(66:74));
+      end
+    else
+      disp(['Skipped line: ''',s,'''.'])
     end
     % read next line
     s=fgets(fid);
