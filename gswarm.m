@@ -1689,7 +1689,7 @@ classdef gswarm
         v.plot_time=v.pod.t;
       elseif isnumeric(v.plot_time)
         %translate negative indexes to point to the upper extremity
-        negative_idx=v.plot_time<0; 
+        negative_idx=v.plot_time<0;
         %skip code in case there are no negative indexes
         if any(negative_idx)
           %get time domain length
@@ -1937,7 +1937,7 @@ classdef gswarm
           'frame_rate', 30                          @(i) isnumeric(i) && isscalar(i);...
           'decimate_rate', 5                        @(i) isnumeric(i) && isscalar(i);...
           'filename','GRACE_animation.gif'          @ischar;
-        },... 
+        },...
       },varargin{:});
       %get input data
       if v.get_input_data;gswarm.get_input_data('GRACE');end
@@ -1980,7 +1980,7 @@ classdef gswarm
         );
         axis off
         im{i}=frame2im(getframe(fig));
-        
+
         s=time.progress(s,i);
       end
       A=cell([1,n_frames]);map=cell([1,n_frames]);
@@ -2375,7 +2375,6 @@ classdef gswarm
     end
     %% Swarm-ITT
     function d=quality(varargin)
-      global PROJECT
       %NOTICE: this is used to produce the plots in ~/data/gswarm/dissemination/quality
       %workflow:
       % - you need to delete the last data file of (if not run from a dedicated dir):
