@@ -4,7 +4,8 @@ classdef simplegrid < simpletimeseries
     %default value of some internal parameters
     parameter_list={...
       'sp_tol',   1e-8,  @num.isscalar;...
-      'sp_units', 'deg',@ischar;...  %TODO: need to convert non-deg units at input/output (internally deg are expected)
+      'sp_units', 'deg', @ischar;...  %TODO: need to convert non-deg units at input/output (internally deg are expected)
+      'centered', false, @islogical;...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -43,6 +44,7 @@ classdef simplegrid < simpletimeseries
   properties(GetAccess=public,SetAccess=public)
     sp_tol
     sp_units
+    centered
   end
   %calculated only when asked for
   properties(Dependent)
@@ -732,13 +734,14 @@ classdef simplegrid < simpletimeseries
       p.addParameter('bias', 0,@num.isscalar);
       p.addParameter('t',datetime('now'),@isdatetime);
       p.parse(n_lon,n_lat,varargin{:});
-      %initialize grid with sum of lon and lat in degrees
+      %get spatial domain
       [lon_map,lat_map]=meshgrid(simplegrid.lon_default(p.Results.n_lon),simplegrid.lat_default(p.Results.n_lat));
+      %initialize grid with sum of lon and lat in degrees
+      map=repmat(lon_map+lat_map*p.Results.scale+p.Results.bias,1,1,numel(p.Results.t));
+      %ensure degree 360 has the same value as degree 0
+      map(:,end,:)=map(:,1,:);
       %initialize with grid
-      obj=simplegrid(...
-        p.Results.t,...
-        repmat(lon_map+lat_map*p.Results.scale+p.Results.bias,1,1,numel(p.Results.t))...
-      );
+      obj=simplegrid(p.Results.t,map);
     end
     %NOTICE: inpupts lon and lat can be scalar (domain size) or vectors (domain entries)
     function obj=landmask(lon,lat,varargin)
@@ -945,7 +948,8 @@ classdef simplegrid < simpletimeseries
         method='all';
       end
       if ~exist('l','var') || isempty(l)
-        l=[5,7,2];
+        %NOTICE: if these values are too small, there will be artifacts in the plots
+        l=[15,17,2];
       end
       switch lower(method)
       case 'all'
@@ -983,6 +987,7 @@ classdef simplegrid < simpletimeseries
         simplegrid.slanted(l(1),l(2)).print
       case 'resample'
         a=simplegrid.slanted(l(1),l(2));
+        a.prettymap
         figure
         subplot(1,2,1)
         a.imagesc('t',a.t);
@@ -990,6 +995,11 @@ classdef simplegrid < simpletimeseries
         subplot(1,2,2)
         a.spatial_resample(l(1)*3,l(2)*2).imagesc('t',a.t);
         title('resampled')
+      case 'center_resample'
+        a=simplegrid.slanted(l(1)*3,l(2)*2).center_resample;
+        a.prettymap
+        figure
+        a.imagesc('t',a.t);
       case {'plus','minus','times','rdivide'}
         a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(l(3)));
         b=simplegrid.unit(      l(1),l(2),'t',a.t,'scale',2);
@@ -1052,8 +1062,9 @@ classdef simplegrid < simpletimeseries
         a.stats('mode',method,'period',days(inf)).prettymap
       case 'coast'
         a=simplegrid.coast;
-      case 'plot'
-        a=simplegrid.slanted(l(1)*10,l(2)*10).imagesc;
+      case 'sh'
+        a=gravity.static('ggm05c').set_lmax(60).scale(300e3,'gauss').scale('geoid','functional').setC(2,0,0).setC(0,0,0).grid('spatial_step',1);
+        a.imagesc;
       end
     end
   end
@@ -1078,6 +1089,12 @@ classdef simplegrid < simpletimeseries
       obj.lati=sl.lat;
       % save the arguments v into this object
       obj=v.save(obj,{'t','map','lat','lon'});
+      % ensure degree 360 (if present) has the same values as degree 0
+      if simplegrid.islon360complete(obj.lon)
+        m=obj.map;
+        d=m(:,end,:).^2-m(:,1,:).^2;
+        assert(max(d(:))<obj.sp_tol.^2,'The values of the grid at longitude 360 deg do not agree with the values at longitude 0 deg.')
+      end
     end
     function obj=assign(obj,map,varargin)
       p=inputParser;
@@ -1420,6 +1437,11 @@ classdef simplegrid < simpletimeseries
       end
     end
     function [obj,changed]=add360lon(obj)
+      %it doesn't make sense to call this method for centered grids (all bets are off)
+      if obj.centered
+        changed=false;
+        return
+      end
       %see if things need changing
       changed=~simplegrid.islon360complete(obj.lon);
       if changed
@@ -1464,11 +1486,9 @@ classdef simplegrid < simpletimeseries
     %% interpolant handling
     function [I,obj]=interpolant(obj)
       [lat_meshed,lon_meshed,t_meshed]=ndgrid(obj.lat,obj.lon,datenum(obj.t));
-      %TODO: handle multiple time entries
       if obj.length==1
         I=griddedInterpolant(lat_meshed,lon_meshed,obj.map,'linear','none');
       else
-        error('look in the code: need to debug the wrapping of obj.map below (so it looks like the above)')
         I=griddedInterpolant(lat_meshed,lon_meshed,t_meshed,obj.map,'linear','none');
       end
     end
@@ -1480,6 +1500,8 @@ classdef simplegrid < simpletimeseries
       if ~isrow(lon_new)
         error([mfilename,': illegal input ''lon''.'])
       end
+      %NOTICE: cannot interpolate centered grids because of the discontinuity at longitude 360
+      assert(~obj.centered,'Cannot interpolated centered grids')
       %build new meshed domain
       [lat_meshed,lon_meshed,t_meshed]=ndgrid(lat_new,lon_new,datenum(obj.t));
       %fix missing 360 (if needed)
@@ -1518,13 +1540,17 @@ classdef simplegrid < simpletimeseries
       obj=obj.spatial_interp(simplegrid.lon_default(lon_n),simplegrid.lat_default(lat_n));
     end
     function obj=center_resample(obj)
-      %fix missing 360 (if needed)
-      obj=obj.add360lon;
-      %get mean spatial domain
-      lon_new=mean([obj.lon(1:end-1);obj.lon(2:end)]);
-      lat_new=mean([obj.lat(1:end-1),obj.lat(2:end)],2);
-      %reduced to mean domain
-      obj=obj.spatial_interp(lon_new,lat_new);
+      if ~obj.centered
+        %fix missing 360 (if needed)
+        obj=obj.add360lon;
+        %get mean spatial domain
+        lon_new=mean([obj.lon(1:end-1);obj.lon(2:end)]);
+        lat_new=mean([obj.lat(1:end-1),obj.lat(2:end)],2);
+        %reduced to mean domain
+        obj=obj.spatial_interp(lon_new,lat_new);
+        %udpate centered flag
+        obj.centered=true;
+      end
     end
     %% spatial cropping
     function obj=spatial_crop(obj,lon_limits,lat_limits)
@@ -3060,4 +3086,3 @@ end
 function out = delta_kronecher(i,j)
   out = double(i==j);
 end
-
