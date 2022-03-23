@@ -1573,8 +1573,8 @@ classdef gravity < simpletimeseries
         g=g-gravity.static('ggm05c').set_lmax(g.lmax).scale(g);
         %convert to equivalent water height
         g=g.scale(750e3,'gauss').scale(functional,'functional');
-        %conver to grid
-        out=g.grid('spatial_step',2);
+        %convert to grid
+        out=g.grid('spatial_step',2).center_resample;
         %show the grid
         out.imagesc
         %export to xyz format
