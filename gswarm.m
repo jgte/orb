@@ -1816,6 +1816,7 @@ classdef gswarm
           for i=1:numel(p)
             d=d.init(p{i},varargin{:});
           end
+          file.ensuredir(filename);
           save(filename,'d'); disp(['saved ',filename])
         else
           load(filename,'d'); disp(['loaded ',filename])
@@ -2756,6 +2757,7 @@ classdef gswarm
           'gswarm.swarm.validation.unsmoothed';...
         },...
         'get_input_data',false,... #this is usually more problems that what it's worth; just copy the data manually
+        'plot_pause_on_save',false,...
         varargin{:}...
       );
       %export quality metrics
