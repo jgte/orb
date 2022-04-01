@@ -1352,20 +1352,25 @@ classdef gravity < simpletimeseries
     %   value that is nonzero. This time independent (nm) = (20) potential
     %   produces a permanent deformation and a consequent time independent
     %   contribution to the geopotential coefficient C20.
+      debug=true;
+      str.say(['Tide system is ',tide_system])
       switch tide_system
       case {'zero_tide'}
         % the zero-frequency value includes the indirect distortion, but not the direct distortion
         % NOTICE: do nothing, this is the default
+        delta=0;
       case {'free_tide','tide_free','tide_tide','non_tidal'}
         % the tide-free value is the quantity from which all tidal effects have been removed
-        C20=C20-gravity.parameters('zf_love')*gravity.parameters('pt_factor');
+        delta=-gravity.parameters('zf_love')*gravity.parameters('pt_factor');
       case 'mean_tide'
         % the mean tide value includes both the direct and indirect permanent tidal distortions
         %http://mitgcm.org/~mlosch/geoidcookbook/node9.html
-        C20=C20+gravity.parameter('pt_factor');
+        delta=gravity.parameter('pt_factor');
       otherwise
         error(['Cannot handle the permanent tide system ''',tide_system,'''.'])
       end
+      str.say('disp',debug,['Converted to zero tide by adding ',num2str(delta)])
+      C20=C20+delta;
     end
     %% utilities
     function [degrees,orders]=resolve_degrees_orders(varargin)
