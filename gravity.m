@@ -29,6 +29,7 @@ classdef gravity < simpletimeseries
     );
   end
   properties(Constant,GetAccess=private)
+    %TODO: the parameters below are a mix of physical constants and default values for properties; find a way to fix this
     %default value of some internal parameters
     parameter_list={...
       'GM',       398600.4415e9, @num.isscalar;...      % Standard gravitational parameter [m^3 s^-2]
