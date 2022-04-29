@@ -33,7 +33,10 @@ classdef file
     end
     %returns the path of orb directories, which are by default sitting on the same dir
     %as this script; typical dirs are: auxiliary, packages, metadata, data, plot (the latter 2 are not in git)
-    function out=orbdir(type)
+    function out=orbdir(type,ensure_is_in_project)
+      if ~exist('ensure_is_in_project','var') || isempty(ensure_is_in_project)
+        ensure_is_in_project=false;
+      end
       global PROJECT
       if isfield(PROJECT,[type,'_dir'])
         out=PROJECT.([type,'_dir']);
@@ -45,6 +48,8 @@ classdef file
           out=file.absolutepath(out);
         end
       else
+        assert(~ensure_is_in_project,['Need the directory ''',type,'_dir',...
+          ''' to be defined in the project configuration file ''',PROJECT.source,'''.'])
         out=file.orbscriptpath(type);
       end
       %special cases

@@ -1843,18 +1843,32 @@
       end
       obj=obj.segstat(@median,n);
     end
+    function obj=rms(obj,n)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
+      obj=obj.segstat(@rms,n);
+    end
+    function obj=std(obj,n)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
+      obj=obj.segstat(@std,n);
+    end
     function obj=segstat(obj,op,n)
       if ~exist('n','var') || isempty(n)
         n=obj.length;
       end
+      %sanity on op
+      if ~isa(op,'function_handle')
+        op=str2func(op);
+      end
+      valid_fun={'std','rms','mean','median','min','max','var'};
+      assert(any(strcmp(func2str(op),valid_fun)),...
+        ['Need input ''op'' to be (a function handle or string to) one of ',strjoin(valid_fun,','),'.'])
       %create x-domain of segmented data, cutting it into segments of
       %length n, putting each segment in one column of matrix t (x
       %increases first row-wise, then apply the statistic in 'mode' column-wise)
-      %NOTICE: this function decimates the data!
-      valid_fun={'std','rms','mean','median','min','max','var'};
-      assert(isa(op,'function_handle') && any(strcmp(func2str(op),valid_fun)),...
-        ['Need input ''op'' to be a handle to one of ',strjoin(valid_fun,','),'.'])
-      %init matrix that stores the segmented x_temp
       x_temp=nan(n,ceil(obj.length/n));
       x_temp(1:obj.length)=obj.x;
       x_mean=transpose(mean(x_temp,'omitnan'));

@@ -1817,6 +1817,7 @@ classdef gswarm
           for i=1:numel(p)
             d=d.init(p{i},varargin{:});
           end
+          file.ensuredir(filename);
           save(filename,'d'); disp(['saved ',filename])
         else
           load(filename,'d'); disp(['loaded ',filename])
@@ -2709,7 +2710,7 @@ classdef gswarm
       %WORKFLOW          - ~/data/gswarm/analyses/<date>-TYPE/orb/
       %WORKFLOW          - ~/data/gswarm/analyses/
       %WORKFLOW 10. put the data into aristarchos (remove --dry-run, as usual):
-      %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
+      %WORKFLOW     rsyncf.sh remotes-file=~/data/gswarm/rsyncf.list aristarchos --no-r2l --delete --dry-run
       %WORKFLOW
       %WORKFLOW If this is a precombval, then mail it to colleagues and you're done.
       %WORKFLOW
@@ -2719,7 +2720,7 @@ classdef gswarm
       %WORKFLOW     (wait for email reponses)
       %WORKFLOW
       %WORKFLOW 13. make sure data is in aristarchos (remove --dry-run, as usual):
-      %WORKFLOW     ~/data/gswarm/rsync.local2remote-subset.sh --delete --dry-run
+      %WORKFLOW     rsyncf.sh remotes-file=~/data/gswarm/rsyncf.list aristarchos --no-r2l --delete --dry-run
       %WORKFLOW 14. login to aristarchos and:
       %WORKFLOW     cd /home/gswarm/data/dissemination
       %WORKFLOW     tail *list && ./op.sh get-L1B-GPS get-L1B-ATT force && tail *list
@@ -2757,6 +2758,7 @@ classdef gswarm
           'gswarm.swarm.validation.unsmoothed';...
         },...
         'get_input_data',false,... #this is usually more problems that what it's worth; just copy the data manually
+        'plot_pause_on_save',false,...
         varargin{:}...
       );
       %export quality metrics

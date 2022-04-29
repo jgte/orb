@@ -743,7 +743,7 @@ classdef simplegrid < simpletimeseries
       %initialize with grid
       obj=simplegrid(p.Results.t,map);
     end
-    %NOTICE: inpupts lon and lat can be scalar (domain size) or vectors (domain entries)
+    %NOTICE: inputs lon and lat can be scalar (domain size) or vectors (domain entries)
     function obj=landmask(lon,lat,varargin)
       p=inputParser;p.KeepUnmatched=true;p.PartialMatching=false; p.CaseSensitive=true;
       p.addRequired( 'lon',  @isnumeric);
@@ -758,7 +758,7 @@ classdef simplegrid < simpletimeseries
       if exist(fmat,'file')
         load(fmat,'landmask')
       elseif exist(fdat,'file')
-        landmask=simplegrid.load(fdat,t);
+        landmask=simplegrid.load_mask(fdat,datetime('now'));
         save(fmat,'landmask')
       else
         error(['Cannot find landmask data file, expecting ',fmat,' or ',fdat,'.'])
@@ -807,10 +807,15 @@ classdef simplegrid < simpletimeseries
         obj=obj.assign(y_now);
       end
     end
-    function out=load(filename,t)
+    function out=load_mask(filename,t)
       fid=fopen(filename);
       d=textscan(fid,'%f %f %s');
       fclose(fid);
+      if isscalar(t)
+        t_save=t;
+        t=NaT(size(d{3}));
+        t(:)=t_save;
+      end
       out=simplegrid(t,...            %time
         double(str.logical(d{3})),... %map
         'lon',d{1},...                %lon

@@ -29,6 +29,7 @@ classdef gravity < simpletimeseries
     );
   end
   properties(Constant,GetAccess=private)
+    %TODO: the parameters below are a mix of physical constants and default values for properties; find a way to fix this
     %default value of some internal parameters
     parameter_list={...
       'GM',       398600.4415e9, @num.isscalar;...      % Standard gravitational parameter [m^3 s^-2]
@@ -37,9 +38,9 @@ classdef gravity < simpletimeseries
       'rho_water',1000,          @num.isscalar;...      % water density [kg/m3]
       'G',        6.67408e-11,   @(i) (num.isscalar(i)) || isempty(i);...      % Gravitational constant [m3/kg/s2]
       'Rm',       6371000,       @(i) (num.isscalar(i)) || isempty(i);...      % Earth's mean radius [m]
-      'love',  [  0       0.000;...               
+      'love',  [  0       0.000;...
                   1       0.027;...
-                  2      -0.303;... 
+                  2      -0.303;...
                   3      -0.194;...
                   4      -0.132;...
                   5      -0.104;...
@@ -233,7 +234,7 @@ classdef gravity < simpletimeseries
       for i=1:size(mod,1)
         out.C(mod(i,1)+1,mod(i,2)+1) = mod(i,3);
         out.S(mod(i,1)+1,mod(i,2)+1) = mod(i,4);
-      end          
+      end
     end
     %% agregator routines
     %data type converter
@@ -359,7 +360,7 @@ classdef gravity < simpletimeseries
       end
       out=find(out);
     end
-    %% constructors 
+    %% constructors
     function obj=unit(lmax,varargin)
       %create argument object, declare and parse parameters, save them to obj
       v=varargs.wrap('sources',{gravity.parameters('obj'),...
@@ -400,7 +401,7 @@ classdef gravity < simpletimeseries
     % create a model with coefficients following Kaula's rule of thumb
     function obj=kaula(lmax,varargin)
       obj=gravity.unit(lmax,'scale_per_degree',[0,1e-5./(1:lmax).^2],varargin{:});
-    end  
+    end
     % Creates a random model with mean 0 and std 1 (per degree)
     function obj=unit_randn(lmax,varargin)
       obj=gravity.unit(lmax,'scale_per_coeff',randn(lmax+1),varargin{:});
@@ -484,8 +485,8 @@ classdef gravity < simpletimeseries
       %NOTICE: this is used to be done automatically when loading the mat file
       %        (and there's no practical use for it at the moment)
       if force_time
-        if m.t~=time;m.t=time;end 
-        if ~isempty(e) && e.t~=time;e.t=time;end 
+        if m.t~=time;m.t=time;end
+        if ~isempty(e) && e.t~=time;e.t=time;end
       end
       %update start/stop for static fields, i.e. those with time=gravity.static_start_date
       if time==gravity.static_select_date
@@ -593,7 +594,7 @@ classdef gravity < simpletimeseries
     end
     function out=parse_epoch_tn14(filename)
       %NOTICE: these data live in ~/data/SLR/TN-14/ (not set explicitly)
-      %NOTICE: these data need to be converted with ~/data/SLR/TN-14/convert_TN-14.sh 
+      %NOTICE: these data need to be converted with ~/data/SLR/TN-14/convert_TN-14.sh
       %NOTICE: graceC20 handles these data directly from the published data file
       %TN-14_C30_C20_GSFC_SLR.55942.5.gfc
       %1234567890123456789012345678901234567890
@@ -615,7 +616,7 @@ classdef gravity < simpletimeseries
       p.addParameter('wildcarded_filename',['*.',format], @ischar);
       p.addParameter('descriptor',        'unknown',     @ischar);
       %NOTICE: start/stop is only used to avoid loading models outside a certain time range
-      p.addParameter('start', [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i))); 
+      p.addParameter('start', [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i)));
       p.addParameter('stop',  [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i)));
       p.addParameter('overwrite_common_t',  false, @islogical);
       p.parse(dirname,format,date_parser,varargin{:})
@@ -666,7 +667,7 @@ classdef gravity < simpletimeseries
             else
               disp(['Ignoring ',f,' because this epoch was already loaded from model ',f_saved,'.'])
               c=c+1; continue
-            end              
+            end
           end
           %ensure R and GM are compatible append to output objects
           m1=m1.scale(m);
@@ -713,7 +714,7 @@ classdef gravity < simpletimeseries
       end
       switch v.mode
       case 'C20mean'
-        out=v.C20mean; 
+        out=v.C20mean;
       case 'model-poly'
         out=2;
       case 'model-periods-datfile'
@@ -781,14 +782,14 @@ classdef gravity < simpletimeseries
         f_pdset=gravity.graceC20(varargin{:},'mode','model-list-datfile');
         f_pd   =gravity.graceC20(varargin{:},'mode','model-datfile');
         if ~file.exist(f_pdset) || ~file.exist(f_pd) || ~...
-          gravity.graceC20(varargin{:},'mode','model-md5check')  
+          gravity.graceC20(varargin{:},'mode','model-md5check')
           %get the coefficients; NOTICE: always use c20.t so that f_pdset is not dependent on inputs
           [~,pd_set]=c20.parametric_decomposition('np',np,'T',T,...
-            'timescale','days','time',c20.t_domain(days(7))); 
+            'timescale','days','time',c20.t_domain(days(7)));
           %save them
           save(f_pdset,'pd_set')
           %update md5 of data
-          gravity.graceC20(varargin{:},'mode','model-md5set')  
+          gravity.graceC20(varargin{:},'mode','model-md5set')
         else
           load(f_pdset,'pd_set')
         end
@@ -817,7 +818,7 @@ classdef gravity < simpletimeseries
         switch v.mode
           case 'model-list';     out=pardecomp.table(pd_set,'tablify',true);
           case 'model-list-tex'; out=pardecomp.table(pd_set,'tablify',false,'latex_table',true);
-        end       
+        end
       case 'model-plot'
         %retrieve the orignal data
         c20o=gravity.graceC20(varargin{:},'mode','read');
@@ -884,7 +885,7 @@ classdef gravity < simpletimeseries
               dat_list{i}=gravity.graceC20('mode','model',...
                 'version',strrep(version_list{i},'-model','')...
               );
-            end              
+            end
             otherwise
             dat_list{i}=gravity.graceC20('mode','read','version',version_list{i}, v.delete({'version','mode'}).varargin{:});
             dat_list{i}=dat_list{i}.interp(dat_list{i}.t_domain(days(7)),...
@@ -1170,7 +1171,7 @@ classdef gravity < simpletimeseries
         out='radius';
       else
         out='deg';
-      end      
+      end
     end
     function out=gauss_smoothing_degree_translate(in)
       switch gravity.gauss_smoothing_type(in)
@@ -1214,7 +1215,7 @@ classdef gravity < simpletimeseries
       if year<1000
         year=year+2000;
       end
-      persistent CSR_RL05_date_table 
+      persistent CSR_RL05_date_table
       if isempty(CSR_RL05_date_table)
         fid=file.open(p.Results.EstimDirs_file);
         d=textscan(fid,'%d %f %s %s %s %s %s %s %f %f');
@@ -1284,62 +1285,112 @@ classdef gravity < simpletimeseries
       [m,e]=gravity.load(datafile,fmt);
     end
     %% ESA's Earth System Model
-    function out=ESA_MTM_dir(year,month,component)
-      out=fullfile(getenv('HOME'),'media','data','data','ESA-MTM','data',num2str(year,'%04i'),component,num2str(month,'%02i'));
+    function out=ESA_MTM_data_dir(year,month,component)
+      out=fullfile(file.orbdir('ESA_MTM_data'),num2str(year,'%04i'),component,num2str(month,'%02i'));
     end
     %year      : year (numeric)
     %month     : month (numeric)
     %component : A, AOHIS, H, I, O or S (char)
     function [m,e]=ESA_MTM(year,month,component,varargin)
-      p=inputParser; p.KeepUnmatched=true;
-      p.addParameter('datadir',gravity.ESA_MTM_dir(year,month,component),@(i) ischar(i) && exist(i,'dir')~=0)
-      p.parse(varargin{:})
-      [m,e]=gravity.load_dir(p.Results.datadir,'esamtm',@gravity.parse_epoch_esamtm,'wildcarded_filename','mtmshc_*.180.mat',varargin{:});
+      [m,e]=gravity.load_dir(gravity.ESA_MTM_data_dir(year,month,component),'esamtm',...
+        @gravity.parse_epoch_esamtm,'wildcarded_filename','mtmshc_*.180.mat',varargin{:});
     end
     function m=ESA_MTM_all(component,varargin)
-      %init year-loop variables
-      firstyear=true;
-      %loop over the years
-      for year=1995:2006
-        %define yearly-aggregated data
-        fileyear=fullfile(gravity.ESA_MTM_dir(year,[],component),['gravity_',component,'_',num2str(year,'%04i'),'.mat']);
-        %load aggregated data is available
-        if file.exist(fileyear)
-          load(fileyear,'m_year');
-        else
-          %init month variables
-          firstmonth=true;
-          %loop over the months
-          for month=1:12
-            %define monthly-aggregated data
-            filemonth=fullfile(gravity.ESA_MTM_dir(year,month,component),['gravity_',component,'_',num2str(year,'%04i'),'-',num2str(month,'%02i'),'.mat']);
-            %load aggregated data is available
-            if file.exist(filemonth)
-              load(filemonth,'m_month');
-            else
-              %load every day
-              m_month=gravity.ESA_MTM(year,month,component,varargin{:});
-              %save this month for next time
-              save(filemonth,'m_month');
+      fileall=fullfile(gravity.ESA_MTM_data_dir([],[],component),['gravity_',component,'_all.mat']);
+      if file.exist(fileall)
+        disp(['Loading ESA MTM component ''',component,''' for all years'])
+        load(fileall,'m');
+      else
+        %init year-loop variables
+        firstyear=true;
+        %loop over the years
+        for year=1995:2006
+          %define yearly-aggregated data
+          fileyear=fullfile(gravity.ESA_MTM_data_dir(year,[],component),['gravity_',component,'_',num2str(year,'%04i'),'.mat']);
+          %load aggregated data is available
+          if file.exist(fileyear)
+            disp(['Loading ESA MTM component ''',component,''' for year ',num2str(year)])
+            load(fileyear,'m_year');
+          else
+            %init month variables
+            firstmonth=true;
+            %loop over the months
+            for month=1:12
+              %define monthly-aggregated data
+              filemonth=fullfile(gravity.ESA_MTM_data_dir(year,month,component),['gravity_',component,'_',num2str(year,'%04i'),'-',num2str(month,'%02i'),'.mat']);
+              %load aggregated data is available
+              if file.exist(filemonth)
+                disp(['Loading ESA MTM component ''',component,''' for month ',num2str(year),'-',num2str(month)])
+                load(filemonth,'m_month');
+              else
+                %load every day
+                m_month=gravity.ESA_MTM(year,month,component,varargin{:});
+                %save this month for next time
+                save(filemonth,'m_month');
+              end
+              %create/append
+              if firstmonth
+                firstmonth=false;
+                m_year=m_month;
+              else
+                m_year=m_year.append(m_month);
+              end
             end
-            %create/append
-            if firstmonth
-              firstmonth=false;
-              m_year=m_month;
-            else
-              m_year=m_year.append(m_month);
-            end
-          end 
-          %save this year for next time
-          save(fileyear,'m_year');
+            %save this year for next time
+            save(fileyear,'m_year');
+          end
+          %create/append
+          if firstyear
+            firstyear=false;
+            m=m_year;
+          else
+            m=m.append(m_year);
+          end
         end
-        %create/append
-        if firstyear
-          firstyear=false;
-          m=m_year;
+        file.ensuredir(fileall);
+        save(fileall,'m','-v7.3');
+      end
+    end
+    function o=ESA_MTM_datafile(components,stat,varargin)
+      o=fullfile(file.orbdir('ESA_MTM_stats',true),['ESA-MTM_',components,'_',stat,'.mat']);
+    end
+    function s=ESA_MTM_stats(components,stat_list,varargin)
+      %sanity on input arguments
+      assert(ischar(components),'Input ''components'' must be a character string');
+      assert(iscellstr(stat_list),'Input ''stat_list'' must be a cell string');
+      %avoid re-loading the data
+      data_loaded=false;
+      %loop over all requested stats
+      s=struct([]);
+      for i=1:numel(stat_list)
+        %build data filename (for quick access)
+        datafile=gravity.ESA_MTM_datafile(components,stat_list{i});
+        %load the data if already available
+        if file.exist(datafile)
+          load(datafile,'s_now')
         else
-          m=m.append(m_year);
+          if ~data_loaded
+            %loop over all components
+            first=true;
+            for j=components
+              %check if this is the first loop iter
+              if first
+                %create
+                o=gravity.ESA_MTM_all(j,varargin{:});
+                first=false;
+              else
+                %append
+                o=o+gravity.ESA_MTM_all(j,varargin{:});
+              end
+            end
+            data_loaded=true;
+          end
+          %compute requested statistic
+          s_now=o.segstat(stat_list{i});
+          save(datafile,'s_now')
         end
+        %save data into structure
+        s(1).(stat_list{i})=s_now;
       end
     end
     %% permanent (solid earth) tide
@@ -1352,20 +1403,25 @@ classdef gravity < simpletimeseries
     %   value that is nonzero. This time independent (nm) = (20) potential
     %   produces a permanent deformation and a consequent time independent
     %   contribution to the geopotential coefficient C20.
+      debug=true;
+      str.say(['Tide system is ',tide_system])
       switch tide_system
       case {'zero_tide'}
         % the zero-frequency value includes the indirect distortion, but not the direct distortion
         % NOTICE: do nothing, this is the default
+        delta=0;
       case {'free_tide','tide_free','tide_tide','non_tidal'}
         % the tide-free value is the quantity from which all tidal effects have been removed
-        C20=C20-gravity.parameters('zf_love')*gravity.parameters('pt_factor');
+        delta=-gravity.parameters('zf_love')*gravity.parameters('pt_factor');
       case 'mean_tide'
         % the mean tide value includes both the direct and indirect permanent tidal distortions
         %http://mitgcm.org/~mlosch/geoidcookbook/node9.html
-        C20=C20+gravity.parameter('pt_factor');
+        delta=gravity.parameter('pt_factor');
       otherwise
         error(['Cannot handle the permanent tide system ''',tide_system,'''.'])
       end
+      str.say('disp',debug,['Converted to zero tide by adding ',num2str(delta)])
+      C20=C20+delta;
     end
     %% utilities
     function [degrees,orders]=resolve_degrees_orders(varargin)
@@ -1419,6 +1475,65 @@ classdef gravity < simpletimeseries
     end
     function lmax=width2lmax(width)
       lmax=sqrt(width)-1;
+    end
+    function out=derived_quantity_list
+      out={...
+           'dmean',   'drms',   'dstd',   'das',...
+        'cumdmean','cumdrms','cumdstd','cumdas',...
+      };
+    end
+    function s=functional_scaling(functional,N,R,GM)
+      %   Supported functionals are the following,
+      %       'non-dim'   - non-dimensional Stoked coefficients.
+      %       'eqwh'      - equivalent water height [m]
+      %       'geoid'     - geoid height [m]
+      %       'potential' - [m2/s2]
+      %       'gravity'   - [m /s2], if input represents the disturbing potential,
+      %                     then the output represents the gravity disturbances.
+      %                     Otherwise, it represents the gravity accelerations
+      %                     (-dU/dr).
+      %       'anomalies' - If input represents the disturbing potential, then
+      %                     the output represents the gravity anomalies.
+      %                     Otherwise, it represents (-dU/dr - 2/r*U).
+      %       'vert-grav-grad' - vertical gravity gradient.
+      %branch on functional
+      switch lower(functional)
+        case 'nondim'
+          %no scaling
+          s=ones(N);
+        case 'eqwh' %[m]
+          love=gravity.parameters('love');
+          s=zeros(N);
+          rho_earth=gravity.parameters('rho_earth');
+          rho_water=gravity.parameters('rho_water');
+          %converting Stokes coefficients from non-dimensional to equivalent water layer thickness
+          for i=1:N
+            deg=i-1;
+            lv=interp1(love(:,1),love(:,2),deg,'linear','extrap');
+            s(i,:)=R*rho_earth/rho_water/3*(2*deg+1)/(1+lv);
+          end
+        case 'geoid' %[m]
+          s=ones(N)*R;
+        case 'potential' %[m2/s2]
+          s=ones(N)*GM/R;
+        case 'gravity' %[m/s2]
+          %If input represents the disturbing potential, then the output
+          %represents the gravity disturbances. Otherwise, it represents the
+          %gravity accelerations (-dU/dr).
+          deg=(0:N-1)'*ones(1,N);
+          s=-GM/R^2*(deg+1);
+        case 'anomalies'
+          %If input represents the disturbing potential, then the output
+          %represents the gravity anomalies. Otherwise, it represents:
+          %-dU/dr - 2/r*U
+          deg=(0:N-1)'*ones(1,N);
+          s=GM/R^2*max(deg-1,ones(size(deg)));
+        case 'vertgravgrad'
+          deg=(0:N-1)'*ones(1,N);
+          s=GM/R^3*(deg+1).*(deg+2);
+        otherwise
+          error([mfilename,': unknown scale ',functional])
+      end
     end
     %% general test for the current object
     function out=test_parameters(field,l,w)
@@ -1509,18 +1624,19 @@ classdef gravity < simpletimeseries
         disp(b.tri{numel(t)})
       case 'grid'
         figure
-        gravity.unit_randn(120,'t',t).grid.imagesc
+        gravity.unit_randn(120,'t',t).grid.imagesc;
+        title('grid test')
       case 'ggm05g'
-        m=gravity.ggm05g;
+        m=gravity.static('ggm05g');
         disp('- print gravity')
         m.print
         disp('- print grid')
         m.grid.print
       case 'stats'
-        m=gravity.ggm05g.setC(0,0,0).setC(2,0,0);
+        m=gravity.static('ggm05g').setC(0,0,0).setC(2,0,0);
         for i={'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
           figure
-          m.plot('method',i{1},'functional','geoid','title',[m.descriptor,' - ',i{1}]);
+          m.plot('method',i{1},'functional','geoid','title',[m.descriptor,' - ',i{1},' test']);
         end
       case 'c'
         if numel(t)<3
@@ -1547,10 +1663,12 @@ classdef gravity < simpletimeseries
           t=round(l/2);
         end
         methods={'gauss','spline','trunc'};
+        figure
         for i=1:numel(methods)
           a.scale_plot(t,methods{i});
         end
         legend(methods);
+        title('smoothing test')
       case 'deepoceanmaskplot'
         a=simplegrid.unit(l*90,l*45);
         a=a.spatial_mask('deep ocean');
@@ -1560,9 +1678,36 @@ classdef gravity < simpletimeseries
         a.imagesc;
         colormap(c)
         colorbar off
-        plotting.enforce('plot_legend_location','none');
+        plotting.enforce('plot_legend_location','none','plot_title','deepoceanmaskplot test');
       case 'gracec20'
         gravity.graceC20('mode','plot-all','version',{'GSFC-7DAY','GSFC','TN-14','TN-11'});
+      case 'functionals'
+        funcs=gravity.functionals;
+        m=gravity.static('ggm05g');
+        plotting.figure;
+        for i=1:numel(funcs)
+          m.plot('method','drms','functional',funcs{i});
+        end
+        plotting.enforce(...
+          'plot_legend_location','eastoutside',...
+          'plot_legend',cellfun(@(i) gravity.functional_names(i),funcs,'UniformOutput',false),...
+          'plot_ylabel','see legend',...
+          'plot_title','functionals test'...
+        );
+      case 'funct-circ'
+        funcs=gravity.functionals;
+        m=gravity.unit_randn(l);
+        for i=1:numel(funcs)
+          m0=m.scale(funcs{i},'functional');
+          for j=i+1:numel(funcs)
+            m1=m0.scale(funcs{j},'functional').scale(funcs{i},'functional');
+            dm=m1-m0;
+            dm_das=dm.das/m0.das;
+            disp(str.tablify(14,'Checking ',funcs{i},' -> ',funcs{j},' -> ',funcs{i},'rel. error = ',num2str(max(abs(dm_das)))))
+            tol=1e-15;
+            assert(all(abs(dm_das)<tol),['Circular check failed, relative error larger than tolerance: ',num2str(tol)])
+          end
+        end
       case 'sh2grid'
         datadir='~/data/gswarm/aiub/gravity/';
         datafiles='GSWARM_GF_SABC_COMBINED_2020-*_09.gfc';
@@ -1879,7 +2024,7 @@ classdef gravity < simpletimeseries
         'timesystem',obj.timesystem,...
         'units',units(idx),...
         'descriptor',obj.descriptor...
-      );    
+      );
     end
     function obj=setC(obj,d,o,values,time)
       if ~exist('time','var') || isempty(time)
@@ -1971,76 +2116,18 @@ classdef gravity < simpletimeseries
     end
     % functional scaling
     function s=scale_functional(obj,functional_new)
-      %   Supported functionals are the following,
-      %       'non-dim'   - non-dimensional Stoked coefficients.
-      %       'eqwh'      - equivalent water height [m]
-      %       'geoid'     - geoid height [m]
-      %       'potential' - [m2/s2]
-      %       'gravity'   - [m /s2], if input represents the disturbing potential,
-      %                     then the output represents the gravity disturbances.
-      %                     Otherwise, it represents the gravity accelerations
-      %                     (-dU/dr).
-      %       'anomalies' - If input represents the disturbing potential, then
-      %                     the output represents the gravity anomalies.
-      %                     Otherwise, it represents (-dU/dr - 2/r*U).
-      %       'vert-grav-grad' - vertical gravity gradient.
       %get nr of degrees
       N=obj.lmax+1;
       %get pre-scaling
-      switch lower(obj.funct)
-        case 'nondim'
-          %no scaling
-          pre_scale=ones(N);
-        otherwise
-          %need to bring these coefficients down to 'non-dim' scale
-          functional_old=obj.funct;
-          obj.funct='nondim';
-          pre_scale = obj.scale_functional(functional_old);
-      end
+      pre_scale=gravity.functional_scaling(obj.funct,N,obj.R,obj.GM);
       %get pos-scaling
-      switch lower(functional_new)
-        case 'nondim'
-          %no scaling
-          pos_scale=ones(N);
-        case 'eqwh' %[m]
-          love=gravity.parameters('love');
-          pos_scale=zeros(N);
-          rho_earth=gravity.parameters('rho_earth');
-          rho_water=gravity.parameters('rho_water');
-          %converting Stokes coefficients from non-dimensional to equivalent water layer thickness
-          for i=1:N
-            deg=i-1;
-            lv=interp1(love(:,1),love(:,2),deg,'linear','extrap');
-            pos_scale(i,:)=obj.R*rho_earth/rho_water/3*(2*deg+1)/(1+lv);
-          end
-        case 'geoid' %[m]
-          pos_scale=ones(N)*obj.R;
-        case 'potential' %[m2/s2]
-          pos_scale=ones(N)*obj.GM/obj.R;
-        case 'gravity' %[m/s2]
-          %If input represents the disturbing potential, then the output
-          %represents the gravity disturbances. Otherwise, it represents the
-          %gravity accelerations (-dU/dr).
-          deg=(0:N-1)'*ones(1,N);
-          pos_scale=-obj.GM/obj.R^2*(deg+1);
-        case 'anomalies'
-          %If input represents the disturbing potential, then the output
-          %represents the gravity anomalies. Otherwise, it represents:
-          %-dU/dr - 2/r*U
-          deg=(0:N-1)'*ones(1,N);
-          pos_scale=obj.GM/obj.R^2*max(deg-1,ones(size(deg)));
-        case 'vertgravgrad'
-          deg=(0:N-1)'*ones(1,N);
-          pos_scale=obj.GM/obj.R^3*(deg+1).*(deg+2);
-        otherwise
-          error([mfilename,': unknown scale ',functional_new])
-      end
+      pos_scale=gravity.functional_scaling(functional_new,N,obj.R,obj.GM);
       %outputs
       s=pos_scale./pre_scale;
     end
     % Gaussan smoothing scaling
     function s=scale_gauss(obj,fwhm_degree)
-      % translate smoothing radius to degree (criteria inside) 
+      % translate smoothing radius to degree (criteria inside)
       fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
       %NOTICE: gravity.gauss_smoothing_degree_translate(0) will assume the input is in degrees
       %        which should mean infinite smoothing, but generally the 0 will actually refer
@@ -2067,7 +2154,7 @@ classdef gravity < simpletimeseries
       if ~exist('width_degree','var') || isempty(width_degree)
         width_degree=5;
       end
-      % translate smoothing radius to degree (criteria inside) 
+      % translate smoothing radius to degree (criteria inside)
       fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
       %NOTICE: usually smoothing up to degree zero would mean zeroing the data
       %        but the convention here is that is means no smoothing.
@@ -2085,7 +2172,7 @@ classdef gravity < simpletimeseries
         s(1:w0)=1;
       end
       if width_degree<=0
-        s_transition=0.5;  
+        s_transition=0.5;
       else
         s_transition=spline([1 (2*width_degree+1)],[0 1 0 0],1:(2*width_degree+1));
       end
@@ -2098,7 +2185,7 @@ classdef gravity < simpletimeseries
         [mfilename,': found NaNs in the output. Debug needed!'])
     end
     function s=scale_trunc(obj,fwhm_degree)
-      % translate smoothing radius to degree (criteria inside) 
+      % translate smoothing radius to degree (criteria inside)
       fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
       %https://en.wikipedia.org/wiki/Gaussian_function#Properties
       s=[ones(1,min([fwhm_degree+1,obj.lmax+1])),zeros(1,obj.lmax-fwhm_degree)];
@@ -2197,11 +2284,17 @@ classdef gravity < simpletimeseries
     function obj=setGM(obj,gm)
       obj=obj.scale(gm,'GM');
     end
+    function obj=resetGM(obj,gm)
+      obj.GM=gm;
+    end
     function out=getR(obj)
       out=obj.R;
     end
     function obj=setR(obj,r)
       obj=obj.scale(r,'R');
+    end
+    function obj=resetR(obj,r)
+      obj.R=r;
     end
     %% derived quantities
     % number of orders in each degree
@@ -2220,7 +2313,7 @@ classdef gravity < simpletimeseries
           'timesystem',obj.timesystem,...
           'units',{obj.functional_unit},...
           'descriptor',[title,' @ degree ',num2str(l),' of ',obj.descriptor]...
-        );    
+        );
       else
         assert(size(d,2)==l+1,['Input ''d'' must have ',num2str(l+1),' columns, not ',num2str(size(d,2))])
         ts=simpletimeseries(...
@@ -2239,12 +2332,12 @@ classdef gravity < simpletimeseries
       if ~exist('l','var') || isempty(l)
         l=obj.lmax;
       end
-      d=zeros(obj.length,obj.lmax+1);
+      d=zeros(obj.length,l+1);
       tri_now=obj.tri;
       m=transpose(obj.nopd);
       for i=1:obj.length
         %compute mean over each degree (don't use 'mean' here, there's lots of zeros in tri_now for the low degrees)
-        d(i,:) = sum(tri_now{i},2)./m;
+        d(i,:) = sum(tri_now{i}(1:l+1,:),2)./m;
       end
       if nargout>1
         title='Degree mean';
@@ -2257,7 +2350,7 @@ classdef gravity < simpletimeseries
       if ~exist('l','var') || isempty(l)
         l=obj.lmax;
       end
-      d=sqrt(obj.drms(l).^2-obj.dmean(l).^2);
+      d=sqrt(abs(obj.drms(l).^2-obj.dmean(l).^2));
       if nargout>1
         title='Degree STD';
         label=[title,' @ degree ',num2str(l)];
@@ -2291,7 +2384,7 @@ classdef gravity < simpletimeseries
       d=zeros(obj.length,l+1);
       tri_now=obj.tri;
       for i=1:obj.length
-        %compute Degree amplitude
+        %compute degree amplitude
         d(i,:) = sqrt(sum(tri_now{i}(1:l+1,:).^2,2));
       end
       if nargout>1
@@ -2301,7 +2394,7 @@ classdef gravity < simpletimeseries
       end
     end
     %cumulative degree mean
-    function [d,ts]=cumdmean(obj,l)
+    function [d,ts,title,label]=cumdmean(obj,l)
       if ~exist('l','var') || isempty(l)
         l=obj.lmax;
       end
@@ -2325,7 +2418,7 @@ classdef gravity < simpletimeseries
       end
     end
     %cumulative degree RMS
-    function [d,ts]=cumdrms(obj,l)
+    function [d,ts,title,label]=cumdrms(obj,l)
       if ~exist('l','var') || isempty(l)
         l=obj.lmax;
       end
@@ -2342,14 +2435,14 @@ classdef gravity < simpletimeseries
         l=obj.lmax;
       end
       %NOTICE: this is squared-sum-rooted, not simply summed!
-      d=sqrt(cumsum(obj.das.^2,2));
+      d=sqrt(cumsum(obj.das(l).^2,2));
       if nargout>1
         title='Cum. degree amplitude';
         label=[title,' @ degree ',num2str(l)];
         ts=obj.makets(d(:,end),l,title,label);
       end
     end
-    % created a timeseries object with the derived quantities above, *for all degrees* (unlike the above which is only for one degrees)
+    % creates a timeseries object with the derived quantities above, *for all degrees* (unlike the above which is per degree)
     function ts=derived(obj,quantity)
       %NOTICE: there is no 'l' argument in this call so that obj.lmax is used
       [d,~,title,label]=obj.(quantity);
@@ -2581,7 +2674,7 @@ classdef gravity < simpletimeseries
         'colormap',  '',       @(i) ischar(i) || ismatrix(i);...
         'degrees',[2,3],       @isnumeric;...
         'orders', [0,0],       @isnumeric;...
-      }},varargin{:}); 
+      }},varargin{:});
       % enforce requested functional
       if ~strcmpi(obj.funct,v.functional)
         obj=obj.scale(v.functional,'functional');
@@ -2994,7 +3087,7 @@ function [m,e]=load_csr(filename,time)
       mi.C(d,o)=str.num(s(13:33));
       mi.S(d,o)=str.num(s(34:54));
       ei.C(d,o)=str.num(s(55:65));
-      try 
+      try
         ei.S(d,o)=str.num(s(66:76));
       catch
         ei.S(d,o)=str.num(s(66:74));
@@ -3479,7 +3572,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   e_idx=5;
   CommentStyle='*';
   datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f';
-  %upper-case version name 
+  %upper-case version name
   v.version=upper(v.version);
   %parse dependent arguments (can be over-written)
   %(NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
