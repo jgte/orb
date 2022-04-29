@@ -29,6 +29,7 @@ classdef gravity < simpletimeseries
     );
   end
   properties(Constant,GetAccess=private)
+    %TODO: the parameters below are a mix of physical constants and default values for properties; find a way to fix this
     %default value of some internal parameters
     parameter_list={...
       'GM',       398600.4415e9, @num.isscalar;...      % Standard gravitational parameter [m^3 s^-2]
@@ -444,7 +445,7 @@ classdef gravity < simpletimeseries
         switch lower(fmt)
         case 'gsm'
           [m,e]=load_gsm(file_name,time);
-        case 'csr'
+        case {'csr','geo'}
           [m,e]=load_csr(file_name,time);
         case {'icgem','gfc'}
           [m,e]=load_icgem(file_name,time);
@@ -592,6 +593,9 @@ classdef gravity < simpletimeseries
       out=out+(dateshift(out,'end','month')-out)/2;
     end
     function out=parse_epoch_tn14(filename)
+      %NOTICE: these data live in ~/data/SLR/TN-14/ (not set explicitly)
+      %NOTICE: these data need to be converted with ~/data/SLR/TN-14/convert_TN-14.sh
+      %NOTICE: graceC20 handles these data directly from the published data file
       %TN-14_C30_C20_GSFC_SLR.55942.5.gfc
       %1234567890123456789012345678901234567890
       [~,file]=fileparts(filename);
@@ -699,8 +703,12 @@ classdef gravity < simpletimeseries
       if contains(v.version,'-model')
         new_mode=['model-',strrep(v.mode,'model-','')];
         new_version=strrep(v.version,'-model','');
-        str.say('WARNING: over-writing input mode',str.quote(v.mode),'with',str.quote(new_mode),...
-          'since input version is',str.quote(v.version),', now passed along as',str.quote(new_version),'.')
+        if strcmp(str.quote(v.mode),str.quote(new_mode))
+          str.say('WARNING: input version has been updated from',str.quote(v.version),'to',str.quote(new_version),'.')
+        else
+          str.say('WARNING: over-writing input mode',str.quote(v.mode),'with',str.quote(new_mode),...
+            'since input version is',str.quote(v.version),', now passed along as',str.quote(new_version),'.')
+        end
         out=gravity.graceC20(varargin{:},'mode',new_mode,'version',new_version);
         return
       end
@@ -878,8 +886,8 @@ classdef gravity < simpletimeseries
                 'version',strrep(version_list{i},'-model','')...
               );
             end
-          otherwise
-            dat_list{i}=gravity.graceC20('mode','read','version',version_list{i});
+            otherwise
+            dat_list{i}=gravity.graceC20('mode','read','version',version_list{i}, v.delete({'version','mode'}).varargin{:});
             dat_list{i}=dat_list{i}.interp(dat_list{i}.t_domain(days(7)),...
               'interp_over_gaps_narrower_than',days(45)...
             );
@@ -962,6 +970,7 @@ classdef gravity < simpletimeseries
             'static_model',      'none' , @ischar; ...
             'product_name',    'unknown', @ischar;...
             'model_type',       'signal', @ischar;...
+            'show_msg',            true , @islogical;...
           },...
         },varargin{:});
         %sanity
@@ -970,14 +979,14 @@ classdef gravity < simpletimeseries
           return
         end
         %inits user feedback vars
-        msg='';show_msg=true;
+        msg='';
         switch mode
         case 'mode_list'
           mod={'consistent_GM','consistent_R','max_degree','use_GRACE_C20','delete_C00','delete_C20','start','stop','static_model'};
-          show_msg=false;
+          v.show_msg=false;
         case 'all'
-          mod=gravity.common_ops(gravity.common_ops('mode_list'),mod,v.varargin{:});
-          show_msg=false;
+          mod=gravity.common_ops(gravity.common_ops('mode_list'),mod,v.varargin{:},'show_msg',false);
+          return
         case 'consistent_GM'
           mod=mod.setGM(gravity.parameters('GM'));
         case 'consistent_R'
@@ -1060,7 +1069,7 @@ classdef gravity < simpletimeseries
           %remove static field (if requested)
           if ~strcmpi(v.static_model,'none') && strcmp(v.model_type,'signal')
             %TODO: make this handle filenames as well, not only datastorage products
-            static=datastorage().init(v.static_model).data_get_scalar(datanames(v.static_model).append_field_leaf('signal'));
+            static=datastorage().init(v.static_model,'show_msg',false).data_get_scalar(datanames(v.static_model).append_field_leaf('signal'));
             %adjust the start/stop
             switch static.length
             case 1
@@ -1082,7 +1091,7 @@ classdef gravity < simpletimeseries
         otherwise
           error(['Cannot handle operantion ''',mode,'''.'])
         end
-        if show_msg;str.say(v.product_name,':',mode,msg);end
+        if v.show_msg;str.say(v.product_name,':',mode,msg);end
       end
     end
     %% model combination
@@ -1267,6 +1276,9 @@ classdef gravity < simpletimeseries
         case 'GGM05G'
           datafile=fullfile(file.orbdir('auxiliary'),'ggm05g.gfc');
           fmt='gcf';
+        case 'WGS84'
+          datafile=fullfile(file.orbdir('auxiliary'),'WGS84.GEO');
+          fmt='GEO';
         otherwise
           error(['Cannot handle static model ''',model,'''.'])
       end
@@ -1391,20 +1403,25 @@ classdef gravity < simpletimeseries
     %   value that is nonzero. This time independent (nm) = (20) potential
     %   produces a permanent deformation and a consequent time independent
     %   contribution to the geopotential coefficient C20.
+      debug=true;
+      str.say(['Tide system is ',tide_system])
       switch tide_system
       case {'zero_tide'}
         % the zero-frequency value includes the indirect distortion, but not the direct distortion
         % NOTICE: do nothing, this is the default
+        delta=0;
       case {'free_tide','tide_free','tide_tide','non_tidal'}
         % the tide-free value is the quantity from which all tidal effects have been removed
-        C20=C20-gravity.parameters('zf_love')*gravity.parameters('pt_factor');
+        delta=-gravity.parameters('zf_love')*gravity.parameters('pt_factor');
       case 'mean_tide'
         % the mean tide value includes both the direct and indirect permanent tidal distortions
         %http://mitgcm.org/~mlosch/geoidcookbook/node9.html
-        C20=C20+gravity.parameter('pt_factor');
+        delta=gravity.parameter('pt_factor');
       otherwise
         error(['Cannot handle the permanent tide system ''',tide_system,'''.'])
       end
+      str.say('disp',debug,['Converted to zero tide by adding ',num2str(delta)])
+      C20=C20+delta;
     end
     %% utilities
     function [degrees,orders]=resolve_degrees_orders(varargin)
@@ -1691,6 +1708,22 @@ classdef gravity < simpletimeseries
             assert(all(abs(dm_das)<tol),['Circular check failed, relative error larger than tolerance: ',num2str(tol)])
           end
         end
+      case 'sh2grid'
+        datadir='~/data/gswarm/aiub/gravity/';
+        datafiles='GSWARM_GF_SABC_COMBINED_2020-*_09.gfc';
+        functional='eqwh';
+        %load the data
+        g=gravity.load_dir(datadir,'gfc',@gravity.parse_epoch_gswarm,'wildcarded_filename',datafiles,'descriptor','Swarm');
+        %remove static model
+        g=g-gravity.static('ggm05c').set_lmax(g.lmax).scale(g);
+        %convert to equivalent water height
+        g=g.scale(750e3,'gauss').scale(functional,'functional');
+        %convert to grid
+        out=g.grid('spatial_step',2).center_resample;
+        %show the grid
+        out.imagesc
+        %export to xyz format
+        out.xyz(['./GSWARM_GF_SABC_COMBINED-',functional,'.xyz'])
       otherwise
         error(['Cannot handle test method ''',method,'''.'])
       end
@@ -3029,30 +3062,38 @@ function [m,e]=load_csr(filename,time)
   if sum(s)<0
     error([mfilename,': Problem with reading the CSR file ''',filename,'''.'])
   end
+  % skip third line
+  fgets(fid);
   %make room for coefficients
   mi.C=zeros(Lmax+1);
   mi.S=zeros(Lmax+1);
   ei.C=zeros(Lmax+1);
   ei.S=zeros(Lmax+1);
   Lmax=0;
+  % get first line with coefficients
+  s=fgets(fid);
   % read coefficients
   while (s>=0)
-    %skip irrelevant lines
-    if strncmp(s, 'RECOEF', 6) == 0 && strncmp(s, 'SUMGEO', 6) == 0
-      s=fgets(fid);
-      continue
-    end
-    %save degree and order
-    d=str.num(s(7:9))+1;
-    if d>Lmax;Lmax=d;end
-    o=str.num(s(10:12))+1;
-    mi.C(d,o)=str.num(s(13:33));
-    mi.S(d,o)=str.num(s(34:54));
-    ei.C(d,o)=str.num(s(55:65));
-    try
-      ei.S(d,o)=str.num(s(66:76));
-    catch
-      ei.S(d,o)=str.num(s(66:74));
+%     %skip irrelevant lines
+%     if strncmp(s, 'RECOEF', 6) == 0 && strncmp(s, 'SUMGEO', 6) == 0
+%       s=fgets(fid);
+%       continue
+%     end
+    if length(s)==81
+      %save degree and order
+      d=str.num(s(7:9))+1;
+      if d>Lmax;Lmax=d;end
+      o=str.num(s(10:12))+1;
+      mi.C(d,o)=str.num(s(13:33));
+      mi.S(d,o)=str.num(s(34:54));
+      ei.C(d,o)=str.num(s(55:65));
+      try
+        ei.S(d,o)=str.num(s(66:76));
+      catch
+        ei.S(d,o)=str.num(s(66:74));
+      end
+    else
+      disp(['Skipped line: ''',s,'''.'])
     end
     % read next line
     s=fgets(fid);
@@ -3562,7 +3603,8 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     case 'GSFC-7DAY'
       datfil='GSFC_SLR_C20_7day.txt';
       daturl='personal communication: email from bryant.d.loomis@nasa.gov';
-      datfmt='%10.4f%23.13f';
+%       datfmt='%10.4f%23.13f'; %NOTICE: this was used for the format of the data sent by email
+      datfmt='%12.6f%21.13f'; %NOTICE: this is used for the format of the data resulting from the online file
       t_idx=1;
       s_idx=2;
       e_idx=0;

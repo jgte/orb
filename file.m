@@ -84,6 +84,17 @@ classdef file
         frewind(fid);
       end
     end
+    function [out,faction]=im_count_diff_pixels(img1,img2)
+      A1=imread(img1);
+      A2=imread(img2);
+      if numel(A1)==numel(A2)
+        out=sum(A1(:)~=A2(:));
+        faction=out/numel(A1);
+      else
+        out=max([numel(A1),numel(A2)]);
+        faction=1;
+      end
+    end
     function [fid,filename,close_file]=open(filename,perm)
       if ~exist('perm','var') || isempty(perm)
         perm = 'r';
@@ -265,6 +276,12 @@ classdef file
       str=fscanf( fid, '%s');
       %close the file (if fid not given)
       if close_file, fclose(fid); end
+    end
+    %check if text files are the same
+    function out=str_equal(f1,f2)
+      s1=file.strload(f1);
+      s2=file.strload(f2);
+      out=any((s1.^2-s2.^2)~=0);
     end
     %% resolves filenames that exist in multiple machines, each one with a home directory listed in file.homes
     function io=resolve_home(io)

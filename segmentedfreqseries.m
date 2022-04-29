@@ -401,14 +401,3 @@ classdef segmentedfreqseries < simplefreqseries
     end
   end
 end
-
-
-
-
-
-
-
-
-
-
-
