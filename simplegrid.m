@@ -1584,7 +1584,9 @@ classdef simplegrid < simpletimeseries
       %handle special cases
       switch lower(mode)
       case 'deep ocean'
+        warning off
         obj=obj.spatial_mask('ocean','buffer',1000e3);
+        warning off
         return
       case {'land','ocean'}
         %handle optionals
