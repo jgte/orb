@@ -1554,18 +1554,19 @@ classdef gravity < simpletimeseries
         disp(b.tri{numel(t)})
       case 'grid'
         figure
-        gravity.unit_randn(120,'t',t).grid.imagesc
+        gravity.unit_randn(120,'t',t).grid.imagesc;
+        title('grid test')
       case 'ggm05g'
-        m=gravity.ggm05g;
+        m=gravity.static('ggm05g');
         disp('- print gravity')
         m.print
         disp('- print grid')
         m.grid.print
       case 'stats'
-        m=gravity.ggm05g.setC(0,0,0).setC(2,0,0);
+        m=gravity.static('ggm05g').setC(0,0,0).setC(2,0,0);
         for i={'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
           figure
-          m.plot('method',i{1},'functional','geoid','title',[m.descriptor,' - ',i{1}]);
+          m.plot('method',i{1},'functional','geoid','title',[m.descriptor,' - ',i{1},' test']);
         end
       case 'c'
         if numel(t)<3
@@ -1592,10 +1593,12 @@ classdef gravity < simpletimeseries
           t=round(l/2);
         end
         methods={'gauss','spline','trunc'};
+        figure
         for i=1:numel(methods)
           a.scale_plot(t,methods{i});
         end
         legend(methods);
+        title('smoothing test')
       case 'deepoceanmaskplot'
         a=simplegrid.unit(l*90,l*45);
         a=a.spatial_mask('deep ocean');
@@ -1605,7 +1608,7 @@ classdef gravity < simpletimeseries
         a.imagesc;
         colormap(c)
         colorbar off
-        plotting.enforce('plot_legend_location','none');
+        plotting.enforce('plot_legend_location','none','plot_title','deepoceanmaskplot test');
       case 'gracec20'
         gravity.graceC20('mode','plot-all','version',{'GSFC-7DAY','GSFC','TN-14','TN-11'});
       otherwise
