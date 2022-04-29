@@ -1831,6 +1831,18 @@
       end
       obj=obj.segstat(@median,n);
     end
+    function obj=rms(obj,n)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
+      obj=obj.segstat(@rms,n);
+    end
+    function obj=std(obj,n)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
+      obj=obj.segstat(@std,n);
+    end
     function obj=segstat(obj,op,n)
       if ~exist('n','var') || isempty(n)
         n=obj.length;

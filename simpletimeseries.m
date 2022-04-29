@@ -1235,6 +1235,26 @@ classdef simpletimeseries < simpledata
         obj=obj.segstat(@median,n,keep_time_domain);
       end
     end
+    function obj=rms(obj,n,keep_time_domain)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
+      if ~exist('keet_time_domain','var')
+        obj=obj.segstat(@rms,n);
+      else
+        obj=obj.segstat(@rms,n,keep_time_domain);
+      end
+    end
+    function obj=srd(obj,n,keep_time_domain)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
+      if ~exist('keet_time_domain','var')
+        obj=obj.segstat(@srd,n);
+      else
+        obj=obj.segstat(@srd,n,keep_time_domain);
+      end
+    end
     function obj=segstat(obj,op,n,keep_time_domain)
       if ~exist('n','var') || isempty(n)
         n=obj.length;
