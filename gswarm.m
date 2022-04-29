@@ -24,6 +24,7 @@ classdef gswarm
     % 11 : 30-Jun-2022
     % 12 : 30-Sep-2022
      stop_date=dateshift(dateshift(datetime('now'),'start','months')-calmonths(2),'start','quarter')-days(1);
+     %TODO: define a parameter for the plot_lines_over_gaps_narrower_than and addgaps(...), currently 120 and 45 resp.
   end
   methods(Static)
     function out=dir(type)
