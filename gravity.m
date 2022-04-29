@@ -1715,7 +1715,7 @@ classdef gravity < simpletimeseries
         %load the data
         g=gravity.load_dir(datadir,'gfc',@gravity.parse_epoch_gswarm,'wildcarded_filename',datafiles,'descriptor','Swarm');
         %remove static model
-        g=g-gravity.static('ggm05c').set_lmax(g.lmax).scale(g);
+        g=g-gravity.static('ggm05c').set_lmax(g.lmax).scale(g).set_t(g.t(1));
         %convert to equivalent water height
         g=g.scale(750e3,'gauss').scale(functional,'functional');
         %convert to grid
