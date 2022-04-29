@@ -1465,6 +1465,59 @@ classdef gravity < simpletimeseries
         'cumdmean','cumdrms','cumdstd','cumdas',...
       };
     end
+    function s=functional_scaling(functional,N,R,GM)
+      %   Supported functionals are the following,
+      %       'non-dim'   - non-dimensional Stoked coefficients.
+      %       'eqwh'      - equivalent water height [m]
+      %       'geoid'     - geoid height [m]
+      %       'potential' - [m2/s2]
+      %       'gravity'   - [m /s2], if input represents the disturbing potential,
+      %                     then the output represents the gravity disturbances.
+      %                     Otherwise, it represents the gravity accelerations
+      %                     (-dU/dr).
+      %       'anomalies' - If input represents the disturbing potential, then
+      %                     the output represents the gravity anomalies.
+      %                     Otherwise, it represents (-dU/dr - 2/r*U).
+      %       'vert-grav-grad' - vertical gravity gradient.
+      %branch on functional
+      switch lower(functional)
+        case 'nondim'
+          %no scaling
+          s=ones(N);
+        case 'eqwh' %[m]
+          love=gravity.parameters('love');
+          s=zeros(N);
+          rho_earth=gravity.parameters('rho_earth');
+          rho_water=gravity.parameters('rho_water');
+          %converting Stokes coefficients from non-dimensional to equivalent water layer thickness
+          for i=1:N
+            deg=i-1;
+            lv=interp1(love(:,1),love(:,2),deg,'linear','extrap');
+            s(i,:)=R*rho_earth/rho_water/3*(2*deg+1)/(1+lv);
+          end
+        case 'geoid' %[m]
+          s=ones(N)*R;
+        case 'potential' %[m2/s2]
+          s=ones(N)*GM/R;
+        case 'gravity' %[m/s2]
+          %If input represents the disturbing potential, then the output
+          %represents the gravity disturbances. Otherwise, it represents the
+          %gravity accelerations (-dU/dr).
+          deg=(0:N-1)'*ones(1,N);
+          s=-GM/R^2*(deg+1);
+        case 'anomalies'
+          %If input represents the disturbing potential, then the output
+          %represents the gravity anomalies. Otherwise, it represents:
+          %-dU/dr - 2/r*U
+          deg=(0:N-1)'*ones(1,N);
+          s=GM/R^2*max(deg-1,ones(size(deg)));
+        case 'vertgravgrad'
+          deg=(0:N-1)'*ones(1,N);
+          s=GM/R^3*(deg+1).*(deg+2);
+        otherwise
+          error([mfilename,': unknown scale ',functional])
+      end
+    end
     %% general test for the current object
     function out=test_parameters(field,l,w)
       switch field
@@ -2030,70 +2083,12 @@ classdef gravity < simpletimeseries
     end
     % functional scaling
     function s=scale_functional(obj,functional_new)
-      %   Supported functionals are the following,
-      %       'non-dim'   - non-dimensional Stoked coefficients.
-      %       'eqwh'      - equivalent water height [m]
-      %       'geoid'     - geoid height [m]
-      %       'potential' - [m2/s2]
-      %       'gravity'   - [m /s2], if input represents the disturbing potential,
-      %                     then the output represents the gravity disturbances.
-      %                     Otherwise, it represents the gravity accelerations
-      %                     (-dU/dr).
-      %       'anomalies' - If input represents the disturbing potential, then
-      %                     the output represents the gravity anomalies.
-      %                     Otherwise, it represents (-dU/dr - 2/r*U).
-      %       'vert-grav-grad' - vertical gravity gradient.
       %get nr of degrees
       N=obj.lmax+1;
       %get pre-scaling
-      switch lower(obj.funct)
-        case 'nondim'
-          %no scaling
-          pre_scale=ones(N);
-        otherwise
-          %need to bring these coefficients down to 'non-dim' scale
-          functional_old=obj.funct;
-          obj.funct='nondim';
-          pre_scale = obj.scale_functional(functional_old);
-      end
+      pre_scale=gravity.functional_scaling(obj.funct,N,obj.R,obj.GM);
       %get pos-scaling
-      switch lower(functional_new)
-        case 'nondim'
-          %no scaling
-          pos_scale=ones(N);
-        case 'eqwh' %[m]
-          love=gravity.parameters('love');
-          pos_scale=zeros(N);
-          rho_earth=gravity.parameters('rho_earth');
-          rho_water=gravity.parameters('rho_water');
-          %converting Stokes coefficients from non-dimensional to equivalent water layer thickness
-          for i=1:N
-            deg=i-1;
-            lv=interp1(love(:,1),love(:,2),deg,'linear','extrap');
-            pos_scale(i,:)=obj.R*rho_earth/rho_water/3*(2*deg+1)/(1+lv);
-          end
-        case 'geoid' %[m]
-          pos_scale=ones(N)*obj.R;
-        case 'potential' %[m2/s2]
-          pos_scale=ones(N)*obj.GM/obj.R;
-        case 'gravity' %[m/s2]
-          %If input represents the disturbing potential, then the output
-          %represents the gravity disturbances. Otherwise, it represents the
-          %gravity accelerations (-dU/dr).
-          deg=(0:N-1)'*ones(1,N);
-          pos_scale=-obj.GM/obj.R^2*(deg+1);
-        case 'anomalies'
-          %If input represents the disturbing potential, then the output
-          %represents the gravity anomalies. Otherwise, it represents:
-          %-dU/dr - 2/r*U
-          deg=(0:N-1)'*ones(1,N);
-          pos_scale=obj.GM/obj.R^2*max(deg-1,ones(size(deg)));
-        case 'vertgravgrad'
-          deg=(0:N-1)'*ones(1,N);
-          pos_scale=obj.GM/obj.R^3*(deg+1).*(deg+2);
-        otherwise
-          error([mfilename,': unknown scale ',functional_new])
-      end
+      pos_scale=gravity.functional_scaling(functional_new,N,obj.R,obj.GM);
       %outputs
       s=pos_scale./pre_scale;
     end
@@ -3696,4 +3691,3 @@ end
 %     error(['Cannot handle version ''',version,'''.'])
 %   end
 % end
-
