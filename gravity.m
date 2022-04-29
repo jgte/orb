@@ -37,9 +37,9 @@ classdef gravity < simpletimeseries
       'rho_water',1000,          @num.isscalar;...      % water density [kg/m3]
       'G',        6.67408e-11,   @(i) (num.isscalar(i)) || isempty(i);...      % Gravitational constant [m3/kg/s2]
       'Rm',       6371000,       @(i) (num.isscalar(i)) || isempty(i);...      % Earth's mean radius [m]
-      'love',  [  0       0.000;...               
+      'love',  [  0       0.000;...
                   1       0.027;...
-                  2      -0.303;... 
+                  2      -0.303;...
                   3      -0.194;...
                   4      -0.132;...
                   5      -0.104;...
@@ -233,7 +233,7 @@ classdef gravity < simpletimeseries
       for i=1:size(mod,1)
         out.C(mod(i,1)+1,mod(i,2)+1) = mod(i,3);
         out.S(mod(i,1)+1,mod(i,2)+1) = mod(i,4);
-      end          
+      end
     end
     %% agregator routines
     %data type converter
@@ -359,7 +359,7 @@ classdef gravity < simpletimeseries
       end
       out=find(out);
     end
-    %% constructors 
+    %% constructors
     function obj=unit(lmax,varargin)
       %create argument object, declare and parse parameters, save them to obj
       v=varargs.wrap('sources',{gravity.parameters('obj'),...
@@ -400,7 +400,7 @@ classdef gravity < simpletimeseries
     % create a model with coefficients following Kaula's rule of thumb
     function obj=kaula(lmax,varargin)
       obj=gravity.unit(lmax,'scale_per_degree',[0,1e-5./(1:lmax).^2],varargin{:});
-    end  
+    end
     % Creates a random model with mean 0 and std 1 (per degree)
     function obj=unit_randn(lmax,varargin)
       obj=gravity.unit(lmax,'scale_per_coeff',randn(lmax+1),varargin{:});
@@ -484,8 +484,8 @@ classdef gravity < simpletimeseries
       %NOTICE: this is used to be done automatically when loading the mat file
       %        (and there's no practical use for it at the moment)
       if force_time
-        if m.t~=time;m.t=time;end 
-        if ~isempty(e) && e.t~=time;e.t=time;end 
+        if m.t~=time;m.t=time;end
+        if ~isempty(e) && e.t~=time;e.t=time;end
       end
       %update start/stop for static fields, i.e. those with time=gravity.static_start_date
       if time==gravity.static_select_date
@@ -612,7 +612,7 @@ classdef gravity < simpletimeseries
       p.addParameter('wildcarded_filename',['*.',format], @ischar);
       p.addParameter('descriptor',        'unknown',     @ischar);
       %NOTICE: start/stop is only used to avoid loading models outside a certain time range
-      p.addParameter('start', [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i))); 
+      p.addParameter('start', [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i)));
       p.addParameter('stop',  [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i)));
       p.addParameter('overwrite_common_t',  false, @islogical);
       p.parse(dirname,format,date_parser,varargin{:})
@@ -663,7 +663,7 @@ classdef gravity < simpletimeseries
             else
               disp(['Ignoring ',f,' because this epoch was already loaded from model ',f_saved,'.'])
               c=c+1; continue
-            end              
+            end
           end
           %ensure R and GM are compatible append to output objects
           m1=m1.scale(m);
@@ -706,7 +706,7 @@ classdef gravity < simpletimeseries
       end
       switch v.mode
       case 'C20mean'
-        out=v.C20mean; 
+        out=v.C20mean;
       case 'model-poly'
         out=2;
       case 'model-periods-datfile'
@@ -774,14 +774,14 @@ classdef gravity < simpletimeseries
         f_pdset=gravity.graceC20(varargin{:},'mode','model-list-datfile');
         f_pd   =gravity.graceC20(varargin{:},'mode','model-datfile');
         if ~file.exist(f_pdset) || ~file.exist(f_pd) || ~...
-          gravity.graceC20(varargin{:},'mode','model-md5check')  
+          gravity.graceC20(varargin{:},'mode','model-md5check')
           %get the coefficients; NOTICE: always use c20.t so that f_pdset is not dependent on inputs
           [~,pd_set]=c20.parametric_decomposition('np',np,'T',T,...
-            'timescale','days','time',c20.t_domain(days(7))); 
+            'timescale','days','time',c20.t_domain(days(7)));
           %save them
           save(f_pdset,'pd_set')
           %update md5 of data
-          gravity.graceC20(varargin{:},'mode','model-md5set')  
+          gravity.graceC20(varargin{:},'mode','model-md5set')
         else
           load(f_pdset,'pd_set')
         end
@@ -810,7 +810,7 @@ classdef gravity < simpletimeseries
         switch v.mode
           case 'model-list';     out=pardecomp.table(pd_set,'tablify',true);
           case 'model-list-tex'; out=pardecomp.table(pd_set,'tablify',false,'latex_table',true);
-        end       
+        end
       case 'model-plot'
         %retrieve the orignal data
         c20o=gravity.graceC20(varargin{:},'mode','read');
@@ -877,7 +877,7 @@ classdef gravity < simpletimeseries
               dat_list{i}=gravity.graceC20('mode','model',...
                 'version',strrep(version_list{i},'-model','')...
               );
-            end              
+            end
           otherwise
             dat_list{i}=gravity.graceC20('mode','read','version',version_list{i});
             dat_list{i}=dat_list{i}.interp(dat_list{i}.t_domain(days(7)),...
@@ -1162,7 +1162,7 @@ classdef gravity < simpletimeseries
         out='radius';
       else
         out='deg';
-      end      
+      end
     end
     function out=gauss_smoothing_degree_translate(in)
       switch gravity.gauss_smoothing_type(in)
@@ -1206,7 +1206,7 @@ classdef gravity < simpletimeseries
       if year<1000
         year=year+2000;
       end
-      persistent CSR_RL05_date_table 
+      persistent CSR_RL05_date_table
       if isempty(CSR_RL05_date_table)
         fid=file.open(p.Results.EstimDirs_file);
         d=textscan(fid,'%d %f %s %s %s %s %s %s %f %f');
@@ -1323,7 +1323,7 @@ classdef gravity < simpletimeseries
               else
                 m_year=m_year.append(m_month);
               end
-            end 
+            end
             %save this year for next time
             save(fileyear,'m_year');
           end
@@ -1363,7 +1363,7 @@ classdef gravity < simpletimeseries
             for j=components
               %check if this is the first loop iter
               if first
-                %create 
+                %create
                 o=gravity.ESA_MTM_all(j,varargin{:});
                 first=false;
               else
@@ -1908,7 +1908,7 @@ classdef gravity < simpletimeseries
         'timesystem',obj.timesystem,...
         'units',units(idx),...
         'descriptor',obj.descriptor...
-      );    
+      );
     end
     function obj=setC(obj,d,o,values,time)
       if ~exist('time','var') || isempty(time)
@@ -2069,7 +2069,7 @@ classdef gravity < simpletimeseries
     end
     % Gaussan smoothing scaling
     function s=scale_gauss(obj,fwhm_degree)
-      % translate smoothing radius to degree (criteria inside) 
+      % translate smoothing radius to degree (criteria inside)
       fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
       %NOTICE: gravity.gauss_smoothing_degree_translate(0) will assume the input is in degrees
       %        which should mean infinite smoothing, but generally the 0 will actually refer
@@ -2096,7 +2096,7 @@ classdef gravity < simpletimeseries
       if ~exist('width_degree','var') || isempty(width_degree)
         width_degree=5;
       end
-      % translate smoothing radius to degree (criteria inside) 
+      % translate smoothing radius to degree (criteria inside)
       fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
       %NOTICE: usually smoothing up to degree zero would mean zeroing the data
       %        but the convention here is that is means no smoothing.
@@ -2114,7 +2114,7 @@ classdef gravity < simpletimeseries
         s(1:w0)=1;
       end
       if width_degree<=0
-        s_transition=0.5;  
+        s_transition=0.5;
       else
         s_transition=spline([1 (2*width_degree+1)],[0 1 0 0],1:(2*width_degree+1));
       end
@@ -2127,7 +2127,7 @@ classdef gravity < simpletimeseries
         [mfilename,': found NaNs in the output. Debug needed!'])
     end
     function s=scale_trunc(obj,fwhm_degree)
-      % translate smoothing radius to degree (criteria inside) 
+      % translate smoothing radius to degree (criteria inside)
       fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
       %https://en.wikipedia.org/wiki/Gaussian_function#Properties
       s=[ones(1,min([fwhm_degree+1,obj.lmax+1])),zeros(1,obj.lmax-fwhm_degree)];
@@ -2255,7 +2255,7 @@ classdef gravity < simpletimeseries
           'timesystem',obj.timesystem,...
           'units',{obj.functional_unit},...
           'descriptor',[title,' @ degree ',num2str(l),' of ',obj.descriptor]...
-        );    
+        );
       else
         assert(size(d,2)==l+1,['Input ''d'' must have ',num2str(l+1),' columns, not ',num2str(size(d,2))])
         ts=simpletimeseries(...
@@ -2326,7 +2326,7 @@ classdef gravity < simpletimeseries
       d=zeros(obj.length,l+1);
       tri_now=obj.tri;
       for i=1:obj.length
-        %compute Degree amplitude
+        %compute degree amplitude
         d(i,:) = sqrt(sum(tri_now{i}(1:l+1,:).^2,2));
       end
       if nargout>1
@@ -2384,7 +2384,7 @@ classdef gravity < simpletimeseries
         ts=obj.makets(d(:,end),l,title,label);
       end
     end
-    % created a timeseries object with the derived quantities above, *for all degrees* (unlike the above which is only for one degrees)
+    % creates a timeseries object with the derived quantities above, *for all degrees* (unlike the above which is per degree)
     function ts=derived(obj,quantity)
       %NOTICE: there is no 'l' argument in this call so that obj.lmax is used
       [d,~,title,label]=obj.(quantity);
@@ -2616,7 +2616,7 @@ classdef gravity < simpletimeseries
         'colormap',  '',       @(i) ischar(i) || ismatrix(i);...
         'degrees',[2,3],       @isnumeric;...
         'orders', [0,0],       @isnumeric;...
-      }},varargin{:}); 
+      }},varargin{:});
       % enforce requested functional
       if ~strcmpi(obj.funct,v.functional)
         obj=obj.scale(v.functional,'functional');
@@ -3024,7 +3024,7 @@ function [m,e]=load_csr(filename,time)
     mi.C(d,o)=str.num(s(13:33));
     mi.S(d,o)=str.num(s(34:54));
     ei.C(d,o)=str.num(s(55:65));
-    try 
+    try
       ei.S(d,o)=str.num(s(66:76));
     catch
       ei.S(d,o)=str.num(s(66:74));
@@ -3506,7 +3506,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   e_idx=5;
   CommentStyle='*';
   datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f';
-  %upper-case version name 
+  %upper-case version name
   v.version=upper(v.version);
   %parse dependent arguments (can be over-written)
   %(NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
