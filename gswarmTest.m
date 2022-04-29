@@ -1,3 +1,4 @@
+% NOTICE: call this with gswarmTest.go
 classdef gswarmTest < matlab.unittest.TestCase
   properties(Constant)
      start_date='2015-01-01';
@@ -121,12 +122,12 @@ classdef gswarmTest < matlab.unittest.TestCase
     end
   end
   methods(Test)
-    function deepoceanmaskTest(testCase)
+    function testCase=deepoceanmaskTest(testCase)
       gswarm.plotdeepoceanmask(4,fullfile(file.orbdir('plot'),'deepoceanmask','deepoceanmask.png'));
       close(gcf)
       gswarmTest.compare_plots(testCase,'deepoceanmask');
     end
-    function c20modelTest(testCase)
+    function testCase=c20modelTest(testCase)
       for i=1:numel(gswarmTest.project_list)
         %set expected values in PROJECT
         gswarmTest.update_project_name(gswarmTest.project_list{i});
@@ -135,11 +136,11 @@ classdef gswarmTest < matlab.unittest.TestCase
         %plot it
         gswarm.c20model('plot',file.orbdir('plot'));
         close(gcf);
-        testCase=gswarmTest.compare_plots(testCase,'c20model');
         %create latex tables
         gswarm.c20model('latex',file.orbdir('plot'));
-        testCase=gswarmTest.compare_ascii(testCase,'c20model','tex');
       end
+      testCase=gswarmTest.compare_plots(testCase,'c20model');
+      testCase=gswarmTest.compare_ascii(testCase,'c20model','tex');
     end
     function grace_modelTest(testCase)
       global PROJECT
