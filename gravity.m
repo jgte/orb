@@ -1273,62 +1273,112 @@ classdef gravity < simpletimeseries
       [m,e]=gravity.load(datafile,fmt);
     end
     %% ESA's Earth System Model
-    function out=ESA_MTM_dir(year,month,component)
-      out=fullfile(getenv('HOME'),'media','data','data','ESA-MTM','data',num2str(year,'%04i'),component,num2str(month,'%02i'));
+    function out=ESA_MTM_data_dir(year,month,component)
+      out=fullfile(file.orbdir('ESA_MTM_data'),num2str(year,'%04i'),component,num2str(month,'%02i'));
     end
     %year      : year (numeric)
     %month     : month (numeric)
     %component : A, AOHIS, H, I, O or S (char)
     function [m,e]=ESA_MTM(year,month,component,varargin)
-      p=inputParser; p.KeepUnmatched=true;
-      p.addParameter('datadir',gravity.ESA_MTM_dir(year,month,component),@(i) ischar(i) && exist(i,'dir')~=0)
-      p.parse(varargin{:})
-      [m,e]=gravity.load_dir(p.Results.datadir,'esamtm',@gravity.parse_epoch_esamtm,'wildcarded_filename','mtmshc_*.180.mat',varargin{:});
+      [m,e]=gravity.load_dir(gravity.ESA_MTM_data_dir(year,month,component),'esamtm',...
+        @gravity.parse_epoch_esamtm,'wildcarded_filename','mtmshc_*.180.mat',varargin{:});
     end
     function m=ESA_MTM_all(component,varargin)
-      %init year-loop variables
-      firstyear=true;
-      %loop over the years
-      for year=1995:2006
-        %define yearly-aggregated data
-        fileyear=fullfile(gravity.ESA_MTM_dir(year,[],component),['gravity_',component,'_',num2str(year,'%04i'),'.mat']);
-        %load aggregated data is available
-        if file.exist(fileyear)
-          load(fileyear,'m_year');
-        else
-          %init month variables
-          firstmonth=true;
-          %loop over the months
-          for month=1:12
-            %define monthly-aggregated data
-            filemonth=fullfile(gravity.ESA_MTM_dir(year,month,component),['gravity_',component,'_',num2str(year,'%04i'),'-',num2str(month,'%02i'),'.mat']);
-            %load aggregated data is available
-            if file.exist(filemonth)
-              load(filemonth,'m_month');
-            else
-              %load every day
-              m_month=gravity.ESA_MTM(year,month,component,varargin{:});
-              %save this month for next time
-              save(filemonth,'m_month');
-            end
-            %create/append
-            if firstmonth
-              firstmonth=false;
-              m_year=m_month;
-            else
-              m_year=m_year.append(m_month);
-            end
-          end 
-          %save this year for next time
-          save(fileyear,'m_year');
+      fileall=fullfile(gravity.ESA_MTM_data_dir([],[],component),['gravity_',component,'_all.mat']);
+      if file.exist(fileall)
+        disp(['Loading ESA MTM component ''',component,''' for all years'])
+        load(fileall,'m');
+      else
+        %init year-loop variables
+        firstyear=true;
+        %loop over the years
+        for year=1995:2006
+          %define yearly-aggregated data
+          fileyear=fullfile(gravity.ESA_MTM_data_dir(year,[],component),['gravity_',component,'_',num2str(year,'%04i'),'.mat']);
+          %load aggregated data is available
+          if file.exist(fileyear)
+            disp(['Loading ESA MTM component ''',component,''' for year ',num2str(year)])
+            load(fileyear,'m_year');
+          else
+            %init month variables
+            firstmonth=true;
+            %loop over the months
+            for month=1:12
+              %define monthly-aggregated data
+              filemonth=fullfile(gravity.ESA_MTM_data_dir(year,month,component),['gravity_',component,'_',num2str(year,'%04i'),'-',num2str(month,'%02i'),'.mat']);
+              %load aggregated data is available
+              if file.exist(filemonth)
+                disp(['Loading ESA MTM component ''',component,''' for month ',num2str(year),'-',num2str(month)])
+                load(filemonth,'m_month');
+              else
+                %load every day
+                m_month=gravity.ESA_MTM(year,month,component,varargin{:});
+                %save this month for next time
+                save(filemonth,'m_month');
+              end
+              %create/append
+              if firstmonth
+                firstmonth=false;
+                m_year=m_month;
+              else
+                m_year=m_year.append(m_month);
+              end
+            end 
+            %save this year for next time
+            save(fileyear,'m_year');
+          end
+          %create/append
+          if firstyear
+            firstyear=false;
+            m=m_year;
+          else
+            m=m.append(m_year);
+          end
         end
-        %create/append
-        if firstyear
-          firstyear=false;
-          m=m_year;
+        file.ensuredir(fileall);
+        save(fileall,'m','-v7.3');
+      end
+    end
+    function o=ESA_MTM_datafile(components,stat,varargin)
+      o=fullfile(file.orbdir('ESA_MTM_stats',true),['ESA-MTM_',components,'_',stat,'.mat']);
+    end
+    function s=ESA_MTM_stats(components,stat_list,varargin)
+      %sanity on input arguments
+      assert(ischar(components),'Input ''components'' must be a character string');
+      assert(iscellstr(stat_list),'Input ''stat_list'' must be a cell string');
+      %avoid re-loading the data
+      data_loaded=false;
+      %loop over all requested stats
+      s=struct([]);
+      for i=1:numel(stat_list)
+        %build data filename (for quick access)
+        datafile=gravity.ESA_MTM_datafile(components,stat_list{i});
+        %load the data if already available
+        if file.exist(datafile)
+          load(datafile,'s_now')
         else
-          m=m.append(m_year);
+          if ~data_loaded
+            %loop over all components
+            first=true;
+            for j=components
+              %check if this is the first loop iter
+              if first
+                %create 
+                o=gravity.ESA_MTM_all(j,varargin{:});
+                first=false;
+              else
+                %append
+                o=o+gravity.ESA_MTM_all(j,varargin{:});
+              end
+            end
+            data_loaded=true;
+          end
+          %compute requested statistic
+          s_now=o.segstat(stat_list{i});
+          save(datafile,'s_now')
         end
+        %save data into structure
+        s(1).(stat_list{i})=s_now;
       end
     end
     %% permanent (solid earth) tide
@@ -1408,6 +1458,12 @@ classdef gravity < simpletimeseries
     end
     function lmax=width2lmax(width)
       lmax=sqrt(width)-1;
+    end
+    function out=derived_quantity_list
+      out={...
+           'dmean',   'drms',   'dstd',   'das',...
+        'cumdmean','cumdrms','cumdstd','cumdas',...
+      };
     end
     %% general test for the current object
     function out=test_parameters(field,l,w)
@@ -2170,11 +2226,17 @@ classdef gravity < simpletimeseries
     function obj=setGM(obj,gm)
       obj=obj.scale(gm,'GM');
     end
+    function obj=resetGM(obj,gm)
+      obj.GM=gm;
+    end
     function out=getR(obj)
       out=obj.R;
     end
     function obj=setR(obj,r)
       obj=obj.scale(r,'R');
+    end
+    function obj=resetR(obj,r)
+      obj.R=r;
     end
     %% derived quantities
     % number of orders in each degree
@@ -2212,12 +2274,12 @@ classdef gravity < simpletimeseries
       if ~exist('l','var') || isempty(l)
         l=obj.lmax;
       end
-      d=zeros(obj.length,obj.lmax+1);
+      d=zeros(obj.length,l+1);
       tri_now=obj.tri;
       m=transpose(obj.nopd);
       for i=1:obj.length
         %compute mean over each degree (don't use 'mean' here, there's lots of zeros in tri_now for the low degrees)
-        d(i,:) = sum(tri_now{i},2)./m;
+        d(i,:) = sum(tri_now{i}(1:l+1,:),2)./m;
       end
       if nargout>1
         title='Degree mean';
@@ -2230,7 +2292,7 @@ classdef gravity < simpletimeseries
       if ~exist('l','var') || isempty(l)
         l=obj.lmax;
       end
-      d=sqrt(obj.drms(l).^2-obj.dmean(l).^2);
+      d=sqrt(abs(obj.drms(l).^2-obj.dmean(l).^2));
       if nargout>1
         title='Degree STD';
         label=[title,' @ degree ',num2str(l)];
@@ -2274,7 +2336,7 @@ classdef gravity < simpletimeseries
       end
     end
     %cumulative degree mean
-    function [d,ts]=cumdmean(obj,l)
+    function [d,ts,title,label]=cumdmean(obj,l)
       if ~exist('l','var') || isempty(l)
         l=obj.lmax;
       end
@@ -2298,7 +2360,7 @@ classdef gravity < simpletimeseries
       end
     end
     %cumulative degree RMS
-    function [d,ts]=cumdrms(obj,l)
+    function [d,ts,title,label]=cumdrms(obj,l)
       if ~exist('l','var') || isempty(l)
         l=obj.lmax;
       end
@@ -2315,7 +2377,7 @@ classdef gravity < simpletimeseries
         l=obj.lmax;
       end
       %NOTICE: this is squared-sum-rooted, not simply summed!
-      d=sqrt(cumsum(obj.das.^2,2));
+      d=sqrt(cumsum(obj.das(l).^2,2));
       if nargout>1
         title='Cum. degree amplitude';
         label=[title,' @ degree ',num2str(l)];
