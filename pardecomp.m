@@ -668,7 +668,9 @@ classdef pardecomp
     function obj=lsq(obj)
       if ~obj.issolved
         %solve the system of linear equations
+        warning off
         obj.x=obj.N\obj.h;
+        warning on
       end
     end
     %% general plotting
