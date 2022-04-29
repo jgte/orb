@@ -1611,6 +1611,33 @@ classdef gravity < simpletimeseries
         plotting.enforce('plot_legend_location','none','plot_title','deepoceanmaskplot test');
       case 'gracec20'
         gravity.graceC20('mode','plot-all','version',{'GSFC-7DAY','GSFC','TN-14','TN-11'});
+      case 'functionals'
+        funcs=gravity.functionals;
+        m=gravity.static('ggm05g');
+        plotting.figure;
+        for i=1:numel(funcs)
+          m.plot('method','drms','functional',funcs{i});
+        end
+        plotting.enforce(...
+          'plot_legend_location','eastoutside',...
+          'plot_legend',cellfun(@(i) gravity.functional_names(i),funcs,'UniformOutput',false),...
+          'plot_ylabel','see legend',...
+          'plot_title','functionals test'...
+        );
+      case 'funct-circ'
+        funcs=gravity.functionals;
+        m=gravity.unit_randn(l);
+        for i=1:numel(funcs)
+          m0=m.scale(funcs{i},'functional');
+          for j=i+1:numel(funcs)
+            m1=m0.scale(funcs{j},'functional').scale(funcs{i},'functional');
+            dm=m1-m0;
+            dm_das=dm.das/m0.das;
+            disp(str.tablify(14,'Checking ',funcs{i},' -> ',funcs{j},' -> ',funcs{i},'rel. error = ',num2str(max(abs(dm_das)))))
+            tol=1e-15;
+            assert(all(abs(dm_das)<tol),['Circular check failed, relative error larger than tolerance: ',num2str(tol)])
+          end
+        end
       otherwise
         error(['Cannot handle test method ''',method,'''.'])
       end
