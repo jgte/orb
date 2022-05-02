@@ -920,22 +920,19 @@ classdef gravity < simpletimeseries
     end
     %% vector operations to make models compatible
     function lmax=vlmax(model_list)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'model_list', @(i) iscell(i) && all(cellfun(isa(i,'gravity'))))
       p.parse(model_list)
       lmax=min(cell2mat(cellfun(@(i) i.lmax,model_list)));
     end
     function gm=vGM(model_list)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'model_list', @(i) iscell(i) && all(cellfun(isa(i,'gravity'))))
       p.parse(model_list)
       gm=min(cell2mat(cellfun(@(i) i.GM,model_list)));
     end
     function r=vR(model_list)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'model_list', @(i) iscell(i) && all(cellfun(isa(i,'gravity'))))
       p.parse(model_list)
       r=min(cell2mat(cellfun(@(i) i.R,model_list)));
@@ -1088,8 +1085,7 @@ classdef gravity < simpletimeseries
     end
     %% model combination
     function out=combine(model_list,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'model_list', @(i) iscell(i) && all(cellfun(@(i) isa(i,'gravity'),model_list)))
       p.addParameter('mode','mean',@ischar);
       p.addParameter('type','signal',@ischar);
@@ -1200,7 +1196,7 @@ classdef gravity < simpletimeseries
     end
     %% CSR specific stuff
     function t=CSR_RL05_date(year,month,varargin)
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('EstimDirs_file',fullfile(getenv('HOME'),'data','csr','mascons','RL05','EstimDirs_RL05'),@ischar);
       p.parse(varargin{:})
       %sanity on year
@@ -1223,13 +1219,13 @@ classdef gravity < simpletimeseries
       t=CSR_RL05_date_table{rows,{'mid'}};
     end
     function [m,e]=CSR_RL05_SH(varargin)
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('datadir',fullfile(getenv('HOME'),'data','csr','RL05'),@(i) ischar(i) && exist(i,'dir')~=0)
       p.parse(varargin{:})
       [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wildcarded_filename','*.GEO.*',varargin{:});
     end
     function [m,e]=CSR_Mascons(varargin)
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('lmax',60,@(i) isscalar(i) && isnumeric(i))
       p.addParameter('RL','05',@(i) @ischar)
       p.parse(varargin{:})
@@ -1281,7 +1277,7 @@ classdef gravity < simpletimeseries
     %month     : month (numeric)
     %component : A, AOHIS, H, I, O or S (char)
     function [m,e]=ESA_MTM(year,month,component,varargin)
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('datadir',gravity.ESA_MTM_dir(year,month,component),@(i) ischar(i) && exist(i,'dir')~=0)
       p.parse(varargin{:})
       [m,e]=gravity.load_dir(p.Results.datadir,'esamtm',@gravity.parse_epoch_esamtm,'wildcarded_filename','mtmshc_*.180.mat',varargin{:});
@@ -1562,8 +1558,7 @@ classdef gravity < simpletimeseries
     %% constructor
     function obj=gravity(t,y,varargin)
       % input parsing
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
       p.addParameter('skip_common_ops',false,@islogical)
@@ -2481,8 +2476,7 @@ classdef gravity < simpletimeseries
     end
     %% multiple operands
     function compatible(obj1,obj2,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('skip_par_check',{''},@iscellstr)
       p.parse(varargin{:});
       %call mother routine
@@ -2658,8 +2652,7 @@ classdef gravity < simpletimeseries
     %% export functions
     function filelist=icgem(obj,varargin)
       % Parse inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % optional arguments
       p.addParameter('prefix',   '',  @ischar);
       p.addParameter('suffix',   '',  @ischar);
@@ -2740,8 +2733,7 @@ classdef gravity < simpletimeseries
     end
     function filelist=csr(obj,varargin)
       % Parse inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % optional arguments
       p.addParameter('prefix',   '',  @ischar);
       p.addParameter('suffix',   '',  @ischar);
