@@ -486,7 +486,7 @@
           [],...
           'np',numel(simpledata.test_parameters('y_poly_scale')),...
           'T',[],...
-          'x',simpledata.test_parameters('y_poly_scale',l)...
+          'x',simpledata.test_parameters('y_poly_scale',l)'...
         ).y_sum*ones(1,w);
         % % The code below is the same as the code above
         % c=simpledata.test_parameters('y_poly_scale',l);
@@ -569,7 +569,7 @@
         out=simpledata(...
           simpledata.test_parameters('x',    l,w),...
           simpledata.test_parameters('y_all',l,w),...
-          'mask',simpledata.test_parameters('no-mask',l,w),...
+          'mask',simpledata.test_parameters('mask',l,w),...
           args{:}...
         );
       otherwise
@@ -896,10 +896,6 @@
     end
     function out=varargin(obj,more_parameters)
       out=varargs(obj.metadata(more_parameters)).varargin;
-    end
-    function obj_nan=nan(obj)
-      %duplicates an object, setting y to nan
-      obj_nan=obj.and(false(size(obj.mask))).mask_update;
     end
     %% info methods
     function print(obj,tab)
@@ -1490,6 +1486,10 @@
         obj=obj.assign(obj.y(m,:),'x',obj.x(m));
       end
     end
+    function obj_nan=nan(obj)
+      %duplicates an object, setting y to nan
+      obj_nan=obj.and(false(size(obj.mask))).mask_update;
+    end
     %% invalid methods
     function obj=demasked(obj,invalid)
       if ~exist('invalid','var') || isempty(invalid)
@@ -1694,34 +1694,30 @@
       if disp
         str.say(mode,'detrending of',obj.descriptor)
       end
-      switch mode
-      case 'cubic'
-        obj=obj.detrend('poly3');
-      case 'quadratic'
-        obj=obj.detrend('poly2');
-      case 'linear'
-        %copy data
-        y_now=obj.y;
-        %zero the gaps (NaNs break things)
-        y_now(~obj.mask,:)=0;
-        %detrend in segments
-        y_detrended=detrend(y_now,'linear',find(~obj.mask));
-        %propagate
-        obj.y(obj.mask,:)=y_detrended(obj.mask,:);
-      case 'constant'
-        obj.y(obj.mask,:)=detrend(obj.y_masked,'constant');
-      otherwise
-        if contains(mode,'poly')
-          %determine polynomial order to be fitted
-          o=str2double(strrep(mode,'poly',''));
-          %polyfit the data
-          obj_polyfitted=obj.polyfit(o);
-          %subtract polyfitted data from input data
-          obj=obj-obj_polyfitted;
-        else
-          error([mfilename,': unknown mode ''',mode,'''.'])
+      if ischar(mode)
+        switch mode
+        case 'cubic';     n=3;
+        case 'quadratic'; n=2;
+        case 'linear';    n=1;
+        case 'constant';  n=0;
+        otherwise
+          if contains(mode,'poly')
+            %determine polynomial order to be fitted
+            o=str2double(strrep(mode,'poly',''));
+            %polyfit the data
+            obj_polyfitted=obj.polyfit(o);
+            %subtract polyfitted data from input data
+            obj=obj-obj_polyfitted;
+          else
+            error([mfilename,': unknown mode ''',mode,'''.'])
+          end
         end
+      else
+        n=mode;
       end
+      assert(isnumeric(n) && isscalar(n),['Input ''mode'' must be char or integer, not ',class(n),'.'])
+      %detrend the whole time series (NOTICE: this does not handle ungaped segments independently)
+      obj.y=detrend(obj.y,n,'omitnan','Continuous',false,'SamplePoints',obj.x);
       % sanitize
       obj.check_sd
     end
