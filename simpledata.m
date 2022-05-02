@@ -168,9 +168,9 @@
       else
         %transmute into this object
         if isprop(in,'t')
-          out=simpledata(simpletimeseries.time2num(in.t),in.y,in.metadata{:});
+          out=simpledata(simpletimeseries.time2num(in.t),in.y,in.varargin{:});
         elseif isprop(in,'x')
-          out=simpledata(in.x,in.y,in.metadata{:});
+          out=simpledata(in.x,in.y,in.varargin{:});
         else
           error('Cannot find ''t'' or ''x''. Cannot continue.')
         end
@@ -873,6 +873,8 @@
         obj=obj.monotonize(p.Results.monotonize);
       end
     end
+    %NOTICE: obj2=simpledata(t,y,obj1.varargin{:}) is preferable to obj2=simpledata(t,y).copy_metadata(obj1)
+    %TODO: check if it's possible to ditch the copy_metadata members because of the reason above
     function obj=copy_metadata(obj,obj_in,more_parameters)
       if ~exist('more_parameters','var')
         more_parameters={};
@@ -889,10 +891,11 @@
         more_parameters={};
       end
       warning off MATLAB:structOnObject
-      out=varargs(...
-        structs.filter(struct(obj),[simpledata.parameters('list');more_parameters(:)])...
-      ).varargin;
+      out=structs.filter(struct(obj),[simpledata.parameters('list');more_parameters(:)]);
       warning on MATLAB:structOnObject
+    end
+    function out=varargin(obj,more_parameters)
+      out=varargs(obj.metadata(more_parameters)).varargin;
     end
     function obj_nan=nan(obj)
       %duplicates an object, setting y to nan
@@ -1078,12 +1081,10 @@
         %loop over all structure fields and create an object
         fields=fieldnames(s);
         if numel(fields)==1
-          out=init(x_now,s.(fields{1}));
-          out=out.copy_metadata(obj);
+          out=init(x_now,s.(fields{1}),obj.varargin{:});
         else
           for i=1:numel(fields)
-            out.(fields{i})=init(x_now,s.(fields{i}));
-            out.(fields{i})=out.(fields{i}).copy_metadata(obj);
+            out.(fields{i})=init(x_now,s.(fields{i}),obj.varargin{:});
           end
         end
       otherwise
@@ -1165,12 +1166,10 @@
         %loop over all structure fields and create an object (unless there's only one field)
         fields=fieldnames(s);
         if numel(fields)==1
-          out=init(x_now,s.(fields{1}));
-          out=out.copy_metadata(obj1);
+          out=init(x_now,s.(fields{1}),obj1.varargin{:});
         else
           for i=1:numel(fields)
-            out.(fields{i})=init(x_now,s.(fields{i}));
-            out.(fields{i})=out.(fields{i}).copy_metadata(obj1);
+            out.(fields{i})=init(x_now,s.(fields{i}),obj1.varargin{:});
           end
         end
       otherwise
@@ -1346,9 +1345,9 @@
         y=y(~avail_idx,:);
         switch class(obj)
         case 'simpledata'
-          obj_new=simpledata(x,y).copy_metadata(obj);
+          obj_new=simpledata(x,y,obj.varargin{:});
         case 'simpletimeseries'
-          obj_new=simpletimeseries(obj.x2t(x),y).copy_metadata(obj);
+          obj_new=simpletimeseries(obj.x2t(x),y,obj.varargin{:});
         otherwise
           error(['Cannot handle object of class ''',class(obj),''', implementation needed (it''s quick, go and do it).'])
         end

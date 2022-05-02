@@ -48,9 +48,9 @@ classdef simpletemplate < simpletimeseries
       else
         %transmute into this object
         if isprop(in,'t')
-          out=simpletemplate(in.t,in.y,in.metadata{:});
+          out=simpletemplate(in.t,in.y,in.varargin{:});
         elseif isprop(in,'x')
-          out=simpletemplate(in.x,in.y,in.metadata{:});
+          out=simpletemplate(in.x,in.y,in.varargin{:});
         else
           error('Cannot find ''t'' or ''x''. Cannot continue.')
         end

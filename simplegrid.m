@@ -1152,6 +1152,7 @@ classdef simplegrid < simpletimeseries
       %call superclass
       out=metadata@simpletimeseries(obj,[simplegrid.parameters('list');more_parameters(:)]);
     end
+    %the varargin method can be called directly
     %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
@@ -1194,7 +1195,8 @@ classdef simplegrid < simpletimeseries
           mean(obj.t),...
           reshape(s,numel(lat_now),numel(lon_now)),...
           'lat',lat_now,...
-          'lon',lon_now...
+          'lon',lon_now,...
+          obj.varargin{:}...
         );
       case 'simpletimeseries'
         %translate new object
@@ -1202,15 +1204,14 @@ classdef simplegrid < simpletimeseries
           s.t,...
           reshape(s.y,numel(lat_now),numel(lon_now),s.t),...
           'lat',lat_now,...
-          'lon',lon_now...
+          'lon',lon_now,...
+          obj.varargin{:}...
         );
       case 'struct'
         error([mfilename,': cannot retrive multiple stats in the form a structure.'])
       otherwise
         error([mfilename,': cannot handle stats when upstream method returns class ',class(s),'.'])
       end
-      %copy metadata
-      out=out.copy_metadata(obj);
       %update descriptor
       out.descriptor=[varargs(varargin).mode,' of ',obj.descriptor];
     end
@@ -1626,7 +1627,7 @@ classdef simplegrid < simpletimeseries
         case {'rss','norm'}; m.map=sqrt(obj.map_squared_sum_weighted);
       end
       %reduce to timeseries object
-      out=simpletimeseries(obj.t,m.map(:)).copy_metadata(obj);
+      out=simpletimeseries(obj.t,m.map(:),obj.varargin{:});
       out.descriptor=[mode,' of ',obj.descriptor,' (centered at ',num2str(m.lat),'deg lat by ',num2str(m.lon),'deg long)'];
       %adjust labels and units (NOTICE; this assumes there is no order in the labels and units (which makes sense in a grid)
       out.labels=obj.labels(1);

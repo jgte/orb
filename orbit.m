@@ -800,11 +800,13 @@ classdef orbit
         more_parameters={};
       end
       warning off MATLAB:structOnObject
-      out=varargs(...
-        structs.filter(struct(obj),[orbit.parameters('list');more_parameters(:)])...
-      ).varargin;
+      out=structs.filter(struct(obj),[orbit.parameters('list');more_parameters(:)]);
       warning on MATLAB:structOnObject
     end
+    function out=varargin(obj,more_parameters)
+      out=varargs(obj.metadata(more_parameters)).varargin;
+    end
+    %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
         tab=20;
@@ -1135,7 +1137,7 @@ classdef orbit
           end
         end
         %build orbit object for this statistic
-        out.(s_list{i})=orbit(t,args{:}).copy_metadata(obj);
+        out.(s_list{i})=orbit(t,args{:},obj.varargin{:});
       end
 
     end

@@ -1599,12 +1599,12 @@ classdef gravity < simpletimeseries
       %call superclass
       out=metadata@simpletimeseries(obj,[gravity.parameters('list');more_parameters(:)]);
     end
+    %the varargin method can be called directly
     function out=simpletimeseries(obj)
       % call superclass
       out=simpletimeseries(obj.t,obj.y,...
-        'labels',obj.labels,...
         'units',obj.functional_unit(true),...
-        'timesystem',obj.timesystem...
+        obj.varargin{:}...
       );
     end
     %% labels and units
@@ -2460,8 +2460,7 @@ classdef gravity < simpletimeseries
         o=orders(i);
         %initialize
         if i==1
-          out=gravity.unit(obj.lmax,'scale',0,'t',ts{i}.t);
-          out=out.copy_metadata(obj);
+          out=gravity.unit(obj.lmax,'scale',0,'t',ts{i}.t,obj.varargin{:});
         end
         %accumulate
         out=out.setC(d,o,ts{i}.y);

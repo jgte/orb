@@ -140,9 +140,9 @@ classdef simpletimeseries < simpledata
       else
         %transmute into this object
         if isprop(in,'t')
-          out=simpletimeseries(in.t,in.y,in.metadata{:});
+          out=simpletimeseries(in.t,in.y,in.varargin{:});
         elseif isprop(in,'x')
-          out=simpletimeseries(in.x,in.y,in.metadata{:});
+          out=simpletimeseries(in.x,in.y,in.varargin{:});
         else
           error('Cannot find ''t'' or ''x''. Cannot continue.')
         end
@@ -752,6 +752,7 @@ classdef simpletimeseries < simpledata
       %call superclass
       out=metadata@simpledata(obj,[simpletimeseries.parameters('list');more_parameters(:)]);
     end
+    %the varargin method can be called directly
     %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
@@ -1854,13 +1855,12 @@ classdef simpletimeseries < simpledata
       %build timeseries objects
       switch class(segs{1})
       case 'simpletimeseries'
-        out=simpletimeseries(segs{1}.t,m);
+        out=simpletimeseries(segs{1}.t,m,obj.varargin{:});
       case 'gravity'
-        out=gravity(segs{1}.t,m);
+        out=gravity(segs{1}.t,m,obj.varargin{:},varargin{:});
       otherwise
         error(['Class ',class(segs{1}),' not yet implemented (easy fix!)'])
       end
-      out=out.copy_metadata(obj);
       out.descriptor=['mean amplitude of ',char(seg_length),' period of ',obj.descriptor];
       %project onto input (and extended) time domain
       out=out.repeat(tf).interp(obj.t);

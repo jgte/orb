@@ -362,7 +362,7 @@ classdef slr < gravity
             error(['Cannot handle SLR data of type ''',source,'''.'])
         end
       end
-      obj=slr(t,y,varargs(header).varargin{:});
+      obj=slr(t,y,varargs(header).varargin{:},varargin{:});
     end
     %% testing for the current object
     function out=test_parameters(field)
@@ -446,6 +446,8 @@ classdef slr < gravity
       ).varargin;
       warning on MATLAB:structOnObject
     end
+    %the varargin method can be called directly
+    %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
         tab=20;
