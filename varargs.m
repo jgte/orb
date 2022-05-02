@@ -398,8 +398,12 @@ classdef varargs < dynamicprops
       if sum(~idx_to_keep)>0
         %trim S
         out.S=out.S(idx_to_keep);
+        %get idx of properties to delete
+        idx_to_delete=find(~idx_to_keep);
         %delete the properties 
-        rmprops(out,p{~idx_to_keep});
+        for i=1:numel(idx_to_delete)
+          delete(findprop(obj,p{idx_to_delete(i)}));
+        end
       end
     end
     %% set methods
@@ -471,7 +475,7 @@ classdef varargs < dynamicprops
       obj=obj.delete(cells.rm_empty(to_delete));
     end
     %% edit methods
-    function obj=delete(obj,varargin)
+    function obj=delete(obj,varargin) %deletes parameters given in varargin
       if numel(varargin)==1
         parameters=cells.scalar(cells.flatten(varargin{1}),'set');
       else
@@ -490,13 +494,15 @@ classdef varargs < dynamicprops
       %trim S
       obj.S=obj.S(idx_to_keep);
       %get the properties that are in obj
-      idx=cellfun(@(i) isprop(obj,i),parameters);
+      idx=find(cellfun(@(i) isprop(obj,i),parameters));
       %remove the dynamic properties associated with the deleted parameters (if any)
-      if any(idx);rmprops(obj,parameters{idx});end
+      for i=1:numel(idx)
+        delete(findprop(obj,parameters{idx(i)}));
+      end
     end
-    function obj=pluck(obj,varargin)
-      if iscell(varargin{1})
-        parameters=varargin{1};
+    function obj=isolate(obj,varargin) %deletes all parameters except those given in varargin
+      if numel(varargin)==1
+        parameters=cells.scalar(cells.flatten(varargin{1}),'set');
       else
         parameters=varargin;
       end
@@ -508,9 +514,9 @@ classdef varargs < dynamicprops
       idx_to_keep=cell2mat(cellfun(@(i) obj.idx(i),parameters,'UniformOutput',false));
       %trim S
       obj.S=obj.S(idx_to_keep);
-      %remove the dynamic properties associated with the deleted parameters
-      if ~isempty(parameters_to_delete)
-        rmprops(obj,parameters_to_delete{:});
+      %remove the dynamic properties associated with the deleted parameters (if any)
+      for i=1:numel(parameters_to_delete)
+        delete(findprop(obj,parameters_to_delete{i}));
       end
     end
     function obj=rename(obj,old_name,new_name)
@@ -561,6 +567,39 @@ classdef varargs < dynamicprops
         obj.set(obj_new.get(i));
       end
     end    
+    %checks if two objs are equal, overloads with ==
+    function [out,msg]=eq(obj1,obj2)
+      %defaults
+      out=false;
+      %check equality
+      if ~cells.isequal(obj1.template_fields,obj2.template_fields)
+        msg='template_fields differ';
+        return
+      end
+      if ~cells.isequal(obj1.reserved_fields,obj2.reserved_fields)
+        msg='reserved_fields differ';
+        return
+      end
+      if ~numel(obj1.S)==numel(obj2.S)
+        msg='obj length differs';
+        return
+      end
+      if any(arrayfun(@(i,j) ~strcmp(i.name,j.name),obj1.S,obj2.S))
+        msg='obj field names differs';
+        return
+      end
+      if any(arrayfun(@(i,j) ~cells.isequal(i.value,j.value),obj1.S,obj2.S))
+        msg='obj field values differs';
+        return
+      end
+      if any(arrayfun(@(i,j) ~strcmp(func2str(i.validation),func2str(j.validation)),obj1.S,obj2.S))
+        msg='obj field validation differs';
+        return
+      end
+      %equality verified
+      out=true;
+      msg='';
+    end
     %% parser
     function [p,obj]=declare(obj,p)
       p.PartialMatching=false;

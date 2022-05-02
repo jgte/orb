@@ -24,12 +24,16 @@ disp(['NOTICE: top ',num2str(n),' entries in path are:',newline,strjoin(pathhead
 
 %% add packages
 
+%define subdirs not to be included
+package_subdir_ignore={'@template','private'};
+
 %make room for path dirs to be added
 path_dir_list={};
 %define packages dir
 package_dir=fullfile(dirnow,'packages');
 %get list of packages
 package_list=file.find(package_dir,'-mindepth 1 -maxdepth 1 -type d');
+
 %loop over them
 for i=1:numel(package_list)
   %get package names
@@ -43,6 +47,15 @@ for i=1:numel(package_list)
     %look for all subdirs with .m files
     mfile_list=file.find(package_list{i},'-type f -name *.m');
     mfile_dir_list=unique(cellfun(@fileparts,mfile_list,'UniformOutput',false));
+    %remove subdirs that have reserved meaning to matlab
+    keep_idx=true(size(mfile_dir_list));
+    for j=1:numel(mfile_dir_list)
+      [~,package_subdir]=fileparts(mfile_dir_list{j});
+      if any(cells.isstrequal(package_subdir_ignore,package_subdir))
+        keep_idx(j)=false;
+      end
+    end
+    mfile_dir_list=mfile_dir_list(keep_idx);
     %add them to the list of dirs
     path_dir_list=[path_dir_list(:);mfile_dir_list(:)];
   end
@@ -70,6 +83,7 @@ if ~exist(fullfile(dirnow,'project.yaml'),'file')
 end
 %loading project metadata
 PROJECT=yaml.ReadYaml(project_filename);
+PROJECT.source=fullfile(dirnow,project_filename);
 
 %% options
 

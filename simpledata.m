@@ -873,6 +873,11 @@
         obj=obj.monotonize(p.Results.monotonize);
       end
     end
+    function obj=assign_tx_mask(obj,y,tx,mask,varargin)
+      if isprop(obj,'t'); obj=obj.assign(  y,'mask',mask,'t',tx,varargin{:});
+      else              ; obj=obj.assign_x(y,'mask',mask,'x',tx,varargin{:});
+      end          
+    end
     function obj=copy_metadata(obj,obj_in,more_parameters)
       if ~exist('more_parameters','var')
         more_parameters={};
@@ -1068,11 +1073,7 @@
         %get structure with requested stats
         s=stats@simpledata(obj,varargin{:},'mode','struct');
         % use correct abcissae
-        if ismethod(obj,'t_masked')
-          x_now=mean(obj.t_masked);
-        else
-          x_now=mean(obj.x_masked);
-        end
+        x_now=mean(obj.tx_masked);
         % use the correct object constructor
         init=str2func(class(obj));
         %loop over all structure fields and create an object
@@ -1155,11 +1156,7 @@
         %get structure with requested stats
         s=stats2@simpledata(obj1,obj2,varargin{:},'mode','struct');
         % use correct abcissae (obj2 should produce the same x_now, since the time simpledata.merge method was used
-        if ismethod(obj1,'t_masked')
-          x_now=mean(obj1.t_masked);
-        else
-          x_now=mean(obj1.x_masked);
-        end
+        x_now=mean(obj1.tx_masked);
         % use the correct object constructor
         init=str2func(class(obj1));
         %loop over all structure fields and create an object (unless there's only one field)
@@ -1228,13 +1225,19 @@
         end
       end
     end
-    function obj=at(obj,x_now,varargin)
-      i=obj.idx(x_now,varargin{:});
+    function obj=at_idx(obj,i,varargin)
+      if i<0
+        i=obj.length+i+1;
+      end
       obj=obj.assign(...
         obj.y(i,:),...
         'x',obj.x(i,:),...
-        'mask',obj.mask(i,:)...
+        'mask',obj.mask(i,:),...
+        varargin{:}...
       );
+    end
+    function obj=at(obj,x_now,varargin)
+      obj=obj.at_idx(obj.idx(x_now,varargin{:}),varargin{:});
     end
     function [obj,idx_add,idx_old,x_old]=x_merge(obj,x_add,y_new)
       if ~exist('y_new','var') || isempty(y_new)
@@ -1268,6 +1271,16 @@
         out=arrayfun(@(i) obj.isxavail(i),t);
       end
     end
+    function out=tx(obj)
+      if isprop(obj,'t'); out=obj.t; %#ok<MCNPN>
+      else              ; out=obj.x;
+      end          
+    end      
+    function out=tx_masked(obj)
+      if isprop(obj,'t_masked'); out=obj.t_masked; %#ok<MCNPN>
+      else                     ; out=obj.x_masked;
+      end          
+    end      
     %% y methods
     function obj=cols(obj,columns)
       if ~isvector(columns)
@@ -1449,8 +1462,14 @@
     function out=nr_gaps(obj)
       out=sum(~obj.mask);
     end
+    function out=is_all_gaps(obj)
+      out=all(~obj.mask);
+    end
     function out=nr_valid(obj)
       out=sum(obj.mask);
+    end
+    function out=is_all_valid(obj)
+      out=all(obj.mask);
     end
     function [obj1,obj2]=mask_match(obj1,obj2,errmsg)
       if ~exist('errmsg','var') || isempty(errmsg)
@@ -1822,18 +1841,32 @@
       end
       obj=obj.segstat(@median,n);
     end
+    function obj=rms(obj,n)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
+      obj=obj.segstat(@rms,n);
+    end
+    function obj=std(obj,n)
+      if ~exist('n','var') || isempty(n)
+        n=obj.length;
+      end
+      obj=obj.segstat(@std,n);
+    end
     function obj=segstat(obj,op,n)
       if ~exist('n','var') || isempty(n)
         n=obj.length;
       end
+      %sanity on op
+      if ~isa(op,'function_handle')
+        op=str2func(op);
+      end
+      valid_fun={'std','rms','mean','median','min','max','var'};
+      assert(any(strcmp(func2str(op),valid_fun)),...
+        ['Need input ''op'' to be (a function handle or string to) one of ',strjoin(valid_fun,','),'.'])
       %create x-domain of segmented data, cutting it into segments of
       %length n, putting each segment in one column of matrix t (x
       %increases first row-wise, then apply the statistic in 'mode' column-wise)
-      %NOTICE: this function decimates the data!
-      valid_fun={'std','rms','mean','median','min','max','var'};
-      assert(isa(op,'function_handle') && any(strcmp(func2str(op),valid_fun)),...
-        ['Need input ''op'' to be a handle to one of ',strjoin(valid_fun,','),'.'])
-      %init matrix that stores the segmented x_temp
       x_temp=nan(n,ceil(obj.length/n));
       x_temp(1:obj.length)=obj.x;
       x_mean=transpose(mean(x_temp,'omitnan'));
@@ -2058,18 +2091,16 @@
           disp(['WARNING:BEGIN',10,'There are ',num2str(numel(common_diff_idx)),...
               ' entries in obj1 that are defined at the same epochs as in obj2 but with different values:'])
           for i=1:min([10,numel(common_diff_idx)])
-            if ismethod(obj1,'t') || isprop(obj1,'t')
+            if isprop(obj1,'t')
               var_name='t';
-              x1=obj1_out.t(common_diff_idx(i));
-              x2=obj2_out.t(common_diff_idx(i));
             else
               var_name='x';
-              x1=obj1_out.x(common_diff_idx(i));
-              x2=obj2_out.x(common_diff_idx(i));
             end
+            x1=obj1_out.tx( common_diff_idx(i));
+            x2=obj2_out.tx( common_diff_idx(i));
             idx_str=num2str(common_diff_idx(i));
-            y1=obj1_out.y(common_diff_idx(i),:);
-            y2=obj2_out.y(common_diff_idx(i),:);
+            y1=obj1_out.y(  common_diff_idx(i),:);
+            y2=obj2_out.y(  common_diff_idx(i),:);
             if numel(y1)>8; y1=[y1(1:4), y1(end-5:end)]; end
             if numel(y2)>8; y2=[y2(1:4), y2(end-5:end)]; end
             disp(str.tablify([16,20,16,12],['obj1.',var_name,'(',idx_str,  ')='],x1,   ['obj1.y(',idx_str,',:)='],y1   ))
@@ -2134,16 +2165,22 @@
         %do nothing
       elseif isnumeric(obj2)
         obj1.y=obj1.y+obj2;
+        obj1.descriptor=[obj1.descriptor,'+',num2str(obj2)];
       elseif isnumeric(obj1)
         obj1=obj1+obj2.y;
       else
         %sanity
         compatible(obj1,obj2)
         %operate
-        if obj1.length==1
-          obj1=obj1.assign(ones(obj2.length,1)*obj1.y+obj2.y,'mask',obj2.mask,'t',obj2.t);
+        if obj1.length==1 && obj2.length==1
+          assert(simpledata.isx('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol])),...
+            ['Cannot operate on scalar objects with different x-domains: ',...
+            num2str(obj1.x),' != ',num2str(obj2.x)])
+          obj1=obj1.assign_tx_mask(obj1.y+obj2.y,obj2.tx,obj1.mask&&obj2.mask);
+        elseif obj1.length==1
+          obj1=obj1.assign_tx_mask(ones(obj2.length,1)*obj1.y+obj2.y,obj2.tx,obj2.mask);
         elseif obj2.length==1
-          obj1=obj1.assign(ones(obj1.length,1)*obj2.y+obj1.y,'mask',obj1.mask,'t',obj1.t);
+          obj1=obj1.assign_tx_mask(ones(obj1.length,1)*obj2.y+obj1.y,obj1.tx,obj1.mask);
         else
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2,0);
@@ -2162,16 +2199,27 @@
         %do nothing
       elseif isnumeric(obj2)
         obj1.y=obj1.y-obj2;
+        obj1.descriptor=[obj1.descriptor,'+',num2str(obj2)];
       elseif isnumeric(obj1)
         obj1=obj1-obj2.y;
       else
         %sanity
         compatible(obj1,obj2)
         %operate
-        if obj1.length==1
-          obj1=obj1.assign(ones(obj2.length,1)*obj1.y-obj2.y,'mask',obj2.mask,'t',obj2.t);
+        if obj1.length==1 && obj2.length==1
+          assert(simpledata.isx('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol])), ...
+            ['Cannot operate on scalar objects with different x-domains: ',...
+            num2str(obj1.x),' != ',num2str(obj2.x)])
+          if isprop(obj1,'epoch')
+            assert(simpletimeseries.ist('==',obj1.epoch,obj2.epoch,min([obj1.t_tol,obj2.t_tol])), ...
+              ['Cannot operate on scalar objects with different epochs: ',...
+              datestr(obj1.epoch),' != ',datestr(obj2.epoch)])
+          end
+          obj1=obj1.assign_tx_mask(obj1.y-obj2.y,obj2.tx,obj1.mask&&obj2.mask);
+        elseif obj1.length==1
+          obj1=obj1.assign_tx_mask(ones(obj2.length,1)*obj1.y-obj2.y,obj2.tx,obj2.mask);
         elseif obj2.length==1
-          obj1=obj1.assign(obj1.y-ones(obj1.length,1)*obj2.y,'mask',obj1.mask,'t',obj1.t);
+          obj1=obj1.assign_tx_mask(obj1.y-ones(obj1.length,1)*obj2.y,obj1.tx,obj1.mask);
         else
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2,0);
@@ -2226,9 +2274,9 @@
         %sanity
         compatible(obj1,obj2,'compatible_parameters',{'x_units'})
         if obj1.length==1
-          obj1=obj1.assign(ones(obj2.length,1)*obj1.y.*obj2.y,'mask',obj2.mask,'t',obj2.t);
+          obj1=obj1.assign_tx_mask(ones(obj2.length,1)*obj1.y.*obj2.y,obj2.tx,obj2.mask);
         elseif obj2.length==1
-          obj1=obj1.assign(ones(obj1.length,1)*obj2.y.*obj1.y,'mask',obj1.mask,'t',obj1.t);
+          obj1=obj1.assign_tx_mask(ones(obj1.length,1)*obj2.y.*obj1.y,obj1.tx,obj1.mask);
         else
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2,1);
@@ -2277,9 +2325,9 @@
         %sanity
         compatible(obj1,obj2,'compatible_parameters',{'x_units'})
         if obj1.length==1
-          obj1=obj1.assign(ones(obj2.length,1)*obj1.y./obj2.y,'mask',obj2.mask,'t',obj2.t);
+          obj1=obj1.assign_tx_mask(ones(obj2.length,1)*obj1.y./obj2.y,obj2.tx,obj2.mask);
         elseif obj2.length==1
-          obj1=obj1.assign(obj1.y./ones(obj1.length,1)*obj2.y,'mask',obj1.mask,'t',obj1.t);
+          obj1=obj1.assign_tx_mask(obj1.y./ones(obj1.length,1)*obj2.y,obj1.tx,obj1.mask);
         else
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2,1);
@@ -2302,9 +2350,9 @@
       else
         %operate
         if obj1.length==1
-          obj1=obj1.assign(ones(obj2.length,1)*obj1.y.^obj2.y,'mask',obj2.mask,'t',obj2.t);
+          obj1=obj1.assign_tx_mask(ones(obj2.length,1)*obj1.y.^obj2.y,obj2.tx,obj2.mask);
         elseif obj2.length==1
-          obj1=obj1.assign(ones(obj1.length,1)*obj2.y.^obj1.y,'mask',obj1.mask,'t',obj1.t);
+          obj1=obj1.assign_tx_mask(ones(obj1.length,1)*obj2.y.^obj1.y,obj1.tx,obj1.mask);
         else
           %consolidate data sets
           [obj1,obj2]=obj1.merge(obj2,1);
@@ -2672,11 +2720,7 @@
           out.mask{i}=out.mask{i} & ( obj.y(:,columns(i)) ~= 0 );
         end
         % get abcissae in datetime, if relevant
-        if isprop(obj,'t')
-          x_plot=obj.t(out.mask{i});
-        else
-          x_plot=obj.x(out.mask{i});
-        end
+        x_plot=obj.tx(out.mask{i});
         % apply mask to y data
         y_plot=y_plot(out.mask{i});
         % compute (de-meaned and/or normalized) ordinate

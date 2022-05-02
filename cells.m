@@ -15,48 +15,61 @@ classdef cells
     function out=isequal(c1,c2)
       %ensures all correponding arbitrary class entries are the same
       out=false;
-      if numel(c1)~=numel(c2); return; end
-      if ~isa(c1,class(c2)); return; end
       if ~iscell(c1)
-        out=cells.isequal({c1},{c2});
-      else
-        for i=1:numel(c1)
-          if ~isa(c1{i},class(c2{i}))
+        out=cells.isequal(c2,{c1});
+        return
+      end
+      if numel(c1)~=numel(c2); return; end
+      for i=1:numel(c1)
+        if ~isa(c1{i},class(c2{i}))
+          return
+        end
+        if isnumeric(c1{i}) || islogical(c1{i})
+          if ~isequaln(c1{i},c2{i})
             return
-          end
-          if isnumeric(c1{i}) || islogical(c1{i})
-            if any(c1{i}~=c2{i})
-              return
-            else
-              continue
-            end
-          end
-          if ischar(c1{i})
-            if ~strcmp(c1{i},c2{i})
-              return
-            else
-              continue
-            end
-          end
-          if iscell(c1{i})
-            if ~cells.isequal(c1{i},c2{i})
-              return
-            else
-              continue
-            end
-          end
-          try
-            if ~c1{i}.isequal(c2{i})
-              return
-            else
-              continue
-            end
-          catch
-            error(['Cannot handle data of class ',class(c1{i}),'.'])
+          else
+            continue
           end
         end
-        out=true;
+        if ischar(c1{i})
+          if ~strcmp(c1{i},c2{i})
+            return
+          else
+            continue
+          end
+        end
+        if iscell(c1{i})
+          if ~cells.isequal(c1{i},c2{i})
+            return
+          else
+            continue
+          end
+        end
+        if isa(c1{i},'function_handle')
+          if ~strcmp(func2str(c1{i}),func2str(c2{i}))
+            return
+          else
+            continue
+          end
+        end
+        if isdatetime(c1{i})
+          if c1{i} ~= c2{i}
+            return
+          else
+            continue
+          end
+        end
+        try
+          if ~c1{i}.isequal(c2{i})
+            return
+          else
+            continue
+          end
+        catch ME
+          error(['Cannot handle data of class ',class(c1{i}),'.'])
+        end
       end
+      out=true;
     end
     function out=isequalstr(c1,c2)
       %ensures all correponding string entries are the same
@@ -173,7 +186,7 @@ classdef cells
         out=find(cells.isstrfind(cellstrin,strin));
       end
     end
-    function out=isstrequal(cellstrin,strin) %this is similar to strfind but the strings have to be an exact match
+    function out=isstrequal(cellstrin,strin) %this is similar to isstrfind but the strings have to be an exact match
       if cells.iscellstr(strin) && ischar(cellstrin)
         %switch it around
         tmp=strin;

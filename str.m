@@ -686,6 +686,7 @@ classdef str
     function out=say(varargin)
       %default value for internal parameters
       stack_delta=1;
+      disp_flag=true;
       %loop control
       start_idx=1;
       start_idx_old=0;
@@ -699,11 +700,16 @@ classdef str
         case 'stack_delta'
           stack_delta=varargin{start_idx+1};
           start_idx=start_idx+2;
+        case 'disp'
+          disp_flag=varargin{start_idx+1};
+          start_idx=start_idx+2;          
         end
       end
       out=[str.dbstack(stack_delta),str.show(cells.rm_empty(varargin(start_idx:end)))];
       if nargout==0
-        disp(out);
+        if disp_flag
+          disp(out);
+        end
         clear out
       end
     end

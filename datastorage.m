@@ -1638,7 +1638,7 @@ classdef datastorage
     %% legacy plotting (maybe useful to resurect some of this)
     function v=plot_legend(~,h,dn_list,v)
       %get particular defaults from 
-      plot_default=varargs(plotting.default).pluck({'plot_zeromean','plot_scale_legend_str'}).cell;
+      plot_default=varargs(plotting.default).isolate({'plot_zeromean','plot_scale_legend_str'}).cell;
       %v receives the new entries in obj_new. Common entries are ignored.
       v=v.append([{...
         'plot_legend',           {}, @iscellstr;...
@@ -1728,7 +1728,7 @@ classdef datastorage
       end
     end
     function v=plot_title( ~,~,dn_list,v)
-      v=v.append(varargs(plotting.default).pluck({...
+      v=v.append(varargs(plotting.default).isolate({...
         'plot_title',...
       }));
       %handle title keywords
@@ -1739,7 +1739,7 @@ classdef datastorage
       end
     end
     function v=plot_ylabel(~,h,~,      v)
-      v=v.append(varargs(plotting.default).pluck({...
+      v=v.append(varargs(plotting.default).isolate({...
         'plot_ylabel'...
       }));
       %add the y-label given as input, if there

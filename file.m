@@ -16,7 +16,7 @@ classdef file
   end
   methods(Static)
     %% dir management
-    %returns the directory this script, or 'scriptname', sits in 
+    %returns the directory this script, or 'scriptname', sits in
     %uses the which command so it must be in matlab's path to work as expected
     function out=scriptdir(scriptname)
       if ~exist('scriptname','var') || isempty(scriptname)
@@ -33,7 +33,10 @@ classdef file
     end
     %returns the path of orb directories, which are by default sitting on the same dir
     %as this script; typical dirs are: auxiliary, packages, metadata, data, plot (the latter 2 are not in git)
-    function out=orbdir(type)
+    function out=orbdir(type,ensure_is_in_project)
+      if ~exist('ensure_is_in_project','var') || isempty(ensure_is_in_project)
+        ensure_is_in_project=false;
+      end
       global PROJECT
       if isfield(PROJECT,[type,'_dir'])
         out=PROJECT.([type,'_dir']);
@@ -45,6 +48,8 @@ classdef file
           out=file.absolutepath(out);
         end
       else
+        assert(~ensure_is_in_project,['Need the directory ''',type,'_dir',...
+          ''' to be defined in the project configuration file ''',PROJECT.source,'''.'])
         out=file.orbscriptpath(type);
       end
       %special cases
@@ -77,6 +82,17 @@ classdef file
         fclose(fid);
       else
         frewind(fid);
+      end
+    end
+    function [out,faction]=im_count_diff_pixels(img1,img2)
+      A1=imread(img1);
+      A2=imread(img2);
+      if numel(A1)==numel(A2)
+        out=sum(A1(:)~=A2(:));
+        faction=out/numel(A1);
+      else
+        out=max([numel(A1),numel(A2)]);
+        faction=1;
       end
     end
     function [fid,filename,close_file,msg]=open(filename,perm)
@@ -177,7 +193,7 @@ classdef file
       % file with name FILENAME, ignoring header lines, which are considered so
       % if holding any form of non-numerical data.
       %
-      %   Input FILENAME can be a valid file ID (as returned from fopen). 
+      %   Input FILENAME can be a valid file ID (as returned from fopen).
       %
       %   The optional input <nlines> determines how many lines are read. If ommited,
       %   empty or -1, the whole file is returned.
@@ -189,7 +205,7 @@ classdef file
       %       a=textscanh(<some file>)
 
       % Created by J.Encarnacao <J.G.deTeixeiradaEncarnacao@tudelft.nl>
-      
+
       %input sanity
       if ~exist('CommentStyle','var') || isempty(CommentStyle)
         CommentStyle = '';
@@ -263,6 +279,12 @@ classdef file
       %close the file (if fid not given)
       if close_file, fclose(fid); end
     end
+    %check if text files are the same
+    function out=str_equal(f1,f2)
+      s1=file.strload(f1);
+      s2=file.strload(f2);
+      out=any((s1.^2-s2.^2)~=0);
+    end
     %% resolves filenames that exist in multiple machines, each one with a home directory listed in file.homes
     function io=resolve_home(io)
       for i=1:numel(file.homes)
@@ -275,7 +297,7 @@ classdef file
     %% mat file saving/loading
     function [out,loaded_flag]=load_mat(filename,varargin)
       p=machinery.inputParser;
-      p.addRequired( 'filename',          @(i) ischar(i) || iscellstr(i)); 
+      p.addRequired( 'filename',          @(i) ischar(i) || iscellstr(i));
       p.addParameter('data_var'   ,'out', @ischar);
       p.parse(filename,varargin{:})
       %check if mat file is available
@@ -287,7 +309,7 @@ classdef file
           error([mfilename,': expecting to load variable ''',p.Results.data_var,''' from file ',datafile,'.'])
         end
         if ~strcmp(p.Results.data_var,'out')
-          %propagate p.Results.data_var to 'out' 
+          %propagate p.Results.data_var to 'out'
           out=eval(p.Results.data_var);
         end
         loaded_flag=true;
@@ -366,8 +388,8 @@ classdef file
     % return {'file1.dat.mat','file1.dat.gz'} because it looks for file1.dat.gz.mat as the corresponding mat file.
     function [out,no_change_flag]=resolve_ext(in,ext,varargin)
       p=machinery.inputParser;
-      p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i)); 
-      p.addRequired( 'ext',                           @ischar); 
+      p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i));
+      p.addRequired( 'ext',                           @ischar);
       p.addParameter('prefer_non_ext_files',   false, @(i) islogical(i) && isscalar(i));
       p.addParameter('prefer_ext_files',       false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',      false, @(i) islogical(i) && isscalar(i));
@@ -448,7 +470,7 @@ classdef file
     end
     function [out,wildcarded_flag]=resolve_wildcards(in,varargin)
       p=machinery.inputParser;
-      p.addRequired( 'in',                         @(i) ischar(i)   || iscellstr(i)); 
+      p.addRequired( 'in',                         @(i) ischar(i)   || iscellstr(i));
       p.addParameter('disp',                true,  @(i) islogical(i) && isscalar(i));
       p.addParameter('directories_only',    false, @(i) islogical(i) && isscalar(i));
       p.addParameter('files_only',          false, @(i) islogical(i) && isscalar(i));
@@ -549,7 +571,7 @@ classdef file
     end
     function out=resolve_compressed(in,varargin)
       p=machinery.inputParser;
-      p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i)); 
+      p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i));
       p.addParameter('prefer_compressed_files',false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',      false, @(i) islogical(i) && isscalar(i));
       p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
@@ -654,7 +676,7 @@ classdef file
     %% build a list of filenames from 'start' to 'stop' with 'period' step, if file.dateplaceholder is present in 'in'
     function out=resolve_timestamps(in,varargin)
       p=machinery.inputParser;
-      p.addRequired( 'in',                                         @(i) ischar(i)   || iscellstr(i)); 
+      p.addRequired( 'in',                                         @(i) ischar(i)   || iscellstr(i));
       p.addParameter( 'start',       time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
       p.addParameter( 'stop',        time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
       p.addParameter( 'period',      days(1),                      @(i) isscalar(i) && isduration(i));
@@ -694,7 +716,7 @@ classdef file
     %NOTICE: this function will always return scalar strings
     function out=resolve_remote(in,varargin)
       p=machinery.inputParser;
-      p.addRequired( 'in',                          @(i) ischar(i)   || iscellstr(i)); 
+      p.addRequired( 'in',                          @(i) ischar(i)   || iscellstr(i));
       p.addParameter('remote_url'       , ''      , @(i) url.is(i) || str.none(i));
       p.addParameter('expiration_period', days(30), @(i) isscalar(i) && isduration(i));
       p.addParameter('data_age'         , days(0) , @(i) isscalar(i) && isduration(i));
@@ -785,7 +807,7 @@ classdef file
         @file.resolve_wildcards;...
         @file.resolve_compressed;...
         @file.resolve_ext;...
-      },                            @(i) isfun(i) || iscell(i) && all(cellfun(@(j) isa(j,'function_handle'), i))); 
+      },                            @(i) isfun(i) || iscell(i) && all(cellfun(@(j) isa(j,'function_handle'), i)));
       p.addParameter('debug'            , false, @islogical);
       p.addParameter('scalar_as_strings', false, @(i) islogical(i) && isscalar(i));
       p.parse(io,varargin{:})
@@ -802,9 +824,9 @@ classdef file
           end
         end
         switch func2str(f)
-          case 'file.resolve_ext';       io=f(io,'.mat',varargin{:}); 
+          case 'file.resolve_ext';       io=f(io,'.mat',varargin{:});
           %NOTICE: passtrough_if_empty deals with cases that the non-mat is absent but the mat file is available
-          case 'file.resolve_wildcards'; io=f(io,'passtrough_if_empty',true,varargin{:}); 
+          case 'file.resolve_wildcards'; io=f(io,'passtrough_if_empty',true,varargin{:});
           otherwise;                     io=f(io,varargin{:});
         end
         if p.Results.debug
@@ -826,8 +848,8 @@ classdef file
     function [out,result]=system(com,varargin)
       p=machinery.inputParser;
       p.addRequired('com',                   @ischar);
-      p.addParameter('cd',            '',    @ischar); 
-      p.addParameter('disp',          false, @islogical); 
+      p.addParameter('cd',            '',    @ischar);
+      p.addParameter('disp',          false, @islogical);
       p.addParameter('stop_if_error', false, @islogical);
       p.parse(com,varargin{:})
       if ~isempty(p.Results.cd)
@@ -839,7 +861,7 @@ classdef file
       if ~isempty(p.Results.cd)
         cd(cdnow);
       end
-      if ~out 
+      if ~out
         if p.Results.stop_if_error
           error([str.dbstack,result])
         else
@@ -861,7 +883,7 @@ classdef file
         dirs={dirs};
       else
         error(['Need input ''dirs'' to be cellstr or char, not ',class(dirs)])
-      end  
+      end
       com=['find "',strjoin(str.clean(dirs,'regex'),'" "'),'"'];
       if numel(varargin)>0
         com=[com,' ',strjoin(str.clean(varargin,'regex'),' ')];
@@ -901,7 +923,7 @@ classdef file
           if out
             disp(['Created directory: ',dirname])
           else
-            disp(['WARNING: could not create directory: ',dirname,':',newline,msg])            
+            disp(['WARNING: could not create directory: ',dirname,':',newline,msg])
           end
         end
       else
@@ -955,7 +977,7 @@ classdef file
         disp(['WARNING: problem issuing command ''md5 ',md5_flags,' ',in,''':',newline,result])
       else
         result=result(1:end-1);
-      end      
+      end
     end
     function out=git(mode,filename,commit_msg)
       if ~exist('filename','var') || isempty(filename)
@@ -1166,7 +1188,7 @@ classdef file
       end
       out=pwd;
       cd(cdnow);
-    end 
+    end
     function out=build(varargin)
       if nargin>1
         ext=cells.scalar(varargin{end},'get');
