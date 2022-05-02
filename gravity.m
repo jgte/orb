@@ -1721,7 +1721,7 @@ classdef gravity < simpletimeseries
         %convert to grid
         out=g.grid('spatial_step',2).center_resample;
         %show the grid
-        out.imagesc
+        out.imagesc;
         %export to xyz format
         out.xyz(['./GSWARM_GF_SABC_COMBINED-',functional,'.xyz'])
       otherwise
