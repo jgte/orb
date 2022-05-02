@@ -130,15 +130,16 @@ classdef simpletemplate < simpletimeseries
         more_parameters={};
       end
       %call superclass
-      obj=copy_metadata@simpletimeseries(obj,obj_in,[gravity.parameters('list');more_parameters(:)]);
+      obj=copy_metadata@simpletimeseries(obj,obj_in,[simpletemplate.parameters('list');more_parameters(:)]);
     end
     function out=metadata(obj,more_parameters)
       if ~exist('more_parameters','var')
         more_parameters={};
       end
       %call superclass
-      out=metadata@simpletimeseries(obj,[gravity.parameters('list');more_parameters(:)]);
+      out=metadata@simpletimeseries(obj,[simpletemplate.parameters('list');more_parameters(:)]);
     end
+    %the varargin method can be called directly
     %% info methods
     function print(obj,tab)
      if ~exist('tab','var') || isempty(tab)
