@@ -383,7 +383,7 @@ classdef gravity < simpletimeseries
       %replicate by the nr of elements of t
       u=ones(numel(v.t),1)*gravity.dtc('tri','y',u);
       %initialize
-      obj=gravity(v.t,u,v.delete('t').varargin{:});
+      obj=gravity(v.t,u,v.delete('t').varargin{:},'skip_common_ops',true,varargin{:});
       % save the arguments v into this object
       obj=v.save(obj,{'t','lmax'});
       %call upstream scale method for global scale
@@ -395,18 +395,18 @@ classdef gravity < simpletimeseries
     end
     % creates a unit model with per-degree RMS equal to 1
     function obj=unit_rms(lmax,varargin)
-      obj=gravity.unit(lmax,'scale_per_degree',gravity.unit(lmax).drms,varargin{:});
+      obj=gravity.unit(lmax,'scale_per_degree',gravity.unit(lmax).drms,varargin{:},'skip_common_ops',true);
     end
     % create a model with coefficients following Kaula's rule of thumb
     function obj=kaula(lmax,varargin)
-      obj=gravity.unit(lmax,'scale_per_degree',[0,1e-5./(1:lmax).^2],varargin{:});
-    end  
+      obj=gravity.unit(lmax,'scale_per_degree',[0,1e-5./(1:lmax).^2],varargin{:},'skip_common_ops',true);
+    end
     % Creates a random model with mean 0 and std 1 (per degree)
     function obj=unit_randn(lmax,varargin)
-      obj=gravity.unit(lmax,'scale_per_coeff',randn(lmax+1),varargin{:});
+      obj=gravity.unit(lmax,'scale_per_coeff',randn(lmax+1),varargin{:},'skip_common_ops',true);
     end
     function obj=nan(lmax,varargin)
-      obj=gravity.unit(lmax,'scale',nan,varargin{:});
+      obj=gravity.unit(lmax,'scale',nan,varargin{:},'skip_common_ops',true);
     end
     function [m,e]=load(file_name,fmt,time,force,force_time)
       %default type
@@ -1566,7 +1566,8 @@ classdef gravity < simpletimeseries
       p.KeepUnmatched=true;
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
-      %create argument object, declare and parse parameters, save them to obj
+      p.addParameter('skip_common_ops',false,@islogical)
+      % create argument object, declare and parse parameters, save them to obj
       [v,p]=varargs.wrap('parser',p,'sources',{gravity.parameters('obj')},'mandatory',{t,y},varargin{:});
       % get some parameters
       lmax=gravity.y_lmax(y(1,:));
@@ -1578,6 +1579,12 @@ classdef gravity < simpletimeseries
       );
       % save the arguments v into this object
       obj=v.save(obj,{'t','y'});
+      %apply model processing options (unless requested otherwise)
+      if ~v.skip_common_ops
+        %reset static model, so that it is handled correctly in the common_ops
+        obj.static_model='';
+        obj=gravity.common_ops('all',obj,v.varargin{:});
+      end
     end
     function obj=assign(obj,y,varargin)
       %pass it upstream
@@ -3279,7 +3286,8 @@ function [m,e]=load_esamtm(filename,time)
     'R',mod.R,...
     'descriptor','ESA Mass Transport Model',...
     'cdate',datetime('now'),...
-    'origin',filename...
+    'origin',filename,...
+    'skip_common_ops',true...
   );
   %no error info on mod format
   e=[];
