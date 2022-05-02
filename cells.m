@@ -24,7 +24,7 @@ classdef cells
           if ~isa(c1{i},class(c2{i}))
             return
           end
-          if isnumeric(c1{i}) || islogical(c1{i})
+          if isnumeric(c1{i}) || islogical(c1{i}) || isdatetime(c1{i})
             if any(c1{i}~=c2{i})
               return
             else
