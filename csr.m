@@ -2144,7 +2144,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
           );
         end
         %init models container
-        calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coords))).copy_metadata(acc);
+        calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coords)),acc.metadata{:});
         calmod.descriptor=['calibration model ',product.str,', GRACE-',v.sats{s}];
         str.say('Computing the ',calmod.descriptor)
         for c=1:numel(coords)

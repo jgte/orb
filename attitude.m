@@ -295,6 +295,10 @@ classdef attitude
       ).varargin;
       warning on MATLAB:structOnObject
     end
+    function out=varargin(obj,more_parameters)
+      out=varargs(obj.metadata(more_parameters)).varargin;
+    end
+    %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
         tab=20;
@@ -720,7 +724,7 @@ classdef attitude
           end
         end
         %build attitude object for this statistic
-        out.(s_list{i})=attitude(t,args{:}).copy_metadata(obj);
+        out.(s_list{i})=attitude(t,args{:},obj.varargin{:});
       end
 
     end

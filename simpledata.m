@@ -168,9 +168,9 @@
       else
         %transmute into this object
         if isprop(in,'t')
-          out=simpledata(simpletimeseries.time2num(in.t),in.y,in.metadata{:});
+          out=simpledata(simpletimeseries.time2num(in.t),in.y,in.varargin{:});
         elseif isprop(in,'x')
-          out=simpledata(in.x,in.y,in.metadata{:});
+          out=simpledata(in.x,in.y,in.varargin{:});
         else
           error('Cannot find ''t'' or ''x''. Cannot continue.')
         end
@@ -486,7 +486,7 @@
           [],...
           'np',numel(simpledata.test_parameters('y_poly_scale')),...
           'T',[],...
-          'x',simpledata.test_parameters('y_poly_scale',l)...
+          'x',simpledata.test_parameters('y_poly_scale',l)'...
         ).y_sum*ones(1,w);
         % % The code below is the same as the code above
         % c=simpledata.test_parameters('y_poly_scale',l);
@@ -569,7 +569,7 @@
         out=simpledata(...
           simpledata.test_parameters('x',    l,w),...
           simpledata.test_parameters('y_all',l,w),...
-          'mask',simpledata.test_parameters('no-mask',l,w),...
+          'mask',simpledata.test_parameters('mask',l,w),...
           args{:}...
         );
       otherwise
@@ -876,8 +876,10 @@
     function obj=assign_tx_mask(obj,y,tx,mask,varargin)
       if isprop(obj,'t'); obj=obj.assign(  y,'mask',mask,'t',tx,varargin{:});
       else              ; obj=obj.assign_x(y,'mask',mask,'x',tx,varargin{:});
-      end          
+      end
     end
+    %NOTICE: obj2=simpledata(t,y,obj1.varargin{:}) is preferable to obj2=simpledata(t,y).copy_metadata(obj1)
+    %TODO: check if it's possible to ditch the copy_metadata members because of the reason above
     function obj=copy_metadata(obj,obj_in,more_parameters)
       if ~exist('more_parameters','var')
         more_parameters={};
@@ -894,14 +896,11 @@
         more_parameters={};
       end
       warning off MATLAB:structOnObject
-      out=varargs(...
-        structs.filter(struct(obj),[simpledata.parameters('list');more_parameters(:)])...
-      ).varargin;
+      out=structs.filter(struct(obj),[simpledata.parameters('list');more_parameters(:)]);
       warning on MATLAB:structOnObject
     end
-    function obj_nan=nan(obj)
-      %duplicates an object, setting y to nan
-      obj_nan=obj.and(false(size(obj.mask))).mask_update;
+    function out=varargin(obj,more_parameters)
+      out=varargs(obj.metadata(more_parameters)).varargin;
     end
     %% info methods
     function print(obj,tab)
@@ -1079,12 +1078,10 @@
         %loop over all structure fields and create an object
         fields=fieldnames(s);
         if numel(fields)==1
-          out=init(x_now,s.(fields{1}));
-          out=out.copy_metadata(obj);
+          out=init(x_now,s.(fields{1}),obj.varargin{:});
         else
           for i=1:numel(fields)
-            out.(fields{i})=init(x_now,s.(fields{i}));
-            out.(fields{i})=out.(fields{i}).copy_metadata(obj);
+            out.(fields{i})=init(x_now,s.(fields{i}),obj.varargin{:});
           end
         end
       otherwise
@@ -1162,12 +1159,10 @@
         %loop over all structure fields and create an object (unless there's only one field)
         fields=fieldnames(s);
         if numel(fields)==1
-          out=init(x_now,s.(fields{1}));
-          out=out.copy_metadata(obj1);
+          out=init(x_now,s.(fields{1}),obj1.varargin{:});
         else
           for i=1:numel(fields)
-            out.(fields{i})=init(x_now,s.(fields{i}));
-            out.(fields{i})=out.(fields{i}).copy_metadata(obj1);
+            out.(fields{i})=init(x_now,s.(fields{i}),obj1.varargin{:});
           end
         end
       otherwise
@@ -1274,13 +1269,13 @@
     function out=tx(obj)
       if isprop(obj,'t'); out=obj.t; %#ok<MCNPN>
       else              ; out=obj.x;
-      end          
-    end      
+      end
+    end
     function out=tx_masked(obj)
       if isprop(obj,'t_masked'); out=obj.t_masked; %#ok<MCNPN>
       else                     ; out=obj.x_masked;
-      end          
-    end      
+      end
+    end
     %% y methods
     function obj=cols(obj,columns)
       if ~isvector(columns)
@@ -1359,9 +1354,9 @@
         y=y(~avail_idx,:);
         switch class(obj)
         case 'simpledata'
-          obj_new=simpledata(x,y).copy_metadata(obj);
+          obj_new=simpledata(x,y,obj.varargin{:});
         case 'simpletimeseries'
-          obj_new=simpletimeseries(obj.x2t(x),y).copy_metadata(obj);
+          obj_new=simpletimeseries(obj.x2t(x),y,obj.varargin{:});
         otherwise
           error(['Cannot handle object of class ''',class(obj),''', implementation needed (it''s quick, go and do it).'])
         end
@@ -1509,6 +1504,10 @@
         m=[true(obj.length-1,1);false];
         obj=obj.assign(obj.y(m,:),'x',obj.x(m));
       end
+    end
+    function obj_nan=nan(obj)
+      %duplicates an object, setting y to nan
+      obj_nan=obj.and(false(size(obj.mask))).mask_update;
     end
     %% invalid methods
     function obj=demasked(obj,invalid)
@@ -1714,34 +1713,30 @@
       if disp
         str.say(mode,'detrending of',obj.descriptor)
       end
-      switch mode
-      case 'cubic'
-        obj=obj.detrend('poly3');
-      case 'quadratic'
-        obj=obj.detrend('poly2');
-      case 'linear'
-        %copy data
-        y_now=obj.y;
-        %zero the gaps (NaNs break things)
-        y_now(~obj.mask,:)=0;
-        %detrend in segments
-        y_detrended=detrend(y_now,'linear',find(~obj.mask));
-        %propagate
-        obj.y(obj.mask,:)=y_detrended(obj.mask,:);
-      case 'constant'
-        obj.y(obj.mask,:)=detrend(obj.y_masked,'constant');
-      otherwise
-        if contains(mode,'poly')
-          %determine polynomial order to be fitted
-          o=str2double(strrep(mode,'poly',''));
-          %polyfit the data
-          obj_polyfitted=obj.polyfit(o);
-          %subtract polyfitted data from input data
-          obj=obj-obj_polyfitted;
-        else
-          error([mfilename,': unknown mode ''',mode,'''.'])
+      if ischar(mode)
+        switch mode
+        case 'cubic';     n=3;
+        case 'quadratic'; n=2;
+        case 'linear';    n=1;
+        case 'constant';  n=0;
+        otherwise
+          if contains(mode,'poly')
+            %determine polynomial order to be fitted
+            o=str2double(strrep(mode,'poly',''));
+            %polyfit the data
+            obj_polyfitted=obj.polyfit(o);
+            %subtract polyfitted data from input data
+            obj=obj-obj_polyfitted;
+          else
+            error([mfilename,': unknown mode ''',mode,'''.'])
+          end
         end
+      else
+        n=mode;
       end
+      assert(isnumeric(n) && isscalar(n),['Input ''mode'' must be char or integer, not ',class(n),'.'])
+      %detrend the whole time series (NOTICE: this does not handle ungaped segments independently)
+      obj.y=detrend(obj.y,n,'omitnan','Continuous',false,'SamplePoints',obj.x);
       % sanitize
       obj.check_sd
     end

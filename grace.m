@@ -580,11 +580,13 @@ i=i+1;dh{i}= '+eoh______';
         more_parameters={};
       end
       warning off MATLAB:structOnObject
-      out=varargs(...
-        structs.filter(struct(obj),[grace.parameters('list');more_parameters(:)])...
-      ).varargin;
+      out=structs.filter(struct(obj),[grace.parameters('list');more_parameters(:)]);
       warning on MATLAB:structOnObject
     end
+    function out=varargin(obj,more_parameters)
+      out=varargs(obj.metadata(more_parameters)).varargin;
+    end
+    %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
         tab=20;

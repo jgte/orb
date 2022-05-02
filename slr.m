@@ -75,17 +75,17 @@ classdef slr < gravity
       %parse using a model or the original data
       if contains(v.source,'-model')
         new_mode=['model-',strrep(v.mode,'model-','')];
-        new_version=strrep(v.source,'-model','');
+        new_source=strrep(v.source,'-model','');
         str.say('WARNING: over-writing input mode',str.quote(v.mode),'with',str.quote(new_mode),...
-          'since input version is',str.quote(v.source),', now passed along as',str.quote(new_version),'.')
-        out=slr.graceC20(varargin{:},'mode',new_mode,'version',new_version);
+          'since input version is',str.quote(v.source),', now passed along as',str.quote(new_source),'.')
+        out=slr.graceC20(varargin{:},'mode',new_mode,'source',new_source);
         return
       end
       switch v.mode
       case 'model-poly'
         out=2;
       case 'model-periods-datfile'
-        [p,n]=fileparts(GetGRACEC20('mode','data_file','version',v.source));
+        [p,n]=fileparts(GetGRACEC20('mode','data_file','source',v.source));
         out=fullfile(p,[n,'_periods.mat']);
       case {'model-compute','model-periods'}
         %get data file
@@ -230,31 +230,31 @@ classdef slr < gravity
         out=out.interp(v.time);
       case 'plot-all'
         if iscellstr(v.source)
-          version_list=v.source;
+          source_list=v.source;
         else
-          version_list={'GSFC-7day','GSFC','CSR-RL06','TN-14','TN-11','TN-07'};
+          source_list={'GSFC-7day','GSFC','CSR-RL06','TN-14','TN-11','TN-07'};
         end
-        dat_list=cell(size(version_list));
+        dat_list=cell(size(source_list));
         plotting.figure(varargin{:});
-        for i=1:numel(version_list)
+        for i=1:numel(source_list)
           %pick keywords
-          kw=strsplit(version_list{i},'-');
+          kw=strsplit(source_list{i},'-');
           %branch on them (NOTICE: always last)
           switch kw{end}
           case 'model'
             if i>1
-              %NOTICE: to get the model with the most complete time domain, out it last in the 'version' input
+              %NOTICE: to get the model with the most complete time domain, out it last in the 'source' input
               dat_list{i}=slr.graceC20('mode','model',...
-                'version',strrep(version_list{i},'-model',''),...
+                'source',strrep(source_list{i},'-model',''),...
                 'time',time.union(cellfun(@(j) j.t,dat_list(1:i-1),'UniformOutput',false),days(7))...
               );
             else
               dat_list{i}=slr.graceC20('mode','model',...
-                'version',strrep(version_list{i},'-model','')...
+                'source',strrep(source_list{i},'-model','')...
               );
             end              
           otherwise
-            dat_list{i}=slr.graceC20('mode','read','version',version_list{i});
+            dat_list{i}=slr.graceC20('mode','read','source',source_list{i});
             dat_list{i}=dat_list{i}.interp(dat_list{i}.t_domain(days(7)),...
               'interp_over_gaps_narrower_than',days(45)...
             );
@@ -263,7 +263,7 @@ classdef slr < gravity
           dat_list{i}.plot('columns',1);
         end
         plotting.enforce(varargin{:},...
-          'plot_legend',version_list,...
+          'plot_legend',source_list,...
           'plot_xlabel','none');
         title(['mean C_{20}: ',num2str(v.C20mean,'%e')]);
         out=dat_list;
@@ -362,7 +362,7 @@ classdef slr < gravity
             error(['Cannot handle SLR data of type ''',source,'''.'])
         end
       end
-      obj=slr(t,y,varargs(header).varargin{:});
+      obj=slr(t,y,varargs(header).varargin{:},varargin{:});
     end
     %% testing for the current object
     function out=test_parameters(field)
@@ -424,6 +424,7 @@ classdef slr < gravity
       % - 'tide_system'
       % - 'origin'
       % - 'start'/'stop'
+      % - 'static_model'
 %       %input parsing
 %       p=machinery.inputParser;
 %       p.addRequired( 't' ); %this can be char, double or datetime
@@ -440,12 +441,11 @@ classdef slr < gravity
       if ~exist('more_parameters','var')
         more_parameters={};
       end
-      warning off MATLAB:structOnObject
-      out=varargs(...
-        structs.filter(struct(obj),[slr.parameters('list');more_parameters(:)])...
-      ).varargin;
-      warning on MATLAB:structOnObject
+      %call superclass
+      out=metadata@gravity(obj,[slr.parameters('list');more_parameters(:)]);
     end
+    %the varargin method can be called directly
+    %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
         tab=20;
@@ -1085,7 +1085,8 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     case 'GSFC-7DAY'
       datfil='GSFC_SLR_C20_7day.txt';
       daturl='personal communication: email from bryant.d.loomis@nasa.gov';
-      datfmt='%10.4f%23.13f';
+%       datfmt='%10.4f%23.13f'; %NOTICE: this was used for the format of the data sent by email
+      datfmt='%12.6f%21.13f'; %NOTICE: this is used for the format of the data resulting from the online file
       t_idx=1;
       s_idx=2;
       e_idx=0;
@@ -1102,12 +1103,12 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     t=v.file;
   case 'read' %'set' if not already, then 'get'
     if ~file.exist(v.file)
-      GetGRACEC20('mode','set','version',v.source,'data_dir',v.data_dir);
+      GetGRACEC20('mode','set','source',v.source,'data_dir',v.data_dir);
     end
-    [t,s,e,d]=GetGRACEC20('mode','get','version',v.source,'file',v.file,'start',v.start,'stop',v.stop);
+    [t,s,e,d]=GetGRACEC20('mode','get','source',v.source,'file',v.file,'start',v.start,'stop',v.stop);
   case 'reload' %'set' then 'get'
-    GetGRACEC20('mode','set','version',v.source,'data_dir',v.data_dir);
-    [t,s,e,d]=GetGRACEC20('mode','get','version',v.source,'file',v.file,'start',v.start,'stop',v.stop);
+    GetGRACEC20('mode','set','source',v.source,'data_dir',v.data_dir);
+    [t,s,e,d]=GetGRACEC20('mode','get','source',v.source,'file',v.file,'start',v.start,'stop',v.stop);
   case 'plot'
     %NOTICE: this is a low-level plot, without much features
     [t,s,e,d]=GetGRACEC20(varargin{:},'mode','read');
@@ -1175,8 +1176,6 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   case 'set' %download the data
     if url.is(v.url)
       websave(v.file,v.url);
-      t=file.strload(v.file);
-      disp(t)
     else
       t=[];
     end

@@ -169,8 +169,7 @@ classdef pardecomp
           error(['Cannot understand the coefficient name ''',coeffnames{j},'''.'])
         end
         %save coefficients (indexed to zero-date, since they are time-invariant)
-        o=init(time.zero_date,transpose(num.struct_deal(d,coeffnames{j}(1),i,[])));
-        o=o.copy_metadata(obj);
+        o=init(time.zero_date,transpose(num.struct_deal(d,coeffnames{j}(1),i,[])),obj.varargin{:});
         o.descriptor=[coeffnames{j},' of ',str.clean(obj.descriptor,'file')];
         o.units(:)={units}; o.labels(:)={labels};
         %append to pd_args
@@ -182,8 +181,7 @@ classdef pardecomp
         %make sure time domain is not borked
         assert(all(simpledata.isx('==',obj.x_masked,x_now)),['time domain discrepancy in ',o.descriptor])
         %save timeseries represented by each coefficient
-        o=init(obj.t_masked,num.struct_deal(d,['y',coeffnames{j}(1)],[],i));
-        o=o.copy_metadata(obj);
+        o=init(obj.t_masked,num.struct_deal(d,['y',coeffnames{j}(1)],[],i),obj.varargin{:});
         o.descriptor=['p',num2str(i-1),' of ',str.clean(obj.descriptor,'file')];
         %restore gaps
         o=o.t_merge(obj.t);
@@ -206,20 +204,17 @@ classdef pardecomp
       %this is the abcissae defined in obj, excluding gaps
       pd_set.t_masked=obj.t_masked;
       %save residuals
-      o=init(obj.t_masked,num.struct_deal(d,'yr',[],1));
-      o=o.copy_metadata(obj);
+      o=init(obj.t_masked,num.struct_deal(d,'yr',[],1),obj.varargin{:});
       o.descriptor=['residual of ',str.clean(obj.descriptor,'file')];
       %restore gaps
       o=o.t_merge(obj.t);
       pd_set.res=o;
       %save norms
-      o=init(time.zero_date,num.struct_deal(d,'rn',[],1));
-      o=o.copy_metadata(obj);
+      o=init(time.zero_date,num.struct_deal(d,'rn',[],1),obj.varargin{:});
       o.descriptor=['norm of the residuals of ',str.clean(obj.descriptor,'file')];
       pd_set.norm=o;
       %save norm ratio
-      o=init(time.zero_date,num.struct_deal(d,'rrn',[],1));
-      o=o.copy_metadata(obj);
+      o=init(time.zero_date,num.struct_deal(d,'rrn',[],1),obj.varargin{:});
       o.descriptor=['signal and residual norms ratio for ',str.clean(obj.descriptor,'file')];
       pd_set.rnorm=o;
     end
@@ -238,14 +233,15 @@ classdef pardecomp
         },...
       },varargin{:});
       %init output and copy metadata
-      pd_set.metadata=varargs(pd_set.metadata).rm_empty.varargin;
+      pd_set.metadata=varargs(pd_set.metadata).rm_empty;
+      pd_set.varargin=pd_set.metadata.varargin;
       switch func2str(pd_set.init)
-        case 'gravity';obj=eval([func2str(pd_set.init),'.unit(gravity.width2lmax(pd_set.width),''t'',v.time,pd_set.metadata{:},''scale'',0);']);
-        otherwise;     obj=eval([func2str(pd_set.init),'.zero(v.time,pd_set.width,pd_set.metadata{:});']);
+        case 'gravity';obj=eval([func2str(pd_set.init),'.unit(gravity.width2lmax(pd_set.width),''t'',v.time,pd_set.varargin{:},''scale'',0);']);
+        otherwise;     obj=eval([func2str(pd_set.init),'.zero(v.time,pd_set.width,pd_set.varargin{:});']);
       end
       %match epochs (very important and not done with copying the metadata)
       obj.epoch=pd_set.epoch;
-      %update descriptor (not done with copying the metadata)
+      %update descriptor (not done with copying the metadata1)
       obj.descriptor=pd_set.descriptor;
       %initialize coefficient containers
       coeffval=zeros(pardecomp.xlength(pd_set.np,pd_set.T),pd_set.width);
@@ -336,7 +332,7 @@ classdef pardecomp
             switch rnames{f}
             case 'metadata'
               for m={'descriptor','units','x_units','labels'}
-                rvalue=varargs(rvalue).delete(m{1}).varargin;
+                rvalue=rvalue.delete(m{1});
               end
             end
             if ~isfield(records,rnames{f})
@@ -358,7 +354,7 @@ classdef pardecomp
       end
       pd_set.init=str2func(records.class);
       pd_set.width=records.width;
-      pd_set.metadata=varargs(records.metadata).rm_empty.varargin;
+      pd_set.metadata=records.metadata.rm_empty;
       pd_set.descriptor=v.descriptor;
       pd_set.start=v.time(1);
       pd_set.stop=v.time(end);

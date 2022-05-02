@@ -41,9 +41,9 @@ classdef simplefreqseries < simpletimeseries
       else
         %transmute into this object
         if isprop(in,'t')
-          out=simplefreqseries(in.t,in.y,in.metadata{:});
+          out=simplefreqseries(in.t,in.y,in.varargin{:});
         elseif isprop(in,'x')
-          out=simplefreqseries(in.x,in.y,in.metadata{:});
+          out=simplefreqseries(in.x,in.y,in.varargin{:});
         else
           error('Cannot find ''t'' or ''x''. Cannot continue.')
         end
@@ -393,6 +393,7 @@ classdef simplefreqseries < simpletimeseries
       %call superclass
       out=metadata@simpletimeseries(obj,[simplefreqseries.parameters('list');more_parameters(:)]);
     end
+    %the varargin method can be called directly
     %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)

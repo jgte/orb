@@ -59,12 +59,11 @@ classdef gswarm
         product.args...
       },varargin{:});
       %load all available data
-      [s,e]=gravity.load_dir(v.import_dir,v.model_format,str2func(v.date_parser),...
-        'wildcarded_filename',v.wildcarded_filename,...
-        'start',obj.start,...
-        'stop',obj.stop,...
+        [s,e]=gravity.load_dir(...
+        'datadir',v.import_dir,...
+        'format',v.model_format,...
         'descriptor',product.name,...
-        'overwrite_common_t',v.overwrite_common_t...
+        v.varargin{:}...
       );
       %make sure we got a gravity object
       assert(isa(s,'gravity'),['failed to load product ',product.codename])
@@ -218,12 +217,15 @@ classdef gswarm
         product.plot_args...
       },varargin{:});
       % update start/stop considering the requested inclusive
-      obj=obj.startstop_update('start',gswarm.production_date('start'),'stop',gswarm.production_date('stop'),'inclusive',v.inclusive);
+      obj=obj.startstop_update(...
+        'start',gswarm.production_date('start'),...
+        'stop', gswarm.production_date('stop'),...
+        'inclusive',v.inclusive...
+      );
       obj.log('@','startstop_update','product',product,'start',obj.start,'stop',obj.stop)
       %retrieve load/saving of plotdata: handles plot_force and plot_save_data
       [loaddata,savedata]=plotting.forcing(v.varargin{:});
       %first build data filename;
-      %TODO: this datafilename is messed up, the smoothing only appears as 'gauss'
       datafilename=obj.plotdatafilename(product);
       %check if data is to be loaded
       if loaddata
@@ -375,8 +377,12 @@ classdef gswarm
         pod.source.names{pod.source.ref_idx}=upper(strtrim(strrep(str.clean(pod.mod.ref_name.name,v.plot_title_suppress),'.',' ')));
         %reduce the models to plot
         pod.mod.dat=pod.source.dat(pod.source.mod_idx);
-        %compute residual, need to interpolate twice to force explicit gaps
+        %get reference
         ref=pod.mod.ref.interp(pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than);
+        %enforce consistent GM and R
+        pod.mod.dat=cellfun(@(i) i.scale(pod.mod.ref),pod.mod.dat,'UniformOutput',false);
+        %compute residual
+        %NOTICE: need to interpolate a second time to force explicit gaps (first time was when retrieving ref)
         pod.mod.res=cellfun(...
           @(i) ref-i.interp(pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than),...
         pod.mod.dat,'UniformOutput',false);
@@ -1849,18 +1855,15 @@ classdef gswarm
       if cells.isincluded(v.mode,{'C20.png'})
         filename=[fnroot,'C20.png'];
         if ~file.exist(filename,v.force)
-          stmn=dataproduct(p{1}).mdget('static_model');
-          stc20=datastorage().init(stmn).data_get_scalar(datanames(stmn).append_field_leaf('signal')).C(2,0);
-          tn=slr.load(dataproduct(p{1}).mdget('use_GRACE_C20'));
-          tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);
+          tn=slr.load(dataproduct(p{1}).mdget('use_GRACE_C20'),'static_model',dataproduct(p{1}).mdget('static_model')).trim(v.start,v.stop).addgaps(days(45));
           plotting.figure;
           for i=1:size(a,1)
             a{i,1}.ts_C(2,0).addgaps(days(45)).plot;
           end
-          tn.plot('columns',1)
+          tn.ts_C(2,0).plot
           %enforce it
           plotting.enforce(...
-            'plot_legend',[a(:,2);{'TN-11'}],...
+            'plot_legend',[a(:,2);{tn.descriptor}],...
             'plot_ylabel',gravity.functional_label(v.functional),...
             'plot_title',v.plot_title,...
             'plot_title_default','C20'...
@@ -1872,7 +1875,7 @@ classdef gswarm
         end
       end
 
-      %plot spatial stats (TODO: the mean should be zero! )
+      %plot spatial stats
       stats={'mean','std','rms'};
       for s=1:numel(stats)
         if cells.isincluded(v.mode,[stats{s},'.png'])
@@ -2401,8 +2404,10 @@ classdef gswarm
         },...
       },varargin{:});
       %changes will be saved in git at the end, make sure git is ok in the quality_dir
-      assert(file.git('isuptodate',v.quality_dir),['There are changes in ',v.quality_dir,...
-        ' that need to be committed before this method can continue.'])
+      if v.git_ci
+        assert(file.git('isuptodate',v.quality_dir),['There are changes in ',v.quality_dir,...
+          ' that need to be committed before this method can continue.'])
+      end
       %define Swarm products
       p.err = dataproduct('swarm.sh.gswarm.rl01.err');
       p.swm = dataproduct(p.err.sources(1)); %swarm.sh.gswarm.rl01
@@ -2438,25 +2443,25 @@ classdef gswarm
         %make pretty plots
         if ~file.exist(fn{1})
           plotting.figure(varargin{:});
-          grs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).plot('zeromean',true);
-          grm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).plot('zeromean',true);
-          c20=slr.load(               C20_name).ts_C(2,0).plot('zeromean',true);
+          grs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          grm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          c20=slr.load(               C20_name).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
           plotting.enforce('plot_legend',{...
             str.rep(grs.legend{1},'C2,0','GRACE data');...
             str.rep(grm.legend{1},'C2,0','GRACE model');...
-            str.rep( c20.legend{1},'C20',[C20_name,' (w/ static)']);...
-          },'plot_title','C20','plot_ylabel','non-dim');
+            str.rep(c20.legend{1},'C2,0',C20_name);...
+          },'plot_title','C_{2,0}','plot_ylabel','non-dim');
           saveas(gcf,fn{1})
           str.say('plotted',fn{1})
         end
         if ~file.exist(fn{2})
           plotting.figure(varargin{:});
-          grs=d.data_get_scalar(p.grs.dataname).ts_C(3,0).plot('zeromean',true);
-          grm=d.data_get_scalar(p.grm.dataname).ts_C(3,0).plot('zeromean',true);
+          grs=d.data_get_scalar(p.grs.dataname).ts_C(3,0).plot('zeromean',false);
+          grm=d.data_get_scalar(p.grm.dataname).ts_C(3,0).plot('zeromean',false);
           plotting.enforce('plot_legend',{...
             str.rep(grs.legend{1},'C3,0','GRACE data');...
             str.rep(grm.legend{1},'C3,0','GRACE model');...
-          },'plot_title','C30','plot_ylabel','non-dim');
+          },'plot_title','C_{3,0}','plot_ylabel','non-dim');
           saveas(gcf,fn{2})
           str.say('plotted',fn{2})
         end
@@ -2472,44 +2477,33 @@ classdef gswarm
           'stop', v.stop,...
           'debug',v.debug...
         ).init(p.grs).init(p.grm).init(p.swm);
-        %need ggm05c (make sure this is the static model used in all products)
-        stmn=dataproduct(p.swm).mdget('static_model');
-        stc20=datastorage().init(stmn).data_get_scalar(datanames(stmn).append_field_leaf('signal')).C(2,0);
         %make pretty plots
         if ~file.exist(fn{1})
           plotting.figure(varargin{:});
-          sw=d.data_get_scalar(p.swm.dataname).ts_C(2,0).addgaps(days(45)); swp=sw.plot;
-          gs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).addgaps(days(45)); gsp=gs.plot;
-          gm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).addgaps(days(45)); gmp=gm.plot;
-          c20=slr.load(strrep(C20_name,'-c-model',''));
-          c20=c20.trim(v.start,v.stop).addgaps(days(45))-stc20(1);
-          c20.plot('columns',1);
-          if contains(C20_name,'-model')
-            tm=slr.graceC20('mode','model','time',gm.t,'version',strrep(C20_name,'-model',''));
-            tm=tm.addgaps(days(45))-stc20(1);
-            tm.plot('columns',1);
-          end
+          swp=d.data_get_scalar(p.swm.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          gsp=d.data_get_scalar(p.grs.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          gmp=d.data_get_scalar(p.grm.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          c20=slr.load(               C20_name).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
           %NOTICE: if C20_name does not contain '-model', there are more legend entries than plotted lines
           plotting.enforce('plot_legend',{...
             str.rep(swp.legend{1},'C2,0','Swarm (repl.)');...
             str.rep(gsp.legend{1},'C2,0','GRACE data');...
             str.rep(gmp.legend{1},'C2,0','GRACE model (p12)');...
-            strrep(C20_name,'-model','');...
-            C20_name;...
-          },'plot_title','C20','plot_ylabel','non-dim');
+            str.rep(c20.legend{1},'C2,0',C20_name);...
+          },'plot_title','C_{2,0}','plot_ylabel','non-dim');
           saveas(gcf,fn{1})
           str.say('plotted',fn{1})
         end
         if ~file.exist(fn{2})
           plotting.figure(varargin{:});
-          sw=d.data_get_scalar(p.swm.dataname).ts_C(3,0).addgaps(days(45)).plot;
-          gs=d.data_get_scalar(p.grs.dataname).ts_C(3,0).addgaps(days(45)).plot;
-          gm=d.data_get_scalar(p.grm.dataname).ts_C(3,0).addgaps(days(45)).plot;
+          swp=d.data_get_scalar(p.swm.dataname).ts_C(3,0).addgaps(days(45)).plot;
+          gsp=d.data_get_scalar(p.grs.dataname).ts_C(3,0).addgaps(days(45)).plot;
+          gmp=d.data_get_scalar(p.grm.dataname).ts_C(3,0).addgaps(days(45)).plot;
           plotting.enforce('plot_legend',{...
-            str.rep(sw.legend{1},'C3,0','Swarm (repl.)');...
-            str.rep(gs.legend{1},'C3,0','GRACE data');...
-            str.rep(gm.legend{1},'C3,0','GRACE model');...
-          },'plot_title','C30','plot_ylabel','non-dim');
+            str.rep(swp.legend{1},'C3,0','Swarm (repl.)');...
+            str.rep(gsp.legend{1},'C3,0','GRACE data');...
+            str.rep(gmp.legend{1},'C3,0','GRACE model');...
+          },'plot_title','C_{3,0}','plot_ylabel','non-dim');
           saveas(gcf,fn{2})
           str.say('plotted',fn{2})
         end
@@ -2596,7 +2590,7 @@ classdef gswarm
           %define time arguments
           time_args={'start',gswarm.production_date('start'),'stop',gswarm.production_date('stop')};
           %this updates the coefficient time series, to make sure it has recent-enough data
-          slr.graceC20('mode','set','version',strrep(version,'-model',''));
+          slr.graceC20('mode','get','version',strrep(version,'-model',''));
           if model
             %this updates the model itself
             slr.graceC20('mode','set','version',strrep(version,'-model',''));
@@ -2831,7 +2825,7 @@ classdef gswarm
       else
         d=datastorage('debug',v.debug,'inclusive',v.inclusive,...
           'start',v.start,...
-          'stop',v.stop);
+          'stop', v.stop);
         for i=1:p{1}.nr_sources
           d=d.init(p{1}.sources(i),'force',v.force,'overwrite_common_t',v.overwrite_common_t);
         end
