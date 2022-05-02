@@ -1818,18 +1818,15 @@ classdef gswarm
       if cells.isincluded(v.mode,{'C20.png'})
         filename=[fnroot,'C20.png'];
         if ~exist(filename,'file')
-          stmn=dataproduct(p{1}).mdget('static_model');
-          stc20=datastorage().init(stmn).data_get_scalar(datanames(stmn).append_field_leaf('signal')).C(2,0);
-          tn=slr.load(dataproduct(p{1}).mdget('use_GRACE_C20'));
-          tn=tn.trim(v.start,v.stop).addgaps(days(45))-stc20(1);
+          tn=slr.load(dataproduct(p{1}).mdget('use_GRACE_C20'),'static_model',dataproduct(p{1}).mdget('static_model')).trim(v.start,v.stop).addgaps(days(45));
           plotting.figure;
           for i=1:size(a,1)
             a{i,1}.ts_C(2,0).addgaps(days(45)).plot;
           end
-          tn.plot('columns',1)
+          tn.ts_C(2,0).plot
           %enforce it
           plotting.enforce(...
-            'plot_legend',[a(:,2);{'TN-11'}],...
+            'plot_legend',[a(:,2);{tn.descriptor}],...
             'plot_ylabel',gravity.functional_label(v.functional),...
             'plot_title',v.plot_title,...
             'plot_title_default','C20'...
@@ -2463,23 +2460,13 @@ classdef gswarm
           'stop', v.stop,...
           'debug',v.debug...
         ).init(p.grs).init(p.grm).init(p.swm);
-        %need ggm05c (make sure this is the static model used in all products)
-        stmn=dataproduct(p.swm).mdget('static_model');
-        stc20=datastorage().init(stmn).data_get_scalar(datanames(stmn).append_field_leaf('signal')).C(2,0);
         %make pretty plots
         if ~file.exist(fn{1})
           plotting.figure(varargin{:});
-          sw=d.data_get_scalar(p.swm.dataname).ts_C(2,0).addgaps(days(45)); swp=sw.plot;
-          gs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).addgaps(days(45)); gsp=gs.plot;
-          gm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).addgaps(days(45)); gmp=gm.plot;
-          c20=slr.load(strrep(C20_name,'-c-model',''));
-          c20=c20.trim(v.start,v.stop).addgaps(days(45))-stc20(1);
-          c20.plot('columns',1);
-          if contains(C20_name,'-model')
-            tm=slr.graceC20('mode','model','time',gm.t,'version',strrep(C20_name,'-model',''));
-            tm=tm.addgaps(days(45))-stc20(1);
-            tm.plot('columns',1);
-          end
+          swp=d.data_get_scalar(p.swm.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          gsp=d.data_get_scalar(p.grs.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          gmp=d.data_get_scalar(p.grm.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          c20=slr.load(               C20_name).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
           %NOTICE: if C20_name does not contain '-model', there are more legend entries than plotted lines
           plotting.enforce('plot_legend',{...
             str.rep(swp.legend{1},'C2,0','Swarm (repl.)');...
