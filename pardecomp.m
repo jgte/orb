@@ -332,7 +332,7 @@ classdef pardecomp
             switch rnames{f}
             case 'metadata'
               for m={'descriptor','units','x_units','labels'}
-                rvalue=varargs(rvalue).delete(m{1}).varargin;
+                rvalue=rvalue.delete(m{1});
               end
             end
             if ~isfield(records,rnames{f})
@@ -354,7 +354,7 @@ classdef pardecomp
       end
       pd_set.init=str2func(records.class);
       pd_set.width=records.width;
-      pd_set.metadata=varargs(records.metadata).rm_empty.varargin;
+      pd_set.metadata=records.metadata.rm_empty;
       pd_set.descriptor=v.descriptor;
       pd_set.start=v.time(1);
       pd_set.stop=v.time(end);

@@ -440,11 +440,8 @@ classdef slr < gravity
       if ~exist('more_parameters','var')
         more_parameters={};
       end
-      warning off MATLAB:structOnObject
-      out=varargs(...
-        structs.filter(struct(obj),[slr.parameters('list');more_parameters(:)])...
-      ).varargin;
-      warning on MATLAB:structOnObject
+      %call superclass
+      out=metadata@gravity(obj,[slr.parameters('list');more_parameters(:)]);
     end
     %the varargin method can be called directly
     %% info methods
