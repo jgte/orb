@@ -409,28 +409,24 @@ classdef gravity < simpletimeseries
     function obj=nan(lmax,varargin)
       obj=gravity.unit(lmax,'scale',nan,varargin{:},'skip_common_ops',true);
     end
-    function [m,e]=load(file_name,fmt,time,force,force_time)
+    function [m,e]=load(file_name,varargin)
+      v=varargs.wrap('sources',{...
+        {...
+          'format',       'auto', @ischar;...
+          'time',datetime('now'), @isdatetime;...
+          'force',         false, @(i) islogical(i) || ischar(i);...
+          'force_time',    false, @(i) islogical(i) || ischar(i);...
+        },...
+      },varargin{:});
       %default type
-      if ~exist('fmt','var') || isempty(fmt) || strcmp(fmt,'auto')
-        [~,fn,fmt]=fileparts(file_name);
+      if isempty(v.format) || strcmp(v.format,'auto')
+        [~,fn,v.format]=fileparts(file_name);
         %get rid of the dot
-        fmt=fmt(2:end);
+        v.format=v.format(2:end);
         %check if this is CSR format
-        if strcmp(fn,'GEO') || strcmp(fmt,'.GEO')
-          fmt='csr';
+        if strcmp(fn,'GEO') || strcmp(v.format,'.GEO')
+          v.format='csr';
         end
-      end
-      %default time
-      if ~exist('time','var') || isempty(time)
-        time=datetime('now');
-      end
-      %default force
-      if ~exist('force','var') || isempty(force)
-        force=false;
-      end
-      %default force_time
-      if ~exist('force_time','var') || isempty(force_time)
-        force_time=false;
       end
       %handle mat files
       [~,~,ext]=fileparts(file_name);
@@ -441,20 +437,20 @@ classdef gravity < simpletimeseries
         mat_filename=[file_name,'.mat'];
       end
       %check if mat file is already available
-      if ~file.exist(mat_filename) || force
-        switch lower(fmt)
+      if ~file.exist(mat_filename) || v.force
+        switch lower(v.format)
         case 'gsm'
-          [m,e]=load_gsm(file_name,time);
+          [m,e]=load_gsm(file_name,v.time);
         case 'csr'
-          [m,e]=load_csr(file_name,time);
+          [m,e]=load_csr(file_name,v.time);
         case {'icgem','gfc'}
-          [m,e]=load_icgem(file_name,time);
+          [m,e]=load_icgem(file_name,v.time);
         case 'mod'
-          [m,e]=load_mod(file_name,time);
+          [m,e]=load_mod(file_name,v.time);
         case 'esamtm'
           error('BUG TRAP: The ''esamtm'' format is always storred in mat files')
         otherwise
-          error([mfilename,': cannot handle models of type ''',fmt,'''.'])
+          error([mfilename,': cannot handle models of type ''',v.format,'''.'])
         end
         try
           save(mat_filename,'m','e')
@@ -462,9 +458,9 @@ classdef gravity < simpletimeseries
           disp(['Could not save ''',mat_filename,'''.'])
         end
       else
-        switch lower(fmt)
+        switch lower(v.format)
         case 'esamtm'
-          [m,e]=load_esamtm(mat_filename,time);
+          [m,e]=load_esamtm(mat_filename,v.time);
         otherwise
           %NOTICE: input argument 'time' is ignored here; only by coincidence (or design,
           %        e.g. if gravity.load_dir is used) will time be same as the one saved
@@ -484,12 +480,12 @@ classdef gravity < simpletimeseries
       %enforce input 'time', if requested
       %NOTICE: this is used to be done automatically when loading the mat file
       %        (and there's no practical use for it at the moment)
-      if force_time
-        if m.t~=time;m.t=time;end 
-        if ~isempty(e) && e.t~=time;e.t=time;end 
+      if v.force_time
+        if m.t~=v.time;m.t=v.time;end
+        if ~isempty(e) && e.t~=v.time;e.t=v.time;end
       end
-      %update start/stop for static fields, i.e. those with time=gravity.static_start_date
-      if time==gravity.static_select_date
+      %update start/stop for static fields, i.e. those with v.time=gravity.static_start_date
+      if v.time==gravity.static_select_date
         %enforece static start date
         m.t=gravity.static_start_date;
         %duplicate model and set it to static stop date
@@ -604,21 +600,28 @@ classdef gravity < simpletimeseries
       file=strsplit(file,'_');
       out=time.ToDateTime([file{3},'T',file{4}(1:2),'0000'],'yyyyMMdd''T''HHmmss');
     end
-    function [m,e]=load_dir(dirname,format,date_parser,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
-      p.addRequired( 'dirname',     @ischar);
-      p.addRequired( 'format',      @ischar);
-      p.addRequired( 'date_parser', @(i) isa(i,'function_handle'));
-      p.addParameter('wildcarded_filename',['*.',format], @ischar);
-      p.addParameter('descriptor',        'unknown',     @ischar);
-      %NOTICE: start/stop is only used to avoid loading models outside a certain time range
-      p.addParameter('start', [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i))); 
-      p.addParameter('stop',  [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i)));
-      p.addParameter('overwrite_common_t',  false, @islogical);
-      p.parse(dirname,format,date_parser,varargin{:})
+    % load functions
+    % NOTICE: the single-file load functions generally do not accept common_ops arguments so that
+    %         the model parameters defined in the data files are honoured and cannot be overwriten
+
+    % NOTICE: unlike the single-file load functions, the load_dir function accepts common_ops arguments,
+    %         which are enforced after loading the individual data files, and saved in the datastorage
+    %         data products
+    function [m,e]=load_dir(varargin)
+      v=varargs.wrap('sources',{...
+        {...
+          'datadir',                '.', @ischar;...
+          'date_parser',        'gravity.parse_epoch_grace', @ischar;...
+          'wildcarded_filename','*.gfc', @ischar;...
+          'descriptor',              '', @ischar;...
+          'start',                   [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i));... %NOTICE: start/stop is only used to avoid loading models outside a certain time range
+          'stop',                    [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i));... %NOTICE: start/stop is only used to avoid loading models outside a certain time range
+          'overwrite_common_t',   false, @islogical;
+          'skip_common_ops',      false, @islogical;
+        },...
+      },varargin{:});
       %retrieve all gsm files in the specified dir
-      filelist=cells.scalar(file.unwrap(fullfile(dirname,p.Results.wildcarded_filename)),'set');
+      filelist=file.unwrap(fullfile(v.datadir,v.wildcarded_filename));
       assert(~isempty(filelist{1}),['Need valid dir, not ''',fileparts(filelist{1}),'''.'])
       %this counter is needed to report the duplicate models correctly
       c=0;init_flag=true;
@@ -628,7 +631,7 @@ classdef gravity < simpletimeseries
         [~,~,ext]=fileparts(filelist{i});
         if cells.isincluded({'.png','.yaml'},ext); c=c+1; continue; end
         %get time of the model in this file
-        if strcmpi(func2str(p.Results.date_parser),'static')
+        if strcmpi(v.date_parser,'static')
           %if a static field is requested, there should be only one file
           if numel(filelist)~= 1
             error([mfilename,': when requested a static field, can only handle a single file, not ',...
@@ -637,9 +640,10 @@ classdef gravity < simpletimeseries
           %patch missing start epoch (static fields have no epoch)
           t=gravity.static_select_date;
         else
-          t=p.Results.date_parser(filelist{i});
+          f_date_parser=str2func(v.date_parser);
+          t=f_date_parser(filelist{i});
           %skip if this t is outside the required range (or invalid)
-          if isempty(t) || ( time.isfinite(p.Results.start) && time.isfinite(p.Results.stop) && (t<p.Results.start || p.Results.stop<t) )
+          if isempty(t) || ( time.isfinite(v.start) && time.isfinite(v.stop) && (t<v.start || v.stop<t) )
             c=c+1; continue
           end
         end
@@ -649,40 +653,48 @@ classdef gravity < simpletimeseries
         %load the data
         if init_flag
           %init output objects
-          [m,e]=gravity.load(filelist{i},p.Results.format,t);
+          [m,e]=gravity.load(filelist{i},'time',t);
           %init no more
           init_flag=false;
+
         else
           %use temp container
-          [m1,e1]=gravity.load(filelist{i},p.Results.format,t);
+          [m1,e1]=gravity.load(filelist{i},'time',t);
           %check if there are multiple models defined at the same epoch
           if any(m.istavail(m1.t))
             %find the model with the same epoch that has already been loaded
             [~,f_saved  ]=fileparts(filelist{m.idx(m1.t)+c});
-            if p.Results.overwrite_common_t
+            if v.overwrite_common_t
               disp(['Replacing ',f_saved,' with ',f,' (same epoch).'])
             else
               disp(['Ignoring ',f,' because this epoch was already loaded from model ',f_saved,'.'])
               c=c+1; continue
-            end              
+            end
           end
           %ensure R and GM are compatible append to output objects
           m1=m1.scale(m);
-          m=m.append(m1.set_lmax(m.lmax),p.Results.overwrite_common_t);
+          m=m.append(m1.set_lmax(m.lmax),v.overwrite_common_t);
           %same for error models, if there
           if ~isempty(e1)
             e1=e1.scale(e);
-            e=e.append(e1.set_lmax(e.lmax),p.Results.overwrite_common_t);
+            e=e.append(e1.set_lmax(e.lmax),v.overwrite_common_t);
           end
         end
       end
       %fix some parameters
-      m.origin=dirname;
-      e.origin=dirname;
-      m.descriptor=p.Results.descriptor;
-      e.descriptor=['error of ',p.Results.descriptor];
+      m.origin=v.datadir;
+      e.origin=v.datadir;
+      if ~isempty(v.descriptor)
+        m.descriptor=v.descriptor;
+        e.descriptor=['error of ',v.descriptor];
+      end
+      %enforce common ops
+      if ~v.skip_common_ops
+        m=gravity.common_ops('all',m,varargin{:});
+        e=gravity.common_ops('all',e,varargin{:});
+      end
     end
-    %% retrieves the Monthly estimates of C20 from 5 SLR satellites based on GRACE RL05/RL06 models
+%% retrieves the Monthly estimates of C20 from 5 SLR satellites based on GRACE RL05/RL06 models
     function out=graceC20(varargin)
       %parse arguments that are required later
       v=varargs.wrap('sources',{...
@@ -1224,7 +1236,13 @@ classdef gravity < simpletimeseries
       p=machinery.inputParser;
       p.addParameter('datadir',fullfile(getenv('HOME'),'data','csr','RL05'),@(i) ischar(i) && exist(i,'dir')~=0)
       p.parse(varargin{:})
-      [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wildcarded_filename','*.GEO.*',varargin{:});
+      [m,e]=gravity.load_dir(...
+        'datadir',p.Results.datadir,...
+        'format','csr',...
+        'date_parser','gravity.parse_epoch_csr',...
+        'wildcarded_filename','*.GEO.*',...
+        varargin{:}...
+      );
     end
     function [m,e]=CSR_Mascons(varargin)
       p=machinery.inputParser;
@@ -1238,7 +1256,13 @@ classdef gravity < simpletimeseries
         disp(['Loading all RL',p.Results.RL,' Mascons from ',datafile,'...'])
         load(datafile,'m','e')
       else
-        [m,e]=gravity.load_dir(p.Results.datadir,'csr',@gravity.parse_epoch_csr,'wildcarded_filename','*.GEO',varargin{:});
+        [m,e]=gravity.load_dir(...
+          'datadir',p.Results.datadir,...
+          'format','csr',...
+          'date_parser','gravity.parse_epoch_csr',...
+          'wildcarded_filename','*.GEO',...
+          varargin{:}...
+        );
         switch p.Results.RL
           case '05'
             s=gravity.static('GIF48');
@@ -1269,7 +1293,7 @@ classdef gravity < simpletimeseries
         otherwise
           error(['Cannot handle static model ''',model,'''.'])
       end
-      [m,e]=gravity.load(datafile,fmt);
+      [m,e]=gravity.load(datafile,'format',fmt);
     end
     %% ESA's Earth System Model
     function out=ESA_MTM_dir(year,month,component)
@@ -1282,7 +1306,13 @@ classdef gravity < simpletimeseries
       p=machinery.inputParser;
       p.addParameter('datadir',gravity.ESA_MTM_dir(year,month,component),@(i) ischar(i) && exist(i,'dir')~=0)
       p.parse(varargin{:})
-      [m,e]=gravity.load_dir(p.Results.datadir,'esamtm',@gravity.parse_epoch_esamtm,'wildcarded_filename','mtmshc_*.180.mat',varargin{:});
+      [m,e]=gravity.load_dir(...
+        'datadir',p.Results.datadir,...
+        'format','esamtm',...
+        'date_parser','gravity.parse_epoch_esamtm',...
+        'wildcarded_filename','mtmshc_*.180.mat',...
+        varargin{:}...
+      );
     end
     function m=ESA_MTM_all(component,varargin)
       %init year-loop variables

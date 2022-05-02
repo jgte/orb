@@ -786,7 +786,7 @@ classdef simplegrid < simpletimeseries
       p.parse(lon,lat,varargin{:});
       %load the data
       fdat=fullfile(file.orbdir('auxiliary'),'wahr.global_ocn_kernel.txt');
-      oceanmask=gravity.load(fdat,'mod').grid;
+      oceanmask=gravity.load(fdat,'format','mod').grid;
       %resample to requested resolution
       if isscalar(lon) && isscalar(lat)
         obj=oceanmask.spatial_resample(lon,lat);
