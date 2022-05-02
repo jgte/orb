@@ -234,7 +234,7 @@ classdef gravity < simpletimeseries
       for i=1:size(mod,1)
         out.C(mod(i,1)+1,mod(i,2)+1) = mod(i,3);
         out.S(mod(i,1)+1,mod(i,2)+1) = mod(i,4);
-      end          
+      end
     end
     %% agregator routines
     %data type converter
@@ -336,7 +336,7 @@ classdef gravity < simpletimeseries
     end
     function [l,u]=labels(lmax,units_str)
       map=gravity.mapping(lmax);
-      l=cell(1,size(map,1));
+      l=cell(1,size(map,2));
       for i=1:size(map,2)
         if map(2,i)<0
           l{i}=['S',num2str(map(1,i)),',',num2str(-map(2,i))];
@@ -360,7 +360,7 @@ classdef gravity < simpletimeseries
       end
       out=find(out);
     end
-    %% constructors 
+    %% constructors
     function obj=unit(lmax,varargin)
       %create argument object, declare and parse parameters, save them to obj
       v=varargs.wrap('sources',{gravity.parameters('obj'),...
@@ -502,6 +502,7 @@ classdef gravity < simpletimeseries
         end
       end
     end
+    % epoch-parsing functions, needed by the load functions below
     function out=parse_epoch_grace(filename)
       [~,f]=fileparts(filename);
       %GSM-2_2015180-2015212_0027_JPLEM_0001_0005.gsm
@@ -957,7 +958,7 @@ classdef gravity < simpletimeseries
         out='radius';
       else
         out='deg';
-      end      
+      end
     end
     function out=gauss_smoothing_degree_translate(in)
       switch gravity.gauss_smoothing_type(in)
@@ -1001,7 +1002,7 @@ classdef gravity < simpletimeseries
       if year<1000
         year=year+2000;
       end
-      persistent CSR_RL05_date_table 
+      persistent CSR_RL05_date_table
       if isempty(CSR_RL05_date_table)
         fid=file.open(p.Results.EstimDirs_file);
         d=textscan(fid,'%d %f %s %s %s %s %s %s %f %f');
@@ -1378,6 +1379,13 @@ classdef gravity < simpletimeseries
   methods
     %% constructor
     function obj=gravity(t,y,varargin)
+      %NOTICE: notable arguments that may be a good idea to pass:
+      % - 'GM'
+      % - 'R'
+      % - 'descriptor'
+      % - 'tide_system'
+      % - 'origin'
+      % - 'start'/'stop'
       % input parsing
       p=machinery.inputParser;
       p.addRequired( 't' ); %this can be char, double or datetime
@@ -1676,7 +1684,7 @@ classdef gravity < simpletimeseries
         'timesystem',obj.timesystem,...
         'units',units(idx),...
         'descriptor',obj.descriptor...
-      );    
+      );
     end
     function obj=setC(obj,d,o,values,time)
       if ~exist('time','var') || isempty(time)
@@ -1837,7 +1845,7 @@ classdef gravity < simpletimeseries
     end
     % Gaussan smoothing scaling
     function s=scale_gauss(obj,fwhm_degree)
-      % translate smoothing radius to degree (criteria inside) 
+      % translate smoothing radius to degree (criteria inside)
       fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
       %NOTICE: gravity.gauss_smoothing_degree_translate(0) will assume the input is in degrees
       %        which should mean infinite smoothing, but generally the 0 will actually refer
@@ -1864,7 +1872,7 @@ classdef gravity < simpletimeseries
       if ~exist('width_degree','var') || isempty(width_degree)
         width_degree=5;
       end
-      % translate smoothing radius to degree (criteria inside) 
+      % translate smoothing radius to degree (criteria inside)
       fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
       %NOTICE: usually smoothing up to degree zero would mean zeroing the data
       %        but the convention here is that is means no smoothing.
@@ -1882,7 +1890,7 @@ classdef gravity < simpletimeseries
         s(1:w0)=1;
       end
       if width_degree<=0
-        s_transition=0.5;  
+        s_transition=0.5;
       else
         s_transition=spline([1 (2*width_degree+1)],[0 1 0 0],1:(2*width_degree+1));
       end
@@ -1895,7 +1903,7 @@ classdef gravity < simpletimeseries
         [mfilename,': found NaNs in the output. Debug needed!'])
     end
     function s=scale_trunc(obj,fwhm_degree)
-      % translate smoothing radius to degree (criteria inside) 
+      % translate smoothing radius to degree (criteria inside)
       fwhm_degree=gravity.gauss_smoothing_degree_translate(fwhm_degree);
       %https://en.wikipedia.org/wiki/Gaussian_function#Properties
       s=[ones(1,min([fwhm_degree+1,obj.lmax+1])),zeros(1,obj.lmax-fwhm_degree)];
@@ -2017,7 +2025,7 @@ classdef gravity < simpletimeseries
           'timesystem',obj.timesystem,...
           'units',{obj.functional_unit},...
           'descriptor',[title,' @ degree ',num2str(l),' of ',obj.descriptor]...
-        );    
+        );
       else
         assert(size(d,2)==l+1,['Input ''d'' must have ',num2str(l+1),' columns, not ',num2str(size(d,2))])
         ts=simpletimeseries(...
@@ -2376,7 +2384,7 @@ classdef gravity < simpletimeseries
         'colormap',  '',       @(i) ischar(i) || ismatrix(i);...
         'degrees',[2,3],       @isnumeric;...
         'orders', [0,0],       @isnumeric;...
-      }},varargin{:}); 
+      }},varargin{:});
       % enforce requested functional
       if ~strcmpi(obj.funct,v.functional)
         obj=obj.scale(v.functional,'functional');
@@ -2619,7 +2627,10 @@ classdef gravity < simpletimeseries
 end
 
 %% load interfaces
-function [m,e]=load_gsm(filename,time)
+% NOTICE: these functions generally do not accept varargin so that the model parameters
+%         defined in the data files are honoured and cannot be overwriten
+% NOTICE: for the reason above, it is a good idea to set 'skip_common_ops' to true when
+%         calling the gravity constructor
 function [m,e]=load_gsm(filename,time,varargin)
   %default time
   if ~exist('time','var') || isempty(time)
@@ -2789,7 +2800,7 @@ function [m,e]=load_csr(filename,time)
     mi.C(d,o)=str.num(s(13:33));
     mi.S(d,o)=str.num(s(34:54));
     ei.C(d,o)=str.num(s(55:65));
-    try 
+    try
       ei.S(d,o)=str.num(s(66:76));
     catch
       ei.S(d,o)=str.num(s(66:74));
