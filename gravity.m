@@ -1059,10 +1059,12 @@ classdef gravity < simpletimeseries
           if v.delete_C00
             mod=mod.setC(0,0,0);
           end
+            msg='done';
         case 'delete_C20'
           %remove C20 bias
           if v.delete_C20
             mod=mod.setC(2,0,0);
+            msg='done';
           end
         case 'start' %NOTICE: this is only done when loading the raw data (afterwards the matlab data is read directly, bypassing this routine altogher)
           if v.start~=time.zero_date
@@ -1073,7 +1075,7 @@ classdef gravity < simpletimeseries
               %trim extremeties (this is redundant unless data is saved before the start metadata is increased)
               mod=mod.trim(v.start,mod.stop);
             end
-            msg=['at ',datestr(v.start)];
+            msg=['set at ',datestr(v.start)];
           end
         case 'stop'  %NOTICE: this is only done when loading the raw data (afterwards the matlab data is read directly, bypassing this routine altogher)
           if v.stop~=time.inf_date
@@ -1084,7 +1086,7 @@ classdef gravity < simpletimeseries
               %trim extremeties (this is redundant unless data is saved before the stop metadata is decreased)
               mod=mod.trim(mod.start,v.stop);
             end
-            msg=['at ',datestr(v.stop)];
+            msg=['set at ',datestr(v.stop)];
           end
         case 'static_model'
           %remove static field (if requested)
@@ -1113,7 +1115,8 @@ classdef gravity < simpletimeseries
         otherwise
           error(['Cannot handle operantion ''',mode,'''.'])
         end
-        if v.show_msg;str.say(v.product_name,':',mode,msg);end
+        %only show a message if something happened
+        if ( ~isempty(msg) || v.debug ) && ~v.silent ;str.say(mod.descriptor,':',mode,msg);end
       end
     end
     %% model combination
