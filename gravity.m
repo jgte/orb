@@ -37,9 +37,9 @@ classdef gravity < simpletimeseries
       'rho_water',1000,          @num.isscalar;...      % water density [kg/m3]
       'G',        6.67408e-11,   @(i) (num.isscalar(i)) || isempty(i);...      % Gravitational constant [m3/kg/s2]
       'Rm',       6371000,       @(i) (num.isscalar(i)) || isempty(i);...      % Earth's mean radius [m]
-      'love',  [  0       0.000;...               
+      'love',  [  0       0.000;...
                   1       0.027;...
-                  2      -0.303;... 
+                  2      -0.303;...
                   3      -0.194;...
                   4      -0.132;...
                   5      -0.104;...
@@ -62,18 +62,19 @@ classdef gravity < simpletimeseries
         'functional',   'nondim', @(i) ischar(i) && any(strcmp(i,gravity.functionals)); %see above
         'zf_love', 0.30190,       @num.isscalar;...      % zero frequency Love number: reported in IERS2003 Section 6.3 as "k20"
         'pt_factor',1.391413e-08, @num.isscalar;...      % permanent tide factor: reported in IERS2003 Section 6.3 as "A0*H0", (4.4228e-8)*(0.31460)
+        'static_model',       '', @ischar;...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
-    compatible_parameter_list={'GM','R','functional','lmax'};
+    compatible_parameter_list={'GM','R','functional','lmax','static_model'};
   end
   properties(SetAccess=public)
     GM
     R
     functional
     origin
-    cdate
+    static_model
   end
   %calculated only when asked for
   properties(Dependent)
@@ -1036,7 +1037,7 @@ classdef gravity < simpletimeseries
           if v.start~=time.zero_date
             if v.start<mod.start
               %append extremeties
-              mod=mod.append(gravity.nan(mod.lmax,'t',v.start,'R',mod.R,'GM',mod.GM));
+              mod=mod.append(gravity.nan(mod.lmax,'t',v.start,'R',mod.R,'GM',mod.GM,'static_model',mod.static_model));
             elseif v.start>mod.start
               %trim extremeties (this is redundant unless data is saved before the start metadata is increased)
               mod=mod.trim(v.start,mod.stop);
@@ -1056,9 +1057,9 @@ classdef gravity < simpletimeseries
           end
         case 'static_model'
           %remove static field (if requested)
-          if ~strcmpi(v.static_model,'none') && strcmp(v.model_type,'signal')
-            %TODO: make this handle filenames as well, not only datastorage products
-            static=datastorage().init(v.static_model,'show_msg',false).data_get_scalar(datanames(v.static_model).append_field_leaf('signal'));
+          if ~str.none(v.static_model) && strcmp(v.model_type,'signal')
+            %load the static model
+            static=gravity.static(v.static_model);
             %adjust the start/stop
             switch static.length
             case 1
@@ -1074,7 +1075,8 @@ classdef gravity < simpletimeseries
             %make sure max degree matches
             static.lmax=mod.lmax;
             %subtract it
-            mod=mod-static.interp(mod.t);
+            mod=mod-static.scale(mod).interp(mod.t);
+            mod.static_model=upper(v.static_model);
             msg=[': subtracted ',v.static_model];
           end
         otherwise
@@ -1503,7 +1505,7 @@ classdef gravity < simpletimeseries
         disp('- print grid')
         m.grid.print
       case 'stats'
-        m=gravity.ggm05g.setC(0,0,0).setC(2,0,0);
+        m=gravity.static('GGM05C').setC(0,0,0).setC(2,0,0);
         for i={'dmean','cumdmean','drms','cumdrms','dstd','cumdstd','das','cumdas'}
           figure
           m.plot('method',i{1},'functional','geoid','title',[m.descriptor,' - ',i{1}]);
