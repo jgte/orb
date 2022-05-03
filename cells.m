@@ -60,6 +60,7 @@ classdef cells
           end
         end
         try
+          %TODO: replace obj.isequal with obj.eq and use the overloaded == operator here
           if ~c1{i}.isequal(c2{i})
             return
           else
