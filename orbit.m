@@ -158,35 +158,23 @@ classdef orbit
     function out=isframe(in)
       out=~isempty(orbit.translateframe(in));
     end
+    %NOTICE: satnames are: {satellite name}-{orbit type}-{processing center}
     function out=translatesat(in)
-      %define orbit types
-      orbit_types={'l1b','l2','kin'};
-      %assume there's no orbit type
-      orbit_type_now='';
-      %search for an orbit type specification
-      for i=1:numel(orbit_types)
-        if contains(in,['-',orbit_types{i}])
-          %save orbit type
-          orbit_type_now=orbit_types{i};
-          %remove it from input
-          in=strrep(in,['-',orbit_type_now],'');
-          %stop searching for more orbit types
-          break
-        end
-      end
+      in=strsplit(in,'-');
+      in=in{1};
       %search for satellite name
       switch lower(in)
         case {'champ','ch'}
           out='ch';
-        case {'grace-a','gracea','grace a','ga'}
+        case {'grace_a','gracea','grace a','ga'}
           out='ga';
-        case {'grace-b','graceb','grace b','gb'}
+        case {'grace_b','graceb','grace b','gb'}
           out='gb';
-        case {'swarm-a','swarma','swarm a','swma','sa','l47'}
+        case {'swarm_a','swarma','swarm a','swma','sa','l47'}
           out='sa';
-        case {'swarm-b','swarmb','swarm b','swmb','sb','l48'}
+        case {'swarm_b','swarmb','swarm b','swmb','sb','l48'}
           out='sb';
-        case {'swarm-c','swarmc','swarm c','swmc','sc','l49'}
+        case {'swarm_c','swarmc','swarm c','swmc','sc','l49'}
           out='sc';
         case {'goce','go'}
           out='go';
@@ -194,10 +182,6 @@ classdef orbit
           out=in;
         otherwise
           error(['cannot handle satellite ''',in,'''.'])
-      end
-      %append orbit type, if given
-      if ~isempty(orbit_type_now)
-        out=[out,'-',orbit_type_now];
       end
     end
     function out=translatesatname(in)
@@ -230,7 +214,31 @@ classdef orbit
 %           out='TODO!';
         otherwise
           out='unknown';
-          disp(['WARNING: could not resolve the SP3 id for satellite ''',in,'''.'])
+          warning(['Could not resolve the SP3 id for satellite ''',in,'''.'])
+      end
+    end
+    function out=translate_orbit_type(in)
+      in=strsplit(in,'-');
+      in=in{2};
+      %add more aliases/orbit types here if needed
+      switch lower(in)
+      case {'l1b','l1'}      ; out='l1b';
+      case {'l2','sp3xcom'}  ; out='l2';
+      case {'kin','sp3xkin'} ; out='kin';
+      otherwise
+        error(['cannot handle satellite ''',in,'''.'])
+      end
+    end
+    function out=translate_processing_center(in)
+      in=strsplit(in,'-');
+      in=in{3};
+      %add more aliases/orbit types here if needed
+      switch lower(in)
+      case {'tud','tudelft'}; out='tud';
+      case {'ifg','tug'}    ; out='ifg';
+      case 'aiub'           ; out='aiub';
+      otherwise
+        error(['cannot handle satellite ''',in,'''.'])
       end
     end
     %data source definitions
@@ -271,15 +279,11 @@ classdef orbit
         data_dir=orbit.parameters('data_dir');
       end
       switch orbit.translatesat(satname)
-        case 'sa-kin'
-          prefix='SWMA';
-        case 'sb-kin'
-          prefix='SWMB';
-        case 'sc-kin'
-          prefix='SWMC';
-        otherwise
-          error(['BUG TRAP: unknown AIUB orbit for satellite ''',satname,''', debug needed!'])
+      case 'sa'; prefix='SWMA';
+      case 'sb'; prefix='SWMB';
+      case 'sc'; prefix='SWMC';
       end
+      assert(strcmp(orbit.translate_orbit_type(satname),'kin'),'Can only handle kinematic orbits for ''aiub'' format')
       doy=time.FromDateTime(start,'yeardoysec');
       filename=[prefix,num2str(doy(1)-round(doy(1)/1e3)*1e3),num2str(doy(2),'%03d'),'_S20.KIN.gz'];
       dirname=fullfile(data_dir,'gswarm','aiub','orbit',num2str(year(start)));
@@ -289,16 +293,12 @@ classdef orbit
         data_dir=orbit.parameters('data_dir');
       end
       switch orbit.translatesat(satname)
-        case 'sa-kin'
-          prefix='SwarmA-kinematicOrbit';
-        case 'sb-kin'
-          prefix='SwarmB-kinematicOrbit';
-        case 'sc-kin'
-          prefix='SwarmC-kinematicOrbit';
-        otherwise
-          error(['BUG TRAP: unknown IfG orbit for satellite ''',satname,''', debug needed!'])
+      case 'sa'; prefix='SwarmA-kinematicOrbit';
+      case 'sb'; prefix='SwarmB-kinematicOrbit';
+      case 'sc'; prefix='SwarmC-kinematicOrbit';
       end
-      filename=[prefix,'-',num2str(year(start)),'-',num2str(month(start),'%02d'),'-',num2str(day(start),'%02d'),'.tar.gz'];
+      assert(strcmp(orbit.translate_orbit_type(satname),'kin'),'Can only handle kinematic orbits for ''ifg'' format')
+      filename=[prefix,'-',num2str(year(start)),'-',num2str(month(start),'%02d'),'-',num2str(day(start),'%02d'),'.txt.gz'];
       dirname=fullfile(data_dir,'gswarm','ifg','orbit','ascii',num2str(year(start)));
     end
     function [filename,dirname]=tudelft_filename(satname,start,data_dir)
@@ -306,39 +306,64 @@ classdef orbit
         data_dir=orbit.parameters('data_dir');
       end
       switch orbit.translatesat(satname)
-        case 'sa-kin'
-          prefix='SWARMA';
-        case 'sb-kin'
-          prefix='SWARMB';
-        case 'sc-kin'
-          prefix='SWARMC';
-        otherwise
-          error(['BUG TRAP: unknown TU Delft orbit for satellite ''',satname,''', debug needed!'])
+      case 'sa'; prefix='SWARMA';
+      case 'sb'; prefix='SWARMB';
+      case 'sc'; prefix='SWARMC';
       end
+      assert(strcmp(orbit.translate_orbit_type(satname),'kin'),'Can only handle kinematic orbits for ''tudelft'' format')
       doy=time.FromDateTime(start,'yeardoysec');
       filename=[prefix,'.',num2str(doy(1)-round(doy(1)/1e3)*1e3),'.',num2str(doy(2),'%03d'),'_KIPP.sigma.gz'];
       dirname=fullfile(data_dir,'gswarm','tudelft','orbit',num2str(year(start)));
     end
-    function [filename,dirname]=sp3xcom_filename(satname,start,data_dir)
+    function [filename,dirname]=swarm_filename(satname,start,data_dir)
       if ~exist('data_dir','var') || isempty(data_dir)
         data_dir=orbit.parameters('data_dir');
       end
       switch orbit.translatesat(satname)
-        case 'sa-l2'
-          prefix='SW_OPER_SP3ACOM_2__';
-        case 'sb-l2'
-          prefix='SW_OPER_SP3BCOM_2__';
-        case 'sc-l2'
-          prefix='SW_OPER_SP3CCOM_2__';
-        otherwise
-          error(['BUG TRAP: unknown SP3xCOM orbit for satellite ''',satname,''', debug needed!'])
+      case 'sa'; sat='A';
+      case 'sb'; sat='B';
+      case 'sc'; sat='C';
       end
-      s=num2str(60-sum(simpletimeseries.leap_seconds<start));
+      prefix='SW_OPER_SP3';
+      switch orbit.translate_orbit_type(satname)
+      case 'l2';  prefix=[prefix,sat,'COM_2__'];
+      case 'kin'; prefix=[prefix,sat,'KIN_2__'];
+      end
+      s=num2str(60-sum(time.leap_seconds<start));
       filename=[prefix,...
         datestr(start-days(1),'yyyymmdd'),'T2359',s,'_',...
         datestr(start,        'yyyymmdd'),'T2359',s,'_'....
-        '0101.DBL'];
+        '0101.ZIP'];
       dirname=fullfile(data_dir,'swarm','dissemination');
+    end
+    function [filename,dirname]=gswarm_filename(satname,start,data_dir)
+      if ~exist('data_dir','var') || isempty(data_dir)
+        data_dir=orbit.parameters('data_dir');
+      end
+      %build the filename
+      prefix='GSWARM_KO_S';
+      %add satellite
+      switch orbit.translatesat(satname)
+      case 'sa'; prefix=[prefix,'A'];
+      case 'sb'; prefix=[prefix,'B'];
+      case 'sc'; prefix=[prefix,'C'];
+      end
+      %this must be a kinematic orbit
+      assert(strcmp(orbit.translate_orbit_type(satname),'kin'),'Can only handle kinematic orbits for ''gswarm'' format')
+      %add processing center
+      prefix=[prefix,'_',upper(orbit.translate_processing_center(satname)),'_'];
+      %add time stamp
+      filename=[prefix,...
+        datestr(start,'yyyy-mm-dd'),'_',num2str(time.date2doy(datenum(start)),'%03d'),'_'....
+      ];
+      %append suffix
+      switch orbit.translate_processing_center(satname)
+      case 'tud' ; filename=[filename,'01.sigma.gz']; subdir='tudelft';
+      case 'ifg' ; filename=[filename,'06.txt.gz'  ]; subdir='ifg';
+      case 'aiub'; filename=[filename,'01.KIN.gz'  ]; subdir='aiub';
+      end
+      %define data dir
+      dirname=fullfile(data_dir,'gswarm',subdir,'orbit',num2str(year(start)));
     end
     %wrapper for the <format>_filename routines, transparent for different <format>s
     function out=filename(format,satname,start,varargin)
@@ -611,9 +636,9 @@ classdef orbit
       case 'duration'
         out=hours(3);
       case 'satname'
-        out='swarm-a-kin';
+        out='swarma-kin';
       case 'satname-l2'
-        out='swarm-a-l2';
+        out='swarma-l2';
       case {'tudelft','aiub','ifg'}
         out=orbit.import(...
           field,...
