@@ -46,6 +46,11 @@ classdef time
         'datetime'...
       }}...
     );
+    gps_zero_epoch='1980-01-06';
+  end
+  properties(Constant)
+    zero_date=datetime(0,  'ConvertFrom','datenum');
+     inf_date=datetime(Inf,'ConvertFrom','datenum');
     % table of leap seconds since 6 Jan 1980:
     leap_seconds=[...
       datetime('1981-07-01'),... 1981  Jul.   1  - 1s
@@ -67,11 +72,6 @@ classdef time
       datetime('2015-07-01')...  2015  Jul.   1  - 1s
       datetime('2017-01-01')...  2017  Jan.   1  - 1s
     ];
-    gps_zero_epoch='1980-01-06';
-  end
-  properties(Constant)
-    zero_date=datetime(0,  'ConvertFrom','datenum');
-     inf_date=datetime(Inf,'ConvertFrom','datenum');
   end
   methods(Static)
     function test
