@@ -1916,8 +1916,10 @@ classdef gswarm
         'plot_legend_location','none'...
       );
       plotting.no_ticks;
-      file.ensuredir(plotname);
-      saveas(gcf,plotname);
+      if exist('plotname','var') && ~isempty(plotname)
+        file.ensuredir(plotname);
+        saveas(gcf,plotname);
+      end
     end
     function d=grace_animation(varargin) %TODO: move this to gravity.m (or grace.m)
       %need global project variable (forces the user to think about the context of this analysis)

@@ -1218,6 +1218,8 @@ classdef gravity < simpletimeseries
       if str.none(tide_system)
         return
       end
+      %internal parameter
+      debug=false;
       %branch on the tide system
       switch tide_system
       case {'zero_tide','zero tide'}
