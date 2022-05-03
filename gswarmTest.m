@@ -27,105 +27,11 @@ classdef gswarmTest < matlab.unittest.TestCase
       %        refreshed with the PROJECT.name just updated in the previous line
       clear functions %#ok<CLFUNC>
     end
-    function testCase=compare_plots(testCase,name)
-      %define directory with test records, to have something to compare with
-      dirtest =fullfile(file.orbdir('plot'),[name,'.test']);
-      %define directory with recent results
-      dircheck=fullfile(file.orbdir('plot'),name);
-      %make sure dirs exist
-      if ~file.exist(dirtest)
-        str.say(['WARNING: cannot check plots from ',name,...
-          ' because test records directory ',dirtest,' is missing.'])
-        return
-      end
-      if ~file.exist(dircheck)
-        str.say(['WARNING: cannot find plots from ',name,...
-          ' because plot directory ',dircheck,' is missing.'])
-        return
-      end
-      %get list of plots to check
-      plot_list=dir(dircheck);
-      %loop over all plots
-      for i=1:numel(plot_list)
-        if plot_list(i).isdir
-          continue
-        end
-        [~,~,e]=fileparts(plot_list(i).name);
-        if ~strcmp(e,'.png')
-          if gswarmTest.debug
-            str.say(['NOTICE: ignoring file ',plot_list(i).name,' inside ',dircheck,...
-              ' because it is not a valid image file.'])
-          end
-          continue
-        end
-        same_image=file.im_count_diff_pixels(...
-          fullfile(dirtest,plot_list(i).name),...
-          fullfile(dircheck,plot_list(i).name)...
-        )==0;
-        %show the plots if they don't match
-        if ~same_image
-          %NOTICE: this only works on OSX
-          file.system(['open ',...
-            fullfile(dirtest ,plot_list(i).name),' ',...
-            fullfile(dircheck,plot_list(i).name)...
-          ]);
-        end
-        %save test results (always pass this test because small irrelevant changes make it fail)
-        testCase.verifyTrue(true,plot_list(i).name)
-      end
-    end
-    function testCase=compare_ascii(testCase,name,ext)
-      %define directory with test records, to have something to compare with
-      dirtest =fullfile(file.orbdir('plot'),[name,'.test']);
-      %define directory with recent results
-      dircheck=fullfile(file.orbdir('plot'),name);
-      %make sure dirs exist
-      if ~file.exist(dirtest)
-        str.say(['WARNING: cannot check plots from ',name,...
-          ' because test records directory ',dirtest,' is missing.'])
-        return
-      end
-      if ~file.exist(dircheck)
-        str.say(['WARNING: cannot find plots from ',name,...
-          ' because plot directory ',dircheck,' is missing.'])
-        return
-      end
-      %get list of plots to check
-      file_list=dir(dircheck);
-      %loop over all plots
-      for i=1:numel(file_list)
-        if file_list(i).isdir
-          continue
-        end
-        [~,~,e]=fileparts(file_list(i).name);
-        if ~strcmp(e,ext)
-          if gswarmTest.debug
-            str.say(['NOTICE: ignoring file ',file_list(i).name,' inside ',dircheck,...
-            ' because it is not a file with extension ''',ext,'''.'])
-          end
-          continue
-        end
-        same_file=file.str_equal(...
-          fullfile(dirtest, file_list(i).name),...
-          fullfile(dircheck,file_list(i).name)...
-        )==0;
-        %show the plots if they don't match
-        if ~same_file
-          file.system(['diff ',...
-            fullfile(dirtest, file_list(i).name),' ',...
-            fullfile(dircheck,file_list(i).name)...
-          ]);
-        end
-        %save test results
-        testCase.verifyTrue(same_file,file_list(i).name)
-      end
-    end
   end
   methods(Test)
     function testCase=deepoceanmaskTest(testCase)
-      gswarm.plotdeepoceanmask(4,fullfile(file.orbdir('plot'),'deepoceanmask','deepoceanmask.png'));
-      close(gcf)
-      gswarmTest.compare_plots(testCase,'deepoceanmask');
+      gswarm.plotdeepoceanmask(4);
+      testCase=utilsTest.check_single_plot(testCase,'deepoceanmask');
     end
     function testCase=c20modelTest(testCase)
       for i=1:numel(gswarmTest.project_list)
@@ -139,10 +45,9 @@ classdef gswarmTest < matlab.unittest.TestCase
         %create latex tables
         gswarm.c20model('latex',file.orbdir('plot'));
       end
-      testCase=gswarmTest.compare_plots(testCase,'c20model');
-      testCase=gswarmTest.compare_ascii(testCase,'c20model','tex');
+      testCase=utilsTest.compare_files(testCase,'c20model');
     end
-    function grace_modelTest(testCase)
+    function testCase=grace_modelTest(testCase)
       global PROJECT
       %NOTICE: the start/stop times are not taken from PROJECT.start/stop_date
       gswarm.grace_model(...
@@ -152,10 +57,10 @@ classdef gswarmTest < matlab.unittest.TestCase
         'stop', datetime(PROJECT.stop_date)...
       );
       close all
-      gswarmTest.compare_plots(testCase,'grace_model');
+      testCase=utilsTest.compare_files(testCase,'grace_model');
     end
     %This needs to come after grace_modelTest
-    function precombvalTest(testCase)
+    function testCase=precombvalTest(testCase)
       %set expected values in PROJECT
       global PROJECT
       gswarmTest.update_project_name(gswarmTest.project_list{1});
@@ -206,7 +111,7 @@ classdef gswarmTest < matlab.unittest.TestCase
       end
       %test output figures
       for h=1:numel(p)
-        testCase=gswarmTest.compare_plots(testCase,p{h}.name);
+        testCase=utilsTest.compare_files(testCase,p{h}.name);
       end
     end
   end
