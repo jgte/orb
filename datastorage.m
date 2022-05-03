@@ -653,7 +653,7 @@ classdef datastorage
       % catch unvalid s_in
       time_vars=cells.respondto(s_cells,'start')&cells.respondto(s_cells,'stop');
       if all(~time_vars)
-        startlist=[];stoptlist=[];
+        startlist=[];stoplist=[];
       else
         % get list of start/stop dates from the data
         startlist=cells.c2m(cellfun(@(i) i.start,s_cells(time_vars),'UniformOutput',false));
@@ -709,7 +709,7 @@ classdef datastorage
       if isstruct(s_in)
         s_cells=structs.get_value_all(s_in);
       elseif iscell(s_in)
-        s_in=s_in(:);
+        s_cells=s_in(:);
       else
         s_cells={s_in};
       end
@@ -1081,30 +1081,30 @@ classdef datastorage
       if product.is_wrapped
         %TODO: fix the swarm_sh_gswarm_rl01_err_smooth, grace_sh_rl06_csr_pd_ts_smooth and grace_sh_rl06_csr_err_smooth products
         error('needs revision')
-        obj.log('@','in','product',product,'product type','wrapped')
-        %clear field path, so that when a product is called with field path, the data is not loaded into a mess such as 
-        %swarm.sh.gswarm.rl01.err.smooth/smoothing_degree_0/smoothing_degree_300
-        product_no_fp=product;product_no_fp.dataname=product_no_fp.dataname.set_field_path({});
-        %unwarp products 
-        product_list=dataproduct.unwrap_product({product_no_fp});
-        %maybe need to prepend some source fields
-        if product.ismdfield('source_fields_from')
-          %get field path to prepend (from specified source product)
-          prepend_product=product_from_source_leafs(obj,{product});
-          %make room for outputs
-          product_list_out=cell(numel(product_list),numel(prepend_product));
-          %prepend the field path of the prepend_product to all elements of the product list
-          for i=1:numel(product_list)
-            for j=1:numel(prepend_product)
-              product_list_out{i,j}=product_list{i};
-              product_list_out{i,j}.dataname=product_list{i}.dataname.prepend_field_root(...
-                prepend_product{j}.dataname.field_path...
-              );
-            end
-          end
-          %assign outputs
-          product_list=product_list_out(:);
-        end
+%         obj.log('@','in','product',product,'product type','wrapped')
+%         %clear field path, so that when a product is called with field path, the data is not loaded into a mess such as 
+%         %swarm.sh.gswarm.rl01.err.smooth/smoothing_degree_0/smoothing_degree_300
+%         product_no_fp=product;product_no_fp.dataname=product_no_fp.dataname.set_field_path({});
+%         %unwarp products 
+%         product_list=dataproduct.unwrap_product({product_no_fp});
+%         %maybe need to prepend some source fields
+%         if product.ismdfield('source_fields_from')
+%           %get field path to prepend (from specified source product)
+%           prepend_product=product_from_source_leafs(obj,{product});
+%           %make room for outputs
+%           product_list_out=cell(numel(product_list),numel(prepend_product));
+%           %prepend the field path of the prepend_product to all elements of the product list
+%           for i=1:numel(product_list)
+%             for j=1:numel(prepend_product)
+%               product_list_out{i,j}=product_list{i};
+%               product_list_out{i,j}.dataname=product_list{i}.dataname.prepend_field_root(...
+%                 prepend_product{j}.dataname.field_path...
+%               );
+%             end
+%           end
+%           %assign outputs
+%           product_list=product_list_out(:);
+%         end
       elseif product.mdget('explicit_fields','default',false) %|| product.mdget('plot_product','default',false) (this breaks expanding plot product fields)
         obj.log('@','in','product',product,'product type','explicit fields')
         %the handling of the data flow between source products and this product is handled explicitly in the product method
@@ -1223,7 +1223,6 @@ classdef datastorage
     function source_list=source_leafs(obj,id_list)
       if iscell(id_list)
         id_list=cells.flatten(cellfun(@obj.source_leafs,id_list,'UniformOutput',false));
-        return
       end
       obj.log('@','in','id_list',id_list)
       %type conversion
@@ -1723,9 +1722,9 @@ classdef datastorage
             end
           end
         end
-        %save the legend 
-        v.plot_legend=legend_str;
       end
+      %save the legend 
+      v.plot_legend=legend_str;
     end
     function v=plot_title( ~,~,dn_list,v)
       v=v.append(varargs(plotting.default).isolate({...
@@ -2213,64 +2212,64 @@ classdef datastorage
       obj=obj.data_set(product,out);
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
-    function obj=corr(obj,product,varargin)
-      error('implementation needed')
-      % parse mandatory arguments
-      p=machinery.inputParser;
-      p.addRequired('product', @(i) isa(i,'dataproduct'));
-      p.parse(product);
-      %sanity
-      if product.nr_sources~=1
-        error([mfilename,': number of sources in product ',product.dataname,...
-          ' is expected to be 1, not ',num2str(product.nr_sources),'.'])
-      end
-      %retrieve source and part lists
-      sourcep=obj.product_get(product.sources(1),varargin{:});
-      [~,levels,fields,sats]=sourcep.partslist;
-      %check if data is already there
-      if ~product.isfile('data')
-        %loop over all data
-        for i=1:numel(levels)
-          for j=1:numel(fields)
-            %retrive data for both satellites
-            d=obj.field_get(sourcep.dataname.type,levels{i},fields{j});
-            %can only deal with two sats at the moment
-            if numel(fieldnames(d))~=2
-              error([mfilename,': can only deal with two sats at the moment. Implementation needed!'])
-            end
-            %compute stats
-            stats_data=simpletimeseries.stats2(...
-              d.(sats{1}),...
-              d.(sats{2}),...
-              'period',product.mdget('period'),...
-              'overlap',product.mdget('overlap'),...
-              'outlier_iter',product.mdget('outlier_iter'),... 
-              'detrend',product.mdget('detrend'),...
-              'struct_fields',product.mdget('stats')...
-            );
-            %loop over all requested stats
-            stats_fields=fieldnames(stats_data);
-            for si=1:numel(stats_fields)
-              %save stats in 'sat' names given by the requested stats name
-              obj=obj.sat_set(...
-                product.dataname.type,levels{i},fields{j},stats_fields{si},...
-                stats_data.(stats_fields{si})...
-              );
-            end
-          end
-        end
-        %save data
-        s=obj.datatype_get(product.dataname.type); %#ok<*NASGU>
-        save(char(product.file('data')),'s');
-        clear s
-      else
-        %load data
-        load(char(product.file('data')),'s');
-        for i=1:numel(levels)
-          obj=obj.level_set(product.dataname.type,levels{i},s.(levels{i}));
-        end
-      end
-    end
+%     function obj=corr(obj,product,varargin)
+%       error('implementation needed')
+%       % parse mandatory arguments
+%       p=machinery.inputParser;
+%       p.addRequired('product', @(i) isa(i,'dataproduct'));
+%       p.parse(product);
+%       %sanity
+%       if product.nr_sources~=1
+%         error(['number of sources in product ',product.dataname,...
+%           ' is expected to be 1, not ',num2str(product.nr_sources),'.'])
+%       end
+%       %retrieve source and part lists
+%       sourcep=obj.product_get(product.sources(1),varargin{:});
+%       [~,levels,fields,sats]=sourcep.partslist;
+%       %check if data is already there
+%       if ~product.isfile('data')
+%         %loop over all data
+%         for i=1:numel(levels)
+%           for j=1:numel(fields)
+%             %retrive data for both satellites
+%             d=obj.field_get(sourcep.dataname.type,levels{i},fields{j});
+%             %can only deal with two sats at the moment
+%             if numel(fieldnames(d))~=2
+%               error('can only deal with two sats at the moment. Implementation needed!')
+%             end
+%             %compute stats
+%             stats_data=simpletimeseries.stats2(...
+%               d.(sats{1}),...
+%               d.(sats{2}),...
+%               'period',product.mdget('period'),...
+%               'overlap',product.mdget('overlap'),...
+%               'outlier_iter',product.mdget('outlier_iter'),... 
+%               'detrend',product.mdget('detrend'),...
+%               'struct_fields',product.mdget('stats')...
+%             );
+%             %loop over all requested stats
+%             stats_fields=fieldnames(stats_data);
+%             for si=1:numel(stats_fields)
+%               %save stats in 'sat' names given by the requested stats name
+%               obj=obj.sat_set(...
+%                 product.dataname.type,levels{i},fields{j},stats_fields{si},...
+%                 stats_data.(stats_fields{si})...
+%               );
+%             end
+%           end
+%         end
+%         %save data
+%         s=obj.datatype_get(product.dataname.type); %#ok<*NASGU>
+%         save(char(product.file('data')),'s');
+%         clear s
+%       else
+%         %load data
+%         load(char(product.file('data')),'s');
+%         for i=1:numel(levels)
+%           obj=obj.level_set(product.dataname.type,levels{i},s.(levels{i}));
+%         end
+%       end
+%     end
 %     %% usefull stuff
 %     function [sourcep,df]=dataflow(obj,product)
 %       %retrive source metadata

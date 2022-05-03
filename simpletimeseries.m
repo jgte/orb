@@ -539,34 +539,34 @@ classdef simpletimeseries < simpledata
             simpletimeseries.test(i{1},l);
           end
         case 'component_split'
-          %TODO: update this test, it's not in agreement with the new implementation of the relevant methods
-          error('unfinished')
-          a=simpletimeseries.randn(t,w,args{:});
-          a=a.scale(0.05);
-          idx=2:4;
-          for i=1:numel(idx)
-            as=simpletimeseries.sin(t,days(l/3)/idx(i)*ones(1,w),args{:});
-            as=as.scale(rand(1,w));
-            a=a+as;
-          end
-          a.descriptor='original';
-          a.component_split_plot(days(l/3)./idx,'columns',1);
-          return
-          i=0;c=1;
-          i=i+1;h{i}=figure('visible','on');
-          a.plot('column',c)
-          [m,s,segs]=a.component_ampl(days(2*l/5));
-          for si=1:numel(segs)
-            i=i+1;h{i}=figure('visible','on');
-            segs{si}.plot('column',c)
-          end
-          i=i+1;h{i}=figure('visible','on');
-          plot(m(:,1))
-          title('mean')
-
-          i=i+1;h{i}=figure('visible','on');
-          plot(s(:,1))
-          title('std')
+%           %TODO: update this test, it's not in agreement with the new implementation of the relevant methods
+%           error('unfinished')
+%           a=simpletimeseries.randn(t,w,args{:});
+%           a=a.scale(0.05);
+%           idx=2:4;
+%           for i=1:numel(idx)
+%             as=simpletimeseries.sin(t,days(l/3)/idx(i)*ones(1,w),args{:});
+%             as=as.scale(rand(1,w));
+%             a=a+as;
+%           end
+%           a.descriptor='original';
+%           a.component_split_plot(days(l/3)./idx,'columns',1);
+%           return
+%           i=0;c=1;
+%           i=i+1;h{i}=figure('visible','on');
+%           a.plot('column',c)
+%           [m,s,segs]=a.component_ampl(days(2*l/5));
+%           for si=1:numel(segs)
+%             i=i+1;h{i}=figure('visible','on');
+%             segs{si}.plot('column',c)
+%           end
+%           i=i+1;h{i}=figure('visible','on');
+%           plot(m(:,1))
+%           title('mean')
+% 
+%           i=i+1;h{i}=figure('visible','on');
+%           plot(s(:,1))
+%           title('std')
         case 'calibrate_poly'
           a=simpletimeseries.sin(t,days(l./(1:w)),args{:});
           bn=simpletimeseries.randn(t,w,args{:});

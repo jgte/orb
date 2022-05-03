@@ -403,7 +403,7 @@ classdef orbit
       % retrieve the ascii format from the first line of the file, if not given in input arguments.
       if isempty(p.Results.asciiformat)
         %read first line of file
-        [fid,~,~,errmsg] = file.open(filename);
+        fid=file.open(filename);
         hline = fgetl(fid);
         fclose(fid);
         %assign format ID

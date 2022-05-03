@@ -191,9 +191,9 @@ classdef simplefreqseries < simpletimeseries
         obj.plot('columns',c,'line',{'-+'})
         legend('white noise','colored noise ifft','colored noise interp');
         subplot(3,1,3)
-        hi=histogram(yi(:,c)); hold on
-        ho=histogram(yo(:,c));
-        hn=histogram(obj.y(:,c));
+        histogram(yi(:,c)); hold on
+        histogram(yo(:,c));
+        histogram(obj.y(:,c));
         legend('white noise','colored noise ifft','colored noise interp');
       end
     end

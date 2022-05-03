@@ -513,6 +513,7 @@ i=i+1;dh{i}= '+eoh______';
       test_list={'import'};
       switch(method)
         case 'all'
+          out=cell(numel(test_list));
           for i=1:numel(test_list)
             out{i}=grace.test(test_list{i});
           end

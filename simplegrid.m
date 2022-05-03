@@ -1610,8 +1610,8 @@ classdef simplegrid < simpletimeseries
         if ~isempty(v.cutoff)
            y_now=spmask.y;
            switch lower(mode)
-           case 'land';  if v.buffer>0; idx=y_now>1-v.cutoff; else idx=y_now>v.cutoff; end
-           case 'ocean'; if v.buffer<0; idx=y_now>1-v.cutoff; else idx=y_now>v.cutoff; end
+           case 'land';  if v.buffer>0; idx=y_now>1-v.cutoff; else; idx=y_now>v.cutoff; end
+           case 'ocean'; if v.buffer<0; idx=y_now>1-v.cutoff; else; idx=y_now>v.cutoff; end
            end
            y_now(idx)=1;
            y_now(~idx)=0;
@@ -1619,7 +1619,7 @@ classdef simplegrid < simpletimeseries
         end
         %enforce mode
         switch lower(mode)
-        case 'land';  %do nothing
+        case 'land'  %do nothing
         case 'ocean'; spmask=spmask.assign(1-spmask.y);
         otherwise; error(['Cannot handle the spatial mask ''',mode,'''.'])
         end
@@ -2131,7 +2131,7 @@ function out_grid = grid_constructor(varargin)
 
   % Flag inputs coming from the parser
   % NOTE: Maybe this can be done with the parser.UsingDefaults property
-  isDefaultXlist = any(strcmp(p.UsingDefaults,'xlist'));
+%   isDefaultXlist = any(strcmp(p.UsingDefaults,'xlist'));
   isDefaultUnits = any(strcmp(p.UsingDefaults,'Units'));
   isDefaultDate  = any(strcmp(p.UsingDefaults,'Date'));
   isDefaultDescription = any(strcmp(p.UsingDefaults,'Description'));
@@ -2733,7 +2733,7 @@ function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapL
           set(gca,'YDir','reverse');
           %ploting coastline
           if coastFlag
-              load coast
+              load('coast','lat','long')
               plot3(long,lat,ones(size(lat))*max(gvals(:))+1,line_color,'LineWidth',line_width)
           end
       case {'surf','surface'}
@@ -2741,14 +2741,14 @@ function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapL
           shading interp, view([0 90]), axis tight
           %ploting coastline
           if coastFlag
-              load coast
+              load('coast','lat','long')
               plot3(long,lat,ones(size(lat))*max(gvals(:)),line_color,'LineWidth',line_width)
           end
       case 'contour'
           contourf(glon,glat,gvals), hold on
           %ploting coastline
           if coastFlag
-              load coast
+              load('coast','lat','long')
               plot(long,lat,line_color,'LineWidth',line_width)
           end
       case '3d'
@@ -2763,7 +2763,7 @@ function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapL
           if coastFlag
               offset = 0.02;
               line_width=2;
-              load coast
+              load('coast','lat','long')
               % Find the nearest points in the grid
               idxLon = num_map(glon(1,:),long);
               idxLat = num_map(glat(:,1),lat);
@@ -2801,7 +2801,7 @@ function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapL
           geoshow(ax,glat,glon,gvals,'DisplayType','texturemap')
           %ploting coastline
           if coastFlag
-              load coast
+              load('coast','lat','long')
               geoshow(ax,lat, long,'LineWidth',line_width,'Color',line_color)
           end
   end

@@ -19,14 +19,14 @@ classdef nrtdm_metadata
         '-','_'...
       );
     end
-    function test
-      if ~file.exist(nrtdm.config_dir)
-        disp([mfilename,':WARNING: cannot find NRTDM config dir: ',nrtdm_product.config_dir,'. Skipping test.'])
-        return
-      end
-      a=nrtdm_metadata('SC_Basic/Quaternion_Interpolated');
-      %TODO: finish this test
-    end
+%     function test
+%       if ~file.exist(nrtdm.config_dir)
+%         warning(['cannot find NRTDM config dir: ',nrtdm_product.config_dir,'. Skipping test.'])
+%         return
+%       end
+%       a=nrtdm_metadata('SC_Basic/Quaternion_Interpolated');
+%       %TODO: finish this test
+%     end
   end
   methods
     function obj=nrtdm_metadata(product_name,debug)  
