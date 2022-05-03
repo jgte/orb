@@ -2,13 +2,18 @@
 classdef utilsTest
   properties(Constant)
     debug=true;
+    testdir_out=fullfile(file.orbdir('test'),'out');
+    testdir_in =fullfile(file.orbdir('test'),'in')
   end
   methods(Static)
+    function out=dirin(test)
+      out=fullfile(utilsTest.testdir_in,test);
+    end
     function out=dirtest(test)
-      out=fullfile(file.orbdir('plot'),[test,'.test']);
+      out=fullfile(utilsTest.testdir_out,[test,'.test']);
     end
     function out=dircheck(test)
-      out=fullfile(file.orbdir('plot'),test);
+      out=fullfile(utilsTest.testdir_out,test);
     end
     %NOTICE: This utility should come after all plots are generated for a given test; the
     %        plots for this test are placed in the same directory and this utility loops
