@@ -255,8 +255,6 @@ classdef gravityTest < matlab.unittest.TestCase
       g=g.scale(750e3,'gauss').scale(functional,'functional');
       %convert to grid
       out=g.grid('spatial_step',2).center_resample;
-      %plot the grid (only the first one)
-      out.imagesc;
       %export to xyz format
       disp(['Grids saved to: ',utilsTest.dircheck(test)])
       out.xyz(fullfile(utilsTest.dircheck(test),['GSWARM_GF_SABC_COMBINED-',functional,'.xyz']))
