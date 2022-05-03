@@ -194,7 +194,7 @@ classdef time
       case {'centuries','century','cent','c'}
         out='cent';
       otherwise
-        disp([mfilename,':WARNING: unknown time units ''',in,'''. Using seconds.'])
+        warning(['unknown time units ''',in,'''. Using seconds.'])
         out = 's';
       end
     end
@@ -218,7 +218,7 @@ classdef time
         element_max=3;
       end
       if ~isscalar(seconds)
-        error([mfilename,': input must be scalar'])
+        error('input must be scalar')
       end
       if isnan(seconds)
         out='NaN';
@@ -286,7 +286,7 @@ classdef time
         end
       end
       if ~exist('s','var') || isempty(s) || ~isfield(s,'n')
-        error([mfilename,': need structure in argument ''s'' with field ''n'' (the loop total nr of iterations).']);
+        error('need structure in argument ''s'' with field ''n'' (the loop total nr of iterations).');
       end
       %defaults
       if ~isfield(s,'step')
@@ -626,7 +626,7 @@ classdef time
             break
           end
           if ~isdatetime(out)
-            error([mfilename,': can not understand time ',class(in),': ',in])
+            error(['can not understand time ',class(in),': ',in])
           end
         else
           out=datetime(in,'InputFormat',format_in);
@@ -650,7 +650,7 @@ classdef time
           end
           %catch when no format if found
           if ~isdatetime(out)
-            error([mfilename,': can not understand time ',class(in),': ',num2str(in)])
+            error(['can not understand time ',class(in),': ',num2str(in)])
           end
         else
           switch format_in %needs revision when adding new numeric format
@@ -673,22 +673,22 @@ classdef time
           case 'gpsweeksecond'
             cols=2;
             if size(in,2)~=cols
-              error([mfilename,': when format is ''',format_in,''', need input to have ',num2str(cols),' columns, not ',num2str(size(in,2)),'.'])
+              error(['when format is ''',format_in,''', need input to have ',num2str(cols),' columns, not ',num2str(size(in,2)),'.'])
             end
             if any(floor(in(:,1))~=in(:,1))
-              error([mfilename,': when format is ''',format_in,''', the first column must only contain integers.'])
+              error(['when format is ''',format_in,''', the first column must only contain integers.'])
             end
             out=datetime(time.gps2date(in(:,1),in(:,2)));
           case 'yeardoysec'
             cols=3;
             if size(in,2)~=cols
-              error([mfilename,': when format is ''',format_in,''', need input to have ',num2str(cols),' columns, not ',num2str(size(in,2)),'.'])
+              error(['when format is ''',format_in,''', need input to have ',num2str(cols),' columns, not ',num2str(size(in,2)),'.'])
             end
             if any(floor(in(:,1))~=in(:,1))
-              error([mfilename,': when format is ''',format_in,''', the first column must only contain integers.'])
+              error(['when format is ''',format_in,''', the first column must only contain integers.'])
             end
             if any(floor(in(:,2))~=in(:,2))
-              error([mfilename,': when format is ''',format_in,''', the second column must only contain integers.'])
+              error(['when format is ''',format_in,''', the second column must only contain integers.'])
             end
             tmp=datevec(datenum(in(:,1),1,1)+in(:,2)-1);       %year, month and day
             tmp(:,4) = floor(in(:,3)/3600);                    %hours
@@ -709,13 +709,13 @@ classdef time
         disp(['WARNING: format changed from ''',format_in,''' to ''',format_out,'''.'])
       end
       if ~isdatetime(out)
-        error([mfilename,': output must be datetime, not ',class(out),'. Debug needed!'])
+        error(['output must be datetime, not ',class(out),'. Debug needed!'])
       end
     end
     %this function performs the inverse convertion as 'ToDateTime'
     function out=FromDateTime(in,format)
       if ~isdatetime(in)
-        error([mfilename,': input must be datetime, not ',class(in),'. Debug needed!'])
+        error(['input must be datetime, not ',class(in),'. Debug needed!'])
       end
       if ~exist('format','var') || isempty(format)
         format='default';
@@ -831,7 +831,7 @@ classdef time
         end
         if any(abs(in-in_check)>crit)
           idx=find(abs(in-in_check)>crit,1,'first');
-          error([mfilename,': test failed for format ',i{1},':',10,...
+          error(['test failed for format ',i{1},':',10,...
             i{1},'  (in): ',num2str(in(idx,:)),10,...
             i{1},' (out): ',num2str(in_check(idx,:)),10,...
             'diff: ',num2str(abs(in(idx)-in_check(idx))),10,...
@@ -865,7 +865,7 @@ classdef time
         in_check=time.FromDateTime(out,format_here);
         dt=toc;
         if ~strcmp(in,in_check)
-          error([mfilename,': test failed for format ',i{1},10,in(1,:),10,in_check(1,:),10,'debug needed'])
+          error(['test failed for format ',i{1},10,in(1,:),10,in_check(1,:),10,'debug needed'])
         else
           out={'Format',i{1},'ok',num2str(round(n/dt)),'ops/sec'};
           j=2;out{j}=[out{j},repmat(' ',1,col_width(j)-length(out{j}))];

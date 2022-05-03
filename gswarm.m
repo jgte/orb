@@ -89,7 +89,7 @@ classdef gswarm
         case {'error','err','e'}
           obj=obj.data_set(dn.append_field_leaf(v.model_types{i}),e);
         otherwise
-          error([mfilename,': unknown model type ''',v.model_types{i},'''.'])
+          error(['unknown model type ''',v.model_types{i},'''.'])
         end
       end
     end

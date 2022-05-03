@@ -17,7 +17,7 @@ classdef nrtdm_product
   methods(Static)
     function test
       if exist(nrtdm.config_dir,'dir')
-        disp([mfilename,':WARNING: cannot find NRTDM config dir: ',nrtdm.config_dir,'. Skipping test.'])
+        warning(['cannot find NRTDM config dir: ',nrtdm.config_dir,'. Skipping test.'])
         return
       end
       %TODO: complete this test
@@ -35,7 +35,7 @@ classdef nrtdm_product
       obj.sep_index=strfind(product_name,'/');
       %sanity
       if (numel(obj.sep_index) < 1) || (numel(obj.sep_index) > 2)
-        error([mfilename,'Can not handle product ''',obj.str,'''.'])
+        error(['Can not handle product ''',obj.str,'''.'])
       end
       if numel(obj.sep_index)==1
         obj.sep_index=[obj.sep_index,length(product_name)+1];
@@ -76,7 +76,7 @@ classdef nrtdm_product
       if (obj.debug); disp(['start:',current_method]); end
       out=fullfile(nrtdm.config_dir,[obj.category,'.products.txt']);
       if ~exist(out,'file')
-        error([mfilename,': Cannot find metadata files ''',out,'''.'])
+        error(['Cannot find metadata files ''',out,'''.'])
       end
       if (obj.debug); disp(['end  :',current_method,':',out]); end
     end

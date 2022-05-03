@@ -14,14 +14,14 @@ classdef datanames
   end
   methods(Static)
     function out=array(in,varargin)
-      assert(iscell(in),[mfilename,': cannot handle input ''in'' of class ',class(in),', expecting a cell array.'])
+      assert(iscell(in),[' cannot handle input ''in'' of class ',class(in),', expecting a cell array.'])
       if isempty(in)
         out={};
       else
         in=cells.scalar(in,'set');
         out=cellfun(@(i)datanames(i,varargin{:}),in,'UniformOutput',false);
       end
-%       assert(iscell(in),[mfilename,': cannot handle input ''in'' of class ',class(in),', expecting a cell array.'])
+%       assert(iscell(in),[' cannot handle input ''in'' of class ',class(in),', expecting a cell array.'])
 %       if isempty(in)
 %         out={};
 %       else
@@ -90,7 +90,7 @@ classdef datanames
       case 'dataproduct'
         obj=in.dataname;
       otherwise
-        error([mfilename,': cannot handle input ''in'' of class ',class(in),'.'])
+        error(['cannot handle input ''in'' of class ',class(in),'.'])
       end
       %add field_path, if there
       if exist('field_path','var') && ~isempty(field_path)
@@ -278,7 +278,7 @@ classdef datanames
     end
     function filecheck(obj,varargin)
       if ~obj.isfile(varargin{:})
-        error([mfilename,': for product ',obj.name,', could not find the following file: ',obj.file(varargin{:})])
+        error(['for product ',obj.name,', could not find the following file: ',obj.file(varargin{:})])
       end
     end
     %% operator overloading

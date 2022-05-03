@@ -82,10 +82,10 @@
               num2str(i),' has different data in common epochs.'])
           end
         case {'remove','clear','clean'}
-          disp([mfilename,': WARNING: blindly removing ',num2str(sum(bad_idx)),' epoch(s) to make abcissae monotonic.'])
+          disp([' WARNING: blindly removing ',num2str(sum(bad_idx)),' epoch(s) to make abcissae monotonic.'])
           %this is done below and is valid for all modes
         case {'average','mean'}
-          disp([mfilename,': WARNING: need to average ',num2str(sum(bad_idx)),' epoch(s) to make abcissae monotonic.'])
+          disp([' WARNING: need to average ',num2str(sum(bad_idx)),' epoch(s) to make abcissae monotonic.'])
           %convert logical array to indexes
           bi=find(bad_idx);
           %loop over all indexes
@@ -158,7 +158,7 @@
         out=x1>x2;
         out(simpledata.isx('==',x1,x2,tol))=true;
       otherwise
-        error([mfilename,': unknown mode ''',mode,'''.'])
+        error(['unknown mode ''',mode,'''.'])
       end
     end
     function out=transmute(in)
@@ -213,11 +213,11 @@
       end
       %sanity
       if ~isvector(x1) || ~isvector(x2)
-        error([mfilename,': inputs <x1> and <x2> must be 1D vectors.']);
+        error('inputs <x1> and <x2> must be 1D vectors.');
       end
       if (isnumeric(x1) && any(isnan(x1))) || ...
          (isnumeric(x2) && any(isnan(x2)))
-        error([mfilename,': cannot handle NaNs in the input arguments. Clean them first.'])
+        error('cannot handle NaNs in the input arguments. Clean them first.')
       end
       %shortcuts
       if numel(x1)==numel(x2) && all(x1(:)==x2(:))
@@ -332,7 +332,7 @@
       end
       %sanity
       if ~iscell(obj_list)
-        error([mfilename,': need input ''obj_list'' to be a cell array, not a ',class(obj_list),'.'])
+        error(['need input ''obj_list'' to be a cell array, not a ',class(obj_list),'.'])
       end
       % save timing info
       if ~exist('msg','var') || isempty(msg)
@@ -355,7 +355,7 @@
     function out=isequal_multiple(obj_list,columns,msg)
       %sanity
       if ~iscell(obj_list)
-        error([mfilename,': need input ''obj_list'' to be a cell array, not a ',class(obj_list),'.'])
+        error(['need input ''obj_list'' to be a cell array, not a ',class(obj_list),'.'])
       end
       % save timing info
       if ~exist('msg','var') || isempty(msg)
@@ -573,7 +573,7 @@
           args{:}...
         );
       otherwise
-        error([mfilename,': cannot understand field ''',field,'''.'])
+        error(['cannot understand field ''',field,'''.'])
       end
     end
     function test(method,l,w)
@@ -835,17 +835,17 @@
       p.parse(y,varargin{:});
       % ---- x ----
       if numel(p.Results.x)~=size(y,1)
-        error([mfilename,': number of elements of input ''x'' (',num2str(numel(p.Results.x)),...
+        error(['number of elements of input ''x'' (',num2str(numel(p.Results.x)),...
           ') must be the same as the number of rows of input ''y'' (',num2str(size(y,1)),').'])
       end
       %propagate x
       obj=obj.assign_x(p.Results.x(:));
       % ---- y ----
       if ~logical(p.Results.reset_width) && ~isempty(obj.width) && size(y,2) ~= obj.width
-        error([mfilename,': data width changed from ',num2str(obj.width),' to ',num2str(size(y,2)),'.'])
+        error(['data width changed from ',num2str(obj.width),' to ',num2str(size(y,2)),'.'])
       end
       if obj.length~=size(y,1)
-        error([mfilename,': data length different than size(y,2), i.e. ',...
+        error(['data length different than size(y,2), i.e. ',...
           num2str(obj.length),' ~= ',num2str(size(y1m)),'.'])
       end
       %propagate y
@@ -854,7 +854,7 @@
       %check if explicit mask was given
       if ~any(strcmp(p.UsingDefaults,'mask'))
         %make sure things make sense
-        assert(obj.length==numel(p.Results.mask),[mfilename,': ',...
+        assert(obj.length==numel(p.Results.mask),[' ',...
           'number of elements of input ''mask'' (',num2str(numel(p.Results.mask)),...
           ') must be the same as the data length (',num2str(obj.length),').'])
         %propagate mask
@@ -1089,15 +1089,15 @@
           end
         end
       otherwise
-        error([mfilename,': unknown mode ''',p.Results.mode,'''.'])
+        error(['unknown mode ''',p.Results.mode,'''.'])
       end
       %bug traps
       if isnumeric(out)
         if any(isnan(out(:)))
-          error([mfilename,': BUG TRAP: detected NaN in <out>. Debug needed.'])
+          error('BUG TRAP: detected NaN in <out>. Debug needed.')
         end
         if size(out,2)~=numel(columns) && ~strcmp(p.Results.mode,'norm')
-          error([mfilename,': BUG TRAP: data width changed. Debug needed.'])
+          error('BUG TRAP: data width changed. Debug needed.')
         end
       end
     end
@@ -1170,15 +1170,15 @@
           end
         end
       otherwise
-        error([mfilename,': unknown mode ''',p.Results.mode,'''.'])
+        error(['unknown mode ''',p.Results.mode,'''.'])
       end
       %bug traps
       if isnumeric(out)
         if any(isnan(out(:)))
-          error([mfilename,': BUG TRAP: detected NaN in <out>. Debug needed.'])
+          error('BUG TRAP: detected NaN in <out>. Debug needed.')
         end
         if size(out,2)~=numel(columns)
-          error([mfilename,': BUG TRAP: data width changed. Debug needed.'])
+          error('BUG TRAP: data width changed. Debug needed.')
         end
       end
     end
@@ -1200,8 +1200,8 @@
     end
     function out=idx(obj,x_now,varargin)
       % sanity
-      assert(isvector( x_now),[mfilename,': Input x_now must be a vector.'])
-      assert(isnumeric(x_now),[mfilename,': Input x_now must be numeric, not ',class(x_now),'.'])
+      assert(isvector( x_now),'Input x_now must be a vector.')
+      assert(isnumeric(x_now),['Input x_now must be numeric, not ',class(x_now),'.'])
       if numel(x_now)>1
         %making room for outputs
         out=NaN(size(x_now));
@@ -1286,7 +1286,7 @@
     %% y methods
     function obj=cols(obj,columns)
       if ~isvector(columns)
-        error([mfilename,': input ''columns'' must be a vector'])
+        error('input ''columns'' must be a vector')
       end
       %save relevant labels and units
       labels_now =obj.labels( columns);
@@ -1319,10 +1319,10 @@
         columns=1:obj.width;
       end
       if ~isvector(columns)
-        error([mfilename,': input ''columns'' must be a vector'])
+        error('input ''columns'' must be a vector')
       end
       if any(columns>obj.width)
-        error([mfilename,': requested column indeces exceed object width.'])
+        error('requested column indeces exceed object width.')
       end
       out=obj.y(mask,columns);
     end
@@ -1405,7 +1405,7 @@
     function obj=mask_update(obj)
       %sanity
       if numel(obj.mask) ~= size(obj.y,1)
-        error([mfilename,': sizes of mask and y are not in agreement.'])
+        error('sizes of mask and y are not in agreement.')
       end
       %propagate gaps from and to mask
       obj.mask=obj.mask & all(~isnan(obj.y),2);
@@ -1455,10 +1455,10 @@
       end
       %sanity
       if any(out(obj.mask)~=0)
-        error([mfilename,': found non-zero gaps lengths outside of gaps. Debug needed!'])
+        error('found non-zero gaps lengths outside of gaps. Debug needed!')
       end
       if any(out(~obj.mask)==0)
-        error([mfilename,': found zero lengths inside of gaps. Debug needed!'])
+        error('found zero lengths inside of gaps. Debug needed!')
       end
     end
     function out=nr_gaps(obj)
@@ -1495,7 +1495,7 @@
         obj=obj.assign(obj.y(mask,:),'x',obj.x(mask));
         %sanity
         assert(all(obj.mask) && ~any(isnan(obj.y(:))),...
-          [mfilename,': making operation failed: found non-unitary mask entries and/or NaNs in the data.'])
+          'making operation failed: found non-unitary mask entries and/or NaNs in the data.')
       end
     end
     function out=ismaskcommon(obj1,obj2)
@@ -1527,7 +1527,7 @@
       %back-propagate
       obj=obj.assign(y_now);
       %paranoid sanity
-      assert(obj.nr_gaps == 0,[mfilename,':BUG TRAP: ',...
+      assert(obj.nr_gaps == 0,['BUG TRAP: ',...
         'there are still explicit gaps in the data. Debug needed!'])
     end
     function obj=remasked(obj,invalid)
@@ -1544,22 +1544,22 @@
     function check_sd(obj)
       %sanitize
       if obj.length~=numel(obj.x)
-        error([mfilename,': discrepancy in length of x'])
+        error('discrepancy in length of x')
       end
       if obj.length~=numel(obj.mask)
-        error([mfilename,': discrepancy in length of mask'])
+        error('discrepancy in length of mask')
       end
       if obj.length~=size(obj.y,1)
-        error([mfilename,': discrepancy in length of y'])
+        error('discrepancy in length of y')
       end
       if obj.width~=size(obj.y,2)
-        error([mfilename,': discrepancy in width of y'])
+        error('discrepancy in width of y')
       end
       if any(~all(isnan(obj.y),2)~=obj.mask)
-        error([mfilename,': discrepancy between mask and NaNs in y.'])
+        error('discrepancy between mask and NaNs in y.')
       end
       if any(isnan(obj.y),2)~=all(isnan(obj.y),2)
-        error([mfilename,': found epochs with some components of y as NaNs.'])
+        error('found epochs with some components of y as NaNs.')
       end
     end
     function obj=check_annotation(obj,annotation_name)
@@ -1579,7 +1579,7 @@
         end
       end
       if ~check
-        error([mfilename,': discrepancy in between length of ',annotation_name,' and of width of y'])
+        error(['discrepancy in between length of ',annotation_name,' and of width of y'])
       end
     end
     function obj=monotonize(obj,mode)
@@ -1597,7 +1597,7 @@
     end
     function obj=trim(obj,start,stop)
       %remove data outside start/stop
-      assert(start<=stop,[mfilename,': input ''start'' must refer to an abcissae before input ''stop''.'])
+      assert(start<=stop,'input ''start'' must refer to an abcissae before input ''stop''.')
       %trivial call
       if stop<obj.x(1) || obj.x(end)<start || all (obj.x < start | stop < obj.x)
         obj=[];
@@ -1608,7 +1608,7 @@
     function obj=slice(obj,start,stop)
       %delete data between start/stop
       if start>stop
-        error([mfilename,': input ''start'' must refer to a abcissae before input ''stop''.'])
+        error('input ''start'' must refer to a abcissae before input ''stop''.')
       end
       obj=obj.remove(start < obj.x & obj.x < stop);
       %add gap extremities
@@ -1735,7 +1735,7 @@
             %subtract polyfitted data from input data
             obj=obj-obj_polyfitted;
           else
-            error([mfilename,': unknown mode ''',mode,'''.'])
+            error(['unknown mode ''',mode,'''.'])
           end
         end
       else
@@ -1812,7 +1812,7 @@
       end
       %sanity
       if nargout>1 && any(any(y_data(obj.mask,:)+y_outliers(obj.mask,:)~=obj.y_masked))
-        error([mfilename,':Warning: failed the consistency check: obj.y=y_data+y_outliers. Debug needed!'])
+        error('BUG TRAP: failed the consistency check: obj.y=y_data+y_outliers. Debug needed!')
       end
       %optional outputs
       if nargout>1
@@ -1875,7 +1875,7 @@
       %make room for medianed data
       y_out=nan(ceil(obj.length/n),obj.width);
       %compute media of the data
-      s.msg=[mfilename,': computing mean and decimating every ',num2str(n),' data points.'];s.n=obj.width;
+      s.msg=[' computing mean and decimating every ',num2str(n),' data points.'];s.n=obj.width;
       for i=1:obj.width
         %cut the data into segments of length n, putting each segment in
         %one column of matrix y_seg (x increases first row-wise, then
@@ -1893,7 +1893,7 @@
       end
       %sanity
       if numel(x_mean) ~=size(y_out,1)
-        error([mfilename,': x-domain length inconsistent with data length, debug needed!'])
+        error('x-domain length inconsistent with data length, debug needed!')
       end
       %propagate the x-domain and data
       obj=assign(obj,y_out,'x',x_mean);
@@ -1923,10 +1923,10 @@
       p.parse(varargin{:});
       %basic sanity
 %       if ~strcmp(class(obj1),class(obj2))
-%         error([mfilename,': incompatible objects: different classes'])
+%         error(['incompatible objects: different classes'])
 %       end
       if p.Results.check_width && (obj1.width ~= obj2.width)
-        error([mfilename,': incompatible objects: different number of columns'])
+        error('incompatible objects: different number of columns')
       end
       %shorter names
       par=p.Results.compatible_parameters;
@@ -1939,7 +1939,7 @@
           continue
         end
         if ~cells.isincluded(p.Results.skip_par_check,par{i}) && ~isequal(obj1.(par{i}),obj2.(par{i}))
-          error([mfilename,': discrepancy in parameter ',par{i},'.'])
+          error(['discrepancy in parameter ',par{i},'.'])
         end
       end
     end
@@ -1962,7 +1962,7 @@
         [obj2_out,idx1]=obj2.x_merge(obj1.x,y_new);
         %sanity on outputs
         if obj1_out.length~=obj2_out.length && obj1_out.isxsame(obj2_out)
-          error([mfilename,': BUG TRAP: merge operation failed.'])
+          error('BUG TRAP: merge operation failed.')
         end
       end
     end
@@ -2133,7 +2133,7 @@
         columns=1:obj1.width;
       end
       if any(columns>obj1.width) || any(columns>obj2.width)
-        error([mfilename,': requested column indices exceed width.'])
+        error('requested column indices exceed width.')
       end
       %assume objects are not equal
       out=false;
@@ -2242,7 +2242,7 @@
             obj.y(:,i)=obj.y(:,i).*scl(:);
           end
         else
-          error([mfilename,': if input <scale> is a vector, ',...
+          error(['if input <scale> is a vector, ',...
             'it must have the same length as either the witdh or length of <obj>.'])
         end
       else
@@ -2486,7 +2486,7 @@
           nan(1,obj.width);...
         ];
       otherwise
-        error([mfilename,': unknown mode ''',p.Results.mode,'''.'])
+        error(['unknown mode ''',p.Results.mode,'''.'])
       end
       %propagate data
       y_now=nan(obj.size);
@@ -2567,7 +2567,7 @@
     function obj=project(obj,x,y,z)
       %some sanity
       if obj.width~=3
-        error([mfilename,': can only project 3D vectors'])
+        error('can only project 3D vectors')
       end
       %no need to consolidate, that is done inside dot
       px=obj.dot(x);
@@ -2869,7 +2869,7 @@
           save(filename,'S','-v7.3')
         end
       otherwise
-        error([mfilename,': cannot handle files of type ''',e,'''.'])
+        error(['cannot handle files of type ''',e,'''.'])
       end
     end
     %% import methods
@@ -2879,7 +2879,7 @@
 %       %branch on extension
 %       switch e
 %       otherwise
-%         error([mfilename,': cannot handle files of type ''',e,'''.'])
+%         error(['cannot handle files of type ''',e,'''.'])
 %       end
 %     end
     end

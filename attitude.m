@@ -178,7 +178,7 @@ classdef attitude
       case 'version'
         out='02';
       otherwise
-        error([mfilename,': unknown field ',field,'.'])
+        error(['unknown field ',field,'.'])
       end
     end
     function out=test(method)
@@ -277,7 +277,7 @@ classdef attitude
         data_type=attitude.data_types{j};
         %sanity
         if xor(isempty(obj.(data_type)),isempty(obj_in.(data_type)))
-          error([mfilename,': error propagating metadata of type ',data_type,': it does not exist in both objects.'])
+          error(['error propagating metadata of type ',data_type,': it does not exist in both objects.'])
         end
         %skip if data type is empty
         if ~isempty(obj.(data_type))
@@ -448,11 +448,11 @@ classdef attitude
       %%compute angular rates in frame_from
       %y=2*attitude.quat_mult(dq,qj,obj.qsfirst);
       if obj.qsfirst
-          obj.msg([mfilename,': average of absolute value of scalar part of omega is ',...
+          obj.msg([' average of absolute value of scalar part of omega is ',...
               num2str(mean(abs(y(~isnan(y(:,1)),1))))])
           y=y(:,2:4);
       else
-          obj.msg([mfilename,': average of absolute value of scalar part of omega is ',...
+          obj.msg([' average of absolute value of scalar part of omega is ',...
               num2str(mean(abs(y(~isnan(y(:,1)),4))))])
           y=y(:,1:3);
       end
@@ -487,11 +487,11 @@ classdef attitude
       %%compute angular rates in frame_from
       %y=2*attitude.quat_mult(dq,qj,obj.qsfirst);
       if obj.qsfirst
-          obj.msg([mfilename,': average of absolute value of scalar part of omega is ',...
+          obj.msg([' average of absolute value of scalar part of omega is ',...
               num2str(mean(abs(y(~isnan(y(:,1)),1))))])
           y=y(:,2:4);
       else
-          obj.msg([mfilename,': average of absolute value of scalar part of omega is ',...
+          obj.msg([' average of absolute value of scalar part of omega is ',...
               num2str(mean(abs(y(~isnan(y(:,1)),4))))])
           y=y(:,1:3);
       end
@@ -557,7 +557,7 @@ classdef attitude
       parameters=attitude.compatible_parameter_list;
       for i=1:numel(parameters)
         if ~isequal(obj1.(parameters{i}),obj2.(parameters{i}))
-          error([mfilename,': discrepancy in parameter ',parameters{i},': ''',...
+          error(['discrepancy in parameter ',parameters{i},': ''',...
             obj1.(parameters{i}),''' ~= ''',obj2.(parameters{i}),'''.'])
         end
       end
@@ -583,7 +583,7 @@ classdef attitude
         end
       end
       if counter==0
-        error([mfilename,': there were no common fields in the input objects.'])
+        error('there were no common fields in the input objects.')
       end
     end
     function out=isempty(obj,data_type)
@@ -645,7 +645,7 @@ classdef attitude
             if isprop(obj.(odt{i}),operation)
               %sanity
               if numel(varargin)>1
-                error([mfilename,': when propagating data to field ',operation,...
+                error(['when propagating data to field ',operation,...
                   ' can only handle one input argument, not ',num2str(numel(varargin)),'.'])
               end
               %propagate
@@ -659,7 +659,7 @@ classdef attitude
         end
       end
       if counter==0
-        error([mfilename,': ',err_msg,'.'])
+        error(err_msg)
       end
     end
     %% relative attitude (in the local frame)
@@ -676,7 +676,7 @@ classdef attitude
       for j=1:numel(odt)
         if ~isempty(obj.(odt{j}))
           % initialize
-          s.msg=[mfilename,': cutting into segments data of type ''',odt{j},'''.'];s.n=numel(ts);
+          s.msg=['cutting into segments data of type ''',odt{j},'''.'];s.n=numel(ts);
           clear tmp
           % propagate segments
           for i=1:numel(ts)
@@ -720,7 +720,7 @@ classdef attitude
           elseif size(stats.(o_list{j}).(s_list{i}),2)==attitude.data_type_list.(o_list{j}).size
             args{2*j  }=stats.(o_list{j}).(s_list{i});
           else
-            error([mfilename,': BUG TRAP: statistic with non-comformant number of columns. Debug needed!'])
+            error('BUG TRAP: statistic with non-comformant number of columns. Debug needed!')
           end
         end
         %build attitude object for this statistic

@@ -27,7 +27,7 @@ classdef csr
       %get rid of timezone and leading trash
       timetag=timetag(9:27);
       %sanity
-      assert(status==0,[mfilename,': could not determine git time tag'])
+      assert(status==0,' could not determine git time tag')
     end
     function log(msg)
       logname=fullfile(fileparts(mfilename),'log','import_calpar.log');
@@ -370,8 +370,7 @@ classdef csr
               end
             end
             %bug trap
-            assert(all(~isnat(arc_starts)),...
-              [mfilename,': found NaT in the arc starts'])
+            assert(all(~isnat(arc_starts)),'found NaT in the arc starts')
 
             %compute arc day start and end
             day_starts=dateshift(arc_starts,'start','day');
@@ -387,8 +386,7 @@ classdef csr
               arc_ends(idx)=day_ends(idx)-seconds(1);
             end
             %bug trap
-            assert(all(~isnat(arc_ends)),...
-              [mfilename,': found NaT in the arc starts/ends'])
+            assert(all(~isnat(arc_ends)),'found NaT in the arc starts/ends')
 
             %surpress over-lapping arcs
             idx=find(arc_starts(2:end)-arc_ends(1:end-1)<0);
@@ -621,7 +619,7 @@ classdef csr
                 idx=i2(bad_idx(k));
                 msg{2*k+2}=str.tablify([30,6,20,12],dn2,idx,d2.t(idx),num2str(d2.y(idx,v.jobid_col),'%i'));
               end
-              error([mfilename,':',strjoin(msg,'\n')])
+              error(strjoin(msg,'\n'))
             end
           end
         end
@@ -747,8 +745,7 @@ classdef csr
               end
             end
             %bug trap
-            assert(all(~isnat(arc_starts)),...
-              [mfilename,': found NaT in the arc starts'])
+            assert(all(~isnat(arc_starts)),'found NaT in the arc starts')
 
             %compute arc day start and end
             day_starts=dateshift(arc_starts,'start','day');
@@ -764,8 +761,7 @@ classdef csr
               arc_ends(idx)=day_ends(idx)-seconds(1);
             end
             %bug trap
-            assert(all(~isnat(arc_ends)),...
-              [mfilename,': found NaT in the arc starts/ends'])
+            assert(all(~isnat(arc_ends)),'found NaT in the arc starts/ends')
 
             %surpress over-lapping arcs
             idx=find(arc_starts(2:end)-arc_ends(1:end-1)<0);
@@ -998,7 +994,7 @@ classdef csr
                 idx=i2(bad_idx(k));
                 msg{2*k+2}=str.tablify([30,6,20,12],dn2,idx,d2.t(idx),num2str(d2.y(idx,v.jobid_col),'%i'));
               end
-              error([mfilename,':',strjoin(msg,'\n')])
+              error(strjoin(msg,'\n'))
             end
           end
         end
@@ -1094,7 +1090,7 @@ classdef csr
       case {'ACC1B','AHK1B','GNV1B','KBR1B','MAS1B','SCA1B','THR1B','CLK1B','GPS1B','IHK1B','MAG1B','TIM1B','TNK1B','USO1B','VSL1B'}
         v.cat_command=[fullfile(getenv('HOME'),'data','grace','cat-l1b.sh'),' YYYYMMDD ',upper(v.format),' SAT'];
       otherwise
-        error([mfilename,': cannot handle data ''',v.format,'''.'])
+        error(['cannot handle data ''',v.format,'''.'])
       end
       %gather list of days
       [~,startlist]=product.file('data',varargin{:},...
@@ -1209,7 +1205,7 @@ classdef csr
           filename='grace.YYYY-MM-DD_SAT_VERSION.acc.pre';
           sat_name='GRACESAT';
         otherwise
-          error([mfilename,': cannot handle format ''',v.format,'''.'])
+          error(['cannot handle format ''',v.format,'''.'])
       end
       % sanity
       assert(time.isfinite(obj.start) && time.isfinite(obj.stop),'Need valid obj.start and obj.stop.')
@@ -2159,8 +2155,8 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
               [fields{f},' gaps'],cal.(coords{c}).(fields{f}).nr_gaps...
             )
             %sanity
-            assert(~isempty(cal.(coords{c}).(fields{f})),[mfilename,...
-              ': ',(fields{f}),' data is not available to perform this operation.'])
+            assert(~isempty(cal.(coords{c}).(fields{f})),...
+              [(fields{f}),' data is not available to perform this operation.'])
             %remove transient calpars, this is indicative of a gap (interpolation is done blindly over any gap length)
             cal.(coords{c}).(fields{f})=cal.(coords{c}).(fields{f}).mask_and([...
                    cal.(coords{c}).(fields{f}).mask(1);...
@@ -2783,7 +2779,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       p.parse(product,varargin{:});
       % sanity
       if isempty(p.Results.start) || isempty(p.Results.stop)
-        error([mfilename,': need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).'])
+        error('need ''start'' and ''stop'' parameters (or non-empty obj.start and obj.stop).')
       end
       %retrieve relevant parameters
       sats  =product.mdget('sats');

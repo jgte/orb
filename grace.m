@@ -212,7 +212,7 @@ classdef grace
         coords={'AC0X','AC0Y','AC0Z'};
         idx=cells.strfind(filename,coords);
         %sanity
-        assert(sum(idx)==1,[mfilename,': the name for .resid files must include (one of) AC0X, AC0Y or AC0Z, not ''',...
+        assert(sum(idx)==1,[' the name for .resid files must include (one of) AC0X, AC0Y or AC0Z, not ''',...
           filename,'''.'])
         %building object
         obj=simpletimeseries(t,y,...
@@ -286,7 +286,7 @@ classdef grace
         y=raw(:,5:7)./unitfactor;
         %skip empty data files
         if isempty(t) || isempty(y)
-          disp([mfilename,': this file has no data  ',filename{i}])
+          disp([' this file has no data  ',filename{i}])
           obj=[];
         else
           %building object
@@ -309,7 +309,7 @@ classdef grace
           end
         end
       case 'msodp-acc'
-        error([mfilename,': implementation needed'])
+        error('implementation needed')
       case 'mjd'
         %define data cols
         data_cols=2;
@@ -501,7 +501,7 @@ i=i+1;dh{i}= '+eoh______';
       case 'stop'
         out=datetime('2010-01-03');
       otherwise
-        error([mfilename,': unknown field ',field,'.'])
+        error(['unknown field ',field,'.'])
       end
     end
     function out=test(method)
@@ -651,7 +651,7 @@ function obj=load_ACC1B(filename)
   y=raw(:,2:4);
   %skip empty data files
   if isempty(t) || isempty(y)
-    disp([mfilename,': this file has no data  ',filename])
+    disp([' this file has no data  ',filename])
     obj=[];
   else
     %building object
@@ -703,7 +703,7 @@ function obj=load_AHK1B(filename)
   y=raw(:,[10,12,11,16]);
   %skip empty data files
   if isempty(t) || isempty(y)
-    disp([mfilename,': this file has no data  ',filename])
+    disp([' this file has no data  ',filename])
     skip_save_mat=true; %#ok<NASGU>
     obj=[];
   else
@@ -730,7 +730,7 @@ function [obj,err,flag]=load_SCA1B(filename)
   flag=raw(:,8);
   %skip empty data files
   if isempty(t) || isempty(y)
-    disp([mfilename,': this file has no data  ',filename])
+    disp([' this file has no data  ',filename])
     obj=[];
   else
     %building object
@@ -1339,7 +1339,7 @@ end
 %         end
 %
 %         if isempty(fmt)
-%           error([mfilename,': cannot handle the GraceAccCal file ''',filename,'''.'])
+%           error(['cannot handle the GraceAccCal file ''',filename,'''.'])
 %         end
 %         %reading data
 %         fid = file.open(filename);
@@ -1353,7 +1353,7 @@ end
 %         y=data_fh(raw);
 %         %sanity
 %         if isempty(t) || isempty(y)
-%           disp([mfilename,': this file has no data  ',filename])
+%           disp([' this file has no data  ',filename])
 %           obj=[];
 %         else
 %           iter=0;

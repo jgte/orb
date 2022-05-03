@@ -144,7 +144,7 @@ classdef file
         header{i} = fgetl(fid);
         %error checking
         if isempty(header{i}) && ~isempty(ferror(fid))
-          error([mfilename,': error reading header of file ',filename,'. Error message:',newline,ferror(fid)])
+          error(['error reading header of file ',filename,'. Error message:',newline,ferror(fid)])
         end
         %end-of-file checking
         if header{i}==-1
@@ -171,7 +171,7 @@ classdef file
         assert(nlines>0,['Cannot find any numeric data in ',filename])
         %if that only happens on the last line, then there's nothing I can do
         if nlines==(max_header_len-1)
-          error([mfilename,...
+          error([...
             ': file ',filename,' has more header lines than max search value (',num2str(max_header_len),').'...
           ]);
         end
@@ -217,7 +217,7 @@ classdef file
         format = '';
       end
       if ~exist('filename','var') || isempty(filename)
-        error([mfilename,': need one input file.'])
+        error('need one input file.')
       end
       %open the file if needed
       [fid,~,close_file]=file.open(filename);
@@ -254,10 +254,10 @@ classdef file
     function out=strsave(filename,str)
       %input sanity
       if ~exist('filename','var') || isempty(filename)
-        error([mfilename,': need filename.'])
+        error('need filename.')
       end
       if ~exist('str','var') %str can be empty
-        error([mfilename,': need str.'])
+        error('need str.')
       end
       %open the file if needed
       [fid,~,close_file]=file.open(filename,'w');
@@ -270,7 +270,7 @@ classdef file
     function str=strload(filename)
       %input sanity
       if ~exist('filename','var') || isempty(filename)
-        error([mfilename,': need filename.'])
+        error('need filename.')
       end
       %open the file if needed
       [fid,~,close_file]=file.open(filename,'r');
@@ -306,7 +306,7 @@ classdef file
         load(datafile,p.Results.data_var)
         %sanity on the loaded data
         if ~exist(p.Results.data_var,'var')
-          error([mfilename,': expecting to load variable ''',p.Results.data_var,''' from file ',datafile,'.'])
+          error(['expecting to load variable ''',p.Results.data_var,''' from file ',datafile,'.'])
         end
         if ~strcmp(p.Results.data_var,'out')
           %propagate p.Results.data_var to 'out'
@@ -633,11 +633,11 @@ classdef file
           if arch
             %some sanity
             if ~iscellstr(out)
-              error([mfilename,': expecting variable ''unzipped_filename'' to be a cellstr, not a ''',...
+              error(['expecting variable ''unzipped_filename'' to be a cellstr, not a ''',...
                 class(out),'''.'])
             end
             if numel(out)~=1
-              error([mfilename,': expecting zip archive ''',out,''' to contain one file only, not ',...
+              error(['expecting zip archive ''',out,''' to contain one file only, not ',...
                 num2str(numel(out)),':',10,strjoin(out,'\n')])
             end
           end
@@ -1275,7 +1275,7 @@ function out = isnumstr(in)
   out = isempty(in);
   %warning
   %if ~out
-  %    disp([mfilename,':debug: non-numerical chars: ',in])
+  %    disp(['debug: non-numerical chars: ',in])
   %end
 end
 

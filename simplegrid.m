@@ -177,10 +177,10 @@ classdef simplegrid < simpletimeseries
       %easier names
       type='vectmat';
       %need structure
-      if ~isstruct( vecmat);       error([mfilename,': invalid ',type,': not a structure.']); end
+      if ~isstruct( vecmat);       error(['invalid ',type,': not a structure.']); end
       %need to check lon/lat fields existence now, before determining if they are uniform
-      if ~isfield(    vecmat,'lon'); error([mfilename,': invalid ',type,': field ''lon'' is missing.']);end
-      if ~isfield(    vecmat,'lat'); error([mfilename,': invalid ',type,': field ''lat'' is missing.']);end
+      if ~isfield(    vecmat,'lon'); error(['invalid ',type,': field ''lon'' is missing.']);end
+      if ~isfield(    vecmat,'lat'); error(['invalid ',type,': field ''lat'' is missing.']);end
       if ~isempty(vecmat.lon) && ~isempty(vecmat.lat)
         % Calculate the spacing and limits
         GridLimits  = simplegrid.getLimits( vecmat.lon(:),vecmat.lat(:));
@@ -192,42 +192,42 @@ classdef simplegrid < simpletimeseries
         );
         % sanity
         if numel(out.lon) ~= numel(vecmat.lon) || any( (out.lon(:)-vecmat.lon(:)).^2>simplegrid.parameters('sp_tol')^2 )
-          error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.'])
+          error(['invalid ',type,': field ''lon'' is not an uniform domain.'])
         end
         if numel(out.lat) ~= numel(vecmat.lat) || any( (out.lat(:)-vecmat.lat(:)).^2>simplegrid.parameters('sp_tol')^2 )
-          error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.'])
+          error(['invalid ',type,': field ''lat'' is not an uniform domain.'])
         end
       else
         out=struct('lon',[],'lat',[]);
       end
       %map
-      if ~isfield(    vecmat,'map'); error([mfilename,': invalid ',type,': field ''map'' is missing.']);end
+      if ~isfield(    vecmat,'map'); error(['invalid ',type,': field ''map'' is missing.']);end
       if ~isempty(    vecmat.map) && ...
-         ~isnumeric(  vecmat.map);   error([mfilename,': invalid ',type,': field ''map'' is not numeric.']);end
+         ~isnumeric(  vecmat.map);   error(['invalid ',type,': field ''map'' is not numeric.']);end
       %lon
       if ~isempty(    vecmat.lon)
-        if ~isrow(    vecmat.lon);   error([mfilename,': invalid ',type,': field ''lon'' is not a row vector.']);end
-        if ~isnumeric(vecmat.lon);   error([mfilename,': invalid ',type,': field ''lon'' is not numeric.']);end
+        if ~isrow(    vecmat.lon);   error(['invalid ',type,': field ''lon'' is not a row vector.']);end
+        if ~isnumeric(vecmat.lon);   error(['invalid ',type,': field ''lon'' is not numeric.']);end
         if  ~isempty( vecmat.map) && ...
             numel(    vecmat.lon) ~= ...
-            size(     vecmat.map,2); error([mfilename,': invalid ',type,': field ''lon'' has different nr of elements than rows of ''map''.']);end %#ok<ALIGN>
+            size(     vecmat.map,2); error(['invalid ',type,': field ''lon'' has different nr of elements than rows of ''map''.']);end %#ok<ALIGN>
       end
       %lat
       if ~isempty(    vecmat.lat)
-        if ~iscolumn( vecmat.lat);   error([mfilename,': invalid ',type,': field ''lat'' is not a column vector.']);end
-        if ~isnumeric(vecmat.lat);   error([mfilename,': invalid ',type,': field ''lat'' is not numeric.']);end
+        if ~iscolumn( vecmat.lat);   error(['invalid ',type,': field ''lat'' is not a column vector.']);end
+        if ~isnumeric(vecmat.lat);   error(['invalid ',type,': field ''lat'' is not numeric.']);end
         if ~isempty(  vecmat.map) && ...
             numel(    vecmat.lat) ~= ...
-            size(     vecmat.map,1); error([mfilename,': invalid ',type,': field ''lat'' has different nr of elements than columns of ''map''.']);end %#ok<ALIGN>
+            size(     vecmat.map,1); error(['invalid ',type,': field ''lat'' has different nr of elements than columns of ''map''.']);end %#ok<ALIGN>
       end
       %t
-      if ~isfield(   vecmat,'t');   error([mfilename,': invalid ',type,': field ''t'' is missing.']);end
-      if ~isvector(  vecmat.t  );   error([mfilename,': invalid ',type,': field ''t'' is not a vector.']);end
+      if ~isfield(   vecmat,'t');   error(['invalid ',type,': field ''t'' is missing.']);end
+      if ~isvector(  vecmat.t  );   error(['invalid ',type,': field ''t'' is not a vector.']);end
       if ~isdatetime(vecmat.t  ) && ...
-         ~isnumeric( vecmat.t  );   error([mfilename,': invalid ',type,': field ''t'' is not datetime or numeric.']);end
+         ~isnumeric( vecmat.t  );   error(['invalid ',type,': field ''t'' is not datetime or numeric.']);end
       if ~isempty(   vecmat.map) && ...
           numel(     vecmat.t  )~=...
-          size(      vecmat.map,3); error([mfilename,': invalid ',type,': field ''t'' has different nr of elements than pages of ''map''.']);end %#ok<ALIGN>
+          size(      vecmat.map,3); error(['invalid ',type,': field ''t'' has different nr of elements than pages of ''map''.']);end %#ok<ALIGN>
     end
     function     out=vecmat_size(vecmat)
       out=size(vecmat.map);
@@ -248,10 +248,10 @@ classdef simplegrid < simpletimeseries
       %easier names
       type='list';
       %need structure
-      if ~isstruct(  list);      error([mfilename,': invalid ',type,': not a structure.']); end
+      if ~isstruct(  list);      error(['invalid ',type,': not a structure.']); end
       %need to check lon/lat fields existence now, before determining if they are uniform
-      if ~isfield(   list,'lon'); error([mfilename,': invalid ',type,': field ''lon'' is missing.']);end
-      if ~isfield(   list,'lat'); error([mfilename,': invalid ',type,': field ''lat'' is missing.']);end
+      if ~isfield(   list,'lon'); error(['invalid ',type,': field ''lon'' is missing.']);end
+      if ~isfield(   list,'lat'); error(['invalid ',type,': field ''lat'' is missing.']);end
       if ~isempty(list.lon) && ~isempty(list.lat)
         % Calculate the spacing and limits
         GridLimits  = simplegrid.getLimits( list.lon(:),list.lat(:));
@@ -271,42 +271,42 @@ classdef simplegrid < simpletimeseries
         for i=1:numel(out.lat)
           idx.lat( (out.lat(i)-list.lat).^2<simplegrid.parameters('sp_tol')^2 )=i;
         end
-        if any(isnan(idx.lat)); error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.']);end
-        if any(isnan(idx.lon)); error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.']);end
+        if any(isnan(idx.lat)); error(['invalid ',type,': field ''lat'' is not an uniform domain.']);end
+        if any(isnan(idx.lon)); error(['invalid ',type,': field ''lon'' is not an uniform domain.']);end
       else
         idx=struct('lon',[],'lat',[]);
         out=struct('lon',[],'lat',[]);
       end
       %map
-      if ~isfield(    list,'map'); error([mfilename,': invalid ',type,': field ''map'' is missing.']);end
+      if ~isfield(    list,'map'); error(['invalid ',type,': field ''map'' is missing.']);end
       if     ~isempty(list.map)
-        if ~isnumeric(list.map); error([mfilename,': invalid ',type,': field ''map'' is not numeric.']);end
-        if ~ismatrix( list.map); error([mfilename,': invalid ',type,': field ''map'' is not a matrix.']);end
+        if ~isnumeric(list.map); error(['invalid ',type,': field ''map'' is not numeric.']);end
+        if ~ismatrix( list.map); error(['invalid ',type,': field ''map'' is not a matrix.']);end
       end
       %lon
       if ~isempty(    list.lon)
-        if ~isrow(    list.lon);   error([mfilename,': invalid ',type,': field ''lon'' is not a row vector.']);end
-        if ~isnumeric(list.lon);   error([mfilename,': invalid ',type,': field ''lon'' is not numeric.']);end
+        if ~isrow(    list.lon);   error(['invalid ',type,': field ''lon'' is not a row vector.']);end
+        if ~isnumeric(list.lon);   error(['invalid ',type,': field ''lon'' is not numeric.']);end
         if ~isempty(  list.map) && ...
             numel(    list.lon) ~= ...
-            size(     list.map,2); error([mfilename,': invalid ',type,': field ''lon'' has different elements than columns of ''map''.']);end %#ok<ALIGN>
+            size(     list.map,2); error(['invalid ',type,': field ''lon'' has different elements than columns of ''map''.']);end %#ok<ALIGN>
       end
       %lat
       if ~isempty(    list.lat)
-        if ~isrow(    list.lat);   error([mfilename,': invalid ',type,': field ''lat'' is not a row vector.']);end
-        if ~isnumeric(list.lat);   error([mfilename,': invalid ',type,': field ''lat'' is not numeric.']);end
+        if ~isrow(    list.lat);   error(['invalid ',type,': field ''lat'' is not a row vector.']);end
+        if ~isnumeric(list.lat);   error(['invalid ',type,': field ''lat'' is not numeric.']);end
         if ~isempty(  list.map) && ...
             numel(    list.lat) ~= ...
-            size(     list.map,2); error([mfilename,': invalid ',type,': field ''lat'' has different sizes than columns of ''map''.']);end %#ok<ALIGN>
+            size(     list.map,2); error(['invalid ',type,': field ''lat'' has different sizes than columns of ''map''.']);end %#ok<ALIGN>
       end
       %t
-      if ~isfield(   list,'t');   error([mfilename,': invalid ',type,': field ''t'' is missing.']);end
-      if ~isvector(  list.t);     error([mfilename,': invalid ',type,': field ''t'' is not a vector.']);end
+      if ~isfield(   list,'t');   error(['invalid ',type,': field ''t'' is missing.']);end
+      if ~isvector(  list.t);     error(['invalid ',type,': field ''t'' is not a vector.']);end
       if ~isdatetime(list.t  ) && ...
-         ~isnumeric( list.t  );   error([mfilename,': invalid ',type,': field ''t'' is not datetime or numeric.']);end
+         ~isnumeric( list.t  );   error(['invalid ',type,': field ''t'' is not datetime or numeric.']);end
       if ~isempty(   list.map) && ...
           numel(     list.t)   ~= ...
-          size(      list.map,1); error([mfilename,': invalid ',type,': field ''t'' has different nr of elements than rows of ''map''.']);end %#ok<ALIGN>
+          size(      list.map,1); error(['invalid ',type,': field ''t'' has different nr of elements than rows of ''map''.']);end %#ok<ALIGN>
     end
     function       out=list_size(list)
       out = [ numel(unique(list.lon(:))) numel(unique(list.lat(:))) numel(list.t) ];
@@ -327,10 +327,10 @@ classdef simplegrid < simpletimeseries
       %easier names
       type='flatlist';
       %need structure
-      if ~isstruct(  flatlist);      error([mfilename,': invalid ',type,': not a structure.']); end
+      if ~isstruct(  flatlist);      error(['invalid ',type,': not a structure.']); end
       %need to check lon/lat fields existence now, before determining if they are uniform
-      if ~isfield(   flatlist,'lon'); error([mfilename,': invalid ',type,': field ''lon'' is missing.']);end
-      if ~isfield(   flatlist,'lat'); error([mfilename,': invalid ',type,': field ''lat'' is missing.']);end
+      if ~isfield(   flatlist,'lon'); error(['invalid ',type,': field ''lon'' is missing.']);end
+      if ~isfield(   flatlist,'lat'); error(['invalid ',type,': field ''lat'' is missing.']);end
       if ~isempty(flatlist.lon) && ~isempty(flatlist.lat)
         % Calculate the spacing and limits
         GridLimits  = simplegrid.getLimits( flatlist.lon(:),flatlist.lat(:));
@@ -347,52 +347,52 @@ classdef simplegrid < simpletimeseries
         for i=1:numel(out.lon)
           idx.lon( (out.lon(i)-flatlist.lon).^2<simplegrid.parameters('sp_tol')^2 )=i;
         end
-        if any(isnan(idx.lon)); error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.']);end
+        if any(isnan(idx.lon)); error(['invalid ',type,': field ''lon'' is not an uniform domain.']);end
         idx.lat=nan(1,numel(flatlist.lat));
         for i=1:numel(out.lat)
           idx.lat( (out.lat(i)-flatlist.lat).^2<simplegrid.parameters('sp_tol')^2 )=i;
         end
-        if any(isnan(idx.lat)); error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.']);end
+        if any(isnan(idx.lat)); error(['invalid ',type,': field ''lat'' is not an uniform domain.']);end
         idx.t=nan(1,numel(flatlist.t));
         fltdn=datenum(flatlist.t);
         for i=1:numel(out.t)
           idx.t( (datenum(out.t(i))-fltdn).^2<simplegrid.parameters('sp_tol')^2 )=i;
         end
-        if any(isnan(idx.t)); error([mfilename,': invalid ',type,': field ''t'' contains NaNs, debug needed.']);end
+        if any(isnan(idx.t)); error(['invalid ',type,': field ''t'' contains NaNs, debug needed.']);end
       else
         idx=struct('lon',[],'lat',[],'t',[]);
         out=struct('lon',[],'lat',[],'t',[]);
       end
       %map
-      if ~isfield(    flatlist,'map'); error([mfilename,': invalid ',type,': field ''map'' is missing.']);end
+      if ~isfield(    flatlist,'map'); error(['invalid ',type,': field ''map'' is missing.']);end
       if     ~isempty(flatlist.map)
-        if ~isnumeric(flatlist.map); error([mfilename,': invalid ',type,': field ''map'' is not numeric.']);end
-        if ~iscolumn( flatlist.map); error([mfilename,': invalid ',type,': field ''map'' is not a column vector.']);end
+        if ~isnumeric(flatlist.map); error(['invalid ',type,': field ''map'' is not numeric.']);end
+        if ~iscolumn( flatlist.map); error(['invalid ',type,': field ''map'' is not a column vector.']);end
       end
       %lon
       if ~isempty(    flatlist.lon)
-        if ~iscolumn( flatlist.lon);   error([mfilename,': invalid ',type,': field ''lon'' is not a column vector.']);end
-        if ~isnumeric(flatlist.lon);   error([mfilename,': invalid ',type,': field ''lon'' is not numeric.']);end
+        if ~iscolumn( flatlist.lon);   error(['invalid ',type,': field ''lon'' is not a column vector.']);end
+        if ~isnumeric(flatlist.lon);   error(['invalid ',type,': field ''lon'' is not numeric.']);end
         if ~isempty(  flatlist.map) && ...
             numel(    flatlist.lon) ~= ...
-            numel(    flatlist.map);   error([mfilename,': invalid ',type,': field ''lon'' has different length than ''map''.']);end %#ok<ALIGN>
+            numel(    flatlist.map);   error(['invalid ',type,': field ''lon'' has different length than ''map''.']);end %#ok<ALIGN>
       end
       %lat
       if ~isempty(    flatlist.lat)
-        if ~iscolumn( flatlist.lat);   error([mfilename,': invalid ',type,': field ''lat'' is not a iscolumn vector.']);end
-        if ~isnumeric(flatlist.lat);   error([mfilename,': invalid ',type,': field ''lat'' is not numeric.']);end
+        if ~iscolumn( flatlist.lat);   error(['invalid ',type,': field ''lat'' is not a iscolumn vector.']);end
+        if ~isnumeric(flatlist.lat);   error(['invalid ',type,': field ''lat'' is not numeric.']);end
         if ~isempty(  flatlist.map) && ...
             numel(    flatlist.lat) ~= ...
-            numel(    flatlist.map);   error([mfilename,': invalid ',type,': field ''lat'' has different length than ''map''.']);end %#ok<ALIGN>
+            numel(    flatlist.map);   error(['invalid ',type,': field ''lat'' has different length than ''map''.']);end %#ok<ALIGN>
       end
       %t
-      if ~isfield(   flatlist,'t');   error([mfilename,': invalid ',type,': field ''t'' is missing.']);end
-      if ~isvector(  flatlist.t);     error([mfilename,': invalid ',type,': field ''t'' is not a vector.']);end
+      if ~isfield(   flatlist,'t');   error(['invalid ',type,': field ''t'' is missing.']);end
+      if ~isvector(  flatlist.t);     error(['invalid ',type,': field ''t'' is not a vector.']);end
       if ~isdatetime(flatlist.t  ) && ...
-         ~isnumeric( flatlist.t  );   error([mfilename,': invalid ',type,': field ''t'' is not datetime or numeric.']);end
+         ~isnumeric( flatlist.t  );   error(['invalid ',type,': field ''t'' is not datetime or numeric.']);end
       if ~isempty(   flatlist.map) && ...
           numel(     flatlist.t)   ~= ...
-          numel(     flatlist.map);   error([mfilename,': invalid ',type,': field ''t'' has different length than ''map''.']);end %#ok<ALIGN>
+          numel(     flatlist.map);   error(['invalid ',type,': field ''t'' has different length than ''map''.']);end %#ok<ALIGN>
     end
     function       out=flatlist_size(list)
       out = [ numel(unique(list.lon(:))) numel(unique(list.lat(:))) numel(unique(list.t)) ];
@@ -413,10 +413,10 @@ classdef simplegrid < simpletimeseries
       %easier names
       type='matrix';
       %need structure
-      if ~isstruct( matrix);       error([mfilename,': invalid ',type,': not a structure.']); end
+      if ~isstruct( matrix);       error(['invalid ',type,': not a structure.']); end
       %need to check lon/lat fields existence now, before determining if they are uniform
-      if ~isfield(    matrix,'lon'); error([mfilename,': invalid ',type,': field ''lon'' is missing.']);end
-      if ~isfield(    matrix,'lat'); error([mfilename,': invalid ',type,': field ''lat'' is missing.']);end
+      if ~isfield(    matrix,'lon'); error(['invalid ',type,': field ''lon'' is missing.']);end
+      if ~isfield(    matrix,'lat'); error(['invalid ',type,': field ''lat'' is missing.']);end
       if ~isempty(matrix.lon) && ~isempty(matrix.lat)
         % Calculate the spacing and limits
         GridLimits  = simplegrid.getLimits( matrix.lon(:),matrix.lat(:));
@@ -430,47 +430,47 @@ classdef simplegrid < simpletimeseries
         [lon_m,lat_m]=meshgrid(out.lon,out.lat);
         % sanity
         if numel(lon_m) ~= numel(matrix.lon) || any( (lon_m(:)-matrix.lon(:)).^2>simplegrid.parameters('sp_tol')^2 )
-          error([mfilename,': invalid ',type,': field ''lon'' is not an uniform domain.'])
+          error(['invalid ',type,': field ''lon'' is not an uniform domain.'])
         end
         if numel(lat_m) ~= numel(matrix.lat) || any( (lat_m(:)-matrix.lat(:)).^2>simplegrid.parameters('sp_tol')^2 )
-          error([mfilename,': invalid ',type,': field ''lat'' is not an uniform domain.'])
+          error(['invalid ',type,': field ''lat'' is not an uniform domain.'])
         end
       else
         out=struct('lon',[],'lat',[]);
       end
       %map
-      if ~isfield(   matrix,'map'); error([mfilename,': invalid ',type,': field ''map'' is missing.']);end
+      if ~isfield(   matrix,'map'); error(['invalid ',type,': field ''map'' is missing.']);end
       if ~isempty(   matrix.map) && ...
-          ~isnumeric(matrix.map);   error([mfilename,': invalid ',type,': field ''map'' is not numeric.']);end
+          ~isnumeric(matrix.map);   error(['invalid ',type,': field ''map'' is not numeric.']);end
       %lon
-      if ~isfield(    matrix,'lon'); error([mfilename,': invalid ',type,': field ''lon'' is missing.']);end
+      if ~isfield(    matrix,'lon'); error(['invalid ',type,': field ''lon'' is missing.']);end
       if ~isempty(    matrix.lon)
-        if ~ismatrix( matrix.lon);   error([mfilename,': invalid ',type,': field ''lon'' is not a matrix.']);end
-        if ~isnumeric(matrix.lon);   error([mfilename,': invalid ',type,': field ''lon'' is not numeric.']);end
+        if ~ismatrix( matrix.lon);   error(['invalid ',type,': field ''lon'' is not a matrix.']);end
+        if ~isnumeric(matrix.lon);   error(['invalid ',type,': field ''lon'' is not numeric.']);end
         if  ~isempty( matrix.map) && ...
             any(size( matrix.lon) ~= ...
             size(     matrix.map(:,:,1))) %#ok<ALIGN>
-                                     error([mfilename,': invalid ',type,': field ''lon'' has different sizes than rows and columns of ''map''.']);end
+                                     error(['invalid ',type,': field ''lon'' has different sizes than rows and columns of ''map''.']);end
       end
       %lat
-      if ~isfield(    matrix,'lat'); error([mfilename,': invalid ',type,': field ''lat'' is missing.']);end
+      if ~isfield(    matrix,'lat'); error(['invalid ',type,': field ''lat'' is missing.']);end
       if ~isempty(    matrix.lat)
-        if ~ismatrix( matrix.lat);   error([mfilename,': invalid ',type,': field ''lat'' is not a matrix.']);end
-        if ~isnumeric(matrix.lat);   error([mfilename,': invalid ',type,': field ''lat'' is not numeric.']);end
+        if ~ismatrix( matrix.lat);   error(['invalid ',type,': field ''lat'' is not a matrix.']);end
+        if ~isnumeric(matrix.lat);   error(['invalid ',type,': field ''lat'' is not numeric.']);end
         if ~isempty(  matrix.map) && ...
             any(size( matrix.lat) ~= ...
             size(     matrix.map(:,:,1))) %#ok<ALIGN>
-                                     error([mfilename,': invalid ',type,': field ''lat'' has different sizes than rows and columns of ''map''.']);end
+                                     error(['invalid ',type,': field ''lat'' has different sizes than rows and columns of ''map''.']);end
       end
       %t
-      if ~isfield(   matrix,'t'  ); error([mfilename,': invalid ',type,': field ''t'' is missing.']);end
-      if ~isvector(  matrix.t  );   error([mfilename,': invalid ',type,': field ''t'' is not a vector.']);end
+      if ~isfield(   matrix,'t'  ); error(['invalid ',type,': field ''t'' is missing.']);end
+      if ~isvector(  matrix.t  );   error(['invalid ',type,': field ''t'' is not a vector.']);end
       if ~isdatetime(matrix.t  ) && ...
-         ~isnumeric( matrix.t  );   error([mfilename,': invalid ',type,': field ''t'' is not datetime or numeric.']);end
+         ~isnumeric( matrix.t  );   error(['invalid ',type,': field ''t'' is not datetime or numeric.']);end
       if  ~isempty(  matrix.map) && ...
           numel(     matrix.t  ) ~= ...
           size(      matrix.map,3) %#ok<ALIGN>
-                                    error([mfilename,': invalid ',type,': field ''t'' has different nr of elements than pages of ''map''.']);end
+                                    error(['invalid ',type,': field ''t'' has different nr of elements than pages of ''map''.']);end
     end
     function    out=matrix_size(matrix)
       out=size(matrix.map);
@@ -613,7 +613,7 @@ classdef simplegrid < simpletimeseries
       case 'flatlist'; c=simplegrid.flatlist_valid(in);
       case 'matrix';   c=simplegrid.matrix_valid(in);
       otherwise
-        error([mfilename,': unknown data type ''',type,'''.'])
+        error(['unknown data type ''',type,'''.'])
       end
     end
     %data type check
@@ -624,7 +624,7 @@ classdef simplegrid < simpletimeseries
       case 'flatlist'; simplegrid.flatlist_check(in);
       case 'matrix';   simplegrid.matrix_check(in);
       otherwise
-        error([mfilename,': unknown data type ''',type,'''.'])
+        error(['unknown data type ''',type,'''.'])
       end
     end
     %data type length
@@ -635,7 +635,7 @@ classdef simplegrid < simpletimeseries
       case 'flatlist'; l=simplegrid.flatlist_size(in);
       case 'matrix';   l=simplegrid.mat_size(in);
       otherwise
-        error([mfilename,': unknown data type ''',type,'''.'])
+        error(['unknown data type ''',type,'''.'])
       end
     end
     %data type init
@@ -655,7 +655,7 @@ classdef simplegrid < simpletimeseries
       elseif isnumeric(map) && size(map,1) == numel(t)
         %do nothing, this will be handled later
       else
-        error([mfilename,': error in sizes of inputs ''t'' and ''map''.'])
+        error('error in sizes of inputs ''t'' and ''map''.')
       end
       % build structure with inputs
       si=struct(...
@@ -681,7 +681,7 @@ classdef simplegrid < simpletimeseries
             disp(ME.message)
           end
         end
-        error([mfilename,': cannot handle the format of inputs'])
+        error('cannot handle the format of inputs')
       end
       % convert to requested type
       s=simplegrid.dtc(fmt,type,si);
@@ -984,7 +984,7 @@ classdef simplegrid < simpletimeseries
           for j=1:numel(dt)
             out=simplegrid.dtc(dt{i},dt{j},dd{i});
             if any(any(out.map~=dd{j}.map))
-              error([mfilename,': failed data type conversion between ''',dt{i},''' and ''',dt{j},'''.'])
+              error(['failed data type conversion between ''',dt{i},''' and ''',dt{j},'''.'])
             end
           end
         end
@@ -1118,7 +1118,7 @@ classdef simplegrid < simpletimeseries
       elseif ~isempty(obj.t)
         t=obj.t;
       else
-        error([mfilename,': cannot assign a map without either ''x'' or ''t''.'])
+        error('cannot assign a map without either ''x'' or ''t''.')
       end
       % If inputs p.Results.lon and p.Results.lat are empty, it's because
       % obj.lati and obj.loni are too. This test makes sense because
@@ -1141,10 +1141,10 @@ classdef simplegrid < simpletimeseries
       else
         %sanity
         if ~ismatrix(map)
-          error([mfilename,': if lon/lat are empty, can only deal with matrix-type maps.'])
+          error('if lon/lat are empty, can only deal with matrix-type maps.')
         end
         if numel(t) ~= size(map,1)
-          error([mfilename,': input ''t'' or ''x'' must have the same nr of row as ''map''.'])
+          error('input ''t'' or ''x'' must have the same nr of row as ''map''.')
         end
       end
       % add width-reseting flag, if needed
@@ -1153,7 +1153,7 @@ classdef simplegrid < simpletimeseries
           varargin{end+1}='reset_width';
           varargin{end+1}=true;
         else
-          error([mfilename,': trying to assign a map that is not consistent with existing lon/lat domain. ',...
+          error(['trying to assign a map that is not consistent with existing lon/lat domain. ',...
             'Update that first or pass them as arguments to this member.'])
         end
       end
@@ -1230,9 +1230,9 @@ classdef simplegrid < simpletimeseries
           obj.varargin{:}...
         );
       case 'struct'
-        error([mfilename,': cannot retrive multiple stats in the form a structure.'])
+        error('cannot retrive multiple stats in the form a structure.')
       otherwise
-        error([mfilename,': cannot handle stats when upstream method returns class ',class(s),'.'])
+        error(['cannot handle stats when upstream method returns class ',class(s),'.'])
       end
       %update descriptor
       out.descriptor=[varargs(varargin).mode,' of ',obj.descriptor];
@@ -1356,7 +1356,7 @@ classdef simplegrid < simpletimeseries
       try
         out=obj.(type).lat;
       catch
-        error([mfilename,': unknown data type ''',type,'''.'])
+        error(['unknown data type ''',type,'''.'])
       end
     end
     function out=get.latSpacing(obj)
@@ -1415,7 +1415,7 @@ classdef simplegrid < simpletimeseries
       try
         out=obj.(type).lon;
       catch
-        error([mfilename,': unknown data type ''',type,'''.'])
+        error(['unknown data type ''',type,'''.'])
       end
     end
     function out=get.lonSpacing(obj)
@@ -1499,10 +1499,10 @@ classdef simplegrid < simpletimeseries
     %% spatial interpolation
     function obj=spatial_interp(obj,lon_new,lat_new)
       if ~iscolumn(lat_new)
-        error([mfilename,': illegal input ''lat''.'])
+        error('illegal input ''lat''.')
       end
       if ~isrow(lon_new)
-        error([mfilename,': illegal input ''lon''.'])
+        error('illegal input ''lon''.')
       end
       %NOTICE: cannot interpolate centered grids because of the discontinuity at longitude 360
       assert(~obj.centered,'Cannot interpolated centered grids')
@@ -1891,7 +1891,7 @@ classdef simplegrid < simpletimeseries
           continue
         end
         if ~cells.isincluded(p.Results.skip_par_check,par{i}) && ~isequal(obj1.(par{i}),obj2.(par{i}))
-          error([mfilename,': discrepancy in parameter ',par{i},'.'])
+          error(['discrepancy in parameter ',par{i},'.'])
         end
       end
     end
@@ -2183,7 +2183,7 @@ function out_grid = grid_constructor(varargin)
               out_grid.x = [];
               out_grid.y = [];
           elseif isempty(xlist) || isempty(ylist)
-              error('%s, ERROR: Grid must have values for x- and y',mfilename)
+              error('Grid must have values for x- and y')
           else
               % TODO: notice that this doesnt not necessarily span all the
               % points in xlist and ylist. Only if they
@@ -2204,7 +2204,7 @@ function out_grid = grid_constructor(varargin)
               nindx(aux) = i;
           end
           if ( sum(isnan(nindx)) ~= 0 )
-              error('%s: ERROR: x-coordinate is not regular',mfilename)
+              error('x-coordinate is not regular')
           end
           for i = 1:out_grid.ny
               %THRS This takes into account numerical errors in a regular
@@ -2213,7 +2213,7 @@ function out_grid = grid_constructor(varargin)
               nindy(aux) = i;
           end
           if ( sum(isnan(nindy)) ~= 0 )
-              error('%s: ERROR: y-coordinate is not regular',mfilename)
+              error('y-coordinate is not regular')
           end
           out_grid.Map = NaN(out_grid.ny,out_grid.nx);
           nind = sub2ind(size(out_grid.Map),nindy,nindx);
@@ -2231,10 +2231,10 @@ function out_grid = grid_constructor(varargin)
               zlist = zlist';
           end
           if any(any(diff(xlist,1,2) ~= mean(diff(xlist(1,:),1,2))))
-              error('%s, ERROR: x,in mat form, must be a regular grid.',mfilename);
+              error('x,in mat form, must be a regular grid.');
           end
           if any(any(diff(ylist) ~= mean(diff(ylist(:,1)))))
-              error('%s, ERROR: y- in mat form must be a regular grid.',mfilename);
+              error('y- in mat form must be a regular grid.');
           end
 
           % Calculate the spacing and limits
@@ -2254,7 +2254,7 @@ function out_grid = grid_constructor(varargin)
               out_grid.x = [];
               out_grid.y = [];
           elseif isempty(xlist) || isempty(ylist)
-              error('%s, ERROR: Grid must have values for x- and y',mfilename)
+              error('Grid must have values for x- and y')
           else
               % TODO: notice that this doesnt not necessarily span all the
               % points in xlist and ylist. Only if they
@@ -2279,7 +2279,7 @@ function out_grid = grid_constructor(varargin)
                   out_grid.x = xlist;
               end
           else
-              error('%s: ERROR: Input ylist should be a vector.',mfilename)
+              error('Input ylist should be a vector.')
           end
           if isvector(ylist)
               if size(ylist,2) > 1
@@ -2288,7 +2288,7 @@ function out_grid = grid_constructor(varargin)
                   out_grid.y = ylist;
               end
           else
-              error('%s: ERROR: Input ylist should be a vector.',mfilename)
+              error('Input ylist should be a vector.')
           end
           out_grid.Map = zlist;
           out_grid.nx = numel(out_grid.x);
@@ -2307,12 +2307,12 @@ function out_grid = grid_constructor(varargin)
           end
 
       else
-          error('%s: ERROR: Grid elements with inconsistent sizes.',mfilename);
+          error('Grid elements with inconsistent sizes.');
       end
 
   elseif isgrid(xlist)
-      fprintf(1,['$s: WARNING: This use of this function will be removed.\n'...
-                 '             Use grid_set* functions instead.'],mfilename);
+      warning(['This use of this function will be removed.',newline,...
+               '             Use grid_set* functions instead.']);
       % Simply copy grid. Remaining fields will be edited after this if.
       out_grid = xlist;
   elseif ischar(xlist) || iscell(xlist)
@@ -2321,7 +2321,7 @@ function out_grid = grid_constructor(varargin)
       % exit function
       return
   else
-      error('%s: ERROR: invalid input xlist.',mfilename)
+      error('invalid input xlist.')
   end
   % -> Here we are sure a valid grid structure is defined with. From now on
   % it should be possible to use isgrid.
@@ -2343,8 +2343,8 @@ function out_grid = grid_constructor(varargin)
   %     out_grid.GridLimits = GridLimits;
   %     if ~isgrid(out_grid)
   %         limStr = sprintf('[%G,%G,%G,%G]',grid_get_limits(out_grid.x,out_grid.y));
-  %         error('%s: ERROR: Incorrect limits. Should be a 4x1 vector at least spaning the range: %s',...
-  %             mfilename,limStr);
+  %         error('Incorrect limits. Should be a 4x1 vector at least spaning the range: %s',...
+  %             limStr);
   %     end
   %     hasNewLimits = true;
   % else
@@ -2356,8 +2356,8 @@ function out_grid = grid_constructor(varargin)
   %     out_grid.GridSpacing = GridSpacing;
   %     if ~isgrid(out_grid)
   %         spStr = sprintf('[%G,%G]',grid_get_spacing(out_grid.x,out_grid.y));
-  %         error('%s: ERROR: Incorrect spacing. Should be a 2x1 vector with maximum values: %s',...
-  %             mfilename,spStr);
+  %         error('Incorrect spacing. Should be a 2x1 vector with maximum values: %s',...
+  %             spStr);
   %     end
   %     hasNewSpacing = true;
   % else
@@ -2425,7 +2425,7 @@ function GridLimits = grid_getLimits(xlist,ylist)
       xlist = NaN;
       ylist = NaN;
   else
-      error('%s: ERROR: Inputs must be either a valid grid or a list of x- and y- points.',mfilename)
+      error('Inputs must be either a valid grid or a list of x- and y- points.')
   end
 
   GridLimits = [ min(xlist) max(xlist) min(ylist) max(ylist) ];
@@ -2451,7 +2451,7 @@ function GridSpacing = grid_getSpacing(xlist,ylist)
       xlist = NaN(2,1);
       ylist = NaN(2,1);
   else
-      error('%s: ERROR: Inputs must be either a valid grid or a list of x- and y- points.',mfilename)
+      error('Inputs must be either a valid grid or a list of x- and y- points.')
   end
 
   GridSpacing = [ min(diff(sort(unique(xlist)))) min(diff(sort(unique(ylist)))) ];
@@ -2476,7 +2476,7 @@ function grid = grid_setDate(grid,Date)
               datenum(Date,DATEFMT);
           catch exception
               if strcmp(exception.identifier,'MATLAB:datenum:ConvertDateString')
-                  error('%s: ERROR: Date must be in format: %s',mfilename,DATEFMT);
+                  error('Date must be in format: %s',DATEFMT);
               else
                   throw(exception)
               end
@@ -2484,7 +2484,7 @@ function grid = grid_setDate(grid,Date)
           grid.Date = Date;
       end
   else
-      error('%s: ERROR: Input must be a valid grid structure.',mfilename)
+      error('Input must be a valid grid structure.')
   end
 end
 function grid = grid_setDescription(grid,Description)
@@ -2500,10 +2500,10 @@ function grid = grid_setDescription(grid,Description)
       elseif ischar(Description)
           grid.Description = Description;
       else
-          error('%s: ERROR: DESC must be a valid string.',mfilename)
+          error('DESC must be a valid string.')
       end
   else
-      error('%s: ERROR: Input must be a valid grid structure.',mfilename)
+      error('Input must be a valid grid structure.')
   end
 end
 function grid = grid_setUnits(grid,Units)
@@ -2521,10 +2521,10 @@ function grid = grid_setUnits(grid,Units)
       elseif iscell(Units) && all(size(Units) == [1 3])
           grid.Units = Units;
       else
-          error('%s: ERROR: Must provide valid Units to constructor. Should be a 1x3 cell array.',mfilename);
+          error('Must provide valid Units to constructor. Should be a 1x3 cell array.');
       end
   else
-      error('%s: ERROR: Input must be a valid grid structure.',mfilename)
+      error('Input must be a valid grid structure.')
   end
 end
 function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapLonLimit,...
@@ -2584,7 +2584,7 @@ function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapL
 
       % Change variables contents to the right place. This can be avoided by
       % using input parser.
-      if (nargin > 12); error('%s: ERROR: Too many input arguments.',mfilename); end
+      if (nargin > 12); error('Too many input arguments.'); end
       if exist('h','var'); titleFlag = h;  end
       if exist('colorbarMode','var'); visible = colorbarMode;  end
       if exist('colorAxis','var'); h = colorAxis;  end
@@ -2604,7 +2604,7 @@ function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapL
       glon =ang_fix_domain(grid.x,0,360);
       gvals=grid.Map;
   elseif ~exist('glat','var') || ~exist('gvals','var') || ~isnumeric(glon) || ~isnumeric(glat) || ~isnumeric(gvals)
-      error([mfilename,': ERROR: Input grid must be either valid grid structure or a set of numeric x,y,z vals.']);
+      error('Input grid must be either valid grid structure or a set of numeric x,y,z vals.');
   end
 
   % Define default behaviour
@@ -2669,7 +2669,7 @@ function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapL
           plot_grid(grid_convert(grid,{'deg','deg',''}),projection,origin_lon,origin_lat,MapLonLimit,MapLatLimit,coastFlag,colorAxis,colorbarMode,h)
           return;
       elseif any(strcmp(grid.Units(1:2),''))
-          fprintf(1,'%s: WARNING: Unspecified x- and y- grid units.\n',mfilename);
+          warning('Unspecified x- and y- grid units.');
           % Handle generic units
           % TODO: apply these only if they are not specified by caller.
           projection = 'image';
@@ -2703,7 +2703,7 @@ function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapL
           patch_idx=find(glon(1,:)==180);
           %bug trap
           if isempty(patch_idx)
-              error([mfilename,': ERROR: isempty(patch_idx), debug needed.'])
+              error('isempty(patch_idx), debug needed.')
           end
           glon=[glon(:,1:patch_idx),-180*ones(size(glon,1),1),glon(:,patch_idx+1:end)];
           glat=[glat,glat(:,1)];
@@ -2833,7 +2833,7 @@ function [h,cbh]=plot_grid(glon,glat,gvals,projection,origin_lon,origin_lat,MapL
       case 2
           plot_colorbar_opt(jet(256))
       otherwise
-          error([mfilename,': unknown colorbar_mode ',num2str(colorbarMode),'.'])
+          error(['unknown colorbar_mode ',num2str(colorbarMode),'.'])
   end
   % P.Inacio - This is not useful here because one does not need to freeze
   % the colors when plotting a given grid. If any other function used this
@@ -2892,7 +2892,7 @@ function out = ang_fix_domain(in,lower,upper,string)
       string='';
   end
   if ~isscalar(lower) || ~isscalar(upper)
-      error([mfilename,': inputs <lower> and <upper> must be scalar.'])
+      error('inputs <lower> and <upper> must be scalar.')
   end
 
   while any(in(:)>upper) || any(in(:)<lower)
@@ -2900,7 +2900,7 @@ function out = ang_fix_domain(in,lower,upper,string)
       if any(idx)
           in(idx) = in(idx) - (upper-lower);
           if ~isempty(string) && isscalar(in)
-              disp([mfilename,': ',string,'=',num2str(in),' (was ',num2str(in),...
+              disp([' ',string,'=',num2str(in),' (was ',num2str(in),...
                   ') needed fixing because upper circular bound is ',num2str(upper),'.'])
           end
       end
@@ -2908,7 +2908,7 @@ function out = ang_fix_domain(in,lower,upper,string)
       if any(idx)
           in(idx) = in(idx) + (upper-lower);
           if ~isempty(string) && isscalar(in)
-              disp([mfilename,': ',string,'=',num2str(in),' (was ',num2str(in),...
+              disp([' ',string,'=',num2str(in),' (was ',num2str(in),...
                   ') needed fixing because lower circular bound is ',num2str(lower),'.'])
           end
       end
@@ -2958,34 +2958,34 @@ function [c_out,s_out,msg]=mod_sh_ana(long,lat,grid,N)
 
   %check dimensions
   if size(long,1) ~= 1
-      error([mfilename,': input <long> must be a horizontal vector.'])
+      error('input <long> must be a horizontal vector.')
   end
   if size(lat,2) ~= 1
-      error([mfilename,': input <lat> must be a vertical vector.'])
+      error('input <lat> must be a vertical vector.')
   end
   %check regular grid
   if any(diff(lat) <= 0) || any(abs(diff(lat,2)) > max(abs(lat))*NUM_THRS)
-      error([mfilename,': input <lat> must be monotonically increasing set of equally-spaced latitudes.'])
+      error('input <lat> must be monotonically increasing set of equally-spaced latitudes.')
   end
   if any(diff(long) <= 0) || any(abs(diff(long,2)) > max(abs(long))*NUM_THRS)
       % if long starts in pi->2pi|0->pi there is a "false" discontinuity
       aux = ang_fix_pi(long);
       if any(diff(aux) <= 0) || any(abs(diff(aux,2)) > max(abs(aux))*NUM_THRS)
-          error([mfilename,': input <long> must be monotonically increasing set of equally-spaced longitudes.'])
+          error('input <long> must be monotonically increasing set of equally-spaced longitudes.')
       end
   end
   % check domain
   %  if max(lat) > pi/2 || min(lat) < -pi/2
   if max(lat)-pi/2 > 1E-14 || min(lat)+pi/2 < -1E-14
-      error([mfilename,': input <lat> does not seem to be in radians or outside legal domain [-pi/2,pi/2].'])
+      error('input <lat> does not seem to be in radians or outside legal domain [-pi/2,pi/2].')
   end
   if max(long) > 2*pi || min(long) < 0
-      error([mfilename,': input <long> does not seem to be in radians or outside legal domain [0,2*pi].'])
+      error('input <long> does not seem to be in radians or outside legal domain [0,2*pi].')
   end
   % check repeated data
   if long(end) == 2*pi && long(1) == 0
       if any( grid(:,1) ~= grid(:,end) )
-          error([mfilename,': Invalid grid, different values for same meridian (0 and 2*pi).'])
+          error('Invalid grid, different values for same meridian (0 and 2*pi).')
       else
           % do not use the 360 longitude
           grid(:,end) = [];
@@ -2994,14 +2994,14 @@ function [c_out,s_out,msg]=mod_sh_ana(long,lat,grid,N)
   end
   % check pole singularities
   if lat(1) == pi/2 && any(diff(grid(1,:)) ~= 0)
-      error([mfilename,': input <lat> has different values for the same point with lat=pi/2.'])
+      error('input <lat> has different values for the same point with lat=pi/2.')
   end
   if lat(end) == -pi/2 && any(diff(grid(end,:)) ~= 0)
-      error([mfilename,': input <lat> has different values for the same point with lat=-pi/2.'])
+      error('input <lat> has different values for the same point with lat=-pi/2.')
   end
   % check grid size
   if any(size(grid) ~= [length(lat),length(long)])
-      error([mfilename,': size of input <grid> is not compatible with size of inputs <lat> or <long>.'])
+      error('size of input <grid> is not compatible with size of inputs <lat> or <long>.')
   end
 
   % parameters
@@ -3013,7 +3013,7 @@ function [c_out,s_out,msg]=mod_sh_ana(long,lat,grid,N)
   if ~exist('N','var') || isempty(N)
       N = N_max;
   elseif N > N_max
-      error([mfilename,': <N> is too large. The maximum for this grid is ',num2str(N_max),'.'])
+      error(['<N> is too large. The maximum for this grid is ',num2str(N_max),'.'])
   end
 
   %need co-latitude
@@ -3079,7 +3079,7 @@ function [c_out,s_out,msg]=mod_sh_ana(long,lat,grid,N)
 end
 function out = legendre_degree(N,lat)
   if min(size(lat)) ~= 1
-      error([mfilename,': input <lat> must be a vector.'])
+      error('input <lat> must be a vector.')
   end
   %getting legendre coefficients, per degree
   out=cell(1,N+1);

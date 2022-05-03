@@ -247,7 +247,7 @@ classdef gravity < simpletimeseries
       end
       %check input
       if ~gravity.dtv(from,in)
-        error([mfilename,': invalid data of type ''',from,'''.'])
+        error(['invalid data of type ''',from,'''.'])
       end
       %convert to required types
       switch lower(from)
@@ -297,7 +297,7 @@ classdef gravity < simpletimeseries
       case 'tri';c=gravity.tri_valid(in);
       case 'mod';c=gravity.mod_valid(in);
       otherwise
-        error([mfilename,': unknown data type ''',from,'''.'])
+        error(['unknown data type ''',from,'''.'])
       end
     end
     %data type lmax
@@ -309,7 +309,7 @@ classdef gravity < simpletimeseries
       case 'tri';c=gravity.tri_lmax(in);
       case 'mod';c=gravity.mod_lmax(in);
       otherwise
-        error([mfilename,': unknown data type ''',from,'''.'])
+        error(['unknown data type ''',from,'''.'])
       end
     end
     %data type length
@@ -321,7 +321,7 @@ classdef gravity < simpletimeseries
       case 'tri';s=gravity.tri_length(in);
       case 'mod';s=gravity.mod_length(in);
       otherwise
-        error([mfilename,': unknown data type ''',from,'''.'])
+        error(['unknown data type ''',from,'''.'])
       end
     end
     %% degree/order index mapping
@@ -352,7 +352,7 @@ classdef gravity < simpletimeseries
     end
     function out=colidx(d,o,lmax)
       if any(size(d)~=size(o))
-        error([mfilename,': inputs ''d'' and ''o'' must have the same size(s).'])
+        error('inputs ''d'' and ''o'' must have the same size(s).')
       end
       m=gravity.mapping(lmax);
       out=false(1,size(m,2));
@@ -451,7 +451,7 @@ classdef gravity < simpletimeseries
         case 'esamtm'
           error('BUG TRAP: The ''esamtm'' format is always storred in mat files')
         otherwise
-          error([mfilename,': cannot handle models of type ''',v.format,'''.'])
+          error(['cannot handle models of type ''',v.format,'''.'])
         end
         try
           save(mat_filename,'m','e')
@@ -639,7 +639,7 @@ classdef gravity < simpletimeseries
         if strcmpi(v.date_parser,'static')
           %if a static field is requested, there should be only one file
           if numel(filelist)~= 1
-            error([mfilename,': when requested a static field, can only handle a single file, not ',...
+            error(['when requested a static field, can only handle a single file, not ',...
               num2str(numel(filelist)),'.'])
           end
           %patch missing start epoch (static fields have no epoch)
@@ -791,7 +791,7 @@ classdef gravity < simpletimeseries
           if ~str.none(v.use_GRACE_C20) && strcmp(v.model_type,'signal')
             %some sanity
             if strcmpi(v.date_parser,'static')
-              error([mfilename,': there''s no point in replacing GRACE C20 coefficients in a static model.'])
+              error('there''s no point in replacing GRACE C20 coefficients in a static model.')
             end
             %parse using a model or the original data
             if contains(v.use_GRACE_C20,'-C20-model')
@@ -902,7 +902,7 @@ classdef gravity < simpletimeseries
 %       %sanity
 %       for i=2:numel(model_list)
 %         if ~model_list{1}.istequal(model_list{i})
-%           error([mfilename,': time domain discrepancy between model ',...
+%           error(['time domain discrepancy between model ',...
 %             model_list{1}.descriptor,' and model ',...
 %             model_list{i}.descriptor,'.'])
 %         end
@@ -922,12 +922,12 @@ classdef gravity < simpletimeseries
             simpledata.vtimes(model_list,model_list),...
           'weights',p.Results.weights).sqrt;
         otherwise
-          error([mfilename,': unknown type ',p.Results.type,'.'])
+          error(['unknown type ',p.Results.type,'.'])
         end
       case {'dtm','difftomean'}
-        error([mfilename,': implementation needed'])
+        error('implementation needed')
       otherwise
-        error([mfilename,': unknown mode ''',p.Results.mode,'''.'])
+        error(['unknown mode ''',p.Results.mode,'''.'])
       end
       %update the descriptor
       msg=cell(size(model_list));
@@ -1348,7 +1348,7 @@ classdef gravity < simpletimeseries
           deg=(0:N-1)'*ones(1,N);
           s=GM/R^3*(deg+1).*(deg+2);
         otherwise
-          error([mfilename,': unknown scale ',functional])
+          error(['unknown scale ',functional])
       end
     end
     %% general test for the current object
@@ -1501,10 +1501,10 @@ classdef gravity < simpletimeseries
     function obj=set.mat(obj,in)
       %sanity
       if ~iscell(in)
-        error([mfilename,': input <in> must be a cell array of matrices.'])
+        error('input <in> must be a cell array of matrices.')
       end
       if (numel(in)~=obj.length)
-        error([mfilename,': cannot handle input <in> if it does not have the same number of elements as obj.length.'])
+        error('cannot handle input <in> if it does not have the same number of elements as obj.length.')
       end
       %make room for data
       y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('mat',in{1})));
@@ -1525,10 +1525,10 @@ classdef gravity < simpletimeseries
     function obj=set.cs(obj,in)
       %sanity
       if ~isstruct(in)
-        error([mfilename,': input <in> must be a structure array.'])
+        error('input <in> must be a structure array.')
       end
       if (numel(in)~=obj.length)
-        error([mfilename,': cannot handle input <in> if it does not have the same number of elements as obj.length.'])
+        error('cannot handle input <in> if it does not have the same number of elements as obj.length.')
       end
       %make room for data
       y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('cs',in)));
@@ -1549,10 +1549,10 @@ classdef gravity < simpletimeseries
     function obj=set.tri(obj,in)
       %sanity
       if ~iscell(in) && ~ismatrix(in{1})
-        error([mfilename,': input <in> must be a cell array of matrices.'])
+        error('input <in> must be a cell array of matrices.')
       end
       if (numel(in)~=obj.length)
-        error([mfilename,': cannot handle input <in> if it does not have the same number of elements as obj.length.'])
+        error('cannot handle input <in> if it does not have the same number of elements as obj.length.')
       end
       %make room for data
       y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('tri',in{1})));
@@ -1573,10 +1573,10 @@ classdef gravity < simpletimeseries
     function obj=set.mod(obj,in)
       %sanity
       if ~iscell(in) && ~ismatrix(in{1})
-        error([mfilename,': input <in> must be a cell array of matrices.'])
+        error('input <in> must be a cell array of matrices.')
       end
       if (numel(in)~=obj.length)
-        error([mfilename,': cannot handle input <in> if it does not have the same number of elements as obj.length.'])
+        error('cannot handle input <in> if it does not have the same number of elements as obj.length.')
       end
       %make room for data
       y_now=zeros(obj.length,gravity.dtlength('y',gravity.dtlmax('mod',in{1})));
@@ -1626,7 +1626,7 @@ classdef gravity < simpletimeseries
         time=obj.t;
       end
       if any(size(d)~=size(o))
-        error([mfilename,': inputs ''d'' and ''o'' must have the same size(s).'])
+        error('inputs ''d'' and ''o'' must have the same size(s).')
       end
       %get indexes of the cosine-coefficients
       C_idx=find(o>=0);
@@ -1675,13 +1675,13 @@ classdef gravity < simpletimeseries
         time=obj.t;
       end
       if any(size(d)~=size(o))
-        error([mfilename,': inputs ''d'', ''o'' must have the same size'])
+        error('inputs ''d'', ''o'' must have the same size')
       end
       if numel(d)~=size(values,2) && numel(values)>1
-        error([mfilename,': inputs ''d'' and ''o'' must have the same number of elements as the number of columns of ''values'''])
+        error('inputs ''d'' and ''o'' must have the same number of elements as the number of columns of ''values''')
       end
       if numel(time)~=size(values,1) && numel(values)>1
-        error([mfilename,': input ''time'' must have the same number of elements as the number of rows of ''values'''])
+        error('input ''time'' must have the same number of elements as the number of rows of ''values''')
       end
       if numel(values)==1
         values=values*ones(numel(time),numel(d));
@@ -1712,7 +1712,7 @@ classdef gravity < simpletimeseries
         time=obj.t;
       end
       if any(size(d)~=size(values))
-        error([mfilename,': inputs ''d'' and ''values'' must have the same size'])
+        error('inputs ''d'' and ''values'' must have the same size')
       end
       %retrieve triangular form
       tri_now=obj.tri;
@@ -1731,7 +1731,7 @@ classdef gravity < simpletimeseries
         time=obj.t;
       end
       if any(size(o)~=size(values))
-        error([mfilename,': inputs ''d'' and ''values'' must have the same size'])
+        error('inputs ''d'' and ''values'' must have the same size')
       end
       %retrieve triangular form
       tri_now=obj.tri;
@@ -1825,8 +1825,7 @@ classdef gravity < simpletimeseries
         s(w1+2:obj.lmax+1)=0;
       end
     	%sanity
-      assert(~any(isnan(s)),...
-        [mfilename,': found NaNs in the output. Debug needed!'])
+      assert(~any(isnan(s)),'found NaNs in the output. Debug needed!')
     end
     function s=scale_trunc(obj,fwhm_degree)
       % translate smoothing radius to degree (criteria inside)
@@ -1889,7 +1888,7 @@ classdef gravity < simpletimeseries
           %we're done, bail now
           return
         otherwise
-          error([mfilename,': cannot handle scaling factors with number of elements equal to ',...
+          error(['cannot handle scaling factors with number of elements equal to ',...
             num2str(numel(s)),'; either 1, max degree+1 (',num2str(obj.lmax+1),') or nr of coeffs (',...
             num2str(obj.width),').'])
         end
@@ -2253,7 +2252,7 @@ classdef gravity < simpletimeseries
           continue
         end
         if ~cells.isincluded(p.Results.skip_par_check,par{i}) && ~isequal(obj1.(par{i}),obj2.(par{i}))
-          error([mfilename,': discrepancy in parameter ',par{i},'.'])
+          error(['discrepancy in parameter ',par{i},'.'])
         end
       end
     end
@@ -2407,7 +2406,7 @@ classdef gravity < simpletimeseries
         end
         title(str.clean(out.title,'title'))
       otherwise
-        error([mfilename,': unknonw method ''',v.method,'''.'])
+        error(['unknonw method ''',v.method,'''.'])
       end
     end
     %% export functions
@@ -2625,7 +2624,7 @@ function [m,e]=load_gsm(filename,time,varargin)
   end
   %sanity
   if sum(s)<0
-     error([mfilename,': Problem with reading the GRCOF2 file ''',filename,'''.'])
+     error(['Problem with reading the GRCOF2 file ''',filename,'''.'])
   end
   %make room for coefficients
   mi.C=zeros(Lmax+1);
@@ -2654,7 +2653,7 @@ function [m,e]=load_gsm(filename,time,varargin)
          ei.S(d,o)=x(6);
       end
     else
-      error([mfilename,': unexpected tag in line: ''',s,''.'])
+      error(['unexpected tag in line: ''',s,''.'])
     end
     % read next line
     s=fgets(fid);
@@ -2707,10 +2706,10 @@ function [m,e]=load_csr(filename,time)
   radius=str.num(s(41:60));
   %sanity
   if GM==0 || radius==0
-    error([mfilename,': Problem with reading the CSR file ''',filename,''', could not find GM and R constants.'])
+    error(['Problem with reading the CSR file ''',filename,''', could not find GM and R constants.'])
   end
   if sum(s)<0
-    error([mfilename,': Problem with reading the CSR file ''',filename,'''.'])
+    error(['Problem with reading the CSR file ''',filename,'''.'])
   end
   % skip third line
   fgets(fid);
@@ -2863,18 +2862,18 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
           case 'char'
             header.(f)=valuestr;
           otherwise
-          error([mfilename,': cannot handle class ',class(header.(f)),'.'])
+          error(['cannot handle class ',class(header.(f)),'.'])
         end
       end
     end
     s=fgets(fid);
   end
   if s<0
-    error([mfilename,'Problem reading the gfc file.'])
+    error('Problem reading the gfc file.')
   end
   % sanity on max degree
   if isempty(header.max_degree)
-    error([mfilename,': could not determine maximum degree of model ''',filename,'''.'])
+    error(['could not determine maximum degree of model ''',filename,'''.'])
   end
   % make room for coefficients
   mi=struct('C',zeros(header.max_degree+1),'S',zeros(header.max_degree+1),'t0',[]);
@@ -2909,7 +2908,7 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
       yrd=jd2yr(cal2jd(yr,mn,dy));
       if isempty(mi.t0)
         mi.t0=zeros(grep_nr_occurences(filename,'gfct'));
-        if numel(mi.t0)==0; error([mfilename,'Problem with gfct']); end
+        if numel(mi.t0)==0; error('Problem with gfct'); end
       end
       mi.t0(i_t0,:)=[n m yrd];
       if (strcmp(header.errors,'formal') || ...
@@ -2931,7 +2930,7 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
     elseif strcmp(s(1:4),'trnd') || strcmp(s(1:3),'dot')
       if isempty(trnd.C)
         trnd.C=zeros(grep_nr_occurences(filename,'trnd')+grep_nr_occurences(filename,'dot'),3); trnd.S=trnd.C;
-        if numel(trnd.C)==0; error([mfilename,'Problem with trnd']); end
+        if numel(trnd.C)==0; error('Problem with trnd'); end
       end
       i_trnd=i_trnd+1;
       trnd.C(i_trnd,:)=[n m x(3)];
@@ -2939,7 +2938,7 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
     elseif strcmp(s(1:4),'acos')
       if isempty(acos.C)
         acos.C=zeros(grep_nr_occurences(filename,'acos'),4); acos.S=acos.C;
-        if numel(asin.C)==0; error([mfilename,'Problem with acos']); end
+        if numel(asin.C)==0; error('Problem with acos'); end
       end
       i_acos=i_acos+1;
       acos.C(i_acos,:)=[n m x(3) x(end)];
@@ -2947,13 +2946,13 @@ function [m,e,trnd,acos,asin]=load_icgem(filename,time)
     elseif strcmp(s(1:4),'asin')
       if isempty(asin.C)
         asin.C=zeros(grep_nr_occurences(filename,'asin'),4); asin.S=asin.C;
-        if numel(asin.C)==0; error([mfilename,'Problem with asin']); end
+        if numel(asin.C)==0; error('Problem with asin'); end
       end
       i_asin=i_asin+1;
       asin.C(i_asin,:)=[n m x(3) x(end)];
       asin.S(i_asin,:)=[n m x(4) x(end)];
     else
-      error([mfilename,'A problem occured in gfc data.']);
+      error('A problem occured in gfc data.');
     end
     s=fgets(fid);
   end
@@ -3027,7 +3026,7 @@ function [m,e]=load_mod(filename,time)
         case 'char'
           header.(fieldname)=valuestr;
         otherwise
-          error([mfilename,': cannot handle class ',class(header.(fieldname)),'.'])
+          error(['cannot handle class ',class(header.(fieldname)),'.'])
         end
       end
     end
@@ -3117,10 +3116,10 @@ function [long,lat,grid_out]=mod_sh_synth(c,s,lat,NLon)
   % Defaults
   %check dimensions
   if any(size(c) ~= size(s))
-       error([mfilename,': inputs <c> and <s> must have the same size.'])
+       error('inputs <c> and <s> must have the same size.')
   end
   if size(c,1) ~= size(c,2)
-      error([mfilename,': inputs <c> and <s> must be square matrices'])
+      error('inputs <c> and <s> must be square matrices')
   end
 
   %calculating max resolution
@@ -3138,7 +3137,7 @@ function [long,lat,grid_out]=mod_sh_synth(c,s,lat,NLon)
   if ~exist('NLon','var') || isempty(NLon)
       NLon = 2*N;
   elseif ~isscalar(NLon) || ~isnumeric(NLon)
-      error([mfilename,': input <Nlon> must be a numeric scalar.'])
+      error('input <Nlon> must be a numeric scalar.')
   end
 
   %create internal longitude domain - only used for output.
@@ -3151,12 +3150,12 @@ function [long,lat,grid_out]=mod_sh_synth(c,s,lat,NLon)
   %       it allows it to be distinguished from the longitude avoiding
   %       possible usage error.
   if size(lat,2) ~= 1
-      error([mfilename,': input <lat> must be a vertical vector.'])
+      error('input <lat> must be a vertical vector.')
   end
 
   %check latitude domain
   if max(lat) > pi/2 || min(lat) < -pi/2
-      error([mfilename,': input <lat> does not seem to be in radians or outside legal domain [-pi/2,pi/2].'])
+      error('input <lat> does not seem to be in radians or outside legal domain [-pi/2,pi/2].')
   end
 
   %need co-latitude
@@ -3195,7 +3194,7 @@ function out = legendre_latitude(L,lat)
 end
 function out = legendre_degree(L,lat)
   if ~isvector(lat)
-      error([mfilename,': input <lat> must be a vector.'])
+      error('input <lat> must be a vector.')
   end
   %getting legendre coefficients, per degree
   out=cell(1,L+1);

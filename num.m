@@ -36,7 +36,7 @@ classdef num
     % shortcut for [s.field(:,column)] or [s.field(line,:)]
     function out=struct_deal(s,field,line,column)
       if ~xor(isempty(line),isempty(column))
-        error([mfilename,': (only) one of ''line'' or ''column'' must be empty.'])
+        error('(only) one of ''line'' or ''column'' must be empty.')
       end
       if isempty(line)
         out=zeros(size(s(1).(field),1),numel(s));
@@ -631,7 +631,7 @@ classdef num
         % returns the y vector
         case 'model'
           %sanity
-          assert(~isempty(p.Results.x),[mfilename,': need input argument ''x''.'])
+          assert(~isempty(p.Results.x),'need input argument ''x''.')
           %get the design matrix
           A=num.pardecomp(t,y,varargin{:},'mode','design');
           %get modelled components
@@ -655,7 +655,7 @@ classdef num
           %assign outputs
           out=num.save_pardecomp(t,p.Results.sinusoidal,x,y,y_mod,y_res,np,ns);
       otherwise
-        error([mfilename,': unknown output mode ''',p.Results.mode,'''.'])
+        error(['unknown output mode ''',p.Results.mode,'''.'])
       end
     end
     function x_opt=param_search1(fun,x,varargin)

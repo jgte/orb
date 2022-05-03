@@ -193,7 +193,7 @@ classdef orbit
         case {'unknown','test'}
           out=in; 
         otherwise
-          error([mfilename,': cannot handle satellite ''',in,'''.'])
+          error(['cannot handle satellite ''',in,'''.'])
       end
       %append orbit type, if given
       if ~isempty(orbit_type_now)
@@ -212,7 +212,7 @@ classdef orbit
         case 'go'; out='GOCE';            
         case {'unknown','test'}; out=in; 
         otherwise
-          error([mfilename,': cannot handle satellite ''',in,'''.'])
+          error(['cannot handle satellite ''',in,'''.'])
       end
     end
     function out=translatesp3id(in)
@@ -370,7 +370,7 @@ classdef orbit
       %if argument is a cell string, then load all those files
       if iscellstr(filename)
         for i=1:numel(filename)
-          disp([mfilename,': reading data from file ',filename{i}])
+          disp(['reading data from file ',filename{i}])
           %read the data from a single file
           obj_now=orbit.load_ascii(filename{i},varargin{:});
           %skip if empty
@@ -437,7 +437,7 @@ classdef orbit
         [t,p,v,pc,c,cc,header] = read_sp3(filename);
         args={'pos',p,'pos_cor',pc,'vel',v,'clk',c,'clk_cor',cc};
       otherwise
-        error([mfilename,': unknown format ''',format,'''.'])
+        error(['unknown format ''',format,'''.'])
       end
       if ~isempty(t)
         obj=orbit(t,...
@@ -501,7 +501,7 @@ classdef orbit
               varargin{:}...
             );
           otherwise
-            error([mfilename,': cannot handle data of size ',num2str(p.metadata.dimension).'.'])
+            error(['cannot handle data of size ',num2str(p.metadata.dimension).'.'])
         end
       otherwise
         % build required file list (rounding start/stop to the start of the day
@@ -535,7 +535,7 @@ classdef orbit
           else
             if ~p.Results.only_convert_to_mat
               % load mat data
-              disp([mfilename,': loading file ',mat_file])
+              disp(['loading file ',mat_file])
               S=load(mat_file);
               obj_now=S.obj_now;
             end
@@ -605,7 +605,7 @@ classdef orbit
         out=datetime(2015,2,1,23,0,0);
       case 'stop'
         if ~isduration(l)
-          error([mfilename,': expecting input ''l'' to be of class ''duration'', not ''',class(l),'''.'])
+          error(['expecting input ''l'' to be of class ''duration'', not ''',class(l),'''.'])
         end
         out=orbit.test_parameters('start')+l;
       case 'duration'
@@ -627,7 +627,7 @@ classdef orbit
           orbit.test_parameters('start'),...
           orbit.test_parameters('stop',l));
       otherwise
-        error([mfilename,': unknown field ',field,'.'])
+        error(['unknown field ',field,'.'])
       end
     end
     function out=test(l)
@@ -685,7 +685,7 @@ classdef orbit
         otherwise
           out=orbit.test_parameters(l,hours(8));
           if ~isa(out,'orbit')
-            error([mfilename,': cannot handle test of type ''',l,'''.'])
+            error(['cannot handle test of type ''',l,'''.'])
           end
           out.pos.plot('columns',1,'line',{'o-'})
           out.print
@@ -705,7 +705,7 @@ classdef orbit
         subplot(3,1,3)
         a.acc.plot('columns',1)
       otherwise
-        error([mfilename,': cannot handle input ''l'' of class ''',class(l),'''.'])
+        error(['cannot handle input ''l'' of class ''',class(l),'''.'])
       end
 
     end 
@@ -787,7 +787,7 @@ classdef orbit
         data_type=orbit.data_types{j};
         %sanity
         if xor(isempty(obj.(data_type)),isempty(obj_in.(data_type)))
-          error([mfilename,': error propagating metadata of type ',data_type,': it does not exist in both objects.'])
+          error(['error propagating metadata of type ',data_type,': it does not exist in both objects.'])
         end
         %skip if data type is empty
         if ~isempty(obj.(data_type))
@@ -918,7 +918,7 @@ classdef orbit
       parameters=orbit.compatible_parameter_list;
       for i=1:numel(parameters)
         if ~isequal(obj1.(parameters{i}),obj2.(parameters{i}))
-          error([mfilename,': discrepancy in parameter ',parameters{i},': ''',...
+          error(['discrepancy in parameter ',parameters{i},': ''',...
             obj1.(parameters{i}),''' ~= ''',obj2.(parameters{i}),'''.'])
         end 
       end
@@ -944,7 +944,7 @@ classdef orbit
         end
       end
       if counter==0
-        error([mfilename,': there were no common fields in the input objects.'])
+        error('there were no common fields in the input objects.')
       end
     end
     function out=isempty(obj,data_type)
@@ -986,7 +986,7 @@ classdef orbit
             if isprop(obj.(odt{i}),operation)
               %sanity
               if numel(varargin)>1
-                error([mfilename,': when propagating data to field ',operation,...
+                error(['when propagating data to field ',operation,...
                   ' can only handle one input argument, not ',num2str(numel(varargin)),'.'])
               end
               %propagate
@@ -1000,7 +1000,7 @@ classdef orbit
         end
       end
       if counter==0
-        error([mfilename,': ',err_msg,'.'])
+        error(err_msg)
       end
     end
     %TODO: need to implement sum and subtraction that consider the
@@ -1089,7 +1089,7 @@ classdef orbit
       for j=1:numel(odt)
         if ~isempty(obj.(odt{j}))
           % initialize
-          s.msg=[mfilename,': cutting into segments data of type ''',odt{j},'''.'];s.n=numel(ts);
+          s.msg=['cutting into segments data of type ''',odt{j},'''.'];s.n=numel(ts);
           clear tmp
           % propagate segments
           for i=1:numel(ts)
@@ -1133,7 +1133,7 @@ classdef orbit
           elseif size(stats.(o_list{j}).(s_list{i}),2)==orbit.data_type_list.(o_list{j}).size
             args{2*j  }=stats.(o_list{j}).(s_list{i});
           else
-            error([mfilename,': BUG TRAP: statistic with non-comformant number of columns. Debug needed!'])
+            error('BUG TRAP: statistic with non-comformant number of columns. Debug needed!')
           end
         end
         %build orbit object for this statistic
@@ -1346,7 +1346,7 @@ function [t,pos,pos_cor,header] = read_ifg(filename)
   %parameters
   formatSpec='%21.15f %15.4f %15.4f %15.4f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f';
   %open the file
-  disp([mfilename,': loading file ',filename])
+  disp(['loading file ',filename])
   fid=file.open(filename);
   %retrieve first line
   hline = fgetl(fid);
@@ -1376,7 +1376,7 @@ function [t,pos,pos_cor,header] = read_ifg(filename)
   try
     d=textscan(fid,formatSpec,'HeaderLines',1,'Delimiter',' ','MultipleDelimsAsOne',true);
   catch
-    error([mfilename,': could not understand the format of the ASCII orbit in file ''',filename,'''.'])
+    error(['could not understand the format of the ASCII orbit in file ''',filename,'''.'])
   end
   %close the file
   fclose(fid);
@@ -1391,7 +1391,7 @@ function [t,pos,pos_cor,mask,header] = read_aiub(filename)
   formatSpec=' %4s %3s         %4f %8f  %14f %14f %14f %1s   %13f%13f%13f%13f%13f%13f';
   HeaderLines=6;
   %open the file
-  disp([mfilename,': loading file ',filename])
+  disp(['loading file ',filename])
   fid=file.open(filename);
   %retrieve third line
   for i=1:3; hline = fgetl(fid); end
@@ -1427,11 +1427,11 @@ function [t,pos,pos_cor,mask,header] = read_aiub(filename)
   try
     d=textscan(fid,formatSpec,'HeaderLines',HeaderLines,'Delimiter',' ','MultipleDelimsAsOne',true);
   catch
-    error([mfilename,': could not determine the format of the ASCII orbit in file ''',filename,'''.'])
+    error(['could not determine the format of the ASCII orbit in file ''',filename,'''.'])
   end
   %sanity
   if ~iscell(d)
-    error([mfilename,': BUG TRAP: expecting variable ''d'' to be a cell array, not a ',class(d),'.'])
+    error(['BUG TRAP: expecting variable ''d'' to be a cell array, not a ',class(d),'.'])
   end
   %make sure the data refers to the same satellite
   assert(all(strcmp(d{1}{1},d{1}(2:end))) && all(strcmp(d{2}{1},d{2}(2:end))),...
@@ -1449,18 +1449,18 @@ function [t,pos,pos_cor,clk,clk_cor,header] = read_numeric(filename)
   formatSpec='';
   HeaderLines=0;
   %open the file
-  disp([mfilename,': loading file ',filename])
+  disp(['loading file ',filename])
   fid=file.open(filename);
   %read the data (robustly)
   try
     d=textscan(fid,formatSpec,'HeaderLines',HeaderLines,'Delimiter',' ','MultipleDelimsAsOne',true);
   catch
-    error([mfilename,': could not determine the format of the ASCII orbit in file ''',filename,'''.'])
+    error(['could not determine the format of the ASCII orbit in file ''',filename,'''.'])
   end
   fclose(fid);
   %sanity
   if ~iscell(d)
-    error([mfilename,': BUG TRAP: expecting variable ''d'' to be a cell array, not a ',class(d),'.'])
+    error(['BUG TRAP: expecting variable ''d'' to be a cell array, not a ',class(d),'.'])
   end
   %TU Delft format:
   %1    2  3  4  5  6      7 8 9 10 11 12 13 14 15 16 17 18 19 20
@@ -1474,7 +1474,7 @@ function [t,pos,pos_cor,clk,clk_cor,header] = read_numeric(filename)
     clk=d{10}*1e-6; %microseconds
     clk_cor=[(sqrt(d{14})/physconst('LightSpeed')).^2,[d{[17,19,20]}]/physconst('LightSpeed')];
   otherwise
-    error([mfilename,': cannot understand format of file ''',filename,'''.'])
+    error(['cannot understand format of file ''',filename,'''.'])
   end
   %derive satellite name from filename
   if     str.contains(lower(filename),'_sa_') || str.contains(upper(filename),'SWARMA')
@@ -1541,7 +1541,7 @@ function [t,pos,vel,pos_cor,clk,clk_cor,header] = read_sp3(filename,show_details
   end
 
   %open the file
-  disp([mfilename,': loading file ',filename])
+  disp(['loading file ',filename])
   fid=file.open(filename);
 
   %first reading of the data, to get header and count data
@@ -1566,7 +1566,7 @@ function [t,pos,vel,pos_cor,clk,clk_cor,header] = read_sp3(filename,show_details
         case 19:22; stop = ~strcmp(line(1:2),'/*');
       end
       if stop
-        error([mfilename,': error in header line nr ',num2str(n),'.'])
+        error(['error in header line nr ',num2str(n),'.'])
       end
       %retrieve detail header info
       switch i
@@ -1579,7 +1579,7 @@ function [t,pos,vel,pos_cor,clk,clk_cor,header] = read_sp3(filename,show_details
             case 'V'
               header.vel_flag=true;
             otherwise
-              error([mfilename,': PV flag with unsupported value: ''',header.PV,'''.'])
+              error(['PV flag with unsupported value: ''',header.PV,'''.'])
           end
           header.year      = str2double(line( 4: 7));
           header.month     = str2double(line( 9:10));
@@ -1602,7 +1602,7 @@ function [t,pos,vel,pos_cor,clk,clk_cor,header] = read_sp3(filename,show_details
           header.nrsats    = str2double(line( 5: 6));
           %TODO: handle multiple satellites
           if header.nrsats>1
-            error([mfilename,': can only handle one satellite per SP3 file. Implementation needed!'])
+            error('can only handle one satellite per SP3 file. Implementation needed!')
           end
           header.sp3id     = line(10:12);
   %       case 4:7   %TODO: implement reading sp3ids when multiple satellites are given in one SP3 file
@@ -1612,7 +1612,7 @@ function [t,pos,vel,pos_cor,clk,clk_cor,header] = read_sp3(filename,show_details
           if strcmp(header.timesystem,'GPS')
             header.timeformat='gpstime';
           else
-            error([mfilename,': cannot handle time system ''',header.timesystem,'''. Implementation needed!'])
+            error(['cannot handle time system ''',header.timesystem,'''. Implementation needed!'])
           end
   %       case 15:16
   %       case 17:18

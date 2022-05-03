@@ -59,7 +59,7 @@ classdef str
           ascii_start=str.ascii.digit.start;
           ascii_stop= str.ascii.digit.stop;
         otherwise
-          error([mfilename,': unknown mode ''',mode,'''.'])
+          error(['unknown mode ''',mode,'''.'])
       end
       out=char(floor((ascii_stop-ascii_start)*rand(l,n)) + ascii_start);
     end
@@ -165,7 +165,7 @@ classdef str
             out=char(in);
           catch
             out=['obj of class ''',class(in),'''.'];
-  %           error([mfilename,': class ''',class(in),''' is not supported.'])
+  %           error(['class ''',class(in),''' is not supported.'])
           end
         end
       end
@@ -427,7 +427,7 @@ classdef str
     end
     function sizetrap(var1,var2)
       if numel(var1)~=numel(var2)
-        throwAsCaller(MException([mfilename,':SizeTrap'],[...
+        throwAsCaller(MException('SizeTrap',[...
           'size of variable ''',inputname(1),''' (',num2str(numel(var1)),') different than ',...
           'size of variable ''',inputname(2),''' (',num2str(numel(var2)),'). This is ilegal.'...
         ]))
@@ -509,7 +509,7 @@ classdef str
       if isscalar(w)
         w=ones(size(in))*w;
       else
-        assert(numel(in)==numel(w),[mfilename,': ',...
+        assert(numel(in)==numel(w),[' ',...
           'number of elements of vector input ''w'' (',num2str(numel(w)),') must be the same as the ',...
           'number of additional input arguments (',num2str(numel(in)),').'])
       end
@@ -597,7 +597,7 @@ classdef str
         try
           in=(in~=0);
         catch
-          error([mfilename,': class ''',class(in),''' is not supported.'])
+          error(['class ''',class(in),''' is not supported.'])
         end
       end
       %then convert to requested mode

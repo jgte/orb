@@ -358,7 +358,7 @@ classdef datastorage
       values=obj.vector_tr(dn,f,varargin{:});
       %sanity
       if ~iscell(values)
-        error([mfilename,': function ',fun2str(f),' must return a cell array, not a ',class(values),'.'])
+        error(['function ',fun2str(f),' must return a cell array, not a ',class(values),'.'])
       end
       %propagate cell array back to object
       obj=obj.data_set(dn,values);
@@ -432,10 +432,10 @@ classdef datastorage
       values2=obj2.data_get(dn);
       %sanity
       if numel(values1) ~= numel(values2)
-        error([mfilename,': the given dataname list does not correspond to the same number of data entries in both input obj.'])
+        error('the given dataname list does not correspond to the same number of data entries in both input obj.')
       end
       if any(numel(cells.rm_empty(values1))~=numel(cells.rm_empty(values2)))
-        error([mfilename,': the given dataname list does not have data in both objects. Debug needed.'])
+        error('the given dataname list does not have data in both objects. Debug needed.')
       end
       %outputs
       result=cell(size(values1));
@@ -454,7 +454,7 @@ classdef datastorage
       values2=obj.data_get(dn2);
       %sanity
       if numel(values1) ~= numel(values2)
-        error([mfilename,': the given dataname list does not correspond to the same number of data entries in both input obj.'])
+        error('the given dataname list does not correspond to the same number of data entries in both input obj.')
       end
       %outputs
       result=cell(size(values1));
@@ -1496,7 +1496,7 @@ classdef datastorage
           str.say('Skip plotting empty data',dn.name)
           out=[];
         else
-          error([mfilename,': cannot plot data of class ',class(d),'; implementation needed!'])
+          error(['cannot plot data of class ',class(d),'; implementation needed!'])
         end
       end
       obj.log('@','iter','plot_legend',out.legend)
@@ -1754,7 +1754,7 @@ classdef datastorage
         %check if the labels of all lines are compatible
         for i=2:numel(good_idx)
           if ~strcmp(h{good_idx(1)}.units,h{good_idx(i)}.units)
-            error([mfilename,':BUG TRAP: y-units are not consistent in all plotted lines.'])
+            error('BUG TRAP: y-units are not consistent in all plotted lines.')
           end
         end
         %fix y-axis label
@@ -2294,7 +2294,7 @@ classdef datastorage
 %             df.(partname)=cell(numel(partvalues),numel(sourcep)+1);
 %             for j=1:numel(partvalues)
 %               %sanity on types/levels/fields: number of columns must be equal to number of sources
-%               assert(numel(partvalues{j}) == numel(sourcep)+1,[mfilename,': ',...
+%               assert(numel(partvalues{j}) == numel(sourcep)+1,[' ',...
 %                 'ilegal ''',partname,''' entry of the ''dataflow'' metadata field, ',...
 %                 'it must have the same number of columns as the number of product sources +1 (',num2str(numel(sourcep)+1),'), ',...
 %                 'not ',num2str(numel(partvalues{j})),'.'])
@@ -2302,7 +2302,7 @@ classdef datastorage
 %             end
 %           else
 %             %variable partvalues already contains types/levels/fields
-%             assert(numel(partvalues) == numel(sourcep)+1,[mfilename,': ',...
+%             assert(numel(partvalues) == numel(sourcep)+1,[' ',...
 %               'ilegal ''',obj.parts{i},'s'' metadata field, ',...
 %               'it must have the same number of columns as the number of product sources (',num2str(numel(sourcep)+1),'), ',...
 %               'not ',num2str(numel(partvalues)),'.'])

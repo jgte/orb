@@ -346,7 +346,7 @@ classdef plotting
           end
       end
       if ~iscellstr(line_str)
-          error([mfilename,': expecting <line_str> to be a cell string, not a ',class(line_str),'.'])
+          error(['expecting <line_str> to be a cell string, not a ',class(line_str),'.'])
       end
       if ~exist('axis_handle','var') || isempty(axis_handle)
           axis_handle = gca;
@@ -364,7 +364,7 @@ classdef plotting
                   try
                       set(lines(fix_idx(i)),'marker',line_str{i}(1))
                   catch
-                      error([mfilename,': setting the marker failed. Be sure to input blank first character to lines without markers.'])
+                      error('setting the marker failed. Be sure to input blank first character to lines without markers.')
                   end
               end
           end
@@ -546,7 +546,7 @@ classdef plotting
       v.plot_automean =str.logical(v.plot_automean);
       % sanity
       if any(isfinite(v.plot_ylimits)) && ( v.plot_autoscale ||  v.plot_automean )
-        error([mfilename,': option ''ylimits'' and ''autoscale'' or ''automean'' do not work concurrently.'])
+        error('option ''ylimits'' and ''autoscale'' or ''automean'' do not work concurrently.')
       end
     
       %outputs

@@ -88,7 +88,7 @@ classdef simpletimeseries < simpledata
     end
     function out=num2time(in,epoch)
       if ~exist('epoch','var') || isempty(epoch)
-        error([mfilename,': need input ''epoch''.'])
+        error('need input ''epoch''.')
       end
       out=epoch+simpletimeseries.timescale(in);
     end
@@ -115,7 +115,7 @@ classdef simpletimeseries < simpledata
       end
       %sanity
       if ~iscell(fields)
-        error([mfilename,': input argument ''fields'' must be a cell array.'])
+        error('input argument ''fields'' must be a cell array.')
       end
       % look for existence
       for i=1:numel(fields)
@@ -129,7 +129,7 @@ classdef simpletimeseries < simpledata
       if check_for_concurrence
         %cannot have both 't' and 'x'
         if presence.x && presence.t
-          error([mfilename,': cannot handle both inputs ''x'' and ''t''.'])
+          error('cannot handle both inputs ''x'' and ''t''.')
         end
       end
     end
@@ -163,7 +163,7 @@ classdef simpletimeseries < simpledata
       %handle singularities
       switch numel(in)
         case 0
-          error([mfilename,': cannot handle empty time stamps'])
+          error('cannot handle empty time stamps')
         case 1
           out=0;
           return
@@ -179,7 +179,7 @@ classdef simpletimeseries < simpledata
         tdiff=simpledata.rm_outliers(tdiff,varargin{:});
         %send feedback
         if p.Results.disp_flag
-          disp([mfilename,': removed ',num2str(sum(isnan(tdiff))),' large gaps, since ',...
+          disp([' removed ',num2str(sum(isnan(tdiff))),' large gaps, since ',...
             'std(delta t) is ',num2str(stdtdiff),' and ',...
             'max(delta t) is ',num2str(ratiotdiff),' times larger than mean(delta).'])
         end
@@ -196,7 +196,7 @@ classdef simpletimeseries < simpledata
         nsigma_new=p.Results.nsigma/p.Results.sigma_iter;
         %send feedback
         if p.Results.disp_flag
-          disp([mfilename,': failed to determine the timestep, since std(delta t) is ',num2str(std(outdiff)),...
+          disp([' failed to determine the timestep, since std(delta t) is ',num2str(std(outdiff)),...
             '. Reducing NSIGMA from ',num2str(p.Results.nsigma),' to ',num2str(nsigma_new),'.'])
         end
         %recursive call
@@ -226,12 +226,12 @@ classdef simpletimeseries < simpledata
       end
       %send feedback if needed
       if p.Results.disp_flag
-        disp([mfilename,': final timestep is ',char(out),'.'])
+        disp([' final timestep is ',char(out),'.'])
       end
     end
     function v=fix_interp_over_gaps_narrower_than(v)
       if ~iscell(v)
-        error([mfilename,': expecting input ''v'' to be a cell array, not a ',class(v),'.'])
+        error(['expecting input ''v'' to be a cell array, not a ',class(v),'.'])
       end
       for i=1:numel(v)
         if strcmp(v{i},'interp_over_gaps_narrower_than')
@@ -333,7 +333,7 @@ classdef simpletimeseries < simpledata
       filename=file.unwrap(filename,varargin{:});
       %loop over all files (maybe only one, resolved by cells.scalar)
       for i=1:numel(filename)
-        disp([mfilename,': reading data from file ',filename{i}])
+        disp([' reading data from file ',filename{i}])
         %read the data from a single file
         obj_now=simpletimeseries.import(filename{i},varargin{:});
         %skip if empty
@@ -731,7 +731,7 @@ classdef simpletimeseries < simpledata
       elseif presence.t
         obj.epochi=p.Results.t(1);
       else
-        error([mfilename,': cannot derive epoch without either input ''epoch'' or ''t''.'])
+        error('cannot derive epoch without either input ''epoch'' or ''t''.')
       end
       %update local records
       obj.step=simpletimeseries.timestep(obj.t);
@@ -929,7 +929,7 @@ classdef simpletimeseries < simpledata
       test=[obj.x(1)==0,obj.start==obj.epoch];
       %sanity
       if test(1)~=test(2)
-        error([mfilename,':',10,...
+        error([...
           'obj.x(1)=',num2str(obj.x(1)),10,...
           'obj.start=',datestr(obj.start),10,...
           'obj.epoch=',datestr(obj.epoch),10,...
@@ -1073,7 +1073,7 @@ classdef simpletimeseries < simpledata
     %% epoch methods
     function obj=set.epoch(obj,epoch)
       if ~simpletimeseries.valid_epoch(epoch)
-        error([mfilename,': invalid input ''epoch''.'])
+        error('invalid input ''epoch''.')
       end
       %get current time domain
       t_old=obj.t;
@@ -1082,7 +1082,7 @@ classdef simpletimeseries < simpledata
       %shift x
       obj=obj.assign_x(simpletimeseries.time2num(t_old,epoch));
       %sanity
-      assert(obj.istequal(t_old),[mfilename,': changing epoch cause the time domain to also change.'])
+      assert(obj.istequal(t_old),'changing epoch cause the time domain to also change.')
     end
     function out=get.epoch(obj)
       out=obj.epochi;
@@ -1157,7 +1157,7 @@ classdef simpletimeseries < simpledata
     end
     function obj=set.tsys(obj,in)
       if ~simpletimeseries.valid_timesystem(in)
-        error([mfilename,': need a valid time system, i.e. one of ',strjoin(simpletimeseries.valid_timesystems,', '),'.'])
+        error(['need a valid time system, i.e. one of ',strjoin(simpletimeseries.valid_timesystems,', '),'.'])
       end
       if ~strcmpi(obj.timesystem,in)
         obj.t=time.([obj.timesystem,'2',lower(in)])(obj.t);
@@ -1170,11 +1170,11 @@ classdef simpletimeseries < simpledata
       obj.isx1zero;
       %check for monotonously increasing time domain
       if any(diff(obj.x)<=0)
-        error([mfilename,': the time domain is not monotonously increasing.'])
+        error('the time domain is not monotonously increasing.')
       end
       if exist('t_now','var') && ~isempty(t_now)
         %check for consistency in the time domain
-        assert(obj.istequal(t_now),[mfilename,': the time domain is not consistent with input ''t_now''.'])
+        assert(obj.istequal(t_now),'the time domain is not consistent with input ''t_now''.')
       end
     end
     %% edit methods (overloaded with simpledata)
@@ -1279,7 +1279,7 @@ classdef simpletimeseries < simpledata
     function obj=extend(obj,nr_epochs)
 %       %sanity
 %       if ~obj.ishomogeneous
-%         error([mfilename,': cannot handle non-homogeneous time domains.'])
+%         error(['cannot handle non-homogeneous time domains.'])
 %       end
       switch class(nr_epochs)
       case 'double'
@@ -1287,7 +1287,7 @@ classdef simpletimeseries < simpledata
           return
         end
         if (nr_epochs~=round(nr_epochs))
-          error([mfilename,': input ''nr_epochs'' must be an integer, not ',num2str(nr_epochs),'.'])
+          error(['input ''nr_epochs'' must be an integer, not ',num2str(nr_epochs),'.'])
         end
         %define
         if nr_epochs>0
@@ -1312,14 +1312,14 @@ classdef simpletimeseries < simpledata
           %do nothing
           return
         else
-          error([mfilename,': input ''t'' (',datestr(t_now),') ',...
+          error(['input ''t'' (',datestr(t_now),') ',...
             'must be larger than obj.stop (',datestr(obj.stop),') ',...
             'or smaller than than obj.start (',datestr(obj.start),').'...
           ]);
         end
         obj=extend(obj,floor((t_now-t_ref)/obj.step));
       otherwise
-        error([mfilename,': cannot handle input ''nr_epochs'' of class ',class(nr_epochs),'.'])
+        error(['cannot handle input ''nr_epochs'' of class ',class(nr_epochs),'.'])
       end
     end
     function obj=extend_or_trim_end(obj,t_end)
@@ -1358,8 +1358,8 @@ classdef simpletimeseries < simpledata
         y_now=y_now*ones(numel(t_now),obj.width);
       end
       %sanity
-      assert(numel(t_now)==size(y_now,1) || size(y_now,2)~=obj.width,[mfilename,...
-        'inputs ''t_now'' and/or ''y_now'' have sizes inconsistent with this obj.'])
+      assert(numel(t_now)==size(y_now,1) || size(y_now,2)~=obj.width,...
+        'inputs ''t_now'' and/or ''y_now'' have sizes inconsistent with this obj.')
       %try to avoid sorting
       if all(t_now<obj.start)
         %preppend the data (t_now should be sorted)
@@ -1394,18 +1394,18 @@ classdef simpletimeseries < simpledata
       t_old=obj.t;
       % sanity
       if numel(t_new) < numel(t_old)
-        error([mfilename,': complete time domain has less entries than current time domain. Debug needed!'])
+        error('BUG TRAP: complete time domain has less entries than current time domain. Debug needed!')
       end
       %find out where there are gaps larger than the step size
       gap_idx=find(diff(obj.t)>obj.step);
       %if there are no gaps and the time series is not homogeneous, we have a problem that needs fixing
       if isempty(gap_idx)
-        error([mfilename,': implementation needed!'])
+        error('implementation needed!')
       end
       disp(['Need to fill in missing epochs: ',num2str(numel(t_new)-obj.length),' ('...
         num2str((numel(t_new)-obj.length)/numel(t_new)*1e2),'%).'])
       %loop over all implicit gaps (i.e. missing epochs)
-      s.msg=[mfilename,': populating missing epochs (',datestr(obj.start),' to ',datestr(obj.stop),')',...
+      s.msg=[' populating missing epochs (',datestr(obj.start),' to ',datestr(obj.stop),')',...
         ' of ',obj.descriptor];s.n=numel(gap_idx);
       while ~isempty(gap_idx)
         %create patch
@@ -1444,7 +1444,7 @@ classdef simpletimeseries < simpledata
         step_now=obj.step_get;
       end
       if ~isduration(step_now)
-        error([mfilename,': expecting input ''step_now'' to be duration, not ',class(step_now),'.'])
+        error(['expecting input ''step_now'' to be duration, not ',class(step_now),'.'])
       end
       % build/retrieve relevant time domain
       t_now=obj.t_domain(step_now);
@@ -1530,7 +1530,7 @@ classdef simpletimeseries < simpledata
           continue
         end
         if ~cells.isincluded(p.Results.skip_par_check,par{i}) && ~isequal(obj1.(par{i}),obj2.(par{i}))
-          error([mfilename,': discrepancy in parameter ',par{i},'.'])
+          error(['discrepancy in parameter ',par{i},'.'])
         end
       end
     end
@@ -1551,7 +1551,7 @@ classdef simpletimeseries < simpledata
       %call upstream method
       [obj1,obj2,idx1,idx2]=merge@simpledata(obj1,obj2,y_new);
       %sanity
-      assert(istequal(obj1,obj2),[mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])
+      assert(istequal(obj1,obj2),'BUG TRAP: failed to merge time domains. Debug needed!')
     end
     function [obj1,obj2]=interp2(obj1,obj2,varargin)
       %trivial call
@@ -1578,7 +1578,7 @@ classdef simpletimeseries < simpledata
       %call upstream method
       [obj1,obj2]=interp2@simpledata(obj1,obj2,varargin{:});
       %sanity
-      assert(istequal(obj1,obj2),[mfilename,':BUG TRAP: failed to merge time domains. Debug needed!'])
+      assert(istequal(obj1,obj2),'BUG TRAP: failed to merge time domains. Debug needed!')
     end
     function [obj,idx1,idx2]=append(obj1,obj2,varargin)
       if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
@@ -1637,7 +1637,7 @@ classdef simpletimeseries < simpledata
     function [obj1,obj2]=matchstep(obj1,obj2)
       %sanity
       if ~obj1.ishomogeneous || ~obj2.ishomogeneous
-        error([mfilename,': can only handle homogeneous time domains.'])
+        error('can only handle homogeneous time domains.')
       end
       %trivial call
       if obj1.step==obj2.step
@@ -1719,11 +1719,11 @@ classdef simpletimeseries < simpledata
         data_in=obj.y;
         data_in(~obj.mask,:)=0;
       otherwise
-        error([mfilename,': unknown gap handling mode ''',p.Results.gaps,'''.'])
+        error(['unknown gap handling mode ''',p.Results.gaps,'''.'])
       end
       %sanity
       if any(isnan(data_in(:)))
-          error([mfilename,': found NaNs in the input data.'])
+          error('found NaNs in the input data.')
       end
       %computational length
       n = 2^nextpow2(size(data_in,1));
@@ -1809,13 +1809,13 @@ classdef simpletimeseries < simpledata
     %% segment analysis
     function out=segmentate(obj,seg_length,seg_overlap,varargin)
       if ~isduration(seg_length)
-        error([mfilename,'input ''seg_length'' must be of class ''duration'', not ''',class(seg_length),'''.'])
+        error(['input ''seg_length'' must be of class ''duration'', not ''',class(seg_length),'''.'])
       end
       if ~isduration(seg_overlap)
-        error([mfilename,'input ''seg_overlap'' must be of class ''duration'', not ''',class(seg_overlap),'''.'])
+        error(['input ''seg_overlap'' must be of class ''duration'', not ''',class(seg_overlap),'''.'])
       end
       if seg_overlap>=seg_length
-        error([mfilename,'input ''seg_overlap'' (',num2str(seg_overlap),') must be smaller than input ''seg_length'' (',num2str(seg_length),').'])
+        error(['input ''seg_overlap'' (',num2str(seg_overlap),') must be smaller than input ''seg_length'' (',num2str(seg_length),').'])
       end
       %handle infinite segment length
       if ~isfinite(seg_length)
@@ -2183,7 +2183,7 @@ classdef simpletimeseries < simpledata
           y=obj.y_masked([],v.columns);
           %sanity
           if size(time_str,1)~=size(y,1)
-            error([mfilename,': discrepancy in the sizes of time_str and y. Debug needed.'])
+            error('BUG TRAP: discrepancy in the sizes of time_str and y. Debug needed.')
           end
           %save the data
           s.msg=['exporting ',obj.descriptor];s.n=size(time_str,1);

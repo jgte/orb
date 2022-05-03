@@ -65,10 +65,10 @@ classdef simplefreqseries < simpletimeseries
           idx=find(ff>Wn,1,'first');
         end
       otherwise
-        error([mfilename,': unknown mode ''',mode,'''.'])
+        error(['unknown mode ''',mode,'''.'])
       end
       if isempty(idx)
-        error([mfilename,': empty output ''idx'', debug needed!'])
+        error('empty output ''idx'', debug needed!')
       end
     end
     function out=f_domain(n,step,zero_f)
@@ -499,11 +499,11 @@ classdef simplefreqseries < simpletimeseries
             psd0=2*psd0;
           end
         otherwise
-          error([mfilename,': unknown method ''',method,'''.'])
+          error(['unknown method ''',method,'''.'])
         end
       end
       if any(isnan(psd0(:)))
-        error([mfilename,': detected NaNs in psd computation algorithm.'])
+        error('detected NaNs in psd computation algorithm.')
       end
       units=cell(size(obj.units));
       for i=1:numel(obj.units)
@@ -526,10 +526,10 @@ classdef simplefreqseries < simpletimeseries
       %check for negative PSD entries
       if ~isempty(obj.psdi)
         if any(obj.psdi.x<0)
-          error([mfilename,': the frequency domain must be positive.'])
+          error('the frequency domain must be positive.')
         end
         if any(obj.psdi.y<0)
-          error([mfilename,': the power must be positive.'])
+          error('the power must be positive.')
         end
       end
     end
@@ -557,7 +557,7 @@ classdef simplefreqseries < simpletimeseries
       n=obj.psd.length;
       %sanity
       if p.Results.window_size > n
-          disp([mfilename,':WARNING: window size too big for input data (',...
+          warning(['window size too big for input data (',...
               num2str(p.Results.window_size),'), setting at maximum value (',num2str(n),').'])
           p.Results.window_size=n;
       end
@@ -605,11 +605,11 @@ classdef simplefreqseries < simpletimeseries
         data_in=obj.y;
         data_in(~obj.mask,:)=0;
       otherwise
-        error([mfilename,': unknown gap handling mode ''',p.Results.gaps,'''.'])
+        error(['unknown gap handling mode ''',p.Results.gaps,'''.'])
       end
       %sanity
       if any(isnan(data_in(:)))
-          error([mfilename,': found NaNs in the input data.'])
+          error('found NaNs in the input data.')
       end
       disp(['FFT filter: [',num2str(Wn),']'])
       %computational length
@@ -699,23 +699,23 @@ classdef simplefreqseries < simpletimeseries
         %interpolating over bad data
         data_in=obj.resample.y;
       otherwise
-        error([mfilename,': unknown gap handling mode ''',p.Results.gaps,'''.'])
+        error(['unknown gap handling mode ''',p.Results.gaps,'''.'])
       end
       
       %sanity
       if any(isnan(data_in(:)))
-          error([mfilename,': found NaNs in the input data.'])
+          error('found NaNs in the input data.')
       end
       
       disp(['Butterworth filter: [',num2str(Wn),']'])
 
-      %computational length
-      n = 2^nextpow2(size(data_in,1));
-
-      error([mfilename,': not yet implemented'])
-      
-      %sanitize
-      obj.check_sf
+%       %computational length
+%       n = 2^nextpow2(size(data_in,1));
+% 
+%       error(['not yet implemented'])
+%       
+%       %sanitize
+%       obj.check_sf
     end
     function obj=bandpass(obj,varargin)
       p=machinery.inputParser;
@@ -726,7 +726,7 @@ classdef simplefreqseries < simpletimeseries
       p.parse(varargin{:});
       %sanity
       if ~isfinite(p.Results.Wn)
-        error([mfilename,': invalid value for input ''Wn'':',num2str(p.Results.Wn),'.'])
+        error(['invalid value for input ''Wn'':',num2str(p.Results.Wn),'.'])
       end
       % branching
       switch p.Results.method
@@ -735,7 +735,7 @@ classdef simplefreqseries < simpletimeseries
       case 'butter'
         obj=fft_bandpass(obj,p.Results.Wn,varargin{:});
       otherwise
-        error([mfilename,': unknown bandpass method ''',method,'''.'])
+        error(['unknown bandpass method ''',method,'''.'])
       end
     end
     %% time-domain operations, done at the level of the frequency domain

@@ -371,7 +371,7 @@ classdef slr < gravity
       case 'stop'
         out=datetime('2020-12-31');
       otherwise
-        error([mfilename,': unknown field ',field,'.'])
+        error(['unknown field ',field,'.'])
       end
     end
     function out=test(method)
@@ -1120,7 +1120,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     fid=file.open(v.file);
     %sanity
     if fid<=0
-      error([mfilename,': cannot open the data file ''',v.file,'''.'])
+      error(['cannot open the data file ''',v.file,'''.'])
     end
     %default descriptor
     d=['C20 time series, version ',v.source];
@@ -1179,7 +1179,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     end
     t=[];s=[];e=[];d=[];
   otherwise
-    error([mfilename,': unknown mode ''',v.mode,'''.'])
+    error(['unknown mode ''',v.mode,'''.'])
   end
 end
 

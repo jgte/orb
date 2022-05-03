@@ -87,7 +87,7 @@ classdef nrtdm
           %save converted matlab data file
           obj=obj.add_file(file);
           %user feedback
-          disp([mfilename,':   reading data from file ',file])
+          disp(['   reading data from file ',file])
           %load data
           daily{i}=load(file);
         end
@@ -106,7 +106,7 @@ classdef nrtdm
       end
       %sanity
       if init_flag
-        disp([mfilename,':nrtdm: could not find any valid data for ',obj.metadata.product.str,...
+        disp(['nrtdm: could not find any valid data for ',obj.metadata.product.str,...
           ' from ',datestr(obj.start),' to ',datestr(obj.stop),'.'])
         obj.ts=simpletimeseries(...
           [obj.start;obj.stop],...
@@ -139,7 +139,7 @@ function outfile=nrtdm_convert(metadata,t,varargin)
   elseif ischar(metadata)
     metadata=nrtdm_metadata(metadata);
   else
-    error([mfilename,':nrtdm_convert'],['can not understand class of input ''product'': ''',class(metadata),'''.'])
+    error(['can not understand class of input ''product'': ''',class(metadata),'''.'])
   end
 
   % Parse inputs
@@ -233,7 +233,7 @@ function [time,values]=nrtdm_read(product,timearg,nrtdm_args,exportdata)
   if ~exist('exportdata','var') || isempty(exportdata)
     %get NRTDM dir
     nrtdm_dir=nrtdm.nrtdm_dir;
-    if isempty(nrtdm_dir); error([mfilename,':nrtdm_read'],'Could not get NRTDM dir, environmental variable $NRTDM is not defined.'); end
+    if isempty(nrtdm_dir); error('Could not get NRTDM dir, environmental variable $NRTDM is not defined.'); end
     %build export data utility path and name
     exportdata=fullfile(nrtdm_dir,'bin','exportdataproductscdf.exe');
   end
@@ -255,7 +255,7 @@ function [time,values]=nrtdm_read(product,timearg,nrtdm_args,exportdata)
 
   [status,data_str]=system(com);
   if status ~=0
-    error([mfilename,':nrtdm_read'],...
+    error(...
       ['Failed to read data from NRTDM using the following command:',10,...
       com,10,...
       'command output was:',10,...
@@ -327,23 +327,23 @@ function newer_file_flag=file_is_newer(file1,file2,disp_flag)
 
     if isempty(f1)
         if (disp_flag)
-            disp([mfilename,':WARNING: cannot find file ',file1])
+            warning(['cannot find file ',file1])
         end
         newer_file_flag=false;
         return
     end
     if isempty(f2)
         if (disp_flag)
-            disp([mfilename,':WARNING: cannot find file ',file2])
+            warning(['cannot find file ',file2])
         end
         newer_file_flag=true;
         return
     end
     if numel(f1)>1
-        error([mfilename,':file_is_newer'],[' this is not a single file: ',file1])
+        error([' this is not a single file: ',file1])
     end
     if numel(f2)>1
-        error([mfilename,':file_is_newer'],[': this is not a single file: ',file2])
+        error([': this is not a single file: ',file2])
     end
 
     newer_file_flag=datenum(f1.datenum)>datenum(f2.datenum);

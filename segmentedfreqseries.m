@@ -28,16 +28,16 @@ classdef segmentedfreqseries < simplefreqseries
     end
     function [out,idx]=time_segmented(time,seg_length,seg_overlap)
       if ~isdatetime(time)
-        error([mfilename,'input ''time'' must be of class ''datetime'', not ''',class(time),'''.'])
+        error(['input ''time'' must be of class ''datetime'', not ''',class(time),'''.'])
       end
       if ~isduration(seg_length)
-        error([mfilename,'input ''seg_length'' must be of class ''duration'', not ''',class(seg_length),'''.'])
+        error(['input ''seg_length'' must be of class ''duration'', not ''',class(seg_length),'''.'])
       end
       if ~isduration(seg_overlap)
-        error([mfilename,'input ''seg_overlap'' must be of class ''duration'', not ''',class(seg_overlap),'''.'])
+        error(['input ''seg_overlap'' must be of class ''duration'', not ''',class(seg_overlap),'''.'])
       end
       if seg_overlap>=seg_length
-        error([mfilename,'input ''seg_overlap'' (',num2str(seg_overlap),') must be smaller than input ''seg_length'' (',num2str(seg_length),').'])
+        error(['input ''seg_overlap'' (',num2str(seg_overlap),') must be smaller than input ''seg_length'' (',num2str(seg_length),').'])
       end
       %handle infinite segment length
       if ~isfinite(seg_length)
@@ -162,7 +162,7 @@ classdef segmentedfreqseries < simplefreqseries
           c=a-b;
           disp(c.stats('mode','str-nl'))
           if sum(c.y(:).^2)>1e-14
-            error([mfilename,':BUG TRAP: discrepancy between merged and original data'])
+            error('BUG TRAP: discrepancy between merged and original data')
           end
         otherwise
           error(['Cannot handle test method ''',method,'''.'])
@@ -213,7 +213,7 @@ classdef segmentedfreqseries < simplefreqseries
       );
       % initialize
       obj.seg=cell(size(ts));
-      s.msg=[mfilename,': cutting into segments'];s.n=numel(ts);
+      s.msg='cutting into segments';s.n=numel(ts);
       % propagate segments
       for i=1:numel(ts)
         %initialize
@@ -263,7 +263,7 @@ classdef segmentedfreqseries < simplefreqseries
       %make room for outputs
       y=nan(size(obj.y));
       %loop over all segments
-      s.msg=[mfilename,': merging segments'];s.n=numel(obj.seg);
+      s.msg='merging segments';s.n=numel(obj.seg);
       for i=1:numel(obj.seg)
 
         %propagate overlapping values
@@ -277,7 +277,7 @@ classdef segmentedfreqseries < simplefreqseries
           idx_curr_stop =obj.seg{i  }.idx(obj.seg{i-1}.t(idx_prev_stop ));
           %bug trap
           if (idx_curr_stop-idx_curr_start) ~= (idx_prev_stop-idx_prev_start)
-            error([mfilename,': BUG TRAP: discrepancy between the length of overlaping segments'])
+            error('BUG TRAP: discrepancy between the length of overlaping segments')
           end
           %retrive previous and current overlaps
           y_prev=obj.seg{i-1}.y(idx_prev_start:idx_prev_stop,:);
@@ -289,7 +289,7 @@ classdef segmentedfreqseries < simplefreqseries
           w_prev=flipud(w_curr);
           %bug trap
           if any(w_curr(:)+w_prev(:) ~= 1)
-            error([mfilename,': BUG TRAP: weights do not add up to one'])
+            error('BUG TRAP: weights do not add up to one')
           end
           %get starting and ending indexes of overlap relative to the
           %global time domain
@@ -362,12 +362,12 @@ classdef segmentedfreqseries < simplefreqseries
         %propagate
         out=obj;
       elseif ~self_assign && p.Results.self_assign
-        error([mfilename,': cannot self-assign because there is a class discrepancy.'])
+        error('cannot self-assign because there is a class discrepancy.')
       end
       %clear outputs if not needed
       if nargout==0
         if p.Results.self_assign
-          error([mfilename,': need one output argument if argument ''sefl_assign'' is true.'])
+          error('need one output argument if argument ''sefl_assign'' is true.')
         end
         clear out
       end

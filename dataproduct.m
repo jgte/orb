@@ -95,7 +95,7 @@ classdef dataproduct
           %need to be handled externally
         end
       else
-        error([mfilename,': could not parse string ''',in,''' because of unmatching ''<'' and ''>'' characters.'])
+        error(['could not parse string ''',in,''' because of unmatching ''<'' and ''>'' characters.'])
       end
     end
     function out=level_vals_str(level)
@@ -142,7 +142,7 @@ classdef dataproduct
       end
     end
     function out=array(in,varargin)
-      assert(iscell(in),[mfilename,': cannot handle input ''in'' of class ',class(in),', expecting a cell array.'])
+      assert(iscell(in),[' cannot handle input ''in'' of class ',class(in),', expecting a cell array.'])
       if isempty(in)
         out={};
       else
@@ -169,7 +169,7 @@ classdef dataproduct
       %create argument object, declare and parse parameters, save them to obj
       [~,p,obj]=varargs.wrap('sinks',{obj},'parser',p,'sources',{dataproduct.parameters('obj')},varargin{:});
       %sanity
-      assert(file.exist(obj.metadata_dir),[mfilename,': ',...
+      assert(file.exist(obj.metadata_dir),[' ',...
         'cannot find metadata dir ''',obj.metadata_dir,'''.'])
       % call superclass constructor
       if ~isempty(p.Results.field_path)
@@ -217,7 +217,7 @@ classdef dataproduct
           if system(com)==0
             disp('done!')
           else
-            error([mfilename,': command "',com,'" failed.'])
+            error(['command "',com,'" failed.'])
           end
         else
           disp([files{i},' non-existing, skipping...'])
@@ -240,7 +240,7 @@ classdef dataproduct
           'ext','png'...
         };
       otherwise
-        error([mfilename,': cannot handle mode ''',mode,'''.'])
+        error(['cannot handle mode ''',mode,'''.'])
       end
     end
     function [out,startlist,stoplist]=file(obj,mode,varargin)
@@ -300,7 +300,7 @@ classdef dataproduct
              stoplist=p.Results.stop;
              timestamp_fmt='yyyymmdd';
           otherwise
-            error([mfilename,': cannot handle metadata key ''storage_period'' with value ''',obj.mdget('storage_period'),'''.'])
+            error(['cannot handle metadata key ''storage_period'' with value ''',obj.mdget('storage_period'),'''.'])
           end
         end
         %build list of files
@@ -379,7 +379,7 @@ classdef dataproduct
       out=file.exist(obj.mdfile);
     end
     function mdfile_check(obj)
-      assert(obj.ismdfile,[mfilename,': ',...
+      assert(obj.ismdfile,[' ',...
         'could not find the metadata for product ',obj.name,' (expecting ',obj.mdfile,').'])
     end
     function obj=mdload(obj,metadata)
@@ -445,7 +445,7 @@ classdef dataproduct
     end
     function mdfield_check(obj,metadatafieldname)
       if ~obj.ismdfield(metadatafieldname)
-        error([mfilename,': cannot find field ',metadatafieldname,' in the metadata of ',obj.name,'.'])
+        error(['cannot find field ',metadatafieldname,' in the metadata of ',obj.name,'.'])
       end
     end
     %% metadata parsing

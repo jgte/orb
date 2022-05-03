@@ -42,7 +42,7 @@ classdef nrtdm_metadata
       newlines=[0,strfind(text,newline)];
       %sanitize
       if isempty(newlines)
-        error([mfilename,': could not discover any new lines in file ',obj.product.file,':',newline,text])
+        error(['could not discover any new lines in file ',obj.product.file,':',newline,text])
       end
       %search for this product
       line_nr=0;
@@ -54,7 +54,7 @@ classdef nrtdm_metadata
       end
       %sanity
       if line_nr==0
-        error([mfilename,': could not definition of product ',obj.product.name,' in file ',obj.product.file,'.'])
+        error(['could not definition of product ',obj.product.name,' in file ',obj.product.file,'.'])
       end
       %init metadata structure
       obj.entries=struct('Orbital',obj.product.name);
@@ -89,7 +89,7 @@ classdef nrtdm_metadata
     end
     function out=get(obj,entry_name)
       if ~isfield(obj.entries,nrtdm_metadata.clean_entry_name(entry_name))
-        error([mfilename,': metadata of product ',obj.product.name,' does not include entry ',entry_name,'.'])
+        error(['metadata of product ',obj.product.name,' does not include entry ',entry_name,'.'])
       else
         out=obj.entries.(nrtdm_metadata.clean_entry_name(entry_name));
       end

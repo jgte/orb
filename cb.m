@@ -53,7 +53,7 @@ classdef cb
       NELEM=size(old,1);
 
       if (WHITEVAL < MINVAL) || (WHITEVAL > MAXVAL)
-          disp([mfilename,':WARNING: requested white zero is out of range.'])
+          warning('requested white zero is out of range.')
           if nargout == 0
               %setting colormap
               colormap(old)
@@ -175,10 +175,10 @@ classdef cb
       end
 
       if min(size(domain)) > 1
-          error([mfilename,': input <domain> must be a vector.'])
+          error('input <domain> must be a vector.')
       end
       if ~issorted(domain)
-          error([mfilename,': input <domain> must be sorted.'])
+          error('input <domain> must be sorted.')
       end
       if size(domain,1) > 1
           domain=domain';
@@ -297,7 +297,7 @@ classdef cb
       %  if (1 >= N1_old-gap_idx_nr) || (N2_old+gap_idx_nr-1 >= NELEM) || ...
       %     (1 >= N1-gap_idx_nr)     || (N2+gap_idx_nr-1 >= NELEM)
       if gap_idx_nr < 0
-          disp([mfilename,':WARNING: requested white zero is out range. Not changing colormap.'])
+          warning('requested white zero is out range. Not changing colormap.')
           if nargout == 0
               %setting colormap
               colormap(old)
@@ -308,19 +308,19 @@ classdef cb
       end
 
       % if (1 >= N1_old-gap_idx_nr)
-      %     disp([mfilename,':WARNING: requested zero is out range.'])
+      %     warning(['requested zero is out range.'])
       %     N1_old=2+gap_idx_nr;
       % end
       % if (N2_old+gap_idx_nr-1 >= NELEM)
-      %     disp([mfilename,':WARNING: requested zero is out range.'])
+      %     warning(['requested zero is out range.'])
       %     N2_old=NELEM-gap_idx_nr;
       % end
       % if (1 >= N1-gap_idx_nr)
-      %     disp([mfilename,':WARNING: requested zero is out range.'])
+      %     warning(['requested zero is out range.'])
       %     N1=2+gap_idx_nr;
       % end
       % if (N2+gap_idx_nr-1 >= NELEM)
-      %     disp([mfilename,':WARNING: requested zero is out range.'])
+      %     warning(['requested zero is out range.'])
       %     N2=NELEM-gap_idx_nr;
       % end
 
@@ -401,7 +401,7 @@ classdef cb
       %     end
       else
           if size(old,1) < 3
-              error([mfilename,': input colormap is too small.'])
+              error('input colormap is too small.')
           end
       end
 
@@ -438,7 +438,7 @@ classdef cb
       
       %bug trap
       if isempty(data)
-          error([mfilename,': could not find useful data in the current plot to make colormap.'])
+          error('could not find useful data in the current plot to make colormap.')
       end
       %filtering out NaNs
       data=data(isfinite(data(:)));
@@ -451,7 +451,7 @@ classdef cb
       if std(data) < min_std_f*abs(mean(data))
           %extremly low data std detected, artificially creating histogram
           h=pdf('Normal',x_old,mean(data),min_std_f*(MAXVAL-MINVAL));
-          disp([mfilename,':warning: data std is very low (',num2str(std(data)),...
+          warning(['data std is very low (',num2str(std(data)),...
               ') so generating histogram considering std of ',num2str(min_std_f*(MAXVAL-MINVAL))])
       else
           %getting histogram of the data
