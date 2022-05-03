@@ -15,4 +15,5 @@ recycle: on
 data_dir: ./data
 plot_dir: ./plot
 metadata_dir: ./metadata
+test_dir: ./test
 #NOTICE: arbitrary <type>_dir entries can be added as needed, which can be retrieved with file.orbdir(<type>)
