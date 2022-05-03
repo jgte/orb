@@ -152,11 +152,11 @@ classdef slr < gravity
         if ~file.exist(f_pdset) || ~file.exist(f_pd) || ~slr.graceC20(varargin{:},'mode','model-md5check') || v.force
           %get the coefficients; NOTICE: always use c20.t so that f_pdset is not dependent on inputs
           [~,pd_set]=c20.parametric_decomposition('np',np,'T',T,...
-            'timescale','days','time',c20.t_domain(days(7))); 
+            'timescale','days','time',c20.t_domain(days(7)));
           %save them
           save(f_pdset,'pd_set')
           %update md5 of data
-          slr.graceC20(varargin{:},'mode','model-md5set')  
+          slr.graceC20(varargin{:},'mode','model-md5set')
         else
           load(f_pdset,'pd_set')
         end
@@ -185,7 +185,7 @@ classdef slr < gravity
         switch v.mode
           case 'model-list';     out=pardecomp.table(pd_set,'tablify',true);
           case 'model-list-tex'; out=pardecomp.table(pd_set,'tablify',false,'latex_table',true);
-        end       
+        end
       case 'model-plot'
         %retrieve the orignal data
         c20o=slr.graceC20(varargin{:},'mode','read','force',v.force);
@@ -252,7 +252,7 @@ classdef slr < gravity
               dat_list{i}=slr.graceC20('mode','model','force',v.force,...
                 'source',strrep(source_list{i},'-model','')...
               );
-            end              
+            end
           otherwise
             dat_list{i}=slr.graceC20('mode','read','source',source_list{i},'force',v.force);
             dat_list{i}=dat_list{i}.interp(dat_list{i}.t_domain(days(7)),...
@@ -318,7 +318,7 @@ classdef slr < gravity
             'np',2,...
             'T',[1,1/2]*days(years(1)),...
             'timescale','days'...
-          ); 
+          );
           %append important information
           pd_set.GM=data.GM;
           pd_set.R=data.R;
@@ -529,7 +529,7 @@ function [t_out,y_out,header]=import_CSR2x2(varargin)
         h{i}=struct(...
           'origin',local_data,...
           'raw',file.header(local_data,30),... %load the text (search for the end of the header up until line 30)
-          'd',v.degrees(i),... 
+          'd',v.degrees(i),...
           'o',v.orders{i}...
         );
         %branch on files with one or two coefficients
@@ -578,7 +578,7 @@ function [t_out,y_out,header]=import_CSR2x2(varargin)
         %save the data in mat format
         file.save_mat(struct('t',t{i},'y',y{i},'header',h{i}),local_data,'data_var','out')
       end
-    end  
+    end
     %aggregate the data from the separate files, define header
     header=struct(...
       'descriptor','UT/CSR monthly 2x2 RL-06 time series from SLR',...
@@ -601,7 +601,7 @@ function [t_out,y_out,header]=import_CSR2x2(varargin)
       %aggregate coefficients
       for j=1:numel(v.orders{i}) %NOTICE: this is why v.degrees{i} should be scalar
         colidx=gravity.colidx(h{i}.d,h{i}.o(j),lmax);
-        y_out(:,colidx)=y{i}(:,colidx); 
+        y_out(:,colidx)=y{i}(:,colidx);
       end
       %save header info
       header.raw{i}=h{i}.raw;
@@ -659,7 +659,7 @@ function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
     fid=file.open(local_data);
     % Read header
     while true
-      s=fgets(fid); 
+      s=fgets(fid);
       if contains(s,'end of header')
         break
       end
@@ -746,18 +746,18 @@ function [t_out,y_out,header,y_out_error,y_out_AOD]=import_CSR5x5(varargin)
         o=s(header.idx.m);
         %skip if this degree is above the requested lmax
         if d>header.lmax; continue; end
-        %get the epoch 
+        %get the epoch
         t_out(arc)=datetime([0 0 0 0 0 0])+years(s(header.idx.Year_mid_point)); %#ok<AGROW>
         %save cosine coefficient, error and value with AOD
-        y_out(      arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Cnm);    
-        y_out_error(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Csigma); 
-        y_out_AOD(  arc,gravity.colidx(d,o,header.lmax))=s(header.idx.CnmAOD); 
+        y_out(      arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Cnm);
+        y_out_error(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Csigma);
+        y_out_AOD(  arc,gravity.colidx(d,o,header.lmax))=s(header.idx.CnmAOD);
         if o==0, continue;end
         %save sine coefficient, error and value with AOD
         o=-o;
-        y_out(      arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Snm);    
-        y_out_error(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Ssigma); 
-        y_out_AOD(  arc,gravity.colidx(d,o,header.lmax))=s(header.idx.SnmAOD); 
+        y_out(      arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Snm);
+        y_out_error(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.Ssigma);
+        y_out_AOD(  arc,gravity.colidx(d,o,header.lmax))=s(header.idx.SnmAOD);
       otherwise
         disp(['WARNING: ignoring line: ',strjoin(s,' ')])
       end
@@ -817,7 +817,7 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
     fid=file.open(local_data);
     % Read header
     while true
-      s=fgets(fid); 
+      s=fgets(fid);
       if contains(s,'end of header')
         break
       end
@@ -858,7 +858,7 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
         end
       end
       if contains(s, 'Product:')
-        break      
+        break
       end
     end
     %init loop variables
@@ -876,7 +876,7 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
       case 2
         %increment loop var
         arc=arc+1;
-        %get the epoch 
+        %get the epoch
         t_out(arc)=time.ToDateTime(s(1),'modifiedjuliandate'); %#ok<AGROW>
       case 4
         %get degree and order
@@ -885,11 +885,11 @@ function [t_out,y_out,header]=import_GSFC5x5(varargin)
         %skip if this degree is above the requested lmax
         if d>header.lmax; continue; end
         %save cosine coefficient
-        y_out(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.C);    
+        y_out(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.C);
         if o==0, continue;end
         %save sine coefficient
         o=-o;
-        y_out(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.S);    
+        y_out(arc,gravity.colidx(d,o,header.lmax))=s(header.idx.S);
       otherwise
         disp(['WARNING: ignoring line: ',strjoin(s,' ')])
       end
@@ -917,7 +917,7 @@ function [t_out,y_out,header]=import_C20(varargin)
       'data_format'  , '%7.1f%10.4f%22.13f%8.4f%8.4f',@ischar;...
     },...
   },varargin{:});
-  %upper-case version name 
+  %upper-case version name
   v.source=upper(v.source);
   %update local import dir
   v.import_dir=slr.dir(v.source);
@@ -989,7 +989,7 @@ function [t_out,y_out,header]=import_C20(varargin)
       'R',6.378136300E+06,...
       'lmax',2,...
       'origin',local_data,...
-      'tide_system','zero_tide'... 
+      'tide_system','zero_tide'...
     );
     %open the file
     fid=file.open(local_data);
@@ -1003,7 +1003,7 @@ function [t_out,y_out,header]=import_C20(varargin)
     dat=textscan(fid,v.data_format,'CommentStyle',v.comment_style);
     %close the file
     fclose(fid);
-    % outputs 
+    % outputs
     switch v.source
     case {'GSFC-7DAY','CSR-RL06'}
       t_out=years(mean([dat{v.time_column}],2))+datetime('0000-01-01 00:00:00');
@@ -1031,7 +1031,7 @@ function [t_out,y_out,header]=import_C20(varargin)
 %     else
 %       e=zeros(size(s));
 %     end
-  
+
   end
 end
 
@@ -1054,7 +1054,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   e_idx=5;
   CommentStyle='*';
   datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f';
-  %upper-case version name 
+  %upper-case version name
   v.source=upper(v.source);
   %parse dependent arguments (can be over-written)
   %(NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)

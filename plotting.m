@@ -47,12 +47,12 @@ classdef plotting
         'plot_zeromean',     false,       @str.islogical;... %mean of data is removed before plotting (in simpledata.plot)
         'plot_outlier_iter',     0,       @num.isscalar;...
         'plot_caxis',   [-inf,inf],       @(i) isnumeric(i) && numel(i)==2;...
-        'plot_logy',         false,       @str.islogical;... 
-        'plot_logx',         false,       @str.islogical;... 
-        'plot_pause_on_save',false,       @str.islogical;... 
-        'plot_save_fig',     false,       @str.islogical;... 
-        'plot_save_mkdir',    true,       @str.islogical;... 
-        'plot_save_ext',     'png',       @ischar;... 
+        'plot_logy',         false,       @str.islogical;...
+        'plot_logx',         false,       @str.islogical;...
+        'plot_pause_on_save',false,       @str.islogical;...
+        'plot_save_fig',     false,       @str.islogical;...
+        'plot_save_mkdir',    true,       @str.islogical;...
+        'plot_save_ext',     'png',       @ischar;...
         'plot_dir',file.orbdir('plot'),   @ischar;...
         'plot_save_data',    'yes',       @str.islogical;... %NOTICE: can be 'force' to recompute plot data (discards existing plot data)
         'plot_force',        false,       @str.islogical;... %NOTICE: this turns plot_save_data to 'force' if true (and force re-plotting, but needs to be implemented where needed)
@@ -246,7 +246,7 @@ classdef plotting
       %   with handles H.
 
       % TODO: add copyright
-    
+
       % handle inputs
       if ~exist('mode','var') || isempty(mode)
           mode='spiral';
@@ -302,7 +302,7 @@ classdef plotting
       %loop over all axis
       for ah = axis_handle(:)'
         lh=plotting.line_handles(ah);
-        for i=1:numel(lh)		
+        for i=1:numel(lh)
           set(lh(i),'LineWidth',w)
         end
       end
@@ -318,7 +318,7 @@ classdef plotting
       %loop over all axis
       for ah = axis_handle(:)'
         lh=plotting.line_handles(ah);
-        for i=1:numel(lh)		
+        for i=1:numel(lh)
           set(lh(i),'MarkerSize',w)
         end
       end
@@ -548,7 +548,7 @@ classdef plotting
       if any(isfinite(v.plot_ylimits)) && ( v.plot_autoscale ||  v.plot_automean )
         error('option ''ylimits'' and ''autoscale'' or ''automean'' do not work concurrently.')
       end
-    
+
       %outputs
       out.axis_handle=v.axis_handle;
 
@@ -557,11 +557,11 @@ classdef plotting
       set(get(out.axis_handle,'Title' ),'FontSize',v.plot_fontsize_title);
       set(get(out.axis_handle,'XLabel'),'FontSize',v.plot_fontsize_label);
       set(get(out.axis_handle,'YLabel'),'FontSize',v.plot_fontsize_label);
-      
+
       %enforce legend
       out.legend_handle=plotting.legend(varargin{:});
 
-      
+
       % enforce line properties
       line_handles=plotting.line_handles(out.axis_handle);
       for i=1:numel(line_handles)
@@ -573,7 +573,7 @@ classdef plotting
       if ~str.none(v.plot_line_color)
         plotting.line_color(v.plot_line_color,v.plot_line_color_order,out.axis_handle)
       end
-      
+
       % start with x axis
       ax=plotting.xlim(out.axis_handle);
       % ensure numeric values
@@ -625,11 +625,11 @@ classdef plotting
           end
         end
       end
-      if ~str.none(v.plot_set_axis_limits)     
+      if ~str.none(v.plot_set_axis_limits)
         % set axis limits (can be the ones matlab so wisely set)
         xlim(out.axis_handle,ax);
       end
-      
+
       % enforce requested y-limits
       ay=plotting.ylim(out.axis_handle);
       % ensure numeric values
@@ -672,7 +672,7 @@ classdef plotting
       end
       % set axis limits (can be the ones matlab so wisely set)
       ylim(out.axis_handle,ay);
-      
+
       %enforce labels
       if isempty(v.plot_xlabel)
         %do nothing
@@ -694,7 +694,7 @@ classdef plotting
         % end
         ylabel('')
       end
-      
+
       %enforce title
       if str.none(v.plot_title)
         out.title_handle=[];
@@ -714,7 +714,7 @@ classdef plotting
       if str.logical(v.plot_grid)
         grid(out.axis_handle,'on')
       end
-      
+
       %enforce colormap
       if str.none(v.plot_colormap)
         out.colormap=[];
@@ -757,7 +757,7 @@ classdef plotting
           switch clist{c}
           case 'opt'
             out.colormap=cb.opt(out.colormap,out.axis_handle);
-          case 'zero' 
+          case 'zero'
             clim=caxis;
             if clim(1)<0 && clim(2)>0; czero=0;
             elseif all(clim<=0);        czero=max(clim);
@@ -779,7 +779,7 @@ classdef plotting
       if str.logical(v.plot_logx)
         set(gca, 'XScale', 'log')
       end
-      
+
     end
     function out=title_replace_clean(varargin)
       % add input arguments and metadata to collection of parameters 'v'
@@ -793,7 +793,7 @@ classdef plotting
       if ~isempty(v.plot_title_replace)
         out=str.rep(out,v.plot_title_replace{:});
       end
-      %clean up the tile 
+      %clean up the tile
       out=str.clean(out,[v.plot_title_suppress(:);{'title'}]);
     end
     function out=legend_replace_clean(varargin)
@@ -971,7 +971,7 @@ classdef plotting
       try
         loaddata=str.logical(v.plot_save_data);
       catch
-        switch lower(v.plot_save_data) 
+        switch lower(v.plot_save_data)
         case 'force'
           loaddata=false;
           savedata=true;

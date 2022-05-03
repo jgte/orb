@@ -18,7 +18,7 @@ classdef csr
     calpar_max_col =[  3   ,   9   ];
     %define default grace names
     grace_sats={'A','B'};
-  end 
+  end
   methods(Static)
     %% utilities
     function timetag=gitversion
@@ -36,7 +36,7 @@ classdef csr
           system(['mv -v ',logname,' ',strrep(logname,'.log',''),'.',datestr(datetime('now'),30),'.log']);
         end
       else
-        fid = file.open(logname,'a');  
+        fid = file.open(logname,'a');
         fprintf(fid,[strjoin(msg,'\n'),'\n']);
         fclose(fid);
       end
@@ -191,7 +191,7 @@ classdef csr
       case 'estimate_poly_calmod'; name='grace.acc.cal.poly0.plots';
       case 'psd';                  name='grace.acc.psd.plots';
       otherwise
-        error(['unknown mode ''',mode,'''.'])  
+        error(['unknown mode ''',mode,'''.'])
       end
       for i=1:numel(ssl)
         out{i}=datastorage('start',ssl(i).start,'stop',ssl(i).stop,'debug',debug).init(name,'plot_dir',plot_dir,args{:});
@@ -217,7 +217,7 @@ classdef csr
       case 'calacc';      name='grace.acc.cal.csr';
       case 'poly_calmod'; name='grace.acc.calmod.poly0';
       otherwise
-        error(['unknown mode ''',mode,'''.'])  
+        error(['unknown mode ''',mode,'''.'])
       end
       out=datastorage('debug',true,'start',start,'stop',stop).init(name,'recompute',true);
       out.peek
@@ -260,7 +260,7 @@ classdef csr
       switch v.sat
       case 'A'; bias_file=v.bias_files{1};
       case 'B'; bias_file=v.bias_files{2};
-      otherwise; error(['Unknown sat ''',v.sat,'''.'])  
+      otherwise; error(['Unknown sat ''',v.sat,'''.'])
       end
       %translate field to data index
       switch upper(v.field)
@@ -443,7 +443,7 @@ classdef csr
               arc_starts=sub_arc_starts;
                 arc_ends=sub_arc_ends;
             end
-            
+
             %propagate data
             arc_start_y=tmp.(v.sats{s}).y;
               arc_end_y=tmp.(v.sats{s}).y;
@@ -501,7 +501,7 @@ classdef csr
 
           %propagate data to object
           for s=1:numel(v.sats)
-            obj=obj.data_set(product.dataname.set_field_path([v.levels(i),v.calpars(j),v.sats(s)]),tmp.(v.sats{s}));     
+            obj=obj.data_set(product.dataname.set_field_path([v.levels(i),v.calpars(j),v.sats(s)]),tmp.(v.sats{s}));
           end
           %user feedback
           str.say(str.tablify([15,6,3,6],'loaded data for',v.levels{i},'and',v.calpars{j}))
@@ -587,9 +587,9 @@ classdef csr
               str.say('DEBUG DATE: with gaps:',v.levels{i},':',v.sats{s},':',v.calpars_out{j},' @ ',datestr(rep_date));
               idx=ts_now.idx(rep_date);
               ts_now.peek((idx-10):(idx+10));
-            end              
+            end
             %save
-            obj=obj.data_set(product.dataname.set_field_path([v.levels(i),v.calpars_out(j),v.sats(s)]),ts_now);  
+            obj=obj.data_set(product.dataname.set_field_path([v.levels(i),v.calpars_out(j),v.sats(s)]),ts_now);
           end
         end
       end
@@ -818,7 +818,7 @@ classdef csr
               arc_starts=sub_arc_starts;
                 arc_ends=sub_arc_ends;
             end
-            
+
             %propagate data
             arc_start_y=tmp.(v.sats{s}).y;
               arc_end_y=tmp.(v.sats{s}).y;
@@ -876,7 +876,7 @@ classdef csr
 
           %propagate data to object
           for s=1:numel(v.sats)
-            obj=obj.data_set(product.dataname.set_field_path([v.levels(i),v.calpars(j),v.sats(s)]),tmp.(v.sats{s}));     
+            obj=obj.data_set(product.dataname.set_field_path([v.levels(i),v.calpars(j),v.sats(s)]),tmp.(v.sats{s}));
           end
           %user feedback
           str.say(str.tablify([15,6,3,6],'loaded data for',v.levels{i},'and',v.calpars{j}))
@@ -962,9 +962,9 @@ classdef csr
               str.say('DEBUG DATE: with gaps:',v.levels{i},':',v.sats{s},':',v.calpars_out{j},' @ ',datestr(rep_date));
               idx=ts_now.idx(rep_date);
               ts_now.peek((idx-10):(idx+10));
-            end              
+            end
             %save
-            obj=obj.data_set(product.dataname.set_field_path([v.levels(i),v.calpars_out(j),v.sats(s)]),ts_now);  
+            obj=obj.data_set(product.dataname.set_field_path([v.levels(i),v.calpars_out(j),v.sats(s)]),ts_now);
           end
         end
       end
@@ -1529,14 +1529,14 @@ classdef csr
                        arctimeline.month == month(i) & ...
                        arctimeline.day   == day(i)   );
 %             str.say('key len',sum(key),'year',year(i),'month',month(i),'day',day(i))
-          end 
+          end
         end
       else
         %NOTICE: this algorithm is extremely flexible and accepts any of the inputs as vectors but it fails to
         %        resolve those days outside the nominal month of a solution (e.g. 29/1/2016 for the solution of Feb 2016)
         %init logic key
         key=true(height(arctimeline),1);
-        %build logic key: if only month and year are given, 
+        %build logic key: if only month and year are given,
         for i={'year','month','arc','day','start','stop'}
           if ~isempty(v.(i{1}))
             %make cells into matrices
@@ -1673,8 +1673,8 @@ classdef csr
     end
     %agregates sub-arcs into arc-wise constant time series of all calpars (including D and Q pars)
     function arc=arc_timeseries(startstop,varargin)
-      %get persistent vars 
-      persistent v 
+      %get persistent vars
+      persistent v
       if isempty(v)
         % add input arguments and metadata to collection of parameters 'v'
         v=varargs.wrap('sources',{...
@@ -1721,7 +1721,7 @@ classdef csr
                 %reset sub-arc index
                 sub_arc_idx=-1;
                 %find sub-arc index
-                switch v.calpar_cyclesperday_value(j) 
+                switch v.calpar_cyclesperday_value(j)
                   case         1      ; sub_arc_idx=1;                           fn_out=fn{f};
                   case num2cell(2 : 9); sub_arc_idx=str2double((fn{f}(end)));    fn_out=fn{f}(1:end-1);
                   case num2cell(10:99); sub_arc_idx=str2double(fn{f}(end-1:end));fn_out=fn{f}(1:end-2);
@@ -1804,7 +1804,7 @@ classdef csr
             str.say('sat',v.sats{s},'calpar',fields{f})
             %shortcut to the time domain (sub-arcs may be dropped if small, so no point in time domain consistency checks)
             if isempty(t); t=arc.(v.sats{s}).(fields{f}).t;end
-%             else assert(arc.(v.sats{s}).(fields{f}).istequal(t),'Time domain discrepancy.');  
+%             else assert(arc.(v.sats{s}).(fields{f}).istequal(t),'Time domain discrepancy.');
             %set the time domain in units compatible with the calibration parameters:
             %units are days and zero epoch is the start of the arc
             if isempty(tc); tc=days(t-startstop(1)); end
@@ -1884,7 +1884,7 @@ classdef csr
       s.msg='Assembling arcs';s.n=numel(v.arc);
       for i=1:numel(v.arc)
         bias=csr.arc_build(varargin{:},...
-          'year',     v.year,...  
+          'year',     v.year,...
           'month',    v.month,...
           'arc',      v.arc{i},...
           'calpar_coords',  v.bias_coords,...
@@ -1933,13 +1933,13 @@ classdef csr
       % - 'year'
       % - 'month'
       %
-      %A complete collection of estim files relevant to 'year' and 'month' 
+      %A complete collection of estim files relevant to 'year' and 'month'
       %should be sitting obidiently inside 'estim_dir'.
       %
       %NOTICE: it is important that these values are in agreement between
       %each other, there is no obvious way of making this internally consistent.
       %
-      %The mandatory argument 'level' serves as a sort of descriptor, to 
+      %The mandatory argument 'level' serves as a sort of descriptor, to
       %differentiate different types of estim files.
       obj.log('@','in','product',product,'start',obj.start,'stop', obj.stop)
       % add input arguments and metadata to collection of parameters 'v'
@@ -1950,7 +1950,7 @@ classdef csr
           'month', month(obj.start+(obj.stop-obj.start)/2), @num.isscalar;...
         },...
       product.args},varargin{:});
-      %build the arc time series 
+      %build the arc time series
       [arcs,v]=csr.arcs_build(v.varargin{:},varargin{:});
       %save it
       obj=obj.data_set(product,arcs);
@@ -2018,7 +2018,7 @@ classdef csr
                 %check if any data was plotted
                 if all(isempty(out{oc})) %nothing plotted
                   str.say('Skipped plot',filename,'(no data plotted)')
-                  close(gcf) 
+                  close(gcf)
                 else %save this plot
                   saveas(gcf,filename); str.say('Created plot',filename)
                 end
@@ -2072,7 +2072,7 @@ classdef csr
           'ts',l1b,...
           'sat',v.sats{s},...
           'field','restore'...
-        ); 
+        );
         str.say('GRACE',v.sats{s},'l1b-LTB     ',out.stats('mode','str','struct_fields',{'mean'}))
         %let's look at the scales
         str.say('GRACE',v.sats{s},'S           ',calmod.scale.stats('mode','str','struct_fields',{'mean'}))
@@ -2087,7 +2087,7 @@ classdef csr
         %save the data
         obj=obj.data_set(product.dataname.set_field_path(v.sats{s}),out);
       end
-      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)   
+      obj.log('@','out','product',product,'start',obj.start,'stop', obj.stop)
     end
     %% operators
     function obj=compute_calmod(obj,product,varargin)
@@ -2102,7 +2102,7 @@ classdef csr
       %retrieve relevant parameters
       param_col =calparp.mdget('param_col');
       coords    =calparp.mdget('coords');
-      
+
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{...
         {...
@@ -2199,7 +2199,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
               'plot_fontsize_axis',18, ...
               'plot_fontsize_label',20 ...
             };
-            %patch 
+            %patch
             filename=product.file('plot',...
               'start',obj.start,...
               'stop',obj.stop,...
@@ -2264,7 +2264,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         },...
         product.args...
       },varargin{:});
-      
+
       %check if the product satellites include the one in the current product
       sat_now=product.dataname.field_path;
       if ~any(strcmp(v.sats,sat_now))
@@ -2340,14 +2340,14 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
               %get trimmed time series
               arc_mod=mod.trim(t(a,1),t(a,2)).cols(c);
               arc_l1b=l1b.trim(t(a,1),t(a,2)).cols(c).median(v.l1b_median_order).interp(arc_mod.t);
-              
+
               %get calibration curve to fit
               arc_cur=arc_mod+arc_l1b;
               %compute calibration model
               warning('off',warning_id)
               arc_calmod=arc_cur.scale(-1).polyfit(v.calpar_poly_order(c));
               warning('on',warning_id)
-              
+
 %               %get calibration curve to fit
 %               arc_cur1=arc_mod-arc_l1b;
 %               arc_cur2=arc_mod+arc_l1b;
@@ -2364,7 +2364,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
 %                 factor=1;
 %                 arc_calmod=arc_calmod1;
 %               end
-                            
+
               %create/append daily data
               if a==1
                 day_calmod=arc_calmod;
@@ -2384,7 +2384,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
             calmod=coord_calmod;
           else
             calmod=calmod.glue(coord_calmod);
-          end          
+          end
         end
         calmod.descriptor=['calibration model ',product.str];
       end
@@ -2513,7 +2513,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         },...
         product.args...
       },varargin{:});
-    
+
       %check if the product satellites include the one in the current product
       sat_now=product.dataname.field_path;
       if ~any(strcmp(v.sats,sat_now))
@@ -2549,7 +2549,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
           switch i
           case 1
             %create target ts 1
-%             tst_try{i}=ts{1}.cols(ci)-ts{2}.cols(ci);            
+%             tst_try{i}=ts{1}.cols(ci)-ts{2}.cols(ci);
             continue
           case 2
             %create target ts 2
@@ -2581,7 +2581,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
 %             structs.str(v,{{'searchrange'},{'searchlen'}},'_'),...
           %check if it exists
           if ~exist(plot_name,'file')
-            %build info text 
+            %build info text
             text_str=cell(numel(xn)+2,1);
             for ti=1:numel(xn)
               text_str{ti}=[xn{ti},': ',str.show(x{bti}(:,ti),'',', '),'\times10^{',num2str(log10(v.xs(ti))),'}'];
@@ -2748,7 +2748,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
           tmp=csr.plot(date_list{i},'','odd');
           clear tmp
         end
-      otherwise 
+      otherwise
         if ~exist('stop','var') || isempty(stop)
           stop=dateshift(datetime(start),'end','day')-seconds(1);
         end
@@ -2813,13 +2813,13 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         else
           %load data
           load(outfiles{f},'s');
-          fields=fieldnames(s); 
+          fields=fieldnames(s);
           for i=1:numel(fields)
             obj=obj.data_set(product,s.(fields{i}));
           end
         end
       end
-      
+
       for s=1:numel(sats)
         infile=cell(size(timestamplist));
         %loop over all dates
@@ -2877,6 +2877,6 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         dataproduct(mode,'metadata_dir',file.orbdir('metadata')).rm_data(varargin{:});
       end
     end
-     
+
   end
 end

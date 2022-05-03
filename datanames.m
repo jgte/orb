@@ -59,7 +59,7 @@ classdef datanames
         end
       end
     end
-    function out=transmute(in) 
+    function out=transmute(in)
       if iscell(in)
         out=cellfun(@datanames.transmute,in,'UniformOutput',false);
       else

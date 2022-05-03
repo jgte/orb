@@ -119,7 +119,7 @@ classdef kp
       n=ceil(p.Results.smooth/mean(diff(d.t)));
       %open figure
       plotting.figure;
-      %plot it  
+      %plot it
       plot(d.t,smooth(d.(p.Results.variable),n))
       ylabel(p.Results.variable)
       plotting.enforce(...

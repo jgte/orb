@@ -73,7 +73,7 @@ classdef structs
         if isempty(S.(fn{i}))
           S=rmfield(S,fn{i});
         end
-      end 
+      end
     end
     %% get/set values
     %'field_path' is cell array with the sub-field path to the value to be retrieved from structure in 'in' (i.e. a cell of cells)
@@ -313,7 +313,7 @@ classdef structs
         else
           error(['Cannot handle input ''fieldname_part'' of class ''',class(fieldname_part),'''.'])
         end
-      end      
+      end
     end
     %renames field 'field_old' to 'field_new' of structure 'S'
     function S=rename(S,field_old,field_new)

@@ -106,7 +106,7 @@ classdef simplefreqseries < simpletimeseries
       p.addRequired( 'tn', @(i) simpletimeseries.valid_t(i));
       p.addParameter('seed','default',@(i)...   % does not support the form RNG(SD,GENERATOR)
         ischar(i) || ...                        % can be 'shuffle' or 'default'
-        ( isnumeric(i) && isscalar(i) ) || ...  % can be the seed 
+        ( isnumeric(i) && isscalar(i) ) || ...  % can be the seed
         ( isstruct(i) && structs.iseq_field_list(i,struct('Type','','Seed',[],'State',[])) )... % can be a RNG structure
       );
       p.addParameter('columns',1,@(i)isnumeric(i) && isscalar(i));
@@ -184,7 +184,7 @@ classdef simplefreqseries < simpletimeseries
         plot(fi,Wi*simpletimeseries.timescale(dt))
         simplefreqseries(to,yo).plot_psd('columns',c,'method','fft','resample',false,'detrend',false)
         obj.plot_psd('columns',c,'method','fft','resample',false,'detrend',false)
-        legend('Wn*dt','Wn*dt interp',['Noise ifft col.',num2str(c)],['Noise interp col.',num2str(c)],'location','west')        
+        legend('Wn*dt','Wn*dt interp',['Noise ifft col.',num2str(c)],['Noise interp col.',num2str(c)],'location','west')
         subplot(3,1,2)
         plot(ti,yi(:,c)), hold on
         plot(to,yo(:,c),'-o')
@@ -251,11 +251,11 @@ classdef simplefreqseries < simpletimeseries
       %init object
       y=simplefreqseries.test_parameters('y-sin',t,w);
       mask=simplefreqseries.test_parameters('mask',l,w);
-      a=simplefreqseries(t,y,...      
+      a=simplefreqseries(t,y,...
         'mask',mask,...
         args{:},...
         'format','modifiedjuliandate'...
-      );      
+      );
       switch method
         case 'all'
           for i={'init','despike','smooth','psd','band-pass','noises'}
@@ -701,19 +701,19 @@ classdef simplefreqseries < simpletimeseries
       otherwise
         error(['unknown gap handling mode ''',p.Results.gaps,'''.'])
       end
-      
+
       %sanity
       if any(isnan(data_in(:)))
           error('found NaNs in the input data.')
       end
-      
+
       disp(['Butterworth filter: [',num2str(Wn),']'])
 
 %       %computational length
 %       n = 2^nextpow2(size(data_in,1));
-% 
+%
 %       error(['not yet implemented'])
-%       
+%
 %       %sanitize
 %       obj.check_sf
     end

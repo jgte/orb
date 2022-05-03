@@ -1279,7 +1279,7 @@
       if ~exist('mask','var') || isempty(mask)
         mask=obj.mask;
       end
-      if ismethod(obj,'t_masked'); out=obj.t_masked(mask); 
+      if ismethod(obj,'t_masked'); out=obj.t_masked(mask);
       else                     ; out=obj.x_masked(mask);
       end
     end

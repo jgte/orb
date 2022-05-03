@@ -134,7 +134,7 @@ classdef cb
           % default color is white
           color = [ 1 1 1 ];
       end
-      
+
       % Translate to color if char
       if ischar(color)
           color = plot_color2RGB(color);
@@ -435,7 +435,7 @@ classdef cb
            end
         end
       end
-      
+
       %bug trap
       if isempty(data)
           error('could not find useful data in the current plot to make colormap.')

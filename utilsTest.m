@@ -12,7 +12,7 @@ classdef utilsTest
     end
     %NOTICE: This utility should come after all plots are generated for a given test; the
     %        plots for this test are placed in the same directory and this utility loops
-    %        through all tests in that directory and compares them with the plots in the 
+    %        through all tests in that directory and compares them with the plots in the
     %        [test,'.test'] directory.
     function testCase=compare_files(testCase,test)
       %define directory with test records, to have something to compare with
@@ -46,7 +46,7 @@ classdef utilsTest
           file.rsync(file_check,file_test);
         end
         %get extension
-        [~,~,e]=fileparts(file_list(i).name);         
+        [~,~,e]=fileparts(file_list(i).name);
         %branch on file time
         switch lower(e)
         case '.png'
@@ -94,7 +94,7 @@ classdef utilsTest
       close(gcf)
       testCase=utilsTest.compare_files(testCase,test);
     end
-    %NOTICE: This utility will take a variable and check if it is the same as what was 
+    %NOTICE: This utility will take a variable and check if it is the same as what was
     %        saved in the test directory (and save it if necessary)
     function testCase=check_test_data(testCase,test,a)
       a_test_file=fullfile(utilsTest.dirtest(test),'a.mat');

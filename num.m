@@ -157,9 +157,9 @@ classdef num
       %special calls
       if ischar(f)
         switch lower(f)
-        case 'dt';       df=0.1; 
-        case 'npoints';  df=3;  
-        case 'nderiv';   df=1;  
+        case 'dt';       df=0.1;
+        case 'npoints';  df=3;
+        case 'nderiv';   df=1;
         case {'sin','p'}
           %need dt,npoints,nderiv
           if ~exist('dt','var') || isempty(dt)
@@ -400,7 +400,7 @@ classdef num
             end
           end
         end
-      case 3  
+      case 3
         n1=size(in,1);
         n2=size(in,2);
         n3=size(in,3);
@@ -526,15 +526,15 @@ classdef num
         if isempty(v.t); v.t=v.pd_struct.in.t; end
         if isempty(v.y); v.y=v.pd_struct.in.y; end
         if isempty(v.T); v.sinusoidal=v.pd_struct.in.T; end
-        
+
 %         continuar aqui
-        
+
       end
       p=machinery.inputParser;
       p.addRequired( 't', @(i)  isnumeric(i) && isvector(i) && size(i,2)==1          && ~any(isnan(i)) );
       p.addRequired( 'y', @(i) (isnumeric(i) && isvector(i) && all(size(i)==size(t)) && ~any(isnan(i))) || isempty(i) );
       %number of polynomial coefficients (not order): 1 constant, 2 constant+linear, 3 constant+linear+quadratic, etc
-      p.addParameter('polynomial',2,                                @(i) (num.isscalar(i)) || isempty(i)); 
+      p.addParameter('polynomial',2,                                @(i) (num.isscalar(i)) || isempty(i));
       %sinusoidal periods (in implicit units):
       p.addParameter('sinusoidal',[2*min(diff(t)),(t(end)-t(1))/2], @(i) isnumeric(i) || isempty(i));
       p.addParameter('t0',        t(1),                             @num.isscalar);
@@ -1018,7 +1018,7 @@ classdef num
         Y=sym(str.rand(numel(char(y))));
       end
       if isscalar(x) && isscalar(y)
-        if contains(char(y),char(Y)) 
+        if contains(char(y),char(Y))
           out=sym([char(y),char(x)]);
         else
           out=diff(y,x);
@@ -1032,5 +1032,5 @@ classdef num
         out=cells.c2m(arrayfun(@(i,j) num.dydx(i,j,Y),XM(:),YM(:),'UniformOutput',false));
       end
     end
-  end 
+  end
 end

@@ -181,7 +181,7 @@ classdef dataproduct
       metadataname=strsplit(obj.name,file.build_element_char);
       %save mdfile
       obj.mdfile=strjoin(metadataname,file.build_element_char);
-      %make sure it exists, if not start digging parent metadata names 
+      %make sure it exists, if not start digging parent metadata names
       %NOTICE: this facility is probably unused, not sure what it is for
       while ~obj.ismdfile && numel(metadataname)>1
         %ditch last part of metadata name
@@ -397,14 +397,14 @@ classdef dataproduct
       obj=obj.mdmerge(metadata);
       %init loop variables (for the submetadatafilelist, assume some size, doesn't really matter)
       c=0;submetadatafilelist=cell(0);
-      %load sub-metadata 
+      %load sub-metadata
       while true
         if obj.ismdfield(obj.submetadataname)
           %build the submetadata filename
           submetadatafiles=cellfun(@(i) fullfile(obj.metadata_dir,[i,'.yaml']),cells.scalar(obj.mdget(obj.submetadataname),'set'),'UniformOutput',false);
           %delete the submetadata field
           obj.metadata=rmfield(obj.metadata,obj.submetadataname);
-          %loop over all 
+          %loop over all
           for i=1:numel(submetadatafiles)
             %check if this submetadatafile has not already been saved
             if ~ismember(submetadatafiles{i},submetadatafilelist)
@@ -414,7 +414,7 @@ classdef dataproduct
               c=c+1;
               %add this metadata file to the list
               submetadatafilelist{c}=submetadatafiles{i};
-              %load and merge this submetadatafile         
+              %load and merge this submetadatafile
               obj=obj.mdmerge(yaml.ReadYaml(submetadatafiles{i}));
             end
           end
@@ -422,7 +422,7 @@ classdef dataproduct
           break
         end
       end
-      %if there is metadata, do some more stuff 
+      %if there is metadata, do some more stuff
       if ~isempty(submetadatafilelist)
         %re-load metadata so that any metadata in the main metadata file over-writes that in the sub-metadata files
         obj=obj.mdmerge(metadata);
@@ -590,7 +590,7 @@ classdef dataproduct
         out=arrayfun(@(i) {i},out);
       case 'double'
         out=cells.m2c(out);
-      otherwise  
+      otherwise
         out=cells.scalar(out,'set');
       end
 %       %need level_vals to be a cell array

@@ -95,7 +95,7 @@ classdef varargsTest < matlab.unittest.TestCase
       testCase.verifyTrue(cells.isequal(p.Results.optional1,optional1),'p.optional1')
       testCase.verifyTrue(cells.isequal(p.Results.cell_array,varargsTest.obj.cell_array),'p.cell_array') %this was not updated
       testCase.verifyTrue(cells.isequal(p.Results.cell_str,  varargsTest.obj.cell_str  ),'p.cell_str')   %this was not updated
-      testCase.verifyTrue(cells.isequal(sink.numeric,    new_numeric),               'sink.numeric') 
+      testCase.verifyTrue(cells.isequal(sink.numeric,    new_numeric),               'sink.numeric')
       testCase.verifyTrue(cells.isequal(sink.cell_array, varargsTest.obj.cell_array),'sink.cell_array') %this was not updated
     end
     function cellTest(testCase)
@@ -104,12 +104,12 @@ classdef varargsTest < matlab.unittest.TestCase
     function vararginTest(testCase)
       testCase.verifyTrue(cells.isequal(varargsTest.obj.varargin,varargsTest.cell_vector))
     end
-    function deleteTest(testCase) 
+    function deleteTest(testCase)
       obj1=varargsTest.obj.dup.delete(arrayfun(@(i) i.name,varargsTest.par(1:2),'UniformOutput',false));
       obj2=varargs(varargsTest.cell_matrix(3:end,:));
       testCase.verifyTrue(obj1==obj2);
     end
-    function isolateTest(testCase) 
+    function isolateTest(testCase)
       obj1=varargsTest.obj.dup.isolate(arrayfun(@(i) i.name,varargsTest.par(1:2),'UniformOutput',false));
       obj2=varargs(varargsTest.cell_matrix(1:2,:));
       testCase.verifyTrue(obj1==obj2);

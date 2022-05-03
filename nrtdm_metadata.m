@@ -29,7 +29,7 @@ classdef nrtdm_metadata
 %     end
   end
   methods
-    function obj=nrtdm_metadata(product_name,debug)  
+    function obj=nrtdm_metadata(product_name,debug)
       if ~exist('debug','var') || isempty(debug)
         debug=false;
       end
@@ -69,7 +69,7 @@ classdef nrtdm_metadata
           entry_name=strtrim(line(1:sep_index-1));
           %extract entry value
           entry_value=strtrim(line(sep_index+1:end-1));
-          %add to structure 
+          %add to structure
           if isfield(obj.entries,nrtdm_metadata.clean_entry_name(entry_name))
             %if already there, append
             if iscell(obj.entries.(nrtdm_metadata.clean_entry_name(entry_name)))
@@ -150,7 +150,7 @@ classdef nrtdm_metadata
       end
       if ~exist('data_dir','var') || isempty(data_dir)
         data_dir=fullfile(nrtdm.data_dir,extension);
-      end      
+      end
       parent_dir=fullfile(data_dir,obj.product.str);
       if ~file.exist(parent_dir)
         file.mkdir(parent_dir);

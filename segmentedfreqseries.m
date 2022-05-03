@@ -126,7 +126,7 @@ classdef segmentedfreqseries < simplefreqseries
         'format','datetime',...
         args{:}...
       );
-   
+
       switch method
         case 'all'
           for i={}
@@ -167,7 +167,7 @@ classdef segmentedfreqseries < simplefreqseries
         otherwise
           error(['Cannot handle test method ''',method,'''.'])
       end
-    end 
+    end
   end
   methods
     %% constructor

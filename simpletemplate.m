@@ -39,7 +39,7 @@ classdef simpletemplate < simpletimeseries
       out=v.picker(varargin{:});
     end
     %NOTICE: This method (mainly) makes sense when this class (A) is derived from another
-    %        class (B) and you want to be able to convert an object of class B into A. 
+    %        class (B) and you want to be able to convert an object of class B into A.
     %NOTICE: As example, this method illustates how to transmute simpledata and friends.
     function out=transmute(in)
       if isa(in,'simpletemplate')
@@ -117,7 +117,7 @@ classdef simpletemplate < simpletimeseries
     function obj=assign(obj,y,varargin)
       %pass it upstream
       obj=assign@simpletimeseries(obj,y,varargin{:});
-      %update internal 
+      %update internal
       if any(y(:)~=0)
         obj.flag=false;
         obj.scalar=1;

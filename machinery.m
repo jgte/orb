@@ -10,7 +10,7 @@ classdef machinery
     end
     %% parser with some defaults and quicker declaration
     function p=inputParser(varargin)
-      %init the object      
+      %init the object
       p=inputParser;
       %implement reasonable and safe input parser options
       p.KeepUnmatched=true;
@@ -23,7 +23,7 @@ classdef machinery
     %% flow control
     function [out,success]=trycatch(success,errorID,func,args)
       if ~success
-        try 
+        try
           out=func(args{:});
           success=true;
         catch ME

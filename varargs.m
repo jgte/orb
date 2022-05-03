@@ -140,7 +140,7 @@ classdef varargs < dynamicprops
       % - v.Results.(parameter_name), v.value(parameter_name) or simply v.(parameter_name)
       %
       %The variables 'sinks' is a cell array with the objects passed in 'sinks' (in the same order), with their fields/methods
-      %set with the (possible) values of any parameter passed in 'parser', 'sources' or varargin, as implemented in the 
+      %set with the (possible) values of any parameter passed in 'parser', 'sources' or varargin, as implemented in the
       %varargs.save methods.
       %this is the parser for this method (there's an additional parser going in and out if this method)
       pn=machinery.inputParser;
@@ -171,7 +171,7 @@ classdef varargs < dynamicprops
       p.parse(pn.Results.mandatory{:},varargin{:});
       %find p.UsingDefaults that are already part of v
       todelete=setdiff(p.UsingDefaults,setdiff(p.UsingDefaults,v.Parameters));
-      %join parsed parameters (except those using default values already in v) into argument object v 
+      %join parsed parameters (except those using default values already in v) into argument object v
       v=v.join(rmfield(p.Results,todelete));
       %go over all sinks (if there)
       for i=1:numel(sinks)
@@ -355,7 +355,7 @@ classdef varargs < dynamicprops
           case 'get';       out=obj.get(name);
           %these also make sense when name (the input var) is an idx (integer)
           case 'value';     out=obj.get(name).value;
-          case 'name';      out=obj.get(name).name;      
+          case 'name';      out=obj.get(name).name;
           case 'validation';out=obj.get(name).validation;
           otherwise;        out=obj.(mode);
         end
@@ -400,7 +400,7 @@ classdef varargs < dynamicprops
         out.S=out.S(idx_to_keep);
         %get idx of properties to delete
         idx_to_delete=find(~idx_to_keep);
-        %delete the properties 
+        %delete the properties
         for i=1:numel(idx_to_delete)
           delete(findprop(obj,p{idx_to_delete(i)}));
         end
@@ -414,7 +414,7 @@ classdef varargs < dynamicprops
       idx=obj.idx(Snew.name);
       %check if this is a new parameter
       new_parameter=isempty(idx);
-      %if so append to the end 
+      %if so append to the end
       if new_parameter
         idx=obj.length+1;
       end
@@ -454,7 +454,7 @@ classdef varargs < dynamicprops
       %add dynamic names
       for i=1:numel(idx)
         name=obj.S(idx(i)).name;
-        if new_parameter 
+        if new_parameter
           assert(~obj.isdynamic_defined(name),['Cannot handle parameter with name ''',name,...
             ''' because it conflcits with an already-defined (possibly inherited) method or property of this class.'])
         end
@@ -566,7 +566,7 @@ classdef varargs < dynamicprops
       for i=1:obj_new.length
         obj.set(obj_new.get(i));
       end
-    end    
+    end
     %checks if two objs are equal, overloads with ==
     function [out,msg]=eq(obj1,obj2)
       %defaults
@@ -626,7 +626,7 @@ classdef varargs < dynamicprops
               case 'char'
                 o.(name)=transpose(v(:));
               otherwise
-                o.(name)=v;  
+                o.(name)=v;
               end
             end
           catch e

@@ -173,7 +173,7 @@ function outfile=nrtdm_convert(metadata,t,varargin)
       break
     end
   end
-  
+
   %build one-day-long NRTDM time arguments
   timearg=['t=',timesystem,':',...
     datestr(t_start,'yyyymmddHHMMSS'),',',...
@@ -217,7 +217,7 @@ function outfile=nrtdm_convert(metadata,t,varargin)
       ts=ts.extend(t_stop);
     end
     %fill gaps
-    ts=ts.fill; 
+    ts=ts.fill;
     %save it
     save(outfile,'ts');
   else

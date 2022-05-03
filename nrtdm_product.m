@@ -24,7 +24,7 @@ classdef nrtdm_product
     end
   end
   methods
-    function obj=nrtdm_product(product_name,debug)  
+    function obj=nrtdm_product(product_name,debug)
       if ~exist('debug','var') || isempty(debug)
         debug=false;
       end

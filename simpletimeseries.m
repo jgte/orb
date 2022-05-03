@@ -263,7 +263,7 @@ classdef simpletimeseries < simpledata
           %try grace.m
           [out,success]=machinery.trycatch(success,'grace:BadSat',@grace.translatesat,{in});
           %add additional class calls to translatesat (using the same structure above)
-          
+
           %check something worked
           assert(success,['Cannot translate satellite ''',in,'''.'])
       end
@@ -282,7 +282,7 @@ classdef simpletimeseries < simpledata
           %try grace.m
           [out,success]=machinery.trycatch(success,'grace:BadSatName',@grace.translatesatname,{in});
           %add additional class calls to translatesat (using the same structure above)
-          
+
           %check something worked
           assert(success,['Cannot translate satellite ''',in,'''.'])
       end
@@ -326,7 +326,7 @@ classdef simpletimeseries < simpledata
       % - file.delete_compressed:
       % p.addParameter('del_arch', true, @(i) isscalar(i) && islogical(i))
       p=machinery.inputParser;
-      p.addRequired( 'filename',       @(i) ischar(i) || iscellstr(i)); 
+      p.addRequired( 'filename',       @(i) ischar(i) || iscellstr(i));
       p.addParameter('cut24hrs', true, @(i) isscalar(i) && islogical(i))
       p.parse(filename,varargin{:})
       %unwrap wildcards and place holders (output is always a cellstr)
@@ -459,7 +459,7 @@ classdef simpletimeseries < simpledata
         %add additional class calls to translatesat (using the same structure above)
 
         %check something worked
-        assert(success,['Cannot handle files of type ''',format,'''.'])        
+        assert(success,['Cannot handle files of type ''',format,'''.'])
       end
     end
     function obj=GRACEaltitude(varargin)
@@ -469,7 +469,7 @@ classdef simpletimeseries < simpledata
       obj=simpletimeseries.import(p.Results.datafile,...
         'format','mjd',...
         'cut24hrs',false...
-      );    
+      );
 		end
     %% utilities
     function out=list(start,stop,period)
@@ -563,7 +563,7 @@ classdef simpletimeseries < simpledata
 %           i=i+1;h{i}=figure('visible','on');
 %           plot(m(:,1))
 %           title('mean')
-% 
+%
 %           i=i+1;h{i}=figure('visible','on');
 %           plot(s(:,1))
 %           title('std')
@@ -1797,11 +1797,11 @@ classdef simpletimeseries < simpledata
     %% derivative
     function obj=deriv(obj,varargin)
       %TODO: test this
-  
+
       %get data
       y=obj.y;
       %call primitive
-      %NOTICE: these input arguments are here to set a reasonable default for the important parameters of num.diff 
+      %NOTICE: these input arguments are here to set a reasonable default for the important parameters of num.diff
       dy=num.diff(y,obj.step,'npoints',5,'nderiv',1,'extremeties','nan',varargin{:});
       %back propagate
       obj=obj.assign(dy);

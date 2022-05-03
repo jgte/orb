@@ -316,7 +316,7 @@ classdef datastorage
       %reduce dataname to common object
       dn_list=obj.data_list(dn);
       values=cells.scalar(values,'set');
-      
+
       %TODO: I question the usefulness of this, need to be sure it does not break things
 %       %handle scalar values, unwrap them to all field paths
 %       if numel(values)==1 && ~iscell(values)
@@ -324,10 +324,10 @@ classdef datastorage
 %         values=cell(size(dn_list));
 %         values{:}=tmp;
 %       end
-      
+
       %check  if fiels paths and values have the same length
       assert(numel(dn_list)==numel(values),'Cannot handle inputs ''in'' and ''values''.')
-      %propagate 
+      %propagate
       for i=1:numel(dn_list)
         %try to match field names in structures with field paths
         if isstruct(values{i})
@@ -638,7 +638,7 @@ classdef datastorage
     end
     function [startlist,stoplist]=startstop_list(~,s_in)
       if isstruct(s_in)
-        %first check if structure has explicit start/stop fields, 
+        %first check if structure has explicit start/stop fields,
         if isfield(s_in,'start') && isfield(s_in,'stop')
           %use explicit start/stop fields
           startlist=s_in.start;
@@ -808,7 +808,7 @@ classdef datastorage
          stop_load=obj.data_edges(product,'stop', v.exclusive_loading);
         % get the file list
         file_list=product.file('data',...
-          'start',start_load,... 
+          'start',start_load,...
           'stop',  stop_load,...
           'start_timestamp_only',v. start_timestamp_only,...
           'discover',false,... %this needs to be false so that data stops after the one in the data produce names of non-existing files
@@ -1035,7 +1035,7 @@ classdef datastorage
       p.addParameter('filename',product.codename,@ischar);
       % parse it
       p.parse(varargin{:});
-      % get the data 
+      % get the data
       s_out=obj.value_get(product);
       % get the data names
       s_names=structs.field_list(s_out);
@@ -1082,10 +1082,10 @@ classdef datastorage
         %TODO: fix the swarm_sh_gswarm_rl01_err_smooth, grace_sh_rl06_csr_pd_ts_smooth and grace_sh_rl06_csr_err_smooth products
         error('needs revision')
 %         obj.log('@','in','product',product,'product type','wrapped')
-%         %clear field path, so that when a product is called with field path, the data is not loaded into a mess such as 
+%         %clear field path, so that when a product is called with field path, the data is not loaded into a mess such as
 %         %swarm.sh.gswarm.rl01.err.smooth/smoothing_degree_0/smoothing_degree_300
 %         product_no_fp=product;product_no_fp.dataname=product_no_fp.dataname.set_field_path({});
-%         %unwarp products 
+%         %unwarp products
 %         product_list=dataproduct.unwrap_product({product_no_fp});
 %         %maybe need to prepend some source fields
 %         if product.ismdfield('source_fields_from')
@@ -1187,7 +1187,7 @@ classdef datastorage
                     str.say(file.basename(ME.stack(j).file),':',ME.stack(j).name,'line',ME.stack(j).line)
                   end
                   error(['Failed to init product ''',product_list{i}.name,'''.'])
-                end    
+                end
               end
             end
             obj.log(...
@@ -1612,7 +1612,7 @@ classdef datastorage
           %resolve strings
           title_str=strjoin(datanames.common(dn_list),' ');
           legend_str=cellfun(@(i) strjoin(i,' '),datanames.unique(dn_list),'UniformOutput',false);
-          %patch empty legend entries (this expects there to be only one empty legend entry) 
+          %patch empty legend entries (this expects there to be only one empty legend entry)
           if any(cells.isempty(legend_str))
             legend_str(cells.isempty(legend_str))={title_str};
           end
@@ -1629,14 +1629,14 @@ classdef datastorage
         else
           out{i}=[];
           str.say('Skipped plot',filename)
-        end          
+        end
       end
       %done
       obj.log('@','out','dn_list',dn_list,'start',obj.start,'stop',obj.stop)
     end
     %% legacy plotting (maybe useful to resurect some of this)
     function v=plot_legend(~,h,dn_list,v)
-      %get particular defaults from 
+      %get particular defaults from
       plot_default=varargs(plotting.default).isolate({'plot_zeromean','plot_scale_legend_str'}).cell;
       %v receives the new entries in obj_new. Common entries are ignored.
       v=v.append([{...
@@ -1723,7 +1723,7 @@ classdef datastorage
           end
         end
       end
-      %save the legend 
+      %save the legend
       v.plot_legend=legend_str;
     end
     function v=plot_title( ~,~,dn_list,v)
@@ -1855,7 +1855,7 @@ classdef datastorage
           'plot_normalize',       false,@islogical;...TODO: this needs to be moved to plotting.enforce
         },...
         product.plot_args...
-      },varargin{:});      
+      },varargin{:});
       %easier names
       plot_scale_default=ones(...
         max(cellfun(@(i) i.width,obj.data_get(dn_list))),...
@@ -1926,7 +1926,7 @@ classdef datastorage
           v.varargin{:},...
           'dn_reference',dn,... %otherwise the justplot method picks the plot_* parameters define in dn_list{i}
           'plot_scale',v.plot_scale(plot_columns{i},i),... %this is not v.plot_columns!
-          'plot_smooth_span',v.plot_smooth_span(i),... 
+          'plot_smooth_span',v.plot_smooth_span(i),...
           'plot_columns',plot_columns{i}...
         );
       end
@@ -2000,10 +2000,10 @@ classdef datastorage
             %check if any data was plotted
             if all(isempty(out{c})) %nothing plotted
               str.say('Skipped plot',filename,'(no data plotted)')
-              close(gfc) 
+              close(gfc)
             else %save this plot
-              saveas(gcf,filename); 
-              str.say('Created plot',filename)                                 
+              saveas(gcf,filename);
+              str.say('Created plot',filename)
             end
           else
             str.say('Skipped plot',filename,['(no data in ',product.name,')']);
@@ -2029,7 +2029,7 @@ classdef datastorage
       stats_data=d.stats(...
         'period',product.mdget('stats_period'),...
         'overlap',product.mdget('stats_overlap'),...
-        'outlier_iter',product.mdget('stats_outlier_iter'),... 
+        'outlier_iter',product.mdget('stats_outlier_iter'),...
         'detrend',product.mdget('stats_detrend'),...
         'struct_fields',product.mdget('stats')...
       );
@@ -2046,7 +2046,7 @@ classdef datastorage
           'operation_order', 1:product.nr_sources, @(i) isnumeric(i) && numel(i)<=product.nr_sources;...
         },...
         product.metadata,...
-      },varargin{:});   
+      },varargin{:});
       obj.log('@','in','operation',v.operation)
       %expand the operations, if scalar
       v.operation=cells.deal(cells.scalar(v.operation,'set'),size(v.operation_order));
@@ -2094,7 +2094,7 @@ classdef datastorage
           'operation_order', 1:product.nr_sources, @(i) isnumeric(i) && numel(i)<=product.nr_sources;...
         },...
         product.metadata,...
-      },varargin{:});   
+      },varargin{:});
       obj.log('@','in','operation',v.operation)
       %expand the operations, if scalar
       v.operation=cells.deal(cells.scalar(v.operation,'set'),size(v.operation_order));
@@ -2243,7 +2243,7 @@ classdef datastorage
 %               d.(sats{2}),...
 %               'period',product.mdget('period'),...
 %               'overlap',product.mdget('overlap'),...
-%               'outlier_iter',product.mdget('outlier_iter'),... 
+%               'outlier_iter',product.mdget('outlier_iter'),...
 %               'detrend',product.mdget('detrend'),...
 %               'struct_fields',product.mdget('stats')...
 %             );

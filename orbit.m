@@ -65,7 +65,7 @@ classdef orbit
       'clk_cor_f',1e-12,... %picoseconds
       'clk_cor_gap',  0,... %value to patch non-existing correlations (SP3 standard says it should be blank but that's dum)
       'xcor_f',    1e-7,... %correlation coefficient factor (used in the cross-correlation fields for pos_cor and clk_cor)
-      'vel_f',      1e1,... %dm/s (go figure...) 
+      'vel_f',      1e1,... %dm/s (go figure...)
       'vel_gap',      0,... %value to patch "Bad or absent velocity values"
       'ckr_f',      1e1,... %10**-4 microseconds/second (I kid you not)
       'ckr_gap', 999999.999999,... %value to patch "Bad or absent clock-rate values"
@@ -189,9 +189,9 @@ classdef orbit
         case {'swarm-c','swarmc','swarm c','swmc','sc','l49'}
           out='sc';
         case {'goce','go'}
-          out='go';            
+          out='go';
         case {'unknown','test'}
-          out=in; 
+          out=in;
         otherwise
           error(['cannot handle satellite ''',in,'''.'])
       end
@@ -209,8 +209,8 @@ classdef orbit
         case 'sa'; out='Swarm-A';
         case 'sb'; out='Swarm-B';
         case 'sc'; out='Swarm-C';
-        case 'go'; out='GOCE';            
-        case {'unknown','test'}; out=in; 
+        case 'go'; out='GOCE';
+        case {'unknown','test'}; out=in;
         otherwise
           error(['cannot handle satellite ''',in,'''.'])
       end
@@ -227,7 +227,7 @@ classdef orbit
         case 'sb'; out='L48';
         case 'sc'; out='L49';
 %         case 'go'
-%           out='TODO!';            
+%           out='TODO!';
         otherwise
           out='unknown';
           disp(['WARNING: could not resolve the SP3 id for satellite ''',in,'''.'])
@@ -609,7 +609,7 @@ classdef orbit
         end
         out=orbit.test_parameters('start')+l;
       case 'duration'
-        out=hours(3);  
+        out=hours(3);
       case 'satname'
         out='swarm-a-kin';
       case 'satname-l2'
@@ -631,11 +631,11 @@ classdef orbit
       end
     end
     function out=test(l)
-    
+
       if ~exist('l','var') || isempty(l)
         l=1e4;
       end
-      
+
       switch class(l)
       case 'cell'
         figure
@@ -671,7 +671,7 @@ classdef orbit
               out{j}.print
             end
           end
-          
+
         case 'stats'
           a=orbit.test('rel');
           out=a.periodic_stats(orbit.test_parameters('duration')/10);
@@ -708,7 +708,7 @@ classdef orbit
         error(['cannot handle input ''l'' of class ''',class(l),'''.'])
       end
 
-    end 
+    end
   end
   methods
     %% constructor
@@ -754,8 +754,8 @@ classdef orbit
       %parse input
       p=machinery.inputParser;
       p.addRequired('t'         ,@(i) ~isscalar(i)); %this can be char, double, datetime
-      p.addRequired('data_type' ,@(i)    ischar(i) && cells.isincluded(fieldnames(orbit.data_type_list),i)); 
-      p.addRequired('data_value',@(i) isnumeric(i) && all(size(data_value)==[numel(t),orbit.data_type_list.(data_type).size])); 
+      p.addRequired('data_type' ,@(i)    ischar(i) && cells.isincluded(fieldnames(orbit.data_type_list),i));
+      p.addRequired('data_value',@(i) isnumeric(i) && all(size(data_value)==[numel(t),orbit.data_type_list.(data_type).size]));
       p.addParameter('units',orbit.data_type_unit(data_type),@(i) iscellstr(i) && numel(i)==size(data_value,2))
       p.addParameter('names',orbit.data_type_name(data_type),@(i) iscellstr(i) && numel(i)==size(data_value,2))
       % parse it
@@ -886,7 +886,7 @@ classdef orbit
     function obj=set.satname(obj,in)
       obj.satname=orbit.translatesat(in);
     end
-    %% general data_type scalar get method 
+    %% general data_type scalar get method
     function out=get(obj,method,varargin)
       %get data types
       odt=orbit.data_types;
@@ -920,7 +920,7 @@ classdef orbit
         if ~isequal(obj1.(parameters{i}),obj2.(parameters{i}))
           error(['discrepancy in parameter ',parameters{i},': ''',...
             obj1.(parameters{i}),''' ~= ''',obj2.(parameters{i}),'''.'])
-        end 
+        end
       end
       %check that all data type as compatible as well
       odt=orbit.data_types;
@@ -1181,7 +1181,7 @@ classdef orbit
       end
       epoch=obj.get('epoch');
       nr_epochs=obj.get('length');
-      [gps_week, gps_sow,~] = time.date2gps(datevec(epoch)); 
+      [gps_week, gps_sow,~] = time.date2gps(datevec(epoch));
       step=seconds(obj.get('step'));
       mjd=time.mjd(epoch);
       fraction = mjd-floor(mjd);
@@ -1300,7 +1300,7 @@ classdef orbit
           tmp_clk_cor=[...
             round(clk_cor/orbit.sp3_parameter_list.clk_cor_f),...                        tt
             round(clk_xcor(1)/pos_cor(1)/clk_cor/orbit.sp3_parameter_list.xcor_f),...    xt
-            round(clk_xcor(2)/pos_cor(2)/clk_cor/orbit.sp3_parameter_list.xcor_f),...    yt 
+            round(clk_xcor(2)/pos_cor(2)/clk_cor/orbit.sp3_parameter_list.xcor_f),...    yt
             round(clk_xcor(3)/pos_cor(3)/clk_cor/orbit.sp3_parameter_list.xcor_f)...     zt
           ];
           %patch Nans in clk and pos
@@ -1319,7 +1319,7 @@ classdef orbit
             tmp_clk_cor(3:4)...   yt zt
           )];
         end
-        %velocity line 
+        %velocity line
         if vel_data_available && obj.pos.mask(i)
           vel=obj.vel.y(i,:)/orbit.sp3_parameter_list.vel_f;
         else
@@ -1502,7 +1502,7 @@ function [t,pos,vel,pos_cor,clk,clk_cor,header] = read_sp3(filename,show_details
 % function [t,pos,vel,header] = read_sp3c(filename)
 %
 % Reads SP3c orbit files
-% 
+%
 % Parameters IN:
 %   o  filename:   Filename of File to read
 %

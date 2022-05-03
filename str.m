@@ -161,7 +161,7 @@ classdef str
         try
           out=in.str;
         catch
-          try 
+          try
             out=char(in);
           catch
             out=['obj of class ''',class(in),'''.'];
@@ -301,7 +301,7 @@ classdef str
               end
             end
           end
-        end       
+        end
       end
       out=strjoin(transpose(out));
     end
@@ -703,7 +703,7 @@ classdef str
           start_idx=start_idx+2;
         case 'disp'
           disp_flag=varargin{start_idx+1};
-          start_idx=start_idx+2;          
+          start_idx=start_idx+2;
         end
       end
       out=[str.dbstack(stack_delta),str.show(cells.rm_empty(varargin(start_idx:end)))];
@@ -734,7 +734,7 @@ classdef str
         end
         msg=tmp;
       end
-      fid = file.open(filename,'a');  
+      fid = file.open(filename,'a');
       fprintf(fid,[strjoin(msg,'\n'),'\n']);
       fclose(fid);
     end

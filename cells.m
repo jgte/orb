@@ -221,7 +221,7 @@ classdef cells
         out=find(cells.isstrequal(cellstrin,strin));
       end
     end
-    function out=strcount(cellstrin,strin) 
+    function out=strcount(cellstrin,strin)
       if isempty(cellstrin)
         out=0;
       else
@@ -235,7 +235,7 @@ classdef cells
         io{idx(i)}=[];
       end
       io=cells.rm_empty(io);
-    end    
+    end
     function out=isincluded(cellstrin,strin)
       %N.B. this is not the same as ismember (isincluded returns true of strin is a sub-string
       %of any entries in cellstrin, unlike ismember where the whole entry must be the same)
@@ -325,7 +325,7 @@ classdef cells
         [out,in]=cells.isnum({in});
       elseif iscell(in)
         for i=1:numel(in)
-          try 
+          try
             in{i}=str.num(in{i});
           catch
             out=false;in=[];return
@@ -334,7 +334,7 @@ classdef cells
         out=true;
       else
         out=false;
-        in=[];          
+        in=[];
       end
     end
     function in=num(in)
@@ -370,7 +370,7 @@ classdef cells
       %depending on the value of 'direction' (defaults to 'get'):
       % - if get: checks if there is only one cell entry, if so return it (changed is true);
       %   otherwise nothing changes (changed is false)
-      % - if set: checks if it's a cell array, if so return it (changed is false); 
+      % - if set: checks if it's a cell array, if so return it (changed is false);
       %   otherwise make it a cell and return io (changed is true)
       if ~exist('direction','var') || isempty(direction)
         direction='get';
@@ -455,7 +455,7 @@ classdef cells
       case 'get';   out=cells.vararginget(  in,parameters);
       case 'clean'; out=cells.vararginclean(in,parameters);
       otherwise;    error(['Cannot handle mode ''',mode,'''.'])
-      end  
+      end
     end
     %% first/last/nth wrapper
     function out=ith(in,i)

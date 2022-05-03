@@ -12,7 +12,7 @@ classdef time
       @(i) days(365.25*i/12),...
       @(i) years(i),...
       @(i) years(i*100)...
-    };  
+    };
     millennium=2000;
     valid_formats=struct(...
       'char',{{...
@@ -24,7 +24,7 @@ classdef time
         'yyyyMMdd'...
       }},...                     %needs revision when adding new numeric format
       'double',{{...             https://www.mathworks.com/help/matlab/ref/datetime.html#namevaluepairarguments
-        'datenum'           ,... Number of days sinc§e 0-Jan-0000 (proleptic ISO calendar).    
+        'datenum'           ,... Number of days sinc§e 0-Jan-0000 (proleptic ISO calendar).
         'excel'             ,... Number of days since 0-Jan-1900.
         'excel1904'         ,... Number of days since 0-Jan-1904.
         'juliandate'        ,... Number of days since noon UTC 24-Nov-4714 BCE (proleptic Gregorian calendar).
@@ -33,7 +33,7 @@ classdef time
         'yyyymmdd'          ,... Dates as YYYYMMDD numeric values. For example, 20140402 represents April 2, 2014.
         'J2000sec'          ,... Number of seconds since 1-Jan-2000 00:00:00 UTC, not counting leap seconds.
         'Week0sec'          ,... Number of seconds since 6-Jan-1980 00:00:00 UTC, not counting leap seconds.
-        'gpstime'           ,... 
+        'gpstime'           ,...
         'gpsweeksecond'     ,...
         'yeardoysec'        ...
       }},...
@@ -63,9 +63,9 @@ classdef time
       datetime('1999-01-01'),... 1999  Jan.   1  - 1s
       datetime('2006-01-01'),... 2006  Jan.   1  - 1s
       datetime('2009-01-01'),... 2009  Jan.   1  - 1s
-      datetime('2012-07-01'),... 2012  Jul.   1  - 1s 
-      datetime('2015-07-01')...  2015  Jul.   1  - 1s 
-      datetime('2017-01-01')...  2017  Jan.   1  - 1s 
+      datetime('2012-07-01'),... 2012  Jul.   1  - 1s
+      datetime('2015-07-01')...  2015  Jul.   1  - 1s
+      datetime('2017-01-01')...  2017  Jan.   1  - 1s
     ];
     gps_zero_epoch='1980-01-06';
   end
@@ -264,7 +264,7 @@ classdef time
     end
     %% monitor lengthy iterations
     function s=progress(s,i)
-      % %Example: 
+      % %Example:
       % s.msg='something'; s.n=n;
       % for i=1:n
       %     <do something>
@@ -511,7 +511,7 @@ classdef time
 
       gps_week = floor(deltat/7);            %GPS week
       gps_dow  = floor(deltat - gps_week*7); %GPS day of week
-      gps_sow  = (deltat - gps_week*7)*86400; 
+      gps_sow  = (deltat - gps_week*7)*86400;
       gps_sow = gps_sow + date(:,4)*3600 + date(:,5)*60 + date(:,6); %GPS seconds of week
     end
     function [doy,fraction] = date2doy(inputDate)
@@ -522,7 +522,7 @@ classdef time
       %   inputDate:  Input date as a MATLAB serial datenumber
       %
       %   Descriptions of Output Variables:
-      %   doy: Decimal day of the year. For instance, an output of 1.5 would 
+      %   doy: Decimal day of the year. For instance, an output of 1.5 would
       %       indicate that the time is noon on January 1.
       %   fraction: Outputs the fraction of a year that has elapsed by the input
       %       date.
@@ -700,7 +700,7 @@ classdef time
           end
           %keep format, it was not attributed automatically
           format_out=format_in;
-        end          
+        end
       otherwise
         out=datetime(in);
         format_out='default';
@@ -778,7 +778,7 @@ classdef time
     function out=mjd(in)
       out=time.FromDateTime(in,'modifiedjuliandate');
     end
-    %this function tests the reciprocity of From/ToDateTime 
+    %this function tests the reciprocity of From/ToDateTime
     function test_time(n,max_date,col_width)
       if ~exist('n','var') || isempty(n)
         n=100;
@@ -844,7 +844,7 @@ classdef time
           disp(strjoin(out,' '))
         end
       end
-      
+
       for i=time.valid_formats.char
         year_list=round(rand(n,1)*year( max_date));
         month_list=ceil(rand(n,1)*month(max_date));
