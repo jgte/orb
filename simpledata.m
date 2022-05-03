@@ -898,8 +898,12 @@
       warning off MATLAB:structOnObject
       out=structs.filter(struct(obj),[simpledata.parameters('list');more_parameters(:)]);
       warning on MATLAB:structOnObject
+      out=structs.rm_empty(out);
     end
     function out=varargin(obj,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
+      end
       out=varargs(obj.metadata(more_parameters)).varargin;
     end
     %% info methods
@@ -1271,9 +1275,12 @@
       else              ; out=obj.x;
       end
     end
-    function out=tx_masked(obj)
-      if isprop(obj,'t_masked'); out=obj.t_masked; %#ok<MCNPN>
-      else                     ; out=obj.x_masked;
+    function out=tx_masked(obj,mask)
+      if ~exist('mask','var') || isempty(mask)
+        mask=obj.mask;
+      end
+      if ismethod(obj,'t_masked'); out=obj.t_masked(mask); 
+      else                     ; out=obj.x_masked(mask);
       end
     end
     %% y methods
@@ -2160,7 +2167,6 @@
         %do nothing
       elseif isnumeric(obj2)
         obj1.y=obj1.y+obj2;
-        obj1.descriptor=[obj1.descriptor,'+',num2str(obj2)];
       elseif isnumeric(obj1)
         obj1=obj1+obj2.y;
       else
@@ -2182,8 +2188,6 @@
           %operate
           obj1=obj1.assign(obj1.y+obj2.y,'mask',obj1.mask & obj2.mask);
         end
-        %update descriptor
-        obj1.descriptor=[obj1.descriptor,'+',obj2.descriptor];
       end
     end
     function obj1=minus(obj1,obj2)
@@ -2194,7 +2198,6 @@
         %do nothing
       elseif isnumeric(obj2)
         obj1.y=obj1.y-obj2;
-        obj1.descriptor=[obj1.descriptor,'+',num2str(obj2)];
       elseif isnumeric(obj1)
         obj1=obj1-obj2.y;
       else
@@ -2221,9 +2224,6 @@
           %operate
           obj1=obj1.assign(obj1.y-obj2.y,'mask',obj1.mask & obj2.mask);
         end
-        %update descriptor and labels
-        obj1.descriptor=[obj1.descriptor,'-',obj2.descriptor];
-%         obj1.labels=arrayfun(@(i) [obj1.labels{i},'-',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj=scale(obj,scl)
@@ -2278,9 +2278,6 @@
           %operate
           obj1=obj1.assign(obj1.y.*obj2.y,'mask',obj1.mask & obj2.mask);
         end
-        %update descriptor
-        obj1.descriptor=[obj1.descriptor,'*',obj2.descriptor];
-%         obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj1=mtimes(obj1,obj2,map) %this is * (not .*)
@@ -2305,9 +2302,6 @@
       end
       %save result
       obj1=obj1.assign(y1);
-      %update descriptor
-      obj1.descriptor=[obj1.descriptor,'*',obj2.descriptor];
-%       obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
     end
     function obj1=rdivide(obj1,obj2)
       %empty is not supported
@@ -2329,9 +2323,6 @@
           %operate
           obj1=obj1.assign(obj1.y./obj2.y,'mask',obj1.mask & obj2.mask);
         end
-        %update descriptor
-        obj1.descriptor=[obj1.descriptor,'/',obj2.descriptor];
-%         obj1.labels=arrayfun(@(i) [obj1.labels{i},'/',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj1=power(obj1,obj2)
@@ -2354,9 +2345,6 @@
           %operate
           obj1=obj1.assign(obj1.y.^obj2.y,'mask',obj1.mask & obj2.mask);
         end
-        %update descriptor
-        obj1.descriptor=[obj1.descriptor,'^',obj2.descriptor];
-%         obj1.labels=arrayfun(@(i) [obj1.labels{i},'^',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     %% logical ops
@@ -2715,7 +2703,7 @@
           out.mask{i}=out.mask{i} & ( obj.y(:,columns(i)) ~= 0 );
         end
         % get abcissae in datetime, if relevant
-        x_plot=obj.tx(out.mask{i});
+        x_plot=obj.tx_masked(out.mask{i});
         % apply mask to y data
         y_plot=y_plot(out.mask{i});
         % compute (de-meaned and/or normalized) ordinate
