@@ -2593,20 +2593,20 @@ classdef gswarm
           time_args={'start',gswarm.production_date('start'),'stop',gswarm.production_date('stop')};
           %this updates the coefficient time series, to make sure it has recent-enough data
           slr.graceC20('mode','get','version',strrep(version,'-model',''));
-          if model
+          if str.contains(version,'-model')
             %this updates the model itself
             slr.graceC20('mode','set','version',strrep(version,'-model',''));
-            out=slr.graceC20('mode','model-plot','version',version);
+            out=slr.graceC20('mode','model-plot','version',version,time_args{:});
           else
-            out=slr.graceC20('mode','plot-all','version',unique({'GSFC-7DAY','GSFC','TN-14','TN-11',upper(version)}));
+            out=slr.graceC20('mode','plot-all','version',unique({'GSFC-7DAY','GSFC','TN-14','TN-11',upper(version)}),time_args{:});
           end
           plotting.save(gswarm.c20model('filename',plot_dir))
         else
           out=[];
         end
       case 'latex'
-        latexfile=strrep(plotfile,'.png','.tex');
-        if model
+        latexfile=strrep(gswarm.c20model('filename',plot_dir),'.png','.tex');
+        if str.contains(version,'-model')
           out=slr.graceC20('mode','model-list-tex','version',version);
           if ~file.exist(latexfile)
             file.strsave(latexfile,out);
