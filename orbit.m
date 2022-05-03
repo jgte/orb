@@ -261,7 +261,7 @@ classdef orbit
         case 'sc-l2'
           out='SC_Basic/Orbit_L2';
         otherwise
-          error([mfilenane,': unknown NRTDM product for satellite ''',in,''', debug needed!'])
+          error(['BUG TRAP: unknown NRTDM product for satellite ''',in,''', debug needed!'])
       end
     end
     %the function <format>_filename below define the filenames given sat, date and dir
@@ -278,7 +278,7 @@ classdef orbit
         case 'sc-kin'
           prefix='SWMC';
         otherwise
-          error([mfilenane,': unknown AIUB orbit for satellite ''',in,''', debug needed!'])
+          error(['BUG TRAP: unknown AIUB orbit for satellite ''',satname,''', debug needed!'])
       end
       doy=simpletimeseries.FromDateTime(start,'yeardoysec');
       filename=[prefix,num2str(doy(1)-round(doy(1)/1e3)*1e3),num2str(doy(2),'%03d'),'_S20.KIN.gz'];
@@ -296,7 +296,7 @@ classdef orbit
         case 'sc-kin'
           prefix='SwarmC-kinematicOrbit';
         otherwise
-          error([mfilenane,': unknown IfG orbit for satellite ''',in,''', debug needed!'])
+          error(['BUG TRAP: unknown IfG orbit for satellite ''',satname,''', debug needed!'])
       end
       filename=[prefix,'-',num2str(year(start)),'-',num2str(month(start),'%02d'),'-',num2str(day(start),'%02d'),'.tar.gz'];
       dirname=fullfile(data_dir,'gswarm','ifg','orbit','ascii',num2str(year(start)));
@@ -313,7 +313,7 @@ classdef orbit
         case 'sc-kin'
           prefix='SWARMC';
         otherwise
-          error([mfilenane,': unknown TU Delft orbit for satellite ''',in,''', debug needed!'])
+          error(['BUG TRAP: unknown TU Delft orbit for satellite ''',satname,''', debug needed!'])
       end
       doy=simpletimeseries.FromDateTime(start,'yeardoysec');
       filename=[prefix,'.',num2str(doy(1)-round(doy(1)/1e3)*1e3),'.',num2str(doy(2),'%03d'),'_KIPP.sigma.gz'];
@@ -331,7 +331,7 @@ classdef orbit
         case 'sc-l2'
           prefix='SW_OPER_SP3CCOM_2__';
         otherwise
-          error([mfilenane,': unknown SP3xCOM orbit for satellite ''',in,''', debug needed!'])
+          error(['BUG TRAP: unknown SP3xCOM orbit for satellite ''',satname,''', debug needed!'])
       end
       s=num2str(60-sum(simpletimeseries.leap_seconds<start));
       filename=[prefix,...
