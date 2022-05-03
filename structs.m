@@ -66,6 +66,15 @@ classdef structs
         out=isempty(S);
       end
     end
+    %removes empty fields (not recursive)
+    function S=rm_empty(S)
+      fn=fieldnames(S);
+      for i=1:numel(fn)
+        if isempty(S.(fn{i}))
+          S=rmfield(S,fn{i});
+        end
+      end 
+    end
     %% get/set values
     %'field_path' is cell array with the sub-field path to the value to be retrieved from structure in 'in' (i.e. a cell of cells)
     function out=get_value(S,field_path,search_flag)
