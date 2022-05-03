@@ -70,6 +70,7 @@ classdef slr < gravity
           'start',time.zero_date, @isdatetime;...
           'stop',  time.inf_date, @isdatetime;...
           'C20mean',-4.8416945732000E-04, @isscalar;...
+          'force',false,@islogical;...
         },...
       },varargin{:});
       %parse using a model or the original data
@@ -93,7 +94,7 @@ classdef slr < gravity
         %check if periods were already computed
         if ~file.exist(f)
           %loading necessary data
-          c20=slr.graceC20(varargin{:},'mode','read');
+          c20=slr.graceC20(varargin{:},'mode','read','force',v.force);
            np=slr.graceC20(varargin{:},'mode','model-poly');
           %compute periods
           [~,pd]=c20.parametric_decomposition_search('np',np,'T',[365.2426,182.6213],'timescale','days');
@@ -142,14 +143,13 @@ classdef slr < gravity
         );
       case {'model','model-get','model-set','model-read','model-reload'}
         %loading necessary data
-        c20=slr.graceC20(varargin{:},'mode','read');
+        c20=slr.graceC20(varargin{:},'mode','read','force',v.force);
          np=slr.graceC20(varargin{:},'mode','model-poly');
           T=slr.graceC20(varargin{:},'mode','model-periods');
         %check if pdset is already available
         f_pdset=slr.graceC20(varargin{:},'mode','model-list-datfile');
         f_pd   =slr.graceC20(varargin{:},'mode','model-datfile');
-        if ~file.exist(f_pdset) || ~file.exist(f_pd) || ~...
-          slr.graceC20(varargin{:},'mode','model-md5check')  
+        if ~file.exist(f_pdset) || ~file.exist(f_pd) || ~slr.graceC20(varargin{:},'mode','model-md5check') || v.force
           %get the coefficients; NOTICE: always use c20.t so that f_pdset is not dependent on inputs
           [~,pd_set]=c20.parametric_decomposition('np',np,'T',T,...
             'timescale','days','time',c20.t_domain(days(7))); 
@@ -175,7 +175,7 @@ classdef slr < gravity
       case {'model-list','model-list-tex'}
         %check if pdset is already available
         f=slr.graceC20(varargin{:},'mode','model-list-datfile');
-        if ~file.exist(f)
+        if ~file.exist(f) || v.force
           %compute the model (saving is done inside)
           slr.graceC20(varargin{:},'mode','model');
         end
@@ -188,13 +188,13 @@ classdef slr < gravity
         end       
       case 'model-plot'
         %retrieve the orignal data
-        c20o=slr.graceC20(varargin{:},'mode','read');
+        c20o=slr.graceC20(varargin{:},'mode','read','force',v.force);
         %resample to a finer time domain
         c20r=c20o.interp(c20o.t_domain(days(7)),...
           'interp_over_gaps_narrower_than',days(45),...
           'interp1_args',{'pchip'}...
         );
-        c20m=slr.graceC20(varargin{:},'mode','model','time',c20o.t_domain(days(7)));
+        c20m=slr.graceC20(varargin{:},'mode','model','time',c20o.t_domain(days(7)),'force',v.force);
         c20e=c20r-c20m;
         %compute means
         c20om=c20o.stats('mode','mean');
@@ -226,7 +226,7 @@ classdef slr < gravity
         out=c20e;
       case 'interp'
         assert(~isempty(v.time),['If mode is ''',v.mode,''', need argument ''time''.'])
-        out=slr.graceC20(varargin{:},'mode','read');
+        out=slr.graceC20(varargin{:},'mode','read','force',v.force);
         out=out.interp(v.time);
       case 'plot-all'
         if iscellstr(v.source)
@@ -244,17 +244,17 @@ classdef slr < gravity
           case 'model'
             if i>1
               %NOTICE: to get the model with the most complete time domain, out it last in the 'source' input
-              dat_list{i}=slr.graceC20('mode','model',...
+              dat_list{i}=slr.graceC20('mode','model','force',v.force,...
                 'source',strrep(source_list{i},'-model',''),...
                 'time',time.union(cellfun(@(j) j.t,dat_list(1:i-1),'UniformOutput',false),days(7))...
               );
             else
-              dat_list{i}=slr.graceC20('mode','model',...
+              dat_list{i}=slr.graceC20('mode','model','force',v.force,...
                 'source',strrep(source_list{i},'-model','')...
               );
             end              
           otherwise
-            dat_list{i}=slr.graceC20('mode','read','source',source_list{i});
+            dat_list{i}=slr.graceC20('mode','read','source',source_list{i},'force',v.force);
             dat_list{i}=dat_list{i}.interp(dat_list{i}.t_domain(days(7)),...
               'interp_over_gaps_narrower_than',days(45)...
             );
@@ -274,8 +274,7 @@ classdef slr < gravity
         catch ME
           switch ME.identifier
             case 'MATLAB:unassignedOutputs'
-              t=GetGRACEC20(varargin{:},'mode',v.mode);
-              s=[];
+              [t,s]=GetGRACEC20(varargin{:},'mode',v.mode);
             otherwise
               rethrow(ME)
           end
@@ -1045,7 +1044,8 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       'mode',         'read', @ischar;...
       'start',time.zero_date, @isdatetime;...
       'stop',  time.inf_date, @isdatetime;...
-      'data_dir', file.orbdir('auxiliary'),  @(i) ischar(i) && exist(i,'dir')~=0;
+      'data_dir', file.orbdir('auxiliary'),  @(i) ischar(i) && exist(i,'dir')~=0;...
+      'force',false,@islogical;...
     },...
   },varargin{:});
   %some default parameters
@@ -1102,7 +1102,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   case 'data_file'
     t=v.file;
   case 'read' %'set' if not already, then 'get'
-    if ~file.exist(v.file)
+    if ~file.exist(v.file) || v.force
       GetGRACEC20('mode','set','source',v.source,'data_dir',v.data_dir);
     end
     [t,s,e,d]=GetGRACEC20('mode','get','source',v.source,'file',v.file,'start',v.start,'stop',v.stop);
@@ -1111,7 +1111,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     [t,s,e,d]=GetGRACEC20('mode','get','source',v.source,'file',v.file,'start',v.start,'stop',v.stop);
   case 'plot'
     %NOTICE: this is a low-level plot, without much features
-    [t,s,e,d]=GetGRACEC20(varargin{:},'mode','read');
+    [t,s,e,d]=GetGRACEC20(varargin{:},'mode','read','force',v.force);
     plotting.figure;
     plot(t ,s ,'o-','MarkerSize',4), hold on
     plotting.enforce('plot_title',d,'plot_legend_location','none');
@@ -1176,10 +1176,8 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   case 'set' %download the data
     if url.is(v.url)
       websave(v.file,v.url);
-    else
-      t=[];
     end
-    s=[];e=[];d=[];
+    t=[];s=[];e=[];d=[];
   otherwise
     error([mfilename,': unknown mode ''',v.mode,'''.'])
   end
