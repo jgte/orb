@@ -64,7 +64,7 @@ classdef kp
       out=file.unwrap(fullfile(kp.data_dir,'Kp_ap_Ap_SN_F107','Kp_ap_Ap_SN_F107_[0-9]*.txt'),'disp',false);
     end
     function out=load(varargin)
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter( 'disp' , false,                                 @(i) isscalar(i) && islogical(i));
       p.addParameter( 'start', datetime(2000,1,1),                    @(i) isscalar(i) && isdatetime(i));
       p.addParameter( 'stop' , datetime(inf,'convertfrom','datenum'), @(i) isscalar(i) && isdatetime(i));
@@ -86,7 +86,7 @@ classdef kp
           load(mat,'S')
         else
           if p.Results.disp; disp(['Loading data from ',txt]); end
-          fid=fopen(txt);
+          fid=file.open(txt);
           S=textscan(fid,...
             '%d %d %d %*d %*f %*d %*d %*f %*f %*f %*f %*f %*f %*f %*f %*d %*d %*d %*d %*d %*d %*d %*d %f %f %f %f %f',...
             'HeaderLines',40,...
@@ -109,7 +109,7 @@ classdef kp
       end
     end
     function plot(varargin)
-      p=inputParser; p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter( 'smooth'  , days(81),   @(i) isscalar(i) && isduration(i));
       p.addParameter( 'variable', 'F107adj', @char);
       p.parse(varargin{:})

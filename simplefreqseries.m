@@ -41,9 +41,9 @@ classdef simplefreqseries < simpletimeseries
       else
         %transmute into this object
         if isprop(in,'t')
-          out=simplefreqseries(in.t,in.y,in.metadata{:});
+          out=simplefreqseries(in.t,in.y,in.varargin{:});
         elseif isprop(in,'x')
-          out=simplefreqseries(in.x,in.y,in.metadata{:});
+          out=simplefreqseries(in.x,in.y,in.varargin{:});
         else
           error('Cannot find ''t'' or ''x''. Cannot continue.')
         end
@@ -99,8 +99,7 @@ classdef simplefreqseries < simpletimeseries
     function obj=colored_noise(fn,Wn,tn,varargin)
       %Applies the weights defined in frequencies fn with values Wn to the time series defined in this object
       %NOTICE: this method operates on the time series (member 'y'' defined in the simpledata parent class)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % add stuff as needed
       p.addRequired( 'fn', @(i) (isnumeric(i) && isvector(i)) || ischar(i));
       p.addRequired( 'Wn', @(i) isnumeric(i) && isvector(i) && numel(i) == numel(fn) || isempty(i));
@@ -358,8 +357,7 @@ classdef simplefreqseries < simpletimeseries
     %% constructor
     function obj=simplefreqseries(t,y,varargin)
       % input parsing
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y',     @(i) simpledata.valid_y(i));
       %create argument object, declare and parse parameters, save them to obj
@@ -395,6 +393,7 @@ classdef simplefreqseries < simpletimeseries
       %call superclass
       out=metadata@simpletimeseries(obj,[simplefreqseries.parameters('list');more_parameters(:)]);
     end
+    %the varargin method can be called directly
     %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
@@ -453,8 +452,7 @@ classdef simplefreqseries < simpletimeseries
       n = 2^nextpow2(obj.length);
     end
     function obj=psd_refresh(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % add stuff as needed
       p.addParameter('method',  obj.psd_method,@ischar);
       p.addParameter('resample',true, @(i)islogical(i) && isscalar(i));
@@ -539,8 +537,7 @@ classdef simplefreqseries < simpletimeseries
     function obj=smooth(obj,varargin)
       obj=psd_refresh_if_empty(obj);
       dws=max([round(obj.length*1e-3),2]);
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % add stuff as needed
       p.addParameter('window_size',    dws,@(i)num.isscalar(i) && round(i)==i);
       p.addParameter('iter',           2,  @(i)num.isscalar(i) && round(i)==i);
@@ -553,7 +550,6 @@ classdef simplefreqseries < simpletimeseries
           return
       end
       % add additional dependent parameters
-      p.KeepUnmatched=false;
       p.addParameter('min_window_size',max([1,round(p.Results.window_size/100)]),@(i)num.isscalar(i) && round(i)==i);
       % parse it again
       p.parse(varargin{:});
@@ -591,8 +587,7 @@ classdef simplefreqseries < simpletimeseries
     %% band-pass filtering
     function [obj,filter_response]=fft_bandpass(obj,Wn,varargin)
       obj=psd_refresh_if_empty(obj);
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % add stuff as needed
       p.addRequired('Wn',                  @(i) isnumeric(i) && numel(i)==2);
       p.addParameter('gaps',      'zeroed',@ischar);
@@ -683,8 +678,7 @@ classdef simplefreqseries < simpletimeseries
     end
     function obj=butter_bandpass(obj,Wn,varargin)
       obj=psd_refresh_if_empty(obj);
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % add stuff as needed
       p.addRequired('Wn',                  @(i) isnumeric(i) && numel(i)==2);
       p.addParameter('gaps',      'interp',@ischar);
@@ -724,8 +718,7 @@ classdef simplefreqseries < simpletimeseries
       obj.check_sf
     end
     function obj=bandpass(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % add stuff as needed
       p.addParameter('Wn',NaN,@(i) isnumeric(i) && numel(i)==2);
       p.addParameter('method',obj.bandpass_method,@ischar);
@@ -748,8 +741,7 @@ classdef simplefreqseries < simpletimeseries
     %% time-domain operations, done at the level of the frequency domain
     function [despiked,spikes]=despike(obj,cutoff,varargin)
       obj=psd_refresh_if_empty(obj);
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % add stuff as needed
       p.addRequired('cutoff',                           @(i) isnumeric(i) && numel(i)==1);
       p.addParameter('debug_plot',false,                @(i) islogical(i) && isscalar(i));

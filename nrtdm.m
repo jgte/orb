@@ -143,8 +143,7 @@ function outfile=nrtdm_convert(metadata,t,varargin)
   end
 
   % Parse inputs
-  p=inputParser;
-  p.KeepUnmatched=true;
+  p=machinery.inputParser;
   % optional arguments
   p.addParameter('nrtdm_args','',@ischar);
   p.addParameter('data_dir',  nrtdm.data_dir,  @ischar);

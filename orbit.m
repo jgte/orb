@@ -342,7 +342,7 @@ classdef orbit
     end
     %wrapper for the <format>_filename routines, transparent for different <format>s
     function out=filename(format,satname,start,varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'satname',     @ischar);
       p.addRequired( 'format',      @ischar);
       p.addRequired( 'start',       @(i) isdatetime(i) && isscalar(i));
@@ -360,8 +360,7 @@ classdef orbit
     %is discovered from the header. Also handles compressed files.
     %TODO: most of the zip-handling functionalityhas been implemented in simpletimeseries as is probably duplicate here.
     function obj=load_ascii(filename,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'filename',                          @ischar);
       p.addParameter('asciiformat','',                    @ischar);
       % parse it
@@ -404,10 +403,7 @@ classdef orbit
       % retrieve the ascii format from the first line of the file, if not given in input arguments.
       if isempty(p.Results.asciiformat)
         %read first line of file
-        [fid,errmsg] = fopen(filename);
-        if fid<0
-          error([mfilename,': ',errmsg])
-        end
+        [fid,~,~,errmsg] = file.open(filename);
         hline = fgetl(fid);
         fclose(fid);
         %assign format ID
@@ -462,8 +458,7 @@ classdef orbit
     end
     %reads data in any format, over any time period
     function obj=import(format,satname,start,stop,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'format',             @ischar);
       p.addRequired( 'satname',            @ischar);
       p.addRequired( 'start',              @(i) isdatetime(i) && isscalar(i));
@@ -718,8 +713,7 @@ classdef orbit
   methods
     %% constructor
     function obj=orbit(t,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('t',@(i) ~isscalar(i) || (isstruct(i) && isscalar(i))); %this can be vector char, double, datetime or scalar struct
       %parse the arguments with the names defined in orbit.data_type_list
       for j=1:numel(orbit.data_types)
@@ -758,8 +752,7 @@ classdef orbit
       %simplify things
       data_type=lower(data_type);
       %parse input
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('t'         ,@(i) ~isscalar(i)); %this can be char, double, datetime
       p.addRequired('data_type' ,@(i)    ischar(i) && cells.isincluded(fieldnames(orbit.data_type_list),i)); 
       p.addRequired('data_value',@(i) isnumeric(i) && all(size(data_value)==[numel(t),orbit.data_type_list.(data_type).size])); 
@@ -807,11 +800,13 @@ classdef orbit
         more_parameters={};
       end
       warning off MATLAB:structOnObject
-      out=varargs(...
-        structs.filter(struct(obj),[orbit.parameters('list');more_parameters(:)])...
-      ).varargin;
+      out=structs.filter(struct(obj),[orbit.parameters('list');more_parameters(:)]);
       warning on MATLAB:structOnObject
     end
+    function out=varargin(obj,more_parameters)
+      out=varargs(obj.metadata(more_parameters)).varargin;
+    end
+    %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
         tab=20;
@@ -1142,7 +1137,7 @@ classdef orbit
           end
         end
         %build orbit object for this statistic
-        out.(s_list{i})=orbit(t,args{:}).copy_metadata(obj);
+        out.(s_list{i})=orbit(t,args{:},obj.varargin{:});
       end
 
     end
@@ -1352,7 +1347,7 @@ function [t,pos,pos_cor,header] = read_ifg(filename)
   formatSpec='%21.15f %15.4f %15.4f %15.4f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f';
   %open the file
   disp([mfilename,': loading file ',filename])
-  fid=fopen(filename);
+  fid=file.open(filename);
   %retrieve first line
   hline = fgetl(fid);
   %find geodetic datum
@@ -1397,7 +1392,7 @@ function [t,pos,pos_cor,mask,header] = read_aiub(filename)
   HeaderLines=6;
   %open the file
   disp([mfilename,': loading file ',filename])
-  fid=fopen(filename);
+  fid=file.open(filename);
   %retrieve third line
   for i=1:3; hline = fgetl(fid); end
   %find geodetic datum
@@ -1455,7 +1450,7 @@ function [t,pos,pos_cor,clk,clk_cor,header] = read_numeric(filename)
   HeaderLines=0;
   %open the file
   disp([mfilename,': loading file ',filename])
-  fid=fopen(filename);
+  fid=file.open(filename);
   %read the data (robustly)
   try
     d=textscan(fid,formatSpec,'HeaderLines',HeaderLines,'Delimiter',' ','MultipleDelimsAsOne',true);
@@ -1547,7 +1542,7 @@ function [t,pos,vel,pos_cor,clk,clk_cor,header] = read_sp3(filename,show_details
 
   %open the file
   disp([mfilename,': loading file ',filename])
-  fid=fopen(filename);
+  fid=file.open(filename);
 
   %first reading of the data, to get header and count data
   n=0;i=0;nP=0;nV=0;nEP=0;nEPx=0;

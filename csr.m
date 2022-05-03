@@ -2144,7 +2144,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
           );
         end
         %init models container
-        calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coords))).copy_metadata(acc);
+        calmod=simpletimeseries(acc.t,zeros(acc.length,numel(coords)),acc.metadata{:});
         calmod.descriptor=['calibration model ',product.str,', GRACE-',v.sats{s}];
         str.say('Computing the ',calmod.descriptor)
         for c=1:numel(coords)
@@ -2775,8 +2775,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
     end
     %% legacy (needs checking)
     function obj=import_acc_resid_test(obj,product,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('product',@(i) isa(i,'dataproduct'));
       p.addParameter('start', obj.start, @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',  obj.stop,  @(i) isdatetime(i)  &&  isscalar(i));

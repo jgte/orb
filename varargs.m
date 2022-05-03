@@ -51,7 +51,7 @@ classdef varargs < dynamicprops
       %need list of field names in the template
       template_fieldnames=fieldnames(varargs.template);
       %init parser
-      p=inputParser;
+      p=machinery.inputParser;
       %declare (mandatory and optional) input parameters
       for i=1:numel(template_fieldnames)
         switch template_fieldnames{i}
@@ -143,9 +143,7 @@ classdef varargs < dynamicprops
       %set with the (possible) values of any parameter passed in 'parser', 'sources' or varargin, as implemented in the 
       %varargs.save methods.
       %this is the parser for this method (there's an additional parser going in and out if this method)
-      pn=inputParser;
-      pn.KeepUnmatched=true;
-      pn.PartialMatching=false;
+      pn=machinery.inputParser;
       pn.addParameter('parser',    inputParser, @(i) isa(i,'inputParser'));
       pn.addParameter('mandatory', {}, @iscell);
       pn.addParameter('sources',   {}, @(i) all(cellfun(@(j) varargs.isvarargs(j),i)));
@@ -340,17 +338,28 @@ classdef varargs < dynamicprops
       end
     end
     function out=picker(obj,mode,name)
-      switch mode
-        case 'length';    out=obj.length;
-        case 'list';      out=obj.Parameters;
-        case 'obj';       out=obj;
-        case 'get';       out=obj.get(name);
-        %these also make sense when name (the input var) is an idx (integer)
-        case 'value';     out=obj.get(name).value;
-        case 'name';      out=obj.get(name).name;      
-        case 'validation';out=obj.get(name).validation;
-        otherwise;        out=obj.(mode);
-      end   
+      if iscellstr(mode)
+        out=cell(size(mode));
+        if exist('name','var')
+          for i=1:numel(mode)
+            out{i}=obj.picker(mode{i},name{i});
+          end
+        else
+          out=cellfun(@obj.picker,mode,'UniformOutput',false);
+        end
+      else
+        switch mode
+          case 'length';    out=obj.length;
+          case 'list';      out=obj.Parameters;
+          case 'obj';       out=obj;
+          case 'get';       out=obj.get(name);
+          %these also make sense when name (the input var) is an idx (integer)
+          case 'value';     out=obj.get(name).value;
+          case 'name';      out=obj.get(name).name;      
+          case 'validation';out=obj.get(name).validation;
+          otherwise;        out=obj.(mode);
+        end
+      end
     end
     %% get methods
     %abstracts string or index

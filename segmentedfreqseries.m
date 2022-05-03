@@ -172,8 +172,7 @@ classdef segmentedfreqseries < simplefreqseries
   methods
     %% constructor
     function obj=segmentedfreqseries(t,y,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y',     @(i) isnumeric(i) && ~isscalar(i));
       %create argument object, declare and parse parameters, save them to obj
@@ -201,6 +200,7 @@ classdef segmentedfreqseries < simplefreqseries
       %call superclass
       out=metadata@simplefreqseries(obj,[segmentedfreqseries.parameters('list');more_parameters(:)]);
     end
+    %the varargin method can be called directly
     %% seg methods
     function obj=segmentate(obj,seg_length,seg_overlap,varargin)
       %save segment parameters
@@ -221,10 +221,9 @@ classdef segmentedfreqseries < simplefreqseries
           ts{i},...
           obj.y(idx{i}(1):idx{i}(2),:),...
           'mask',obj.mask(idx{i}(1):idx{i}(2),:),...
+          obj.varargin{:},...
           varargin{:}...
         );
-        %copy metadata from unsegmented object
-        obj.seg{i}=obj.seg{i}.copy_metadata(obj);
         %update descriptor
         obj.seg{i}.descriptor=['segment ',num2str(i),' of ',obj.descriptor];
         %inform
@@ -331,8 +330,7 @@ classdef segmentedfreqseries < simplefreqseries
     end
     %% operate segment-wise
     function out=op(obj,operation,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'operation',                   @ischar);
       p.addParameter('idx',        1:numel(obj.seg),@isnumeric)
       p.addParameter('self_assign',false,           @(i) islogical(i) && isscalar(i))

@@ -13,6 +13,7 @@
       'plot_zeros',   true,     @(i) islogical(i) && isscalar(i);...
       'invalid',      999999999,@num.isscalar;...
       'outlier_sigma',4,        @num.isscalar;...
+      'cdate',datetime('now'),  @isdatetime;...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -41,6 +42,7 @@
     plot_zeros
     invalid
     outlier_sigma
+    cdate
   end
   methods(Static)
     function out=parameters(varargin)
@@ -166,9 +168,9 @@
       else
         %transmute into this object
         if isprop(in,'t')
-          out=simpledata(simpletimeseries.time2num(in.t),in.y,in.metadata{:});
+          out=simpledata(simpletimeseries.time2num(in.t),in.y,in.varargin{:});
         elseif isprop(in,'x')
-          out=simpledata(in.x,in.y,in.metadata{:});
+          out=simpledata(in.x,in.y,in.varargin{:});
         else
           error('Cannot find ''t'' or ''x''. Cannot continue.')
         end
@@ -291,8 +293,7 @@
       %       routine.
 
       % Handle Inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'in',                       @isnumeric);
       p.addParameter('outlier_sigma',...
          simpledata.parameters('outlier_sigma'), @num.isscalar);
@@ -373,8 +374,7 @@
     end
     %% vector operators
     function out=vmean(obj_list,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'obj_list', @iscell);
       p.addParameter('weights',ones(size(obj_list))/numel(obj_list),@(i) isnumeric(i) && all(size(obj_list)==size(i)))
       p.parse(obj_list,varargin{:})
@@ -384,8 +384,7 @@
       end
     end
     function out=vtimes(obj_list1,obj_list2)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'obj_list1', @iscell);
       p.addRequired( 'obj_list2', @(i) iscell(i) && all(size(obj_list1)==size(obj_list2)) )
       p.parse(obj_list1,obj_list2)
@@ -395,8 +394,7 @@
       end
     end
     function out=vscale(obj_list,scales)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'obj_list', @iscell);
       p.addRequired( 'scales',   @(i) isnumeric(i) && all(numel(obj_list)==numel(scales)) )
       p.parse(obj_list,scales)
@@ -406,8 +404,7 @@
       end
     end
     function out=vsqrt(obj_list)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'obj_list', @iscell);
       p.parse(obj_list)
       out=cell(size(obj_list));
@@ -432,8 +429,7 @@
     %% aux routines
     function out=parametric_component_fieldnames(varargin)
       %converts {'polynomial',[1 1 1],'sinusoidal',[n1, n2, n3]} into {p0,p1,p2,s1,s2,s3,c1,c2,c3}
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('polynomial',[], @(i) isnumeric(i) || isempty(i));
       p.addParameter('sinusoidal',[], @(i) isnumeric(i) || isduration(i) || isempty(i));
       p.parse(varargin{:});
@@ -490,7 +486,7 @@
           [],...
           'np',numel(simpledata.test_parameters('y_poly_scale')),...
           'T',[],...
-          'x',simpledata.test_parameters('y_poly_scale',l)...
+          'x',simpledata.test_parameters('y_poly_scale',l)'...
         ).y_sum*ones(1,w);
         % % The code below is the same as the code above
         % c=simpledata.test_parameters('y_poly_scale',l);
@@ -573,7 +569,7 @@
         out=simpledata(...
           simpledata.test_parameters('x',    l,w),...
           simpledata.test_parameters('y_all',l,w),...
-          'mask',simpledata.test_parameters('no-mask',l,w),...
+          'mask',simpledata.test_parameters('mask',l,w),...
           args{:}...
         );
       otherwise
@@ -792,8 +788,7 @@
     %% constructor
     function obj=simpledata(x,y,varargin)
       % input parsing
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'x'      ,                  @(i) simpledata.valid_x(i));
       p.addRequired( 'y'      ,                  @(i) simpledata.valid_y(i));
       p.addParameter('mask'   ,true(size(x(:))), @(i) simpledata.valid_mask(i));
@@ -830,8 +825,7 @@
     end
     %NOTICE: unlike the assign_* methods above, this method does some checking
     function obj=assign(obj,y,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'y'          ,         @(i) simpledata.valid_y(i));
       p.addParameter('x'          ,obj.x,   @(i) simpledata.valid_x(i));
       p.addParameter('mask'       ,obj.mask,@(i) simpledata.valid_mask(i));
@@ -882,8 +876,10 @@
     function obj=assign_tx_mask(obj,y,tx,mask,varargin)
       if isprop(obj,'t'); obj=obj.assign(  y,'mask',mask,'t',tx,varargin{:});
       else              ; obj=obj.assign_x(y,'mask',mask,'x',tx,varargin{:});
-      end          
+      end
     end
+    %NOTICE: obj2=simpledata(t,y,obj1.varargin{:}) is preferable to obj2=simpledata(t,y).copy_metadata(obj1)
+    %TODO: check if it's possible to ditch the copy_metadata members because of the reason above
     function obj=copy_metadata(obj,obj_in,more_parameters)
       if ~exist('more_parameters','var')
         more_parameters={};
@@ -900,14 +896,15 @@
         more_parameters={};
       end
       warning off MATLAB:structOnObject
-      out=varargs(...
-        structs.filter(struct(obj),[simpledata.parameters('list');more_parameters(:)])...
-      ).varargin;
+      out=structs.filter(struct(obj),[simpledata.parameters('list');more_parameters(:)]);
       warning on MATLAB:structOnObject
+      out=structs.rm_empty(out);
     end
-    function obj_nan=nan(obj)
-      %duplicates an object, setting y to nan
-      obj_nan=obj.and(false(size(obj.mask))).mask_update;
+    function out=varargin(obj,more_parameters)
+      if ~exist('more_parameters','var')
+        more_parameters={};
+      end
+      out=varargs(obj.metadata(more_parameters)).varargin;
     end
     %% info methods
     function print(obj,tab)
@@ -989,8 +986,7 @@
       end
     end
     function out=stats(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('mode',          'struct',          @ischar);
       p.addParameter('frmt',          '%-16.3g',         @ischar);
       p.addParameter('tab',           8,                 @isscalar);
@@ -1086,12 +1082,10 @@
         %loop over all structure fields and create an object
         fields=fieldnames(s);
         if numel(fields)==1
-          out=init(x_now,s.(fields{1}));
-          out=out.copy_metadata(obj);
+          out=init(x_now,s.(fields{1}),obj.varargin{:});
         else
           for i=1:numel(fields)
-            out.(fields{i})=init(x_now,s.(fields{i}));
-            out.(fields{i})=out.(fields{i}).copy_metadata(obj);
+            out.(fields{i})=init(x_now,s.(fields{i}),obj.varargin{:});
           end
         end
       otherwise
@@ -1108,8 +1102,7 @@
       end
     end
     function out=stats2(obj1,obj2,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('mode',       'struct', @ischar);
       p.addParameter('minlen',            2, @isscalar);
       p.addParameter('columns', 1:min([obj1.width,obj2.width]), @(i) isnumeric(i) || iscell(i));
@@ -1170,12 +1163,10 @@
         %loop over all structure fields and create an object (unless there's only one field)
         fields=fieldnames(s);
         if numel(fields)==1
-          out=init(x_now,s.(fields{1}));
-          out=out.copy_metadata(obj1);
+          out=init(x_now,s.(fields{1}),obj1.varargin{:});
         else
           for i=1:numel(fields)
-            out.(fields{i})=init(x_now,s.(fields{i}));
-            out.(fields{i})=out.(fields{i}).copy_metadata(obj1);
+            out.(fields{i})=init(x_now,s.(fields{i}),obj1.varargin{:});
           end
         end
       otherwise
@@ -1282,13 +1273,16 @@
     function out=tx(obj)
       if isprop(obj,'t'); out=obj.t; %#ok<MCNPN>
       else              ; out=obj.x;
-      end          
-    end      
-    function out=tx_masked(obj)
-      if isprop(obj,'t_masked'); out=obj.t_masked; %#ok<MCNPN>
-      else                     ; out=obj.x_masked;
-      end          
-    end      
+      end
+    end
+    function out=tx_masked(obj,mask)
+      if ~exist('mask','var') || isempty(mask)
+        mask=obj.mask;
+      end
+      if ismethod(obj,'t_masked'); out=obj.t_masked(mask); 
+      else                     ; out=obj.x_masked(mask);
+      end
+    end
     %% y methods
     function obj=cols(obj,columns)
       if ~isvector(columns)
@@ -1367,9 +1361,9 @@
         y=y(~avail_idx,:);
         switch class(obj)
         case 'simpledata'
-          obj_new=simpledata(x,y).copy_metadata(obj);
+          obj_new=simpledata(x,y,obj.varargin{:});
         case 'simpletimeseries'
-          obj_new=simpletimeseries(obj.x2t(x),y).copy_metadata(obj);
+          obj_new=simpletimeseries(obj.x2t(x),y,obj.varargin{:});
         otherwise
           error(['Cannot handle object of class ''',class(obj),''', implementation needed (it''s quick, go and do it).'])
         end
@@ -1518,6 +1512,10 @@
         obj=obj.assign(obj.y(m,:),'x',obj.x(m));
       end
     end
+    function obj_nan=nan(obj)
+      %duplicates an object, setting y to nan
+      obj_nan=obj.and(false(size(obj.mask))).mask_update;
+    end
     %% invalid methods
     function obj=demasked(obj,invalid)
       if ~exist('invalid','var') || isempty(invalid)
@@ -1620,8 +1618,7 @@
     end
     function obj=interp(obj,x_now,varargin)
       % parse inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('interp_over_gaps_narrower_than',0,@(i) num.isscalar(i) && ~isnan(i))
       p.addParameter('interp1_args',cell(0),@iscell);
       % parse it
@@ -1713,7 +1710,7 @@
         mode='linear';
       end
       if ~exist('disp','var') || isempty(disp)
-        disp=true;
+        disp=false;
       end
       %trivial call
       if str.none(mode)
@@ -1723,34 +1720,30 @@
       if disp
         str.say(mode,'detrending of',obj.descriptor)
       end
-      switch mode
-      case 'cubic'
-        obj=obj.detrend('poly3');
-      case 'quadratic'
-        obj=obj.detrend('poly2');
-      case 'linear'
-        %copy data
-        y_now=obj.y;
-        %zero the gaps (NaNs break things)
-        y_now(~obj.mask,:)=0;
-        %detrend in segments
-        y_detrended=detrend(y_now,'linear',find(~obj.mask));
-        %propagate
-        obj.y(obj.mask,:)=y_detrended(obj.mask,:);
-      case 'constant'
-        obj.y(obj.mask,:)=detrend(obj.y_masked,'constant');
-      otherwise
-        if contains(mode,'poly')
-          %determine polynomial order to be fitted
-          o=str2double(strrep(mode,'poly',''));
-          %polyfit the data
-          obj_polyfitted=obj.polyfit(o);
-          %subtract polyfitted data from input data
-          obj=obj-obj_polyfitted;
-        else
-          error([mfilename,': unknown mode ''',mode,'''.'])
+      if ischar(mode)
+        switch mode
+        case 'cubic';     n=3;
+        case 'quadratic'; n=2;
+        case 'linear';    n=1;
+        case 'constant';  n=0;
+        otherwise
+          if contains(mode,'poly')
+            %determine polynomial order to be fitted
+            o=str2double(strrep(mode,'poly',''));
+            %polyfit the data
+            obj_polyfitted=obj.polyfit(o);
+            %subtract polyfitted data from input data
+            obj=obj-obj_polyfitted;
+          else
+            error([mfilename,': unknown mode ''',mode,'''.'])
+          end
         end
+      else
+        n=mode;
       end
+      assert(isnumeric(n) && isscalar(n),['Input ''mode'' must be char or integer, not ',class(n),'.'])
+      %detrend the whole time series (NOTICE: this does not handle ungaped segments independently)
+      obj.y=detrend(obj.y,n,'omitnan','Continuous',false,'SamplePoints',obj.x);
       % sanitize
       obj.check_sd
     end
@@ -1922,8 +1915,7 @@
       %This method checks if the objects are referring to the same
       %type of data, i.e. the data length is not important.
       % parse inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('compatible_parameters',simpledata.compatible_parameter_list,@iscellstr)
       p.addParameter('check_width',true,@islogical);
       p.addParameter('skip_par_check',{''},@iscellstr)
@@ -2061,8 +2053,7 @@
       % - notice that common=true,new=*,old=true is the same as common=false,new=*,old=true: old data
       %   is not deleted in both cases, so the common data is never copied anyway
       % Parse inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % optional arguments
       p.addParameter('quiet',       false, @(i)islogical(i) && isscalar(i));
       p.addParameter('common',      true,  @(i)islogical(i) && isscalar(i));
@@ -2176,7 +2167,6 @@
         %do nothing
       elseif isnumeric(obj2)
         obj1.y=obj1.y+obj2;
-        obj1.descriptor=[obj1.descriptor,'+',num2str(obj2)];
       elseif isnumeric(obj1)
         obj1=obj1+obj2.y;
       else
@@ -2198,8 +2188,6 @@
           %operate
           obj1=obj1.assign(obj1.y+obj2.y,'mask',obj1.mask & obj2.mask);
         end
-        %update descriptor
-        obj1.descriptor=[obj1.descriptor,'+',obj2.descriptor];
       end
     end
     function obj1=minus(obj1,obj2)
@@ -2210,7 +2198,6 @@
         %do nothing
       elseif isnumeric(obj2)
         obj1.y=obj1.y-obj2;
-        obj1.descriptor=[obj1.descriptor,'+',num2str(obj2)];
       elseif isnumeric(obj1)
         obj1=obj1-obj2.y;
       else
@@ -2237,9 +2224,6 @@
           %operate
           obj1=obj1.assign(obj1.y-obj2.y,'mask',obj1.mask & obj2.mask);
         end
-        %update descriptor and labels
-        obj1.descriptor=[obj1.descriptor,'-',obj2.descriptor];
-%         obj1.labels=arrayfun(@(i) [obj1.labels{i},'-',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj=scale(obj,scl)
@@ -2294,9 +2278,6 @@
           %operate
           obj1=obj1.assign(obj1.y.*obj2.y,'mask',obj1.mask & obj2.mask);
         end
-        %update descriptor
-        obj1.descriptor=[obj1.descriptor,'*',obj2.descriptor];
-%         obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj1=mtimes(obj1,obj2,map) %this is * (not .*)
@@ -2321,9 +2302,6 @@
       end
       %save result
       obj1=obj1.assign(y1);
-      %update descriptor
-      obj1.descriptor=[obj1.descriptor,'*',obj2.descriptor];
-%       obj1.labels=arrayfun(@(i) [obj1.labels{i},'*',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
     end
     function obj1=rdivide(obj1,obj2)
       %empty is not supported
@@ -2345,9 +2323,6 @@
           %operate
           obj1=obj1.assign(obj1.y./obj2.y,'mask',obj1.mask & obj2.mask);
         end
-        %update descriptor
-        obj1.descriptor=[obj1.descriptor,'/',obj2.descriptor];
-%         obj1.labels=arrayfun(@(i) [obj1.labels{i},'/',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     function obj1=power(obj1,obj2)
@@ -2370,9 +2345,6 @@
           %operate
           obj1=obj1.assign(obj1.y.^obj2.y,'mask',obj1.mask & obj2.mask);
         end
-        %update descriptor
-        obj1.descriptor=[obj1.descriptor,'^',obj2.descriptor];
-%         obj1.labels=arrayfun(@(i) [obj1.labels{i},'^',obj2.labels{i}],1:obj1.width,'UniformOutput',false)';
       end
     end
     %% logical ops
@@ -2464,8 +2436,7 @@
     end
     %% differentiation
     function obj=diff(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('mode','central', @ischar);
       % parse it
       p.parse(varargin{:});
@@ -2732,7 +2703,7 @@
           out.mask{i}=out.mask{i} & ( obj.y(:,columns(i)) ~= 0 );
         end
         % get abcissae in datetime, if relevant
-        x_plot=obj.tx(out.mask{i});
+        x_plot=obj.tx_masked(out.mask{i});
         % apply mask to y data
         y_plot=y_plot(out.mask{i});
         % compute (de-meaned and/or normalized) ordinate
@@ -2832,8 +2803,7 @@
     end
     function out=data(obj,varargin)
       % Parse inputs
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       % optional arguments
       p.addParameter('mode',  'xy',              @ischar);
       p.addParameter('masked',false,             @(i)islogical(i) && isscalar(i));

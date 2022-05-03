@@ -212,8 +212,7 @@ classdef datanames
     %% filename builders
     function out=file(obj,varargin)
       %NOTICE: this procedure ALWAYS returns a string!
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('start',     datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('stop',      datetime('now'), @(i) isdatetime(i)  &&  isscalar(i));
       p.addParameter('ext',       '',              @ischar);

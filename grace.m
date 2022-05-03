@@ -340,7 +340,7 @@ classdef grace
     end
     %% utils
     function obj=GRACEaltitude(varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addParameter('datafile',file.resolve_home(fullfile('~','data','grace','altitude','GRACE.altitude.dat')));
       p.parse(varargin{:});
       obj=simpletimeseries.import(p.Results.datafile,...
@@ -353,7 +353,7 @@ classdef grace
       %NOTICE: this function is a functional duplicate of simpletimeseries.export, but
       %        implements GRACE-specific formats
       %TODO: needs testing
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'filename',             @ischar);
       p.addRequired( 'filetype',             @ischar);
       v=varargs.wrap('parser',p,'sources',{{...
@@ -526,8 +526,7 @@ i=i+1;dh{i}= '+eoh______';
   methods
     %% constructor
     function obj=grace(start,stop,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('start'); %defines the 1st  day of the data (can be char, double or datetime)
       p.addRequired('stop' ); %defines the last day of the data (can be char, double or datetime)
       %declare parameters p
@@ -564,8 +563,7 @@ i=i+1;dh{i}= '+eoh______';
       %simplify things
       data_type=lower(data_type);
       %parse input
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('data_type' ,@(i) ischar(i) && cells.isincluded(lower(grace.data_types),i));
       p.addRequired('data_value',@(i) machinery.isa(i,{'simpletimeseries','attitude','orbit'}));
       % parse it
@@ -582,11 +580,13 @@ i=i+1;dh{i}= '+eoh______';
         more_parameters={};
       end
       warning off MATLAB:structOnObject
-      out=varargs(...
-        structs.filter(struct(obj),[grace.parameters('list');more_parameters(:)])...
-      ).varargin;
+      out=structs.filter(struct(obj),[grace.parameters('list');more_parameters(:)]);
       warning on MATLAB:structOnObject
     end
+    function out=varargin(obj,more_parameters)
+      out=varargs(obj.metadata(more_parameters)).varargin;
+    end
+    %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
         tab=20;
@@ -743,6 +743,548 @@ function [obj,err,flag]=load_SCA1B(filename)
      ).fill;
   end
 end
+
+% NOTICE: this is Christian's code, received by email on 20/1/2022 13:48 (relevant to GRACE-FO but applicable to GRACE too)
+% function [D] = convert_grace_fo_l1_data(files)
+% % [D] = convert_grace_fo_l1_data(files)
+% %
+% % Convert GRACE-FO Level 1A files from text to Matlab format. Return the
+% % data of the last file.
+% 
+% % for testing:
+% % files = dir('/Volumes/Elements/Data/GRACE-FO/L1A/ACC/ACC1A_2019-01-01_C_04.txt');
+% % files = dir('/Volumes/Elements/Data/GRACE-FO/L1A/AHK/AHK1A_2019-01-01_C_04.txt');
+% % files = dir('/Volumes/Elements/Data/GRACE-FO/L1A/THR/THR1A_2019-01-01_C_04.txt');
+% % files = dir('/Volumes/Elements/Data/GRACE-FO/L1B/CLK/CLK1B_2018-06-14_D_04.txt');
+% % files = dir('/Volumes/Elements/Data/GRACE-FO/L1B/ACT/ACT1B_2018-06-09_C_04.txt');
+% 
+% N = length(files);
+% for n = 1:N
+%     fn = filename(files(n));
+%     
+%     type = files(n).name(1:3);
+%     
+%     fid = fopen(fn);
+%     
+%     % skip header
+%     while ~feof(fid)
+%         line = fgetl(fid);
+%         if contains(line,'# End of YAML header')
+%             break
+%         end
+%     end
+%     
+%     % reset structure
+%     clear D
+%     
+%     % default buffer size
+%     B = 1e6;
+%     
+%     % read data
+%     
+%     %=========================================
+%     %  ACC (L1A)
+%     %=========================================
+%     
+%     if strcmp(type,'ACC')% || strcmp(type,'ACT')
+%         
+%         D.t = zeros(B,2);
+%         D.tref = zeros(B,1);
+%         D.id = zeros(B,1);
+%         D.qual_flag = zeros(B,8);
+%         D.prod_flag = zeros(B,32);
+%         
+%         % the leading space in front of the format specifier is needed for
+%         % concatenating the strings
+%         variables = {'lin_accl_x', ' %e'
+%                      'lin_accl_y', ' %e'
+%                      'lin_accl_z', ' %e'
+%                      'ang_accl_x', ' %e'
+%                      'ang_accl_y', ' %e'
+%                      'ang_accl_z', ' %e'
+%                      'bias_vol',   ' %e'
+%                      'vd',         ' %e'
+%                      'x1_out',     ' %e'
+%                      'x2_out',     ' %e'
+%                      'x3_out',     ' %e'
+%                      'y1_out',     ' %e'
+%                      'y2_out',     ' %e'
+%                      'z1_out',     ' %e'
+%                      'tesu',       ' %e'
+%                      'taicu',      ' %e'
+%                      'tisu',       ' %e'
+%                      'v15picu',    ' %e'
+%                      'v15micu',    ' %e'
+%                      'vr5picu',    ' %e'
+%                      'tcicu',      ' %e'
+%                      'v15psu',     ' %e'
+%                      'v15msu',     ' %e'
+%                      'v48psu',     ' %e'
+%                      'v48msu',     ' %e'
+%                      '',''
+%                      'icu_blk_nr', ' %d'
+%                      'Tenhz_count',' %d'
+%                      'Mhz_count',  ' %d'
+%                      '',''
+%                      '',''
+%                      '',''};
+%         
+%         % init buffers for variables
+%         for v = 1:size(variables,1)
+%             if ~isempty(variables{v,1})
+%                 D.(variables{v,1}) = zeros(B,1);
+%             end
+%         end
+%         
+%         % epoch counter
+%         e = 0;
+%         
+%         while ~feof(fid)
+%             % if mod(e,1000)==0
+%             %     disp(e)
+%             % end
+%             
+%             line = fgetl(fid);
+%             
+%             e = e + 1;
+%             
+%             [data,~,~,ind_next] = sscanf(line,'%d %d %c %c %8c %32c',[1,6]);
+%             
+%             % "seconds past 12:00:00 noon of January 1, 2000 in OBC Time"
+%             D.t(e,:) = [data(1) data(2)/1e6]; % integer and fractional receiver time (seconds and microseconds)
+%             
+%             D.tref(e) = data(3); % R = Receiver, OBC, or LRI time
+%                                  % G = GPS time
+%                             
+%             D.id(e) = data(4); % C or D
+%             
+%             D.qual_flag(e,:) = flip(data(5:12) == char('1')); % false of "0", true if "1"
+%                                                               % first character = last bit
+%             %           - bit 0 = 0 - Receiver Time, 1 - Spacecraft elapsed time
+%             %           - bit 1 = 0 - Timing pulse sync, 1 - No Timing pulse sync
+%             %           - bit 2 = Not defined
+%             %           - bit 3 = Not defined
+%             %           - bit 4 = ACC Mode. 0 - Normal range mode, 1 - Large range mode
+%             %           - bit 5 = IPU nav/timing packet received
+%             %           - bit 6 = No OBC-to-Receiver time mapping
+%             %           - bit 7 = No ICU block number available for GRACE-FO
+%         
+%             % this flag defines which data is present in the line:
+%             prod_flag = flip(data(13:44) == char('1'));
+%             D.prod_flag(e,:) = prod_flag; % false of "0", true if "1"
+%                                           % first character = last bit
+%             %           - bit 0 = lin_accl_x
+%             %           - bit 1 = lin_accl_y
+%             %           - bit 2 = lin_accl_z
+%             %           - bit 3 = ang_accl_x
+%             %           - bit 4 = ang_accl_y
+%             %           - bit 5 = ang_accl_z
+%             %           - bit 6 = bias_vol
+%             %           - bit 7 = Vd
+%             %           - bit 8 = x1_out
+%             %           - bit 9 = x2_out
+%             %           - bit 10 = x3_out
+%             %           - bit 11 = y1_out
+%             %           - bit 12 = y2_out
+%             %           - bit 13 = z1_out
+%             %           - bit 14 = tesu
+%             %           - bit 15 = taicu
+%             %           - bit 16 = tisu
+%             %           - bit 17 = v15picu
+%             %           - bit 18 = v15micu
+%             %           - bit 19 = vr5picu
+%             %           - bit 20 = tcicu
+%             %           - bit 21 = v15psu
+%             %           - bit 22 = v15msu
+%             %           - bit 23 = v48psu
+%             %           - bit 24 = v48msu
+%             %           - bit 25 = Not defined
+%             %           - bit 26 = ICU block number
+%             %           - bit 27 = 10Hz clock count
+%             %           - bit 28 = MHz clock count
+%             %           - bits 29-31 = Not defined
+%             
+%             % create the format string for reading the data
+%             fmt = strcat(variables{prod_flag,2});
+%             
+%             % read the data from the line
+%             data = sscanf(line(ind_next:end),fmt,[1,sum(prod_flag)]);
+%             
+%             % initialize data counter
+%             d = 0;
+%                         
+%             % copy data into structure
+%             for v = 1:size(variables,1)
+%                 if prod_flag(v)
+%                     d = d + 1;
+%                     D.(variables{v,1})(e) = data(d);
+%                 end
+%             end
+%         end
+%         
+%         % truncate buffers for variables to actual size
+%         D.t = D.t(1:e,:);
+%         D.tref = D.tref(1:e,:);
+%         D.id = D.id(1:e,:);
+%         D.qual_flag = D.qual_flag(1:e,:);
+%         D.prod_flag = D.prod_flag(1:e,:);
+%         
+%         for v = 1:size(variables,1)
+%             if ~isempty(variables{v,1})
+%                 D.(variables{v,1}) = D.(variables{v,1})(1:e);
+%             end
+%         end
+%         
+%         
+%     %=========================================
+%     %  AHK (L1A)
+%     %=========================================
+%     
+%     elseif strcmp(type,'AHK')
+%         
+%         D.t = zeros(B,2);
+%         D.tref = zeros(B,1);
+%         D.id = zeros(B,1);
+%         D.qual_flag = zeros(B,8);
+%         D.prod_flag = zeros(B,32);
+%         
+%         % the leading space in front of the format specifier is needed for
+%         % concatenating the strings
+%         variables = {'TFEEU_IF',   ' %e'
+%                      'TFEEU_REF',  ' %e'
+%                      'TFEEU_X',    ' %e'
+%                      'TFEEU_YZ',   ' %e'
+%                      'analog_GND', ' %e'
+%                      'Vp3p3',      ' %e'
+%                      'Vp',         ' %e'
+%                      'MES_Vd',     ' %e'
+%                      'MES_DET_X1', ' %e'
+%                      'MES_DET_X2', ' %e'
+%                      'MES_DET_X3', ' %e'
+%                      'MES_DET_Y1', ' %e'
+%                      'MES_DET_Y2', ' %e'
+%                      'MES_DET_Z1', ' %e'
+%                      'TSU_Yp',     ' %e'
+%                      'TICUN',      ' %e'
+%                      'TSU_Ym',     ' %e'
+%                      'TSU_Zp',     ' %e'
+%                      'TSU_Zm',     ' %e'
+%                      'Vp5',        ' %e'
+%                      'TICUR',      ' %e'
+%                      'Vp15',       ' %e'
+%                      'Vm15',       ' %e'
+%                      'Vp48',       ' %e'
+%                      'Vm48',       ' %e'
+%                      '',''
+%                      'icu_blk_nr', ' %d'
+%                      'PPS_source', ' %d'
+%                      'Sync_Qual',  ' %d'
+%                      'status_flag',' %32c'
+%                      '',''
+%                      '',''};
+%         
+%         % init buffers for variables
+%         for v = 1:size(variables,1)
+%             if ~isempty(variables{v,1})
+%                 D.(variables{v,1}) = zeros(B,1);
+%             end
+%         end
+%         
+%         % this variable has 32 bits
+%         D.status_flag = zeros(B,32);
+%         
+%         % epoch counter
+%         e = 0;
+%         
+%         while ~feof(fid)
+%             % if mod(e,1000)==0
+%             %     disp(e)
+%             % end
+%             
+%             line = fgetl(fid);
+%             
+%             e = e + 1;
+%             
+%             [data,~,~,ind_next] = sscanf(line,'%d %d %c %c %8c %32c',[1,6]);
+%             
+%             % "seconds past 12:00:00 noon of January 1, 2000 in OBC Time"
+%             D.t(e,:) = [data(1) data(2)/1e6]; % integer and fractional receiver time (seconds and microseconds)
+%             
+%             D.tref(e) = data(3); % R = Receiver, OBC, or LRI time
+%                                  % G = GPS time
+%                             
+%             D.id(e) = data(4); % C or D
+%             
+%             D.qual_flag(e,:) = flip(data(5:12) == char('1')); % false of "0", true if "1"
+%                                                               % first character = last bit
+%             %           - bit 0 = 0 - Receiver Time, 1 - Spacecraft elapsed time
+%             %           - bit 1 = 0 - Timing pulse sync, 1 - No Timing pulse sync
+%             %           - bit 2 = Not defined
+%             %           - bit 3 = Not defined
+%             %           - bit 4 = ACC Mode. 0 - Normal range mode, 1 - Large range mode
+%             %           - bit 5 = IPU nav/timing packet received
+%             %           - bit 6 = No OBC-to-Receiver time mapping
+%             %           - bit 7 = No ICU block number available for GRACE-FO
+%         
+%             % this flag defines which data is present in the line:
+%             prod_flag = flip(data(13:44) == char('1'));
+%             D.prod_flag(e,:) = prod_flag; % false of "0", true if "1"
+%                                           % first character = last bit
+%             %           - bit 0 = TFEEU_IF
+%             %           - bit 1 = TFEEU_REF
+%             %           - bit 2 = TFEEU_X
+%             %           - bit 3 = TFEEU_YZ
+%             %           - bit 4 = analog_GND
+%             %           - bit 5 = +3.3V
+%             %           - bit 6 = Vp
+%             %           - bit 7 = MES_Vd
+%             %           - bit 8 = MES_DET_X1
+%             %           - bit 9 = MES_DET_X2
+%             %           - bit 10 = MES_DET_X3
+%             %           - bit 11 = MES_DET_Y1
+%             %           - bit 12 = MES_DET_Y2
+%             %           - bit 13 = MES_DET_Z1
+%             %           - bit 14 = TSU_Y+
+%             %           - bit 15 = TICUN
+%             %           - bit 16 = TSU_Y-
+%             %           - bit 17 = TSU_Z+
+%             %           - bit 18 = TSU_Z-
+%             %           - bit 19 = +5V
+%             %           - bit 20 = TICUR
+%             %           - bit 21 = +15V
+%             %           - bit 22 = -15V
+%             %           - bit 23 = +48V
+%             %           - bit 24 = -48V
+%             %           - bit 25 = Not defined
+%             %           - bit 26 = ICU block number
+%             %           - bit 27 = PPS Source
+%             %           - bit 28 = Sync Quality Index
+%             %           - bit 29 = Status flag
+%             %           - bits 30-31 = Not defined
+%             
+%             % PPS_source:
+%             %           - 0 - IN SYNC WITH GPS
+%             %           - 1 - OUT OF SYNC
+%             %           - 2 - SYNC IN PROGRESS BAD PPS
+%             %           - 3 - SYNC IN PROGRESS GOOD PPS
+%             %           - 4 - SYNC TO GROUND UTC IN PROGRESS
+%             %           - 5 - IN SYNC WITH GROUND UTC
+%             % Sync_Qual:
+%             %           - 0 - PPS RECEIVED TIME PACKET RECEIVED
+%             %           - 1 - PPS NOT RECEIVED TIME PACKET RECEIVED
+%             %           - 2 - PPS RECEIVED TIME PACKET NOT RECEIVED
+%             %           - 3 - PPS NOT RECEIVED TIME PACKET NOT RECEIVED
+%             
+%             % statusflag:
+%             %           - bit 0 = Test registers. 0 - Test ADC registers function is enabled, 1 - Test ADC registers function is disabled
+%             %           - bit 1 = Status, Vp. 0 - Vp 10V, 1 - Vp 40V
+%             %           - bit 2 = Status, Vd. 0 - Vd 5Vrms, 1 - Vp 1.25Vrms
+%             %           - bit 3 = Flag, SCI_ACC_X. 0 - ADC is synchronised, 1 - Time-out is detected
+%             %           - bit 4 = Flag, SCI_ACC_Y
+%             %           - bit 5 = Flag, SCI_ACC_Z
+%             %           - bit 6 = Flag, SCI_ACC_Phi
+%             %           - bit 7 = Flag, SCI_ACC_Theta
+%             %           - bit 8 = Flag, SCI_ACC_Psi
+%             %           - bit 9 = Flag, SCI_VP
+%             %           - bit 10 = Flag, SCI_MUX1
+%             %           - bit 11 = Flag, SCI_MUX2
+%             %           - bit 12 = Flag, SCI_MUX3
+%             %           - bit 13 = Flag, test registers. Shows when the ADC registers check has proceeded. 0 - ADC bit registers are NOT tested, 1 - ADC registers are tested
+%             %           - bit 14 = Flag, validity of registers. 0 - All the ADC registers are identical to the initial value, 1 - At least one of the ADC registers is corrupt
+%             %           - bit 15 = GWT. 0 - The stops are connected, 1 - The stops are NOT connected
+%             %           - bit 16 = Event Report Generation. 0 - Event Report Generation function is disabled, 1 - Event Report Generation function is enabled
+%             %           - bit 17 = PPS Channel. 0 - PPS A, 1 - PPS B
+%             %           - bit 18 = Uart Channel. 0 - Uart A, 1 - Uart B
+%             %           - bits 19-31 = Not defined
+%           
+%             % create the format string for reading the data
+%             fmt = strcat(variables{prod_flag,2});
+%             
+%             % read the data from the line
+%             data = sscanf(line(ind_next:end),fmt,[1,sum(prod_flag)]);
+%             
+%             % initialize data counter
+%             d = 0;
+%                         
+%             % copy data into structure
+%             for v = 1:size(variables,1)
+%                 if prod_flag(v) && strcmp(variables{v,1},'status_flag')
+%                     d = d + 1;
+%                     D.(variables{v,1})(e,:) = data(d:d+31);
+%                     d = d + 31;
+%                 elseif prod_flag(v) && ~strcmp(variables{v,1},'status_flag')
+%                     d = d + 1;
+%                     D.(variables{v,1})(e) = data(d);
+%                 end
+%             end
+%         end
+%         
+%         % truncate buffers for variables to actual size
+%         D.t = D.t(1:e,:);
+%         D.tref = D.tref(1:e,:);
+%         D.id = D.id(1:e,:);
+%         D.qual_flag = D.qual_flag(1:e,:);
+%         D.prod_flag = D.prod_flag(1:e,:);
+%         
+%         for v = 1:size(variables,1)
+%             if ~isempty(variables{v,1})
+%                 D.(variables{v,1}) = D.(variables{v,1})(1:e,:);
+%             end
+%         end
+%         
+%     %=========================================
+%     %  THR (L1A)
+%     %=========================================
+%     
+%     elseif strcmp(type,'THR')
+%         
+%         data = fscanf(fid,'%d %d %c %c %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %8c');
+%         
+%         data = reshape(data,54,length(data)/54)';
+%         
+%         % "Seconds past 12:00:00 noon of January 1, 2000 in GPS time"
+%         D.t = [data(:,1) data(:,2)/1e6]; % integer and fractional receiver time (seconds and microseconds)
+% 
+%         D.tref = data(:,3); % R = Receiver, OBC, or LRI time
+%                             % G = GPS time
+% 
+%         D.id = data(:,4); % C or D
+%         
+%         D.thrust_count_att_ctrl_1_1 = data(:,5);
+%         D.thrust_count_att_ctrl_1_2 = data(:,6);
+%         D.thrust_count_att_ctrl_1_3 = data(:,7);
+%         D.thrust_count_att_ctrl_1_4 = data(:,8);
+%         D.thrust_count_att_ctrl_1_5 = data(:,9);
+%         D.thrust_count_att_ctrl_1_6 = data(:,10);
+%         D.thrust_count_att_ctrl_2_1 = data(:,11);
+%         D.thrust_count_att_ctrl_2_2 = data(:,12);
+%         D.thrust_count_att_ctrl_2_3 = data(:,13);
+%         D.thrust_count_att_ctrl_2_4 = data(:,14);
+%         D.thrust_count_att_ctrl_2_5 = data(:,15);
+%         D.thrust_count_att_ctrl_2_6 = data(:,16);
+%         % D.thrust_count_undef_1 = data(:,17);
+%         % D.thrust_count_undef_2 = data(:,18);
+%         D.on_time_att_ctrl_1_1 = data(:,19);
+%         D.on_time_att_ctrl_1_2 = data(:,20);
+%         D.on_time_att_ctrl_1_3 = data(:,21);
+%         D.on_time_att_ctrl_1_4 = data(:,22);
+%         D.on_time_att_ctrl_1_5 = data(:,23);
+%         D.on_time_att_ctrl_1_6 = data(:,24);
+%         D.on_time_att_ctrl_2_1 = data(:,25);
+%         D.on_time_att_ctrl_2_2 = data(:,26);
+%         D.on_time_att_ctrl_2_3 = data(:,27);
+%         D.on_time_att_ctrl_2_4 = data(:,28);
+%         D.on_time_att_ctrl_2_5 = data(:,29);
+%         D.on_time_att_ctrl_2_6 = data(:,30);
+%         D.on_time_orb_ctrl_1 = data(:,31);
+%         D.on_time_orb_ctrl_2 = data(:,32);
+%         D.accum_dur_att_ctrl = data(:,33);
+%         % D.accum_dur_undef_1 = data(:,34);
+%         % D.accum_dur_undef_2 = data(:,35);
+%         % D.accum_dur_undef_3 = data(:,36);
+%         % D.accum_dur_undef_4 = data(:,37);
+%         % D.accum_dur_undef_5 = data(:,38);
+%         % D.accum_dur_undef_6 = data(:,39);
+%         % D.accum_dur_undef_7 = data(:,40);
+%         % D.accum_dur_undef_8 = data(:,41);
+%         % D.accum_dur_undef_9 = data(:,42);
+%         % D.accum_dur_undef_10 = data(:,43);
+%         % D.accum_dur_undef_11 = data(:,44);
+%         D.accum_dur_orb_ctrl = data(:,45);
+%         % D.accum_dur_undef_12 = data(:,46);
+%         
+%         D.qualflg = flip(data(:,47:54) == char('1')); % false of "0", true if "1"
+%                                                     % first character = last bit
+%         %           - bit 0 = On-time not calculated
+%         %           - bit 1 = Multiple unaccounted thrusts prior to current record
+%         %           - bit 2 = 1, branch 1 is active
+%         %           - bit 3 = 1, branch 2 is active
+%         %           - bits 4-5 = Not defined
+%         %           - bit 6 = No OBC-to-Receiver Time mapping
+%         %           - bit 7 = No clock correction available
+%         
+%     %=========================================
+%     %  CLK (L1B)
+%     %=========================================
+%     
+%     elseif strcmp(type,'CLK')
+%         
+%         data = fscanf(fid,'%d %c %d %e %e %e %e %8c');
+%         
+%         data = reshape(data,15,length(data)/15)';
+%         
+%         % "Seconds past 12:00:00 noon of January 1, 2000 in receiver time"
+%         D.t = data(:,1); % integer and fractional receiver time (seconds and microseconds)
+% 
+%         D.id = data(:,2); % C or D
+%         
+%         D.clock_id = data(:,3); % C or D
+%         
+%         % GPS Time = rcv_time + eps_time
+%         D.eps_time = data(:,4);
+%         D.eps_err = data(:,5);
+%         D.eps_drift = data(:,6);
+%         D.drift_err = data(:,7);
+%         
+%         D.qualflg = flip(data(:,8:15) == char('1')); % false of "0", true if "1"
+%                                                     % first character = last bit
+%         %           - bit 0 = Linear extrapolation of eps_time not valid AFTER rcv_time
+%         %           - bit 1 = Linear extrapolation of eps_time not valid BEFORE rcv_time
+%         %           - bit 2 = Smoothed data lies before center of smoothing for start midnight
+%         %           - bit 3 = Smoothed data lies after center of smoothing for start midnight
+%         %           - bit 4 = Smoothed data lies before center of smoothing for end midnight
+%         %           - bit 5 = Smoothed data lies after center of smoothing for end midnight
+%         %           - bits 6-7 = Not defined
+%         
+%     %=========================================
+%     %  ACT (L1B)
+%     %=========================================
+%     
+%     elseif strcmp(type,'ACT')
+%         
+%         data = fscanf(fid,'%d %c %e %e %e %e %e %e %e %e %e %8c');
+%         
+%         data = reshape(data,19,length(data)/19)';
+%         
+%         % "Seconds past 12:00:00 noon of January 1, 2000 in GPS time"
+%         D.t = data(:,1); % integer and fractional receiver time (seconds and microseconds)
+% 
+%         D.id = data(:,2); % C or D
+%                 
+%         D.lin_accl_x = data(:,3);
+%         D.lin_accl_y = data(:,4);
+%         D.lin_accl_z = data(:,5);
+%         D.ang_accl_x = data(:,6);
+%         D.ang_accl_y = data(:,7);
+%         D.ang_accl_z = data(:,8);
+%         D.acl_x_res = data(:,9);
+%         D.acl_y_res = data(:,10);
+%         D.acl_z_res = data(:,11);
+%         
+%         D.qualflg = flip(data(:,12:19) == char('1')); % false of "0", true if "1"
+%                                                       % first character = last bit
+%         %           - bit 0 = Vp (proof mass voltage) out of nominal range
+%         %           - bit 1 = Not defined
+%         %           - bit 2 = At least one of acl_x_res, acl_y_res, and acl_z_res is > 10 microns/s^2
+%         %           - bit 3 = Extrapolated CLK1B clock offset value used for data point > 5 s from center of CRN filter window
+%         %           - bit 4 = Extrapolated CLK1B clock offset value used for data point <= 5 s from center of CRN filter window
+%         %           - bit 5 = Interpolated data point (due to gap) exists > 15 s from center of CRN filter window
+%         %           - bit 6 = Interpolated data point (due to gap) exists > 5 s but < 15 s from center of CRN filter window
+%         %           - bit 7 = Interpolated data point (due to gap) exists < 5 s from center of CRN filter window
+%           
+%     else
+%         error(['Unkown file type: ' files(n).name(1:3)])
+%     end
+%     
+%     % rename before saving
+%     eval([type ' = D;'])
+%         
+%     % save data in Matlab format
+%     save([fn(1:end-3) 'mat'],type)
+%     
+%     % close file
+%     fclose(fid);
+% end
 
 
 %this used to be part of grace.import_format; retired for now

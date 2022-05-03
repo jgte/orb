@@ -103,7 +103,7 @@ classdef simplegrid < simpletimeseries
       out=(u-l)/(n-1);
     end
     function out=lon_default(n)
-      %NOTICE: this used to be simply linspace(0,360,n) but that may introduce NaN at 360  
+      %NOTICE: this used to be simply linspace(0,360,n) but that may introduce NaN at 360
       %NOTICE: the use of delta may look redundant but linspace is not very accurate and introduces small variations
       out=0:simplegrid.delta(0,360,n):360;
       %NOTICE: there is particular requirement for having (or not) longitude at degree 360 (degree 0 should be there, if relevant);
@@ -173,13 +173,13 @@ classdef simplegrid < simpletimeseries
       end
     end
     function     out=vecmat_check(vecmat)
-      
+
       %easier names
-      type='vectmat'; 
+      type='vectmat';
       %need structure
       if ~isstruct( vecmat);       error([mfilename,': invalid ',type,': not a structure.']); end
       %need to check lon/lat fields existence now, before determining if they are uniform
-      if ~isfield(    vecmat,'lon'); error([mfilename,': invalid ',type,': field ''lon'' is missing.']);end 
+      if ~isfield(    vecmat,'lon'); error([mfilename,': invalid ',type,': field ''lon'' is missing.']);end
       if ~isfield(    vecmat,'lat'); error([mfilename,': invalid ',type,': field ''lat'' is missing.']);end
       if ~isempty(vecmat.lon) && ~isempty(vecmat.lat)
         % Calculate the spacing and limits
@@ -276,7 +276,7 @@ classdef simplegrid < simpletimeseries
       else
         idx=struct('lon',[],'lat',[]);
         out=struct('lon',[],'lat',[]);
-      end  
+      end
       %map
       if ~isfield(    list,'map'); error([mfilename,': invalid ',type,': field ''map'' is missing.']);end
       if     ~isempty(list.map)
@@ -323,7 +323,7 @@ classdef simplegrid < simpletimeseries
         out=false;
       end
     end
-    function [out,idx]=flatlist_check(flatlist) 
+    function [out,idx]=flatlist_check(flatlist)
       %easier names
       type='flatlist';
       %need structure
@@ -362,7 +362,7 @@ classdef simplegrid < simpletimeseries
       else
         idx=struct('lon',[],'lat',[],'t',[]);
         out=struct('lon',[],'lat',[],'t',[]);
-      end  
+      end
       %map
       if ~isfield(    flatlist,'map'); error([mfilename,': invalid ',type,': field ''map'' is missing.']);end
       if     ~isempty(flatlist.map)
@@ -415,7 +415,7 @@ classdef simplegrid < simpletimeseries
       %need structure
       if ~isstruct( matrix);       error([mfilename,': invalid ',type,': not a structure.']); end
       %need to check lon/lat fields existence now, before determining if they are uniform
-      if ~isfield(    matrix,'lon'); error([mfilename,': invalid ',type,': field ''lon'' is missing.']);end 
+      if ~isfield(    matrix,'lon'); error([mfilename,': invalid ',type,': field ''lon'' is missing.']);end
       if ~isfield(    matrix,'lat'); error([mfilename,': invalid ',type,': field ''lat'' is missing.']);end
       if ~isempty(matrix.lon) && ~isempty(matrix.lat)
         % Calculate the spacing and limits
@@ -443,7 +443,7 @@ classdef simplegrid < simpletimeseries
       if ~isempty(   matrix.map) && ...
           ~isnumeric(matrix.map);   error([mfilename,': invalid ',type,': field ''map'' is not numeric.']);end
       %lon
-      if ~isfield(    matrix,'lon'); error([mfilename,': invalid ',type,': field ''lon'' is missing.']);end 
+      if ~isfield(    matrix,'lon'); error([mfilename,': invalid ',type,': field ''lon'' is missing.']);end
       if ~isempty(    matrix.lon)
         if ~ismatrix( matrix.lon);   error([mfilename,': invalid ',type,': field ''lon'' is not a matrix.']);end
         if ~isnumeric(matrix.lon);   error([mfilename,': invalid ',type,': field ''lon'' is not numeric.']);end
@@ -457,7 +457,7 @@ classdef simplegrid < simpletimeseries
       if ~isempty(    matrix.lat)
         if ~ismatrix( matrix.lat);   error([mfilename,': invalid ',type,': field ''lat'' is not a matrix.']);end
         if ~isnumeric(matrix.lat);   error([mfilename,': invalid ',type,': field ''lat'' is not numeric.']);end
-        if ~isempty(  matrix.map) && ... 
+        if ~isempty(  matrix.map) && ...
             any(size( matrix.lat) ~= ...
             size(     matrix.map(:,:,1))) %#ok<ALIGN>
                                      error([mfilename,': invalid ',type,': field ''lat'' has different sizes than rows and columns of ''map''.']);end
@@ -467,7 +467,7 @@ classdef simplegrid < simpletimeseries
       if ~isvector(  matrix.t  );   error([mfilename,': invalid ',type,': field ''t'' is not a vector.']);end
       if ~isdatetime(matrix.t  ) && ...
          ~isnumeric( matrix.t  );   error([mfilename,': invalid ',type,': field ''t'' is not datetime or numeric.']);end
-      if  ~isempty(  matrix.map) && ... 
+      if  ~isempty(  matrix.map) && ...
           numel(     matrix.t  ) ~= ...
           size(      matrix.map,3) %#ok<ALIGN>
                                     error([mfilename,': invalid ',type,': field ''t'' has different nr of elements than pages of ''map''.']);end
@@ -519,7 +519,7 @@ classdef simplegrid < simpletimeseries
     function flatlist=vecmat2flatlist(vecmat)
       % need list (vecmat is checked inside vecmat2list)
       list=simplegrid.vecmat2list(vecmat);
-      % build 3d meshgrids     
+      % build 3d meshgrids
       [lat,t,lon]=meshgrid(vecmat.lat(:),datenum(list.t(:)),vecmat.lon(:));
       %assign outputs: collapse everything into vectors
       flatlist=struct(...
@@ -688,7 +688,7 @@ classdef simplegrid < simpletimeseries
     end
     %% constructors
     function obj=unit(n_lon,n_lat,varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'n_lon',  @isnumeric);
       p.addRequired( 'n_lat',  @isnumeric);
       p.addParameter('scale',1,@num.isscalar);
@@ -713,7 +713,7 @@ classdef simplegrid < simpletimeseries
     end
     % Creates a random model with mean 0 and std 1
     function obj=unit_randn(n_lon,n_lat,varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'n_lon',  @num.isscalar);
       p.addRequired( 'n_lat',  @num.isscalar);
       p.addParameter('scale',1,@num.isscalar);
@@ -727,7 +727,7 @@ classdef simplegrid < simpletimeseries
       );
     end
     function obj=slanted(n_lon,n_lat,varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'n_lon',  @num.isscalar);
       p.addRequired( 'n_lat',  @num.isscalar);
       p.addParameter('scale',1,@num.isscalar);
@@ -745,12 +745,12 @@ classdef simplegrid < simpletimeseries
     end
     %NOTICE: inputs lon and lat can be scalar (domain size) or vectors (domain entries)
     function obj=landmask(lon,lat,varargin)
-      p=inputParser;p.KeepUnmatched=true;p.PartialMatching=false; p.CaseSensitive=true;
+      p=machinery.inputParser('CaseSensitive',true);
       p.addRequired( 'lon',  @isnumeric);
       p.addRequired( 'lat',  @isnumeric);
       p.addParameter('t',     datetime('now'),@isdatetime);
       %values higher than this cuttoff are land, lower are ocean; negative values leave the interpolation unchanged
-      p.addParameter('cutoff',-1, @num.isscalar); 
+      p.addParameter('cutoff',-1, @num.isscalar);
       p.parse(lon,lat,varargin{:});
       %load the data
       fmat=fullfile(file.orbdir('auxiliary'),'landmask.mat');
@@ -781,7 +781,7 @@ classdef simplegrid < simpletimeseries
       end
     end
     function obj=oceanmask(lon,lat,varargin)
-      p=inputParser;p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'lon',  @isnumeric);
       p.addRequired( 'lat',  @isnumeric);
       p.addParameter('t',     datetime('now'),@isdatetime);
@@ -789,7 +789,7 @@ classdef simplegrid < simpletimeseries
       p.parse(lon,lat,varargin{:});
       %load the data
       fdat=fullfile(file.orbdir('auxiliary'),'wahr.global_ocn_kernel.txt');
-      oceanmask=gravity.load(fdat,'mod').grid;
+      oceanmask=gravity.load(fdat,'format','mod').grid;
       %resample to requested resolution
       if isscalar(lon) && isscalar(lat)
         obj=oceanmask.spatial_resample(lon,lat);
@@ -808,7 +808,7 @@ classdef simplegrid < simpletimeseries
       end
     end
     function out=load_mask(filename,t)
-      fid=fopen(filename);
+      fid=file.open(filename);
       d=textscan(fid,'%f %f %s');
       fclose(fid);
       if isscalar(t)
@@ -824,7 +824,7 @@ classdef simplegrid < simpletimeseries
     end
     %% map add-ons
     function h=coast(varargin)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addParameter('datafile',fullfile(file.orbdir('auxiliary'),'coast.mat'));
       p.addParameter('line_color','k',@ischar);
       p.addParameter('line_width',1.5,  @num.isscalar);
@@ -833,7 +833,7 @@ classdef simplegrid < simpletimeseries
       p.parse(varargin{:});
       coast = load(p.Results.datafile);
       keep_idx=find(...
-        ( coast.long<=max(p.Results.lon) & coast.long>=min(p.Results.lon) & ...    
+        ( coast.long<=max(p.Results.lon) & coast.long>=min(p.Results.lon) & ...
           coast.lat <=max(p.Results.lat) & coast.lat >=min(p.Results.lat) ) | ...
         isnan(coast.lat) | isnan(coast.long)  ...
       );
@@ -856,7 +856,7 @@ classdef simplegrid < simpletimeseries
             out{i,1}=tmp{i}{1};
             out{i,2}=tmp{i}{2};
           end
-        end    
+        end
         return
       end
       idx=simplegrid.catchment_idx(name);
@@ -865,7 +865,7 @@ classdef simplegrid < simpletimeseries
       case 'lon';                out=simplegrid.catchment_list{idx,3};
       case {'lonlat','latlon'};  out=simplegrid.catchment_list(idx,2:3);
       otherwise; error(['Cannot handle field ''',field,'''.'])
-      end    
+      end
     end
     function out=catchment_subset(names)
       %trivial call
@@ -1076,8 +1076,7 @@ classdef simplegrid < simpletimeseries
   methods
     %% constructor
     function obj=simplegrid(t,map,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('t',  @(i) ischar(i) || isnumeric(i) || isdatetime(i)); %this can be char, double or datetime
       p.addRequired('map',@(i) isnumeric(i) || iscell(i));
       p.addParameter('lat',simplegrid.lat_default(size(map,1)), @isnumeric);
@@ -1102,8 +1101,7 @@ classdef simplegrid < simpletimeseries
       end
     end
     function obj=assign(obj,map,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 'map',         @(i) isnumeric(map) || iscell(map));
       p.addParameter('t',   obj.t,  @(i) simpletimeseries.valid_t(i));
       p.addParameter('lon', obj.lon,@(i) isnumeric(i) && ~isempty(i));
@@ -1176,6 +1174,7 @@ classdef simplegrid < simpletimeseries
       %call superclass
       out=metadata@simpletimeseries(obj,[simplegrid.parameters('list');more_parameters(:)]);
     end
+    %the varargin method can be called directly
     %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
@@ -1218,7 +1217,8 @@ classdef simplegrid < simpletimeseries
           mean(obj.t),...
           reshape(s,numel(lat_now),numel(lon_now)),...
           'lat',lat_now,...
-          'lon',lon_now...
+          'lon',lon_now,...
+          obj.varargin{:}...
         );
       case 'simpletimeseries'
         %translate new object
@@ -1226,15 +1226,14 @@ classdef simplegrid < simpletimeseries
           s.t,...
           reshape(s.y,numel(lat_now),numel(lon_now),s.t),...
           'lat',lat_now,...
-          'lon',lon_now...
+          'lon',lon_now,...
+          obj.varargin{:}...
         );
       case 'struct'
         error([mfilename,': cannot retrive multiple stats in the form a structure.'])
       otherwise
         error([mfilename,': cannot handle stats when upstream method returns class ',class(s),'.'])
       end
-      %copy metadata
-      out=out.copy_metadata(obj);
       %update descriptor
       out.descriptor=[varargs(varargin).mode,' of ',obj.descriptor];
     end
@@ -1274,7 +1273,7 @@ classdef simplegrid < simpletimeseries
                'lon',vecmat.lon...
       );
     end
-    %% list handling 
+    %% list handling
     function sl=get.list(obj)
       sl=simplegrid.list_init(obj.t,obj.y,obj.loni,obj.lati);
     end
@@ -1286,7 +1285,7 @@ classdef simplegrid < simpletimeseries
                'lon',list.lon...
       );
     end
-    %% flatlist handling 
+    %% flatlist handling
     function sl=get.flatlist(obj)
       sl=simplegrid.dtc('list','flatlist',obj.list);
     end
@@ -1661,7 +1660,7 @@ classdef simplegrid < simpletimeseries
         case {'rss','norm'}; m.map=sqrt(obj.map_squared_sum_weighted);
       end
       %reduce to timeseries object
-      out=simpletimeseries(obj.t,m.map(:)).copy_metadata(obj);
+      out=simpletimeseries(obj.t,m.map(:),obj.varargin{:});
       out.descriptor=[mode,' of ',obj.descriptor,' (centered at ',num2str(m.lat),'deg lat by ',num2str(m.lon),'deg long)'];
       %adjust labels and units (NOTICE; this assumes there is no order in the labels and units (which makes sense in a grid)
       out.labels=obj.labels(1);
@@ -1751,7 +1750,7 @@ classdef simplegrid < simpletimeseries
           'timesystem',obj.timesystem,...
           'units',obj.units(1:numel(x)),...
           'descriptor',['RMS of ',obj.descriptor]...
-        );      
+        );
       end
     end
     function [y,x,ts]=mean(obj,mode)
@@ -1796,7 +1795,7 @@ classdef simplegrid < simpletimeseries
           'timesystem',obj.timesystem,...
           'units',obj.units(1:numel(x)),...
           'descriptor',['mean of ',obj.descriptor]...
-        );      
+        );
       end
     end
     function [y,x,ts]=std(obj,mode)
@@ -1841,7 +1840,7 @@ classdef simplegrid < simpletimeseries
           'timesystem',obj.timesystem,...
           'units',obj.units(1:numel(x)),...
           'descriptor',['STD of ',obj.descriptor]...
-        );      
+        );
       end
     end
     %% convert to spherical harmonics
@@ -1876,8 +1875,7 @@ classdef simplegrid < simpletimeseries
     end
     %% multiple operands
     function compatible(obj1,obj2,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('skip_par_check',{''},@iscellstr)
       p.parse(varargin{:});
       %call mother routine
@@ -1894,7 +1892,7 @@ classdef simplegrid < simpletimeseries
         end
         if ~cells.isincluded(p.Results.skip_par_check,par{i}) && ~isequal(obj1.(par{i}),obj2.(par{i}))
           error([mfilename,': discrepancy in parameter ',par{i},'.'])
-        end 
+        end
       end
     end
     %the merge method can be called irectly
@@ -1941,13 +1939,13 @@ classdef simplegrid < simpletimeseries
       'boxes',                  {}, @iscell;...s
       'boxes_fmt',         {'r--'}, @iscellstr;...
       }},varargin{:});
-      %interpolate at the requested time and 
+      %interpolate at the requested time and
       obj_interp=obj.interp(v.t);
       %upsample if needed
       if v.plot_spatial_step>0
         obj_interp=spatial_interp(obj_interp,simplegrid.lon_stepped(v.plot_spatial_step),simplegrid.lon_stepped(v.plot_spatial_step));
       end
-      %resample to center of grid if requested 
+      %resample to center of grid if requested
       if v.center_resample
         obj_interp=obj_interp.center_resample;
       end
@@ -2025,7 +2023,7 @@ classdef simplegrid < simpletimeseries
     function out=catchment(obj,name,varargin)
       out=simplegrid.catchment_plot(obj.catchment_get(name,varargin{:}),varargin{:});
     end
-    %% export 
+    %% export
     function xyz(obj,filename,varargin)
       v=varargs.wrap('sources',{{...
         'header',  'default',   @ischar;...
@@ -2104,7 +2102,7 @@ function out_grid = grid_constructor(varargin)
   THRS = 1E-8; % Allow input grid to deviate from regular one by this relative amount.
 
   % Define default inputs
-  p=inputParser;
+  p=machinery.inputParser;
   % xlist  can be many this, so no check is made.
   p.addOptional('xlist',[],@(x)isgrid(x) | isnumeric(x) | ischar(x) | iscell(x));
   p.addOptional('ylist',[],@(x)isnumeric(x));
@@ -3068,7 +3066,7 @@ function [c_out,s_out,msg]=mod_sh_ana(long,lat,grid,N)
 
   %init message
   msg='';
-  
+
   %NaNs and infs are set to zero
   if any(~isfinite(c_out(:)))
       msg=['WARNING: found ',num2str(sum(~isfinite(c_out(:)))),' NaN or inf cosine coefficients'];

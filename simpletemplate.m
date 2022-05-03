@@ -48,9 +48,9 @@ classdef simpletemplate < simpletimeseries
       else
         %transmute into this object
         if isprop(in,'t')
-          out=simpletemplate(in.t,in.y,in.metadata{:});
+          out=simpletemplate(in.t,in.y,in.varargin{:});
         elseif isprop(in,'x')
-          out=simpletemplate(in.x,in.y,in.metadata{:});
+          out=simpletemplate(in.x,in.y,in.varargin{:});
         else
           error('Cannot find ''t'' or ''x''. Cannot continue.')
         end
@@ -96,8 +96,7 @@ classdef simpletemplate < simpletimeseries
     %% constructor
     function obj=simpletemplate(t,y,varargin)
       % input parsing
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired( 't' ); %this can be char, double or datetime
       p.addRequired( 'y', @(i) simpledata.valid_y(i));
       %create argument object, declare and parse parameters, save them to obj
@@ -131,15 +130,16 @@ classdef simpletemplate < simpletimeseries
         more_parameters={};
       end
       %call superclass
-      obj=copy_metadata@simpletimeseries(obj,obj_in,[gravity.parameters('list');more_parameters(:)]);
+      obj=copy_metadata@simpletimeseries(obj,obj_in,[simpletemplate.parameters('list');more_parameters(:)]);
     end
     function out=metadata(obj,more_parameters)
       if ~exist('more_parameters','var')
         more_parameters={};
       end
       %call superclass
-      out=metadata@simpletimeseries(obj,[gravity.parameters('list');more_parameters(:)]);
+      out=metadata@simpletimeseries(obj,[simpletemplate.parameters('list');more_parameters(:)]);
     end
+    %the varargin method can be called directly
     %% info methods
     function print(obj,tab)
      if ~exist('tab','var') || isempty(tab)

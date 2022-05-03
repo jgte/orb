@@ -216,8 +216,7 @@ classdef attitude
   methods
     %% constructor
     function obj=attitude(varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       %parse the arguments with the names defined in attitude.data_type_list
       for j=1:numel(attitude.data_types)
         %shorter names
@@ -252,8 +251,7 @@ classdef attitude
       %simplify things
       data_type=lower(data_type);
       %parse input
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('data_type' ,@(i) ischar(i) && cells.isincluded(attitude.data_types,i));
       p.addRequired('data_value',@(i) isa(i,'simpletimeseries'));
       % parse it
@@ -297,6 +295,10 @@ classdef attitude
       ).varargin;
       warning on MATLAB:structOnObject
     end
+    function out=varargin(obj,more_parameters)
+      out=varargs(obj.metadata(more_parameters)).varargin;
+    end
+    %% info methods
     function print(obj,tab)
       if ~exist('tab','var') || isempty(tab)
         tab=20;
@@ -722,7 +724,7 @@ classdef attitude
           end
         end
         %build attitude object for this statistic
-        out.(s_list{i})=attitude(t,args{:}).copy_metadata(obj);
+        out.(s_list{i})=attitude(t,args{:},obj.varargin{:});
       end
 
     end

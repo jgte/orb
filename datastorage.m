@@ -121,8 +121,7 @@ classdef datastorage
         dn_list='all';
       end
       %parse optional arguments
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('info_methods',{'size','nr_gaps','start','stop','first','last'}, @(i) ischar(i) || iscellstr(i));
       p.addParameter('tab_info_methods',[12,7,20,20,20,20], @isnumeric);
       p.addParameter('tab_product_names',32, @num.isscalar);
@@ -163,8 +162,7 @@ classdef datastorage
         dn_list='all';
       end
       %parse optional arguments
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('info_method','nr_gaps', @ischar);
       p.addParameter('tab',[32,11], @isnumeric);
       p.addParameter('period',days(1), @isduration);
@@ -233,8 +231,7 @@ classdef datastorage
     end
     %% data operations (this is serialized!)
     function out=isdata_leaf(obj,dn,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('only_non_empty',false,@(i) islogical(i) && isscalar(i));
       p.parse(varargin{:});
       %reduce dataname to common object
@@ -243,8 +240,7 @@ classdef datastorage
       out=~isfield(obj.data,dn.name_clean) || structs.isleaf(obj.data.(dn.name_clean),dn.field_path,p.Results.only_non_empty);
     end
     function dn_list=data_list(obj,dn,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('direct_access',false,@(i) islogical(i) && isscalar(i));
       p.parse(varargin{:});
       if numel(dn)==0
@@ -578,8 +574,7 @@ classdef datastorage
     end
     %NOTICE: this is the same as obj.startstop_update, except is can act on specific products (with 'dn_list')
     function obj_out=trim(obj,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('start',  obj.start,@(i) isdatetime(i) && isscalar(i));
       p.addParameter('stop',   obj.stop, @(i) isdatetime(i) && isscalar(i));
       p.addParameter('dn_list',obj.data_list('all'), @iscell);
@@ -1036,8 +1031,7 @@ classdef datastorage
       obj.log('@','in','id',id,'varargin',varargin,'start',obj.start,'stop',obj.stop)
       %retrieve product info
       product=obj.product_get(id,varargin{:});
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('filename',product.codename,@ischar);
       % parse it
       p.parse(varargin{:});
@@ -1064,8 +1058,7 @@ classdef datastorage
     %% datatype initialization
     %NOTICE: do not pass default values through varargin because they will override the metadata of product
     function obj=init(obj,id,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addParameter('reload', false, @(i) islogical(i) && isscalar(i)); %re-loads the data if already loaded
       p.addParameter('force',  false, @(i) islogical(i) && isscalar(i)); %calls the init method even if the data is already saved
       p.addParameter('subcat',    '', @ischar);
@@ -1357,8 +1350,7 @@ classdef datastorage
       obj.log('@','out','product_list',product_list)
     end
     function obj=init_sources(obj,product,varargin)
-      p=inputParser;
-      p.KeepUnmatched=true;
+      p=machinery.inputParser;
       p.addRequired('product',        @(i) isa(i,'dataproduct'));
       p.addParameter('reload', false, @(i) islogical(i) && isscalar(i));
       p.addParameter('force',  false, @(i) islogical(i) && isscalar(i));
@@ -2224,7 +2216,7 @@ classdef datastorage
     function obj=corr(obj,product,varargin)
       error('implementation needed')
       % parse mandatory arguments
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired('product', @(i) isa(i,'dataproduct'));
       p.parse(product);
       %sanity

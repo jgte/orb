@@ -349,7 +349,7 @@ classdef time
     end
     %% lists
     function [startlist,stoplist]=day_list(start,stop)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
       p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
       p.parse(start,stop)
@@ -361,7 +361,7 @@ classdef time
       end
     end
     function [startlist,stoplist]=month_list(start,stop)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
       p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
       p.parse(start,stop)
@@ -378,7 +378,7 @@ classdef time
       end
     end
     function [startlist,stoplist]=year_list(start,stop)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
       p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
       p.parse(start,stop)
@@ -395,7 +395,7 @@ classdef time
       end
     end
     function [startlist,stoplist]=list(start,stop,period)
-      p=inputParser;
+      p=machinery.inputParser;
       p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
       p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
       p.addRequired( 'period',  @isduration);

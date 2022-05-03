@@ -38,6 +38,13 @@ classdef cells
             continue
           end
         end
+        if isdatetime(c1{i})
+          if c1{i} ~= c2{i}
+            return
+          else
+            continue
+          end
+        end
         if iscell(c1{i})
           if ~cells.isequal(c1{i},c2{i})
             return
@@ -45,15 +52,20 @@ classdef cells
             continue
           end
         end
+        if isstruct(c1{i})
+          fn=fieldnames(c1{i});
+          for f=1:numel(fn)
+            if ~isfield(c2{i},fn{f})
+              return;
+            end
+            if ~cells.isequal(c1{i}.(fn{f}),c2{i}.(fn{f}))
+              return
+            end
+          end
+          continue
+        end
         if isa(c1{i},'function_handle')
           if ~strcmp(func2str(c1{i}),func2str(c2{i}))
-            return
-          else
-            continue
-          end
-        end
-        if isdatetime(c1{i})
-          if c1{i} ~= c2{i}
             return
           else
             continue
@@ -357,9 +369,9 @@ classdef cells
       %[io,changed]=scalar(io,direction)
       %depending on the value of 'direction' (defaults to 'get'):
       % - if get: checks if there is only one cell entry, if so return it (changed is true);
-      % otherwise nothing changes (changed is false)
-      % - if set: checks if it's a cell array, if so return it (changed is
-      % false); otherwise make it a cell and return io (changed is true)
+      %   otherwise nothing changes (changed is false)
+      % - if set: checks if it's a cell array, if so return it (changed is false); 
+      %   otherwise make it a cell and return io (changed is true)
       if ~exist('direction','var') || isempty(direction)
         direction='get';
       end
