@@ -283,7 +283,7 @@ classdef file
     function out=str_equal(f1,f2)
       s1=file.strload(f1);
       s2=file.strload(f2);
-      out=any((s1.^2-s2.^2)~=0);
+      out=numel(s1)==numel(s2) & ~any((s1.^2-s2.^2)~=0);
     end
     %% resolves filenames that exist in multiple machines, each one with a home directory listed in file.homes
     function io=resolve_home(io)
