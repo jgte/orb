@@ -119,5 +119,22 @@ classdef utilsTest
       end
       testCase.verifyTrue(check,msg);
     end
+    %NOTICE: Runs checkcode on all m-files in this dir
+    function checkcode
+      %get list of plots to check
+      file_list=dir('.');
+      %loop over all plots
+      for i=1:numel(file_list)
+        %skip directories
+        if file_list(i).isdir; continue; end
+        %get extension
+        [~,~,e]=fileparts(file_list(i).name);
+        %only look at m-files
+        if ~strcmp(e,'.m'); continue; end
+        disp(['--- ',file_list(i).name])
+        checkcode(file_list(i).name)
+      end
+
+    end
   end
 end
