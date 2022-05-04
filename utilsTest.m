@@ -26,7 +26,7 @@ classdef utilsTest
       dircheck=utilsTest.dircheck(test);
       %make sure dirs exist
       if ~file.exist(dirtest)
-        warning(['plot directory ',dirtest,' is missing, created now.'])
+        warning(['test directory ',dirtest,' is missing, created now.'])
         file.mkdir(dirtest)
       end
       if ~file.exist(dircheck)
