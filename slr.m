@@ -294,14 +294,14 @@ classdef slr < gravity
     end
     %% load predefined SLR data
     function obj=load(source,varargin)
-     %handle producing the parametric model
+      %parse arguments that are required later
+      v=varargs.wrap('sources',{...
+        {...
+          'time',        [], @(i) isdatetime(i) || isempty(i);...
+        },...
+      },varargin{:});
+      %handle producing the parametric model
       if contains(source,'-C20-model')
-        %parse arguments that are required later
-        v=varargs.wrap('sources',{...
-          {...
-            'time',        [], @(i) isdatetime(i) || isempty(i);...
-          },...
-        },varargin{:});
         %save data source
         data_source=strrep(source,'-C20-model','');
         %build parametric model data filename
@@ -359,6 +359,11 @@ classdef slr < gravity
             [t,y,header]=import_C20('source',source,varargin{:});
           otherwise
             error(['Cannot handle SLR data of type ''',source,'''.'])
+        end
+        if ~isempty(v.time)
+          %enfore requested times
+          y=interp1(t,y,v.time,'linear',NaN);
+          t=v.time;
         end
       end
       obj=slr(t,y,varargs(header).varargin{:},varargin{:});
