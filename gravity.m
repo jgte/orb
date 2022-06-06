@@ -709,7 +709,9 @@ classdef gravity < simpletimeseries
           'static',            'ggm05c', @ischar;...
           'smoothing_radius',     750e3, @isnumeric;...
           'functional',          'eqwh', @ischar;...
-          'spatial_step',             2, @isnumeric;
+          'spatial_step',             1, @isnumeric;
+          'C20_replacement',     'none', @ischar;... %NOTICE: 'GSFC5x5' is a good option for this
+          'lmax',                    -1, @isnumeric;
         },...
       },varargin{:});
       functional='eqwh';
@@ -720,6 +722,15 @@ classdef gravity < simpletimeseries
         'wildcarded_filename',v.wildcarded_filename,...
         'descriptor',v.wildcarded_filename...
       );
+      %set max degree
+      if v.lmax>0
+        g.lmax=v.lmax;
+      end
+      %replace C20
+      if ~str.none(v.C20_replacement)
+        c20=slr.load(v.C20_replacement,'time',g.t);
+        g=g.setC(2,0,c20.C(2,0));
+      end
       %remove static model
       g=g-gravity.static(v.static).set_lmax(g.lmax).scale(g).set_t(g.t(1));
       %convert to equivalent water height
