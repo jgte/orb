@@ -10,10 +10,17 @@ classdef utilsTest
       out=fullfile(utilsTest.testdir_in,test);
     end
     function out=dirtest(test)
+      %NOTICE: these directories contain the files that are going to be tested
       out=fullfile(utilsTest.testdir_out,[test,'.test']);
     end
     function out=dircheck(test)
-      out=fullfile(utilsTest.testdir_out,test);
+      %NOTICE: these directories contain the files that were previously generated and are
+      %        going to be used to check if the tested files are as expected. If these
+      %        directories/files do not exist, they are generated anew from the current
+      %        implementation. This means that these tests expect the tests to have been 
+      %        run previously, in earlier versions of the code, in order to check it things
+      %        changed significantly.
+      out=fullfile(utilsTest.testdir_out,[test,'.check']);
     end
     %NOTICE: This utility should come after all plots are generated for a given test; the
     %        plots for this test are placed in the same directory and this utility loops
@@ -43,7 +50,7 @@ classdef utilsTest
         %skip directories
         if file_list(i).isdir; continue; end
         %easier names
-        file_test=fullfile(dirtest,file_list(i).name);
+        file_test =fullfile(dirtest ,file_list(i).name);
         file_check=fullfile(dircheck,file_list(i).name);
         %check if file exists in dircheck
         if ~file.exist(file_test)
