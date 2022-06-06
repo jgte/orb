@@ -63,7 +63,7 @@ classdef gravity < simpletimeseries
         'functional',   'nondim', @(i) ischar(i) && any(strcmp(i,gravity.functionals)); %see above
         'zf_love', 0.30190,       @num.isscalar;...      % zero frequency Love number: reported in IERS2003 Section 6.3 as "k20"
         'pt_factor',1.391413e-08, @num.isscalar;...      % permanent tide factor: reported in IERS2003 Section 6.3 as "A0*H0", (4.4228e-8)*(0.31460)
-        'static_model',       '', @ischar;...
+        'static_model',   'none', @ischar;... %assume there is no static model; if there is one, it has to be specified
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
