@@ -1182,14 +1182,21 @@
         end
       end
     end
-    function out=size(obj)
+    function out=size(obj,varargin)
       out=[obj.length,obj.width];
+      switch numel(varargin)
+      case 0
+        return
+      case 1
+        out=out(varargin{1});
+      otherwise
+        error('Cannot handle two optional inputs.')
+      end
     end
+    %NOTICE: cannot use numel because it is often used by external code to iterate over 
+    %        arrays of objects, not properties (like time or y)
 %     function out=numel(obj)
 %       out=obj.length*obj.width;
-%     end
-%     function out=class(obj)
-%       out=class(obj);
 %     end
     %% x methods
     function out=x_masked(obj,mask)
