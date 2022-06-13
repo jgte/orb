@@ -154,8 +154,9 @@ classdef pardecomp
       end
       %init containers
       init=str2func(class(obj)); %use correct constructor
-      pd_args=cell(1,4*pardecomp.xlength(d(1).np,d(1).T)); c=0;
+      pd_args=cell(1,4*pardecomp.xlength(d(1).np,d(1).T)); 
       coeffnames=pardecomp.xnames(d(1).np,d(1).T);
+      c=0;
       for j=1:numel(coeffnames)
         %retrieve coefficient index within its type
         switch coeffnames{j}(1)
@@ -172,7 +173,7 @@ classdef pardecomp
           error(['Cannot understand the coefficient name ''',coeffnames{j},'''.'])
         end
         %save coefficients (indexed to zero-date, since they are time-invariant)
-        o=init(time.zero_date,transpose(num.struct_deal(d,coeffnames{j}(1),i,[])),obj.varargin{:});
+        o=init(time.zero_date,transpose(num.struct_deal(d,coeffnames{j}(1),i,[])),obj.varargin{:},'silent',true);
         o.descriptor=[coeffnames{j},' of ',str.clean(obj.descriptor,'file')];
         o.units(:)={units}; o.labels(:)={labels};
         %append to pd_args
@@ -184,7 +185,8 @@ classdef pardecomp
         %make sure time domain is not borked
         assert(all(simpledata.isx('==',obj.x_masked,x_now)),['time domain discrepancy in ',o.descriptor])
         %save timeseries represented by each coefficient
-        o=init(obj.t_masked,num.struct_deal(d,['y',coeffnames{j}(1)],[],i),obj.varargin{:});
+        clearvars o
+        o=init(obj.t_masked,num.struct_deal(d,['y',coeffnames{j}(1)],[],i),obj.varargin{:},'silent',true);
         o.descriptor=['p',num2str(i-1),' of ',str.clean(obj.descriptor,'file')];
         %restore gaps
         o=o.t_merge(obj.t);
@@ -207,17 +209,20 @@ classdef pardecomp
       %this is the abcissae defined in obj, excluding gaps
       pd_set.t_masked=obj.t_masked;
       %save residuals
-      o=init(obj.t_masked,num.struct_deal(d,'yr',[],1),obj.varargin{:});
+      clearvars o
+      o=init(obj.t_masked,num.struct_deal(d,'yr',[],1),obj.varargin{:},'silent',true);
       o.descriptor=['residual of ',str.clean(obj.descriptor,'file')];
       %restore gaps
       o=o.t_merge(obj.t);
       pd_set.res=o;
       %save norms
-      o=init(time.zero_date,num.struct_deal(d,'rn',[],1),obj.varargin{:});
+      clearvars o
+      o=init(time.zero_date,num.struct_deal(d,'rn',[],1),obj.varargin{:},'silent',true);
       o.descriptor=['norm of the residuals of ',str.clean(obj.descriptor,'file')];
       pd_set.norm=o;
       %save norm ratio
-      o=init(time.zero_date,num.struct_deal(d,'rrn',[],1),obj.varargin{:});
+      clearvars o
+      o=init(time.zero_date,num.struct_deal(d,'rrn',[],1),obj.varargin{:},'silent',true);
       o.descriptor=['signal and residual norms ratio for ',str.clean(obj.descriptor,'file')];
       pd_set.rnorm=o;
     end
