@@ -433,51 +433,117 @@ classdef pardecomp
       end
     end
     %% general test for the current object
-    function obj=test(varargin)
-        v=varargs.wrap('sources',{...
+    function out=test(varargin)
+      v=varargs.wrap('sources',{...
         {...
+          'mode',   'base', @ischar;...
           'plot',   false, @islogical;...
           'print',   true, @islogical;...
         }},...
       varargin{:});
-      %test parameters
-      step=1;
-      n=10000;
-      poly_coeffs=[1 3 5]./[1 n n^2];
-      sin_periods=n/step./[2 5];
-      sin_periods_assumed=sin_periods;
-       sin_coeffs=[0.5 3];
-       cos_coeffs=[2 0.8];
-      %TODO: implement multiple columns in Y
-%       randn_scale=[0.1,1,10];
-      randn_scale=0.1;
-      %derived parameters
-      t=transpose(1:step:(n*step));
-      %forward modelling
-      ref=pardecomp(t,[],...
-        'np',numel(poly_coeffs),...
-        'T',sin_periods,...
-        'p',poly_coeffs,...
-        's',sin_coeffs,...
-        'c',cos_coeffs...
-      );
-      y=ref.y_sum;
-      %add noise
-      y=y*ones(size(randn_scale))+randn(size(y))*randn_scale;
-      %inversion
-      obj=pardecomp(t,y,...
-        'np',numel(poly_coeffs),...
-        'T',sin_periods_assumed...
-      ).lsq;
-      %show results
-      if v.plot
-        for i=1:numel(randn_scale)
-          obj.plot(varargin{:},'columns',{i});
+      switch v.mode
+      case 'parameters'
+        %test parameters
+        out.step=1;
+        out.n=10000;
+        out.poly_coeffs=[1 3 5]./[1 out.n out.n^2];
+        out.sin_periods=out.n/out.step./[2 5];
+        out.sin_coeffs=[0.5 3];
+        out.cos_coeffs=[2 0.8];
+        out.sin_periods_assumed=out.sin_periods;
+        %derived parameters
+        out.t=transpose(1:out.step:(out.n*out.step));
+%TODO: implement multiple columns in Y
+  %       obj.randn_scale=[0.1,1,10];
+        out.randn_scale=0.1;
+      case {'for','forward','forwards'}
+        %retrieve parameterss
+        p=pardecomp.test('mode','parameters');
+        %forward modelling
+        out=pardecomp(p.t,[],...
+          'np',numel(p.poly_coeffs),...
+          'T',p.sin_periods,...
+          'p',p.poly_coeffs,...
+          's',p.sin_coeffs,...
+          'c',p.cos_coeffs...
+        ).forward;
+        %show results
+        if v.plot
+          for i=1:numel(p.randn_scale)
+            out.plot(varargin{:},'columns',{i});
+          end
+          plotting.enforce;
+        end
+      case {'back','backward','backwards'}
+        %retrieve parameters
+        p=pardecomp.test('mode','parameters');
+        %retrieve forward model
+        ref=pardecomp.test('mode','forward');
+        %add noise
+        y=ref.y_sum;
+        y=y*ones(size(p.randn_scale))+randn(size(y))*p.randn_scale;
+        %backwards modelling
+        out=pardecomp(p.t,y,...
+          'np',numel(p.poly_coeffs),...
+          'T',p.sin_periods_assumed...
+        ).lsq;
+        %show results
+        if v.plot
+          for i=1:numel(p.randn_scale)
+            out.plot(varargin{:},'columns',{i});
+          end
+          plotting.enforce;
+        end
+        %inform
+        if v.print
+          out.print([],ref);
+        end
+      case 'split'
+        epoch=datetime('now');
+        timescale='seconds';
+        %get timeseries objects
+        pd=pardecomp.test('mode','forwards');
+        ts=pd.ts('epoch',epoch);
+        %split it
+        out=pardecomp.split(ts,...
+          'np',pd.np,...
+          'T',pd.T,...
+          'epoch',epoch,...
+          'timescale',timescale,...
+          't0',time.duration2num(ts.start-epoch,timescale)...
+        );
+        %show results
+        if v.plot
+          plotting.figure;
+          fn=fieldnames(out);
+          fn=fn(contains(fn,'ts_'));
+          legend_str=cell(size(fn));
+          for i=1:numel(fn)
+            out.(fn{i}).plot
+            legend_str{i}=strrep(fn{i},'ts_','');
+          end
+          legend(legend_str)
+          plotting.enforce;
+        end
+      case 'join'
+        pd_set=pardecomp.test('mode','split');
+        out=pardecomp.join(pd_set);
+        %show results
+        if v.plot
+          plotting.figure;
+          pd=pardecomp.test('mode','forwards').ts('epoch',out.epoch);
+          subplot(2,1,1)
+          out.plot
+          pd.plot
+          legend('split/joined','forwards')
+          plotting.enforce;
+          subplot(2,1,2)
+          plot(out.y-pd.y)
+          plotting.enforce;
         end
       end
-      %inform
-      if v.print
-        obj.print([],ref)
+      if nargout==0
+        clearvars obj
       end
     end
   end
@@ -510,6 +576,19 @@ classdef pardecomp
         %WARNING: this is a ny-by-ny matrix (i.e. potentially huge)
         obj.Qy=eye(obj.ny);
       end
+    end
+    function out=varargin(obj)
+      out={...
+        'T' ,obj.T;...
+        'np',obj.np;...
+        't0',obj.t0;...
+        'p' ,obj.p;...
+        's' ,obj.s;...
+        'c' ,obj.c;...
+        'x' ,obj.x;...
+        't' ,obj.t;...
+        'y' ,obj.y;...
+      };
     end
     %% info functions
     function disp_field(obj,field,tab,value,label,fmt)
@@ -657,6 +736,9 @@ classdef pardecomp
       out=(eye(obj.ny)-obj.Pa)*obj.y;
     end
     %% forward modelling
+    function obj=forward(obj)
+      obj.y=obj.y_sum;
+    end
     function out=get.y_sum(obj)
       out=obj.A*obj.x;
     end
@@ -692,6 +774,19 @@ classdef pardecomp
         warning on
       end
     end
+    %% convert to time series
+    function out=ts(obj,varargin)
+      w=size(obj.y,2);
+      out=simpletimeseries(...
+        obj.t,...
+        obj.y,...
+        'format','J2000sec',...
+        'labels',strcat(cellstr(repmat('label-',w,1)),cellstr(num2str((1:w)'))),...
+        'units', strcat(cellstr(repmat('unit-', w,1)),cellstr(num2str((1:w)'))),...
+        'descriptor','pardecomp obj',...
+        varargin{:}...
+      );
+    end
     %% general plotting
     function plot(obj,varargin)
       % parse input arguments
@@ -703,12 +798,14 @@ classdef pardecomp
       screen_position=200+[0,0,21,9]*50;
       for j=1:numel(v.columns)
         figure('Position',screen_position,'PaperPosition',screen_position)
-        legend_str=cell(1,obj.nx+2);
-        counter=0;
-        plot(obj.t,obj.y(:,j),'b','LineWidth',2), hold on
-        counter=counter+1;legend_str{counter}='original';
-        plot(obj.t,obj.yr(:,j),'k','LineWidth',2)
-        counter=counter+1;legend_str{counter}='residual';
+        legend_str=cell(1,obj.nx);
+        counter=0; hold on
+        if ~isempty(obj.y)
+          plot(obj.t,obj.y(:,j),'b','LineWidth',2), hold on
+          counter=counter+1;legend_str{counter}='original';
+          plot(obj.t,obj.yr(:,j),'k','LineWidth',2)
+          counter=counter+1;legend_str{counter}='residual';
+        end
         for i=1:numel(obj.p)
           plot(obj.t,obj.yp(:,i),'r','LineWidth',2)
           counter=counter+1;legend_str{counter}=['t^',num2str(i-1),':',num2str(obj.p(i))];
@@ -722,8 +819,12 @@ classdef pardecomp
           counter=counter+1;legend_str{counter}=['cos_',num2str(i),':',num2str(obj.c(i))];
         end
         legend(legend_str,'location','eastoutside')
-        title(['norm(x+res-y)=',num2str(norm(sum([obj.yp,obj.ys,obj.yc,obj.yr,-obj.y],2))),...
-          newline,'T=',num2str(obj.T(:)')])
+        if ~isempty(obj.y)
+          title(['norm(x+res-y)=',num2str(norm(sum([obj.yp,obj.ys,obj.yc,obj.yr,-obj.y],2))),...
+            newline,'T=',num2str(obj.T(:)')])
+        else
+          title(['T=',num2str(obj.T(:)')])
+        end
         fs=16;
         set(    gca,          'FontSize',fs);
         set(get(gca,'Title' ),'FontSize',round(fs*1.3));
