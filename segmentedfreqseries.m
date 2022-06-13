@@ -186,12 +186,15 @@ classdef segmentedfreqseries < simplefreqseries
       % cut into segments
       obj=obj.segmentate(p.Results.seg_length,p.Results.seg_overlap,args{:});
     end
-    function obj=copy_metadata(obj,obj_in,more_parameters)
+    function obj=copy_metadata(obj,obj_in,more_parameters,less_parameters)
+      if ~exist('less_parameters','var')
+        less_parameters={};
+      end
       if ~exist('more_parameters','var')
         more_parameters={};
       end
       %call superclass
-      obj=copy_metadata@simplefreqseries(obj,obj_in,[segmentedfreqseries.parameters('list');more_parameters(:)]);
+      obj=copy_metadata@simplefreqseries(obj,obj_in,[segmentedfreqseries.parameters('list');more_parameters(:)],less_parameters);
     end
     function out=metadata(obj,more_parameters)
       if ~exist('more_parameters','var')

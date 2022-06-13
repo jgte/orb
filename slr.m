@@ -441,6 +441,16 @@ classdef slr < gravity
       %NOTICE: generally, the following options should be in varargin: 'GM', 'R' and 'descriptor'
       obj=obj@gravity(t,y,varargin{:});
     end
+    function obj=copy_metadata(obj,obj_in,more_parameters,less_parameters)
+      if ~exist('less_parameters','var')
+        less_parameters={};
+      end
+      if ~exist('more_parameters','var')
+        more_parameters={};
+      end
+      %call superclass
+      obj=copy_metadata@gravity(obj,obj_in,[gravity.parameters('list');more_parameters(:)],less_parameters);
+    end
     function out=metadata(obj,more_parameters)
       if ~exist('more_parameters','var')
         more_parameters={};

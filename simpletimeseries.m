@@ -738,12 +738,15 @@ classdef simpletimeseries < simpledata
       %sanitize (don't pass t, since it can be deliberatly changed)
       obj.check_st
     end
-    function obj=copy_metadata(obj,obj_in,more_parameters)
+    function obj=copy_metadata(obj,obj_in,more_parameters,less_parameters)
+      if ~exist('less_parameters','var')
+        less_parameters={};
+      end
       if ~exist('more_parameters','var')
         more_parameters={};
       end
       %call superclass
-      obj=copy_metadata@simpledata(obj,obj_in,[simpletimeseries.parameters('list');more_parameters(:)]);
+      obj=copy_metadata@simpledata(obj,obj_in,[simpletimeseries.parameters('list');more_parameters(:)],less_parameters);
     end
     function out=metadata(obj,more_parameters)
       if ~exist('more_parameters','var')
