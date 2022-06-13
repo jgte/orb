@@ -261,12 +261,20 @@ classdef attitude
       %propagate this data type
       obj.(data_type)=data_value;
     end
-    function obj=copy_metadata(obj,obj_in,more_parameters)
+    function obj=copy_metadata(obj,obj_in,more_parameters,less_parameters)
+      if ~exist('less_parameters','var')
+        less_parameters={};
+      end
       if ~exist('more_parameters','var')
         more_parameters={};
       end
       pn=[attitude.parameters('list');more_parameters(:)];
       for i=1:numel(pn)
+        %skip less parameters
+        if ismember(pn{i},less_parameters)
+          continue
+        end
+        %check if this is a relevant parameter to this object and obj_in
         if isprop(obj,pn{i}) && isprop(obj_in,pn{i})
           obj.(pn{i})=obj_in.(pn{i});
         end
@@ -281,7 +289,7 @@ classdef attitude
         end
         %skip if data type is empty
         if ~isempty(obj.(data_type))
-          obj.(data_type)=obj.(data_type).copy_metadata(obj_in.(data_type));
+          obj.(data_type)=obj.(data_type).copy_metadata(obj_in.(data_type),more_parameters,less_parameters);
         end
       end
     end

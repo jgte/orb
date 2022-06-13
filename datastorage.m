@@ -84,7 +84,7 @@ classdef datastorage
         if isempty(varargin{idx_value})
           continue;
         end
-        msg{i}=[varargin{idx_name},':',str.show(varargin{idx_value})];
+        msg{i}=[varargin{idx_name},' ',str.show(varargin{idx_value})];
       end
       %clean up empty cells
       msg=cells.rm_empty(msg);
@@ -124,7 +124,7 @@ classdef datastorage
       p=machinery.inputParser;
       p.addParameter('info_methods',{'size','nr_gaps','start','stop','first','last'}, @(i) ischar(i) || iscellstr(i));
       p.addParameter('tab_info_methods',[12,7,20,20,20,20], @isnumeric);
-      p.addParameter('tab_product_names',32, @num.isscalar);
+      p.addParameter('tab_product_names',42, @num.isscalar);
       p.parse(varargin{:});
       tab=[p.Results.tab_product_names,p.Results.tab_info_methods];
       %show header
@@ -150,7 +150,13 @@ classdef datastorage
             end
           end
         end
-        disp(str.tablify(tab,dn_list{i}.str,msg{:}))
+        if ~all(...
+          cellfun(@(i) strcmp(i,'N/A'        ),msg(2:end)) | ... 
+          cellfun(@(i) strcmp(i,'0'          ),msg(2:end)) | ... 
+          cellfun(@(i) strcmp(i,'00-Jan-0000'),msg(2:end))...
+        )
+          disp(str.tablify(tab,dn_list{i}.str,msg{:}))
+        end
       end
     end
     function da(obj,dn_list,varargin)
@@ -858,7 +864,7 @@ classdef datastorage
           nr_gaps  =max(cells.c2m(obj.overload_struct(s_out,'nr_gaps')));
           nr_data  =min(cells.c2m(obj.overload_struct(s_out,'length')));
           [~,file_now,e]=fileparts(file_list{f});
-          obj.log(['loaded file ',num2str(f),' '],[' ',file_now,e],...
+          obj.log(['loaded file ',num2str(f)],[file_now,e],...
             'cdate',file.datestr(file_list{f}),...
             'cum start',start_now,'cum stop',stop_now,...
             'gaps',nr_gaps,'len',nr_data)

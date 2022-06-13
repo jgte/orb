@@ -1118,10 +1118,10 @@ classdef gravity < simpletimeseries
           fmt='GEO';
         case 'GGM05C'
           datafile=fullfile(file.orbdir('auxiliary'),'GGM05C.gfc');
-          fmt='gcf';
+          fmt='gfc';
         case 'GGM05G'
           datafile=fullfile(file.orbdir('auxiliary'),'ggm05g.gfc');
-          fmt='gcf';
+          fmt='gfc';
         case 'WGS84'
           datafile=fullfile(file.orbdir('auxiliary'),'WGS84.GEO');
           fmt='GEO';
@@ -1409,8 +1409,8 @@ classdef gravity < simpletimeseries
       %NOTICE: notable arguments that may be a good idea to pass:
       % - 'GM'
       % - 'R'
-      % - 'descriptor'
       % - 'tide_system'
+      % - 'descriptor'
       % - 'origin'
       % - 'start'/'stop'
       % input parsing
@@ -1443,12 +1443,15 @@ classdef gravity < simpletimeseries
       %update labels and units
       obj=obj.setlabels;
     end
-    function obj=copy_metadata(obj,obj_in,more_parameters)
+    function obj=copy_metadata(obj,obj_in,more_parameters,less_parameters)
+      if ~exist('less_parameters','var')
+        less_parameters={};
+      end
       if ~exist('more_parameters','var')
         more_parameters={};
       end
       %call superclass
-      obj=copy_metadata@simpletimeseries(obj,obj_in,[gravity.parameters('list');more_parameters(:)]);
+      obj=copy_metadata@simpletimeseries(obj,obj_in,[gravity.parameters('list');more_parameters(:)],less_parameters);
     end
     function out=metadata(obj,more_parameters)
       if ~exist('more_parameters','var')
@@ -1697,6 +1700,9 @@ classdef gravity < simpletimeseries
       end
     end
     function ts=ts_C(obj,d,o)
+      %NOTICE: this method discards many gravity-related parameters, since it spits out a
+      %        simpletimeseries object, which does not contemplate important things such as
+      %        GM, R, tide_system, descriptor, static_model ...
       idx=gravity.colidx(d,o,obj.lmax);
       if isempty(idx)
         ts=[];

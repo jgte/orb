@@ -57,6 +57,7 @@ classdef simpletimeseries < simpledata
       out=v.picker(varargin{:});
     end
     function out=timescale(in)
+      %NOTICE: this method handles both duration and numeric inputs, returning the other data type.
       assert(isduration(in) || isnumeric(in),['Cannot handle inputs of class ',class(in),'.'])
       out=seconds(in);
     end
@@ -2049,7 +2050,7 @@ classdef simpletimeseries < simpledata
     end
     %% parametric decomposition
     function [obj,pd_set]=parametric_decomposition(obj,varargin)
-      %add some defaults
+      %add defaults relevant to simpletimeseries
       v=varargs.wrap('sources',{....
         {...
           'epoch',     obj.epoch, @(i)isdatetime(i) || isscalar(i);...

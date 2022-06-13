@@ -98,6 +98,8 @@ classdef pardecomp
         out=find(cells.isstrequal(pardecomp.xnames(np,T),name));
       end
     end
+    %TODO: Need to revise these functions, they are somewhat duplicate to simpletimeseries.timescale
+    %TODO: It makes sense to support different timescales in simpletimeseries, need to implement that there
     function out=to_timescaled(t,timescale)
       out=time.num2duration(simpletimeseries.timescale(t),timescale);
     end
@@ -109,7 +111,8 @@ classdef pardecomp
       % NOTICE: the following parameters are pretty much mandatory to define the parametric regression (see below)
       % 'T',[2*min(diff(t)),(t(end)-t(1))/2], @(i) isnumeric(i) || isempty(i);...
       % 'np',0,                               @num.isscalar;...
-      % NOTICE: this method expect obj to be simpledata-esque
+      % NOTICE: this method expect obj to be simpledata-esque 
+      % NOTICE: this is a wrapper for a obj.y with several columns (TODO: fix pardecomp.init to handle multiple y columns)
       v=varargs.wrap('sources',{....
         {...
           'timescale','seconds', @ischar;...
@@ -190,7 +193,7 @@ classdef pardecomp
         pd_args{c+2}=o;
         c=c+2;
       end
-      %save everything into pd_set record
+      %save everything into pd_set record (including metadata, done internally)
       pd_set=pardecomp.assemble(...
         'T',d(1).T,...,
         'np',d(1).np,...
@@ -223,13 +226,13 @@ classdef pardecomp
       %sanity
       assert(pardecomp.ispd_set(pd_set),'Input ''pd_set'' must validate the pardecomp.ispd_set method')
       %easiner names
-      coeffnamall=pardecomp.xnames(pd_set.np,pd_set.T);
+      coeffnameall=pardecomp.xnames(pd_set.np,pd_set.T);
       %parse inputs
       v=varargs.wrap('sources',{....
         {...
-          'time',      pd_set.time, @isdatetime;...
-          'coeffnames',coeffnamall,    @iscellstr;...
-          'add_res',   false,       @islogical;...
+          'time',      pd_set.time,  @isdatetime;...
+          'coeffnames',coeffnameall, @iscellstr;...
+          'add_res',   false,        @islogical;...
         },...
       },varargin{:});
       %init output and copy metadata
@@ -270,7 +273,7 @@ classdef pardecomp
       %rebuild component timeseries if needed
       if any(coeffidx==1)
         % call mother routine
-        s.msg=['Parametric reconstruction of ',obj.descriptor,' with components ',strjoin(coeffnamall(coeffidx==1),', ')]; s.n=obj.width;
+        s.msg=['Parametric reconstruction of ',obj.descriptor,' with components ',strjoin(coeffnameall(coeffidx==1),', ')]; s.n=obj.width;
         for i=1:obj.width
           obj=obj.set_cols(i,pardecomp(...
             pardecomp.to_timescaled(obj.x,pd_set.timescale),[],'T',pd_set.T,'np',pd_set.np,'t0',pd_set.t0,'x',coeffval(:,i)...
@@ -475,6 +478,9 @@ classdef pardecomp
   end
   methods
     function obj=pardecomp(t,y,varargin)
+      %NOTICE: t0 is zero-value of the (numeric) time domain that is used to define the
+      %        regression parameters; therefore, it is arbitrary.
+      %NOTICE: t0 has nothing to do with the epoch from simpletimeseries and its children 
       p=machinery.inputParser;
       p.addRequired( 't', @(i) pardecomp.valid_t(i));
       p.addRequired( 'y', @(i) pardecomp.valid_y(i));

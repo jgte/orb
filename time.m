@@ -24,7 +24,7 @@ classdef time
         'yyyyMMdd'...
       }},...                     %needs revision when adding new numeric format
       'double',{{...             https://www.mathworks.com/help/matlab/ref/datetime.html#namevaluepairarguments
-        'datenum'           ,... Number of days sinc§e 0-Jan-0000 (proleptic ISO calendar).
+        'datenum'           ,... Number of days since 0-Jan-0000 (proleptic ISO calendar).
         'excel'             ,... Number of days since 0-Jan-1900.
         'excel1904'         ,... Number of days since 0-Jan-1904.
         'juliandate'        ,... Number of days since noon UTC 24-Nov-4714 BCE (proleptic Gregorian calendar).
