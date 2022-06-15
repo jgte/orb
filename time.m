@@ -194,8 +194,7 @@ classdef time
       case {'centuries','century','cent','c'}
         out='cent';
       otherwise
-        warning(['unknown time units ''',in,'''. Using seconds.'])
-        out = 's';
+        error(['unknown time units ''',in,'''.'])
       end
     end
     function out=units(in)
@@ -261,6 +260,9 @@ classdef time
     end
     function out=duration2num(in,units)
       out=time.num2duration(in,units);
+    end
+    function out=swap_units(in,from_units,to_units)
+      out=time.duration2num(time.num2duration(in,from_units),to_units);
     end
     %% monitor lengthy iterations
     function s=progress(s,i)
@@ -653,50 +655,57 @@ classdef time
             error(['can not understand time ',class(in),': ',num2str(in)])
           end
         else
-          switch format_in %needs revision when adding new numeric format
-          case 'gpstime'
-            out=time.gps2utc(...
-              time.gpssec2datetime(in)...
-            );
-          case 'J2000sec'
-            out=datetime(in,...
-              'convertfrom','epochtime',...
-              'epoch','2000-01-01'...
-            );
-          case 'Week0sec'
-            out=datetime(in,...
-              'convertfrom','epochtime',...
-              'epoch','1980-01-06'...
-            );
-          case 'datevector'
-            out=datetime(in);
-          case 'gpsweeksecond'
-            cols=2;
-            if size(in,2)~=cols
-              error(['when format is ''',format_in,''', need input to have ',num2str(cols),' columns, not ',num2str(size(in,2)),'.'])
+          if isdatetime(format_in) || ischar(format_in)
+              out=datetime(in,...
+                'convertfrom','epochtime',...
+                'epoch',format_in...
+              );            
+          else
+            switch format_in %needs revision when adding new numeric format
+            case 'gpstime'
+              out=time.gps2utc(...
+                time.gpssec2datetime(in)...
+              );
+            case 'J2000sec'
+              out=datetime(in,...
+                'convertfrom','epochtime',...
+                'epoch','2000-01-01'...
+              );
+            case 'Week0sec'
+              out=datetime(in,...
+                'convertfrom','epochtime',...
+                'epoch','1980-01-06'...
+              );
+            case 'datevector'
+              out=datetime(in);
+            case 'gpsweeksecond'
+              cols=2;
+              if size(in,2)~=cols
+                error(['when format is ''',format_in,''', need input to have ',num2str(cols),' columns, not ',num2str(size(in,2)),'.'])
+              end
+              if any(floor(in(:,1))~=in(:,1))
+                error(['when format is ''',format_in,''', the first column must only contain integers.'])
+              end
+              out=datetime(time.gps2date(in(:,1),in(:,2)));
+            case 'yeardoysec'
+              cols=3;
+              if size(in,2)~=cols
+                error(['when format is ''',format_in,''', need input to have ',num2str(cols),' columns, not ',num2str(size(in,2)),'.'])
+              end
+              if any(floor(in(:,1))~=in(:,1))
+                error(['when format is ''',format_in,''', the first column must only contain integers.'])
+              end
+              if any(floor(in(:,2))~=in(:,2))
+                error(['when format is ''',format_in,''', the second column must only contain integers.'])
+              end
+              tmp=datevec(datenum(in(:,1),1,1)+in(:,2)-1);       %year, month and day
+              tmp(:,4) = floor(in(:,3)/3600);                    %hours
+              tmp(:,5) = floor(in(:,3)/60 - tmp(:,4)*60);        %minutes
+              tmp(:,6) = in(:,3) - tmp(:,4)*3600 - tmp(:,5)*60;  %seconds
+              out=datetime(tmp);
+            otherwise
+              out=datetime(in,'ConvertFrom',format_in);
             end
-            if any(floor(in(:,1))~=in(:,1))
-              error(['when format is ''',format_in,''', the first column must only contain integers.'])
-            end
-            out=datetime(time.gps2date(in(:,1),in(:,2)));
-          case 'yeardoysec'
-            cols=3;
-            if size(in,2)~=cols
-              error(['when format is ''',format_in,''', need input to have ',num2str(cols),' columns, not ',num2str(size(in,2)),'.'])
-            end
-            if any(floor(in(:,1))~=in(:,1))
-              error(['when format is ''',format_in,''', the first column must only contain integers.'])
-            end
-            if any(floor(in(:,2))~=in(:,2))
-              error(['when format is ''',format_in,''', the second column must only contain integers.'])
-            end
-            tmp=datevec(datenum(in(:,1),1,1)+in(:,2)-1);       %year, month and day
-            tmp(:,4) = floor(in(:,3)/3600);                    %hours
-            tmp(:,5) = floor(in(:,3)/60 - tmp(:,4)*60);        %minutes
-            tmp(:,6) = in(:,3) - tmp(:,4)*3600 - tmp(:,5)*60;  %seconds
-            out=datetime(tmp);
-          otherwise
-            out=datetime(in,'ConvertFrom',format_in);
           end
           %keep format, it was not attributed automatically
           format_out=format_in;

@@ -3,11 +3,13 @@ classdef simpletimeseries < simpledata
   properties(Constant,GetAccess=private)
     %NOTE: edit this if you add a new parameter
     parameter_list={...
-      'format',    'modifiedjuliandate',@ischar;...
+      'format',    'modifiedjuliandate',@(i)ischar(i)||isdatetime(i);...
       't_tol',     2e-6,                @num.isscalar;...
       'timesystem','utc',               @ischar;...
       'debug',     false,               @(i) islogical(i) && isscalar(i);...
       'data_dir'   file.orbdir('data'), @ischar;...
+      'x_units',   'seconds',           @ischar;...
+      'epoch',     time.zero_date,      @isdatetime;...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -56,10 +58,12 @@ classdef simpletimeseries < simpledata
       if isempty(v); v=varargs(simpletimeseries.parameter_list); end
       out=v.picker(varargin{:});
     end
-    function out=timescale(in)
+    function out=timescale(in,time_units)
+      if ~exist('time_units','var') || isempty(time_units)
+        time_units=simpletimeseries.parameters('x_units');
+      end
       %NOTICE: this method handles both duration and numeric inputs, returning the other data type.
-      assert(isduration(in) || isnumeric(in),['Cannot handle inputs of class ',class(in),'.'])
-      out=seconds(in);
+      out=time.num2duration(in,time_units);
     end
     function out=valid_t(in)
       out=isdatetime(in);
@@ -75,23 +79,29 @@ classdef simpletimeseries < simpledata
         out=false;
       end
     end
-    function out=time2num(in,epoch)
+    function out=time2num(in,epoch,time_units)
       if ~exist('epoch','var') || isempty(epoch)
         epoch=in(1);
       end
+      if ~exist('time_units','var') || isempty(time_units)
+        time_units=simpletimeseries.parameters('x_units');
+      end
       if isfinite(epoch)
-        out=simpletimeseries.timescale(in-epoch);
+        out=simpletimeseries.timescale(in-epoch,time_units);
       elseif any(isfinite(in))
-        out=simpletimeseries.timescale(in-min(in));
+        out=simpletimeseries.timescale(in-min(in),time_units);
       else
         out=Inf(size(in));
       end
     end
-    function out=num2time(in,epoch)
+    function out=num2time(in,epoch,time_units)
       if ~exist('epoch','var') || isempty(epoch)
         error('need input ''epoch''.')
       end
-      out=epoch+simpletimeseries.timescale(in);
+      if ~exist('time_units','var') || isempty(time_units)
+        time_units=simpletimeseries.parameters('x_units');
+      end
+      out=epoch+simpletimeseries.timescale(in,time_units);
     end
     function out=ist(mode,t1,t2,tol)
       %expect vectors as well
@@ -159,6 +169,7 @@ classdef simpletimeseries < simpledata
       p.addParameter('max_mean_ratio',1e3,@num.isscalar);
       p.addParameter('curr_iter', 0,      @num.isscalar);
       p.addParameter('disp_flag', false,  @islogical);
+      p.addParameter('time_units',simpletimeseries.parameters('x_units'), @ischar);
       % parse it
       p.parse(in,varargin{:});
       %handle singularities
@@ -170,7 +181,7 @@ classdef simpletimeseries < simpledata
           return
       end
       %get numeric diff of time
-      tdiff=simpletimeseries.timescale(diff(in));
+      tdiff=simpletimeseries.timescale(diff(in),p.Results.time_units);
       %large jumps produce erroneous results, so get rid of those first
       while std(tdiff)~=0 && max(tdiff)/mean(tdiff)>p.Results.max_mean_ratio
         %save stats
@@ -521,7 +532,9 @@ classdef simpletimeseries < simpledata
       end
 
       %get common parameters
-      args=simpledata.test_parameters('args',l,w);
+      args=varargs(simpledata.test_parameters('args',l,w));
+      %need to replace x_units
+      args.x_units='days';
       now=juliandate(datetime('now'),'modifiedjuliandate');
       t=datetime(now,           'convertfrom','modifiedjuliandate'):...
         datetime(now+round(l)-1,'convertfrom','modifiedjuliandate');
@@ -530,7 +543,7 @@ classdef simpletimeseries < simpledata
           t,...
           simpledata.test_parameters('y_all',l,w),...
           'mask',simpledata.test_parameters('mask',l,w),...
-          args{:}...
+          args.varargin{:}...
         );
 
       switch method
@@ -542,11 +555,11 @@ classdef simpletimeseries < simpledata
         case 'component_split'
 %           %TODO: update this test, it's not in agreement with the new implementation of the relevant methods
 %           error('unfinished')
-%           a=simpletimeseries.randn(t,w,args{:});
+%           a=simpletimeseries.randn(t,w,args.varargin{:});
 %           a=a.scale(0.05);
 %           idx=2:4;
 %           for i=1:numel(idx)
-%             as=simpletimeseries.sin(t,days(l/3)/idx(i)*ones(1,w),args{:});
+%             as=simpletimeseries.sin(t,days(l/3)/idx(i)*ones(1,w),args.varargin{:});
 %             as=as.scale(rand(1,w));
 %             a=a+as;
 %           end
@@ -569,8 +582,8 @@ classdef simpletimeseries < simpledata
 %           plot(s(:,1))
 %           title('std')
         case 'calibrate_poly'
-          a=simpletimeseries.sin(t,days(l./(1:w)),args{:});
-          bn=simpletimeseries.randn(t,w,args{:});
+          a=simpletimeseries.sin(t,days(l./(1:w)),args.varargin{:});
+          bn=simpletimeseries.randn(t,w,args.varargin{:});
           a=a+bn.scale(0.05);
           b=a.scale(rand(1,w))+bn.scale(0.1)+ones(a.length,1)*randn(1,w);
           c=a.calibrate_poly(b);
@@ -603,7 +616,7 @@ classdef simpletimeseries < simpledata
               a.stop+(round(l/3):round(4*l/3)-1),...
               simpledata.test_parameters('y_all',l,w),...
               'mask',simpledata.test_parameters('mask',l,w),...
-              args{:}...
+              args.varargin{:}...
             )...
           );
           figure;
@@ -656,7 +669,7 @@ classdef simpletimeseries < simpledata
               t,...
               simpledata.test_parameters('y_all_T',l,w),...
               'mask',simpledata.test_parameters('mask',l,w),...
-              args{:}...
+              args.varargin{:}...
             );
           %test parameters
           poly_coeffs=simpledata.test_parameters('y_poly_scale');
@@ -695,11 +708,13 @@ classdef simpletimeseries < simpledata
       [v,p]=varargs.wrap('parser',p,'sources',{simpletimeseries.parameters('obj')},'mandatory',{t,y},varargin{:});
       % get datetime
       [t,f]=time.ToDateTime(t,p.Results.format);
+      %check if epoch and/or x_units are given
+      if time.iszero(v.epoch); v.epoch=t(1); end
+      %make sure the x_units are relevant to time
+      v.x_units=time.translate_units(v.x_units);
       %call superclass (create empty object, assignment comes later)
-      obj=obj@simpledata(simpletimeseries.time2num(t),y,...
-        'epoch', t(1),...
-        'x_units','time',...
-        varargin{:}...
+      obj=obj@simpledata(simpletimeseries.time2num(t,v.epoch,v.x_units),y,...
+        v.varargin{:}...
       );
       % save the arguments v into this object
       obj=v.save(obj,{'t','y'});
@@ -891,7 +906,7 @@ classdef simpletimeseries < simpledata
     %% t methods
     function x_out=t2x(obj,t_now)
       if simpletimeseries.valid_t(t_now)
-        x_out=simpletimeseries.time2num(t_now,obj.epoch);
+        x_out=simpletimeseries.time2num(t_now,obj.epoch,obj.x_units);
       else
         x_out=t_now;
       end
@@ -901,7 +916,7 @@ classdef simpletimeseries < simpledata
       case 'datetime'; t_out=x_now;
       otherwise
         if simpledata.valid_x(x_now)
-          t_out=simpletimeseries.num2time(x_now,obj.epoch);
+          t_out=simpletimeseries.num2time(x_now,obj.epoch,obj.x_units);
         else
           t_out=x_now;
         end
@@ -1084,9 +1099,9 @@ classdef simpletimeseries < simpledata
       %set epoch
       obj.epochi=epoch;
       %shift x
-      obj=obj.assign_x(simpletimeseries.time2num(t_old,epoch));
+      obj=obj.assign_x(simpletimeseries.time2num(t_old,epoch,obj.x_units));
       %sanity
-      assert(obj.istequal(t_old),'changing epoch cause the time domain to also change.')
+      assert(obj.istequal(t_old),'changing epoch caused the time domain to also change.')
     end
     function out=get.epoch(obj)
       out=obj.epochi;
@@ -2050,29 +2065,20 @@ classdef simpletimeseries < simpledata
     end
     %% parametric decomposition
     function [obj,pd_set]=parametric_decomposition(obj,varargin)
-      %add defaults relevant to simpletimeseries
-      v=varargs.wrap('sources',{....
-        {...
-          'epoch',     obj.epoch, @(i)isdatetime(i) || isscalar(i);...
-          'timescale', 'seconds', @ischar;...
-          't0',         obj.x(1), @num.isscalar;...
-          'time',          obj.t ,@isdatetime;...
-        },...
-      },varargin{:});
       %get the pd-set
-      pd_set=pardecomp.split(obj,   v.varargin{:});
+      pd_set=pardecomp.split(obj,   varargin{:});
       %reconstruct the time series
-      obj   =pardecomp.join( pd_set,v.varargin{:});
+      obj   =pardecomp.join( pd_set,varargin{:});
     end
     function [obj,pd_set]=parametric_decomposition_search(obj,varargin)
       %need some stuf
       v=varargs.wrap('sources',{....
         {...
-          'T'                 [], @isnumeric ;...
-          'timescale', 'seconds', @ischar  ;...
-          'max_iter',         20, @num.isscalar;...
-          'neg_delta',      1e-3, @num.isscalar;...
-          'pos_delta',      5e-1, @num.isscalar;...
+          'T'                  [], @isnumeric   ;...
+          'timescale',obj.x_units, @ischar      ;...
+          'max_iter',          20, @num.isscalar;...
+          'neg_delta',       1e-3, @num.isscalar;...
+          'pos_delta',       5e-1, @num.isscalar;...
         },...
       },varargin{:});
       %init loop
