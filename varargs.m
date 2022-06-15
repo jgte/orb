@@ -338,6 +338,9 @@ classdef varargs < dynamicprops
       end
     end
     function out=picker(obj,mode,name)
+      if ~exist('mode','var') || isempty(mode)
+        mode='obj';
+      end
       if iscellstr(mode)
         out=cell(size(mode));
         if exist('name','var')
