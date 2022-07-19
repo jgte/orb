@@ -1488,7 +1488,7 @@
     function out=is_all_valid(obj)
       out=all(obj.mask);
     end
-    function [obj1,obj2]=mask_match(obj1,obj2,errmsg)
+    function [obj1,obj2]=match_mask(obj1,obj2)
       if ~exist('errmsg','var') || isempty(errmsg)
         errmsg='x-domain discrepancy, cannot match masks';
       end
@@ -2607,7 +2607,7 @@
       %sanity
       compatible(obj1,obj2,varargin{:})
       %need to match the gaps
-      [obj1,obj2]=mask_match(obj1,obj2);
+      [obj1,obj2]=obj1.match_mask(obj2);
       %go column-by column
       for i=1:obj1.width
         %easier names

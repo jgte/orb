@@ -2532,7 +2532,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
       ts{2}.labels={'mod','mod','mod'};
       ts{3}.labels={'cal','cal','cal'};
       %enforce common gaps
-      ts=simpledata.op_multiple({'merge','mask_match'},ts,'estimate_temp_corr');
+      ts=simpledata.op_multiple({'merge','match_mask'},ts,'estimate_temp_corr');
       %make room for outputs
       tsout=simpletimeseries.one(ts{1}.t,ts{1}.width,...
         'units',ts{1}.units,'descriptor',product.name,'timesystem',ts{1}.timesystem);

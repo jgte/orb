@@ -1070,7 +1070,7 @@ classdef simpletimeseries < simpledata
       % obj=obj.set_at(t_new,nan(numel(t_new),obj.width));
     end
     %% mask methods
-    function [obj1,obj2]=mask_match(obj1,obj2,errmsg)
+    function [obj1,obj2]=match_mask(obj1,obj2,errmsg)
       if ~exist('errmsg','var') || isempty(errmsg)
         errmsg='time domain discrepancy, cannot match masks';
       end
