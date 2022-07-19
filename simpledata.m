@@ -1131,7 +1131,7 @@
       %need compatible objects
       compatible(obj1,obj2,varargin{:})
       %need to make the mask match to make sure x_masked is common
-      [obj1,obj2]=obj1.mask_match(obj2,'x-domain discrepancy, interpolate objects before calling this method');
+      [obj1,obj2]=obj1.match_mask(obj2,'x-domain discrepancy, interpolate objects before calling this method');
       %detrend and remove outliers (if there inclinded according to outlier_iter, outlier_sigma and detrend)
       %NOTICE: need to set 'outlier_iter' to 0, otherwise the default in obj.outlier is used in the (common)
       %        case varargin{:} is omissive in the value of this option.

@@ -1133,7 +1133,7 @@ classdef simpletimeseries < simpledata
       %match epochs
       [obj1,obj2]=obj1.match_epoch(obj2);
       %call mother routine
-      [obj1,obj2]=mask_match@simpledata(obj1,obj2,errmsg);
+      [obj1,obj2]=match_mask@simpledata(obj1,obj2,errmsg);
     end
     %% step methods
     function out=step_num(obj)
@@ -1711,7 +1711,7 @@ classdef simpletimeseries < simpledata
     function obj1=calibrate_poly(obj1,obj2,order)
       %need to match the epoch
       if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
-        [obj1,obj2]=matchepoch(obj1,obj2);
+        [obj1,obj2]=obj1.match_epoch(obj2);
       end
       if ~exist('order','var') || isempty(order)
         order=1;
