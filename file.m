@@ -675,14 +675,15 @@ classdef file
     end
     %% build a list of filenames from 'start' to 'stop' with 'period' step, if file.dateplaceholder is present in 'in'
     function out=resolve_timestamps(in,varargin)
-      p=machinery.inputParser;
-      p.addRequired( 'in',                                         @(i) ischar(i)   || iscellstr(i));
-      p.addParameter( 'start',       time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
-      p.addParameter( 'stop',        time.ToDateTime(0,'datenum'), @(i) isscalar(i) && isdatetime(i));
-      p.addParameter( 'period',      days(1),                      @(i) isscalar(i) && isduration(i));
-      p.addParameter( 'date_fmt',    'yyyy-mm-dd',                 @ischar);
-      p.addParameter( 'scalar_as_strings',false,                   @(i) islogical(i) && isscalar(i));
-      p.parse(in,varargin{:})
+      v=varargs.wrap('sources',{....
+        {...
+          'start',       time.zero_date, @(i) isscalar(i) && isdatetime(i);...
+          'stop',        time.inf_date,  @(i) isscalar(i) && isdatetime(i);...
+          'period',      days(1),        @(i) isscalar(i) && isduration(i);...
+          'date_fmt',    'yyyy-mm-dd',   @ischar;...
+          'scalar_as_strings',false,     @(i) islogical(i) && isscalar(i);...
+        },...
+      },varargin{:});
       %reduce scalar
       in=cells.scalar(in);
       %vector mode
@@ -697,20 +698,20 @@ classdef file
           return
         end
         %sanity
-        assert(p.Results.start<p.Results.stop,[...
-          'input ''start'' (',datestr(p.Results.start),') is later than ',...
-          'input ''stop'' (',datestr(p.Results.stop),').'...
+        assert(v.start<v.stop,[...
+          'input ''start'' (',datestr(v.start),') is later than ',...
+          'input ''stop'' (', datestr(v.stop),').'...
         ])
         %NOTICE: it is NOT assumed that out are scalar below
         % build a cell string with the dates
-        date_list=time.list(p.Results.start,p.Results.stop,p.Results.period);
+        date_list=time.list(v.start,v.stop,v.period);
         out=cell(size(date_list));
         for i=1:numel(date_list)
-          out{i}=strrep(in,file.dateplaceholder,datestr(date_list(i),p.Results.date_fmt));
+          out{i}=strrep(in,file.dateplaceholder,datestr(date_list(i),v.date_fmt));
         end
       end
       %convert to string if requested
-      out=file.ensure_scalar(out,p.Results.scalar_as_strings);
+      out=file.ensure_scalar(out,v.scalar_as_strings);
     end
     %% retrive remote file if needed
     %NOTICE: this function will always return scalar strings
