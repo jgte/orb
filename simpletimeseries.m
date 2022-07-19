@@ -1145,6 +1145,41 @@ classdef simpletimeseries < simpledata
     function obj=step_update(obj)
       obj.step=simpletimeseries.timestep(obj.t);
     end
+    function out=step_gcd(obj1,obj2)
+      out=simpletimeseries.timescale(gcd(...
+        simpletimeseries.timescale(obj1.step),...
+        simpletimeseries.timescale(obj2.step)...
+      ));
+    end
+    function out=step_lcm(obj1,obj2)
+      if obj1.step==0 || obj2.step==0
+        out=1;
+      else
+        out=simpletimeseries.timescale(lcm(...
+          simpletimeseries.timescale(obj1.step),...
+          simpletimeseries.timescale(obj2.step)...
+        ));
+      end
+    end
+    function [obj1,obj2]=match_step(obj1,obj2)
+      %sanity
+      if ~obj1.ishomogeneous || ~obj2.ishomogeneous
+        error('can only handle homogeneous time domains.')
+      end
+      %trivial call
+      if simpletimeseries.ist('==',obj1.step,obj2.step,min([obj1.t_tol,obj2.t_tol]))
+        return
+      end
+      %new timestep is the greatest common divisor
+      step_now=step_gcd(obj1,obj2);
+      warning(['Reset step in ',...
+        'obj1 (',obj1.descriptor,') from ',char(obj1.epoch),' and ',...
+        'obj2 (',obj2.descriptor,') from ',char(obj2.epoch),...
+        'to ',char(step_now)])
+      %resample to the common step size
+      obj1=obj1.resample(step_now);
+      obj2=obj2.resample(step_now);
+    end
     %% epoch methods
     function obj=set.epoch(obj,epoch)
       if ~simpletimeseries.valid_epoch(epoch)
@@ -1164,6 +1199,20 @@ classdef simpletimeseries < simpledata
     end
     function obj=epoch_update(obj)
       obj.epoch=obj.t(1);
+    end
+    function [obj1,obj2]=match_epoch(obj1,obj2)
+      %trivial call
+      if simpletimeseries.ist('==',obj1.epoch,obj2.epoch,min([obj1.t_tol,obj2.t_tol])) 
+        return
+      end
+      %match epochs (this is only necessary when epochs are infinite)
+      if obj2.epoch>obj1.epoch
+        warning(['Reset epoch in obj2 (',obj2.descriptor,') to ',datestr(obj1.epoch),' from ',datestr(obj2.epoch)])
+        obj2.epoch=obj1.epoch;
+      else
+        warning(['Reset epoch in obj1 (',obj1.descriptor,') to ',datestr(obj2.epoch),' from ',datestr(obj1.epoch)])
+        obj1.epoch=obj2.epoch;
+      end
     end
     %% start/stop methods
     function out=get.start(obj)
@@ -1657,61 +1706,6 @@ classdef simpletimeseries < simpledata
 %       obj1.plot('column',1,'line',{'*-'}), hold on
 %       obj2.plot('column',1,'line',{'+-'})
 %       legend('o1 original','o2 original','o1 interp','o2 interp')
-    end
-    function out=step_gcd(obj1,obj2)
-      out=simpletimeseries.timescale(gcd(...
-        simpletimeseries.timescale(obj1.step),...
-        simpletimeseries.timescale(obj2.step)...
-      ));
-    end
-    function out=step_lcm(obj1,obj2)
-      if obj1.step==0 || obj2.step==0
-        out=1;
-      else
-        out=simpletimeseries.timescale(lcm(...
-          simpletimeseries.timescale(obj1.step),...
-          simpletimeseries.timescale(obj2.step)...
-        ));
-      end
-    end
-    function [obj1,obj2]=matchstep(obj1,obj2)
-      %sanity
-      if ~obj1.ishomogeneous || ~obj2.ishomogeneous
-        error('can only handle homogeneous time domains.')
-      end
-      %trivial call
-      if obj1.step==obj2.step
-        return
-      end
-      %new timestep is the greatest common divisor
-      step_now=step_gcd(obj1,obj2);
-      %resample to the common step size
-      obj1=obj1.resample(step_now);
-      obj2=obj2.resample(step_now);
-    end
-    function [obj1,obj2]=matchepoch(obj1,obj2)
-      %trivial call
-      if obj1.epoch==obj2.epoch
-        return
-      end
-      %match epochs (this is only necessary when epochs are infinite)
-      if obj2.epoch>obj1.epoch
-        obj2.epoch=obj1.epoch;
-      else
-        obj1.epoch=obj2.epoch;
-      end
-    end
-    function [obj1,obj2]=matchtime(obj1,obj2)
-      %match step and epoch (checks for trivial call done inside)
-      [obj1,obj2]=matchstep(obj1,obj2);
-      [obj1,obj2]=matchepoch(obj1,obj2);
-    end
-    function obj1=glue(obj1,obj2)
-      %objects need to have the same epoch
-      assert(obj1.epoch==obj2.epoch,...
-        'Input objects do not share the same epoch.')
-      %call mother routine
-      obj1=glue@simpledata(obj1,obj2);
     end
     %% calibration
     function obj1=calibrate_poly(obj1,obj2,order)
