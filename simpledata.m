@@ -27,6 +27,7 @@
     x
     y
     mask
+    x_unitsi
   end
   %These parameters should not modify the data in any way; they should
   %only describe the data or the input/output format of it.
@@ -34,7 +35,6 @@
   properties(GetAccess=public,SetAccess=public)
     labels
     units
-    x_units
     descriptor
     peeklength
     peekwidth
@@ -43,6 +43,9 @@
     invalid
     outlier_sigma
     cdate
+  end
+  properties(Dependent)
+    x_units
   end
   methods(Static)
     function out=parameters(varargin)
@@ -167,12 +170,10 @@
         out=in;
       else
         %transmute into this object
-        if isprop(in,'t')
+        if obj.is_timeseries
           out=simpledata(simpletimeseries.time2num(in.t,in.epoch,in.x_units),in.y,in.varargin{:});
-        elseif isprop(in,'x')
-          out=simpledata(in.x,in.y,in.varargin{:});
         else
-          error('Cannot find ''t'' or ''x''. Cannot continue.')
+          out=simpledata(in.x,in.y,in.varargin{:});
         end
       end
     end
@@ -874,8 +875,8 @@
       end
     end
     function obj=assign_tx_mask(obj,y,tx,mask,varargin)
-      if isprop(obj,'t'); obj=obj.assign(  y,'mask',mask,'t',tx,varargin{:});
-      else              ; obj=obj.assign_x(y,'mask',mask,'x',tx,varargin{:});
+      if obj.is_timeseries; obj=obj.assign(  y,'mask',mask,'t',tx,varargin{:});
+      else                ; obj=obj.assign_x(y,'mask',mask,'x',tx,varargin{:});
       end
     end
     %NOTICE: obj2=simpledata(t,y,obj1.varargin{:}) is preferable to obj2=simpledata(t,y).copy_metadata(obj1)
@@ -955,30 +956,34 @@
       end
       disp([str.tabbed(field,tab),' : ',str.show(transpose(value(:)))])
     end
-    function peek(obj,idx,tab)
+    function out=peek_idx(obj)
+      out=[...
+        1:min([           obj.peeklength,  round(0.5*obj.length)  ]),...
+          max([obj.length-obj.peeklength+1,round(0.5*obj.length)+1]):obj.length...
+      ];
+    end
+    function out=peek(obj,idx,tab)
       if ~exist('tab','var') || isempty(tab)
         tab=12;
       end
       if ~exist('idx','var') || isempty(idx)
-        idx=[...
-          1:min([           obj.peeklength,  round(0.5*obj.length)  ]),...
-            max([obj.length-obj.peeklength+1,round(0.5*obj.length)+1]):obj.length...
-        ];
+        idx=obj.peek_idx;
       elseif strcmp(idx,'all')
         idx=1:obj.length;
       end
       %check if formatted time stamp is possible
-      formatted_time=ismethod(obj,'t') || isfield(obj,'t') || isprop(obj,'t');
+      formatted_time=obj.is_timeseries;
       %adapt tab to formatted time
       if tab<19 && formatted_time
         tab_x=19;
       else
         tab_x=tab;
       end
+      out=cell(numel(idx),1);
       for i=1:numel(idx)
-        out=cell(1,min([obj.peekwidth,obj.width]));
-        for j=1:numel(out)
-          out{j}=str.tabbed(num2str(obj.y(idx(i),j)),tab,true);
+        tmp=cell(1,min([obj.peekwidth,obj.width]));
+        for j=1:numel(tmp)
+          tmp{j}=str.tabbed(num2str(obj.y(idx(i),j)),tab,true);
         end
         %use formatted dates is object supports them
         if formatted_time
@@ -986,11 +991,14 @@
         else
           x_str=num2str(obj.x(idx(i)));
         end
-        disp([...
+        out{i,:}=[...
           str.tabbed(x_str,tab_x,true),' ',...
-          strjoin(out),' ',...
+          strjoin(tmp),' ',...
           str.show(obj.mask(idx(i)))...
-        ])
+        ];
+      end
+      if nargout==0
+        disp(out)
       end
     end
     function out=stats(obj,varargin)
@@ -1206,6 +1214,19 @@
 %     function out=numel(obj)
 %       out=obj.length*obj.width;
 %     end
+    %NOTICE: this function is needed to change the behaviour of some methods in this class
+    function out=is_timeseries(obj)
+      persistent timeseries_properties
+      if isempty(timeseries_properties); timeseries_properties={'t','epoch'}; end
+      out=true;
+      for i=1:numel(timeseries_properties)
+        out=out & (...
+          ismethod(obj,timeseries_properties{i}) | ...
+          isfield( obj,timeseries_properties{i}) | ...
+          isprop(  obj,timeseries_properties{i}) ...
+        );
+      end
+    end
     %% x methods
     function out=x_masked(obj,mask)
       if ~exist('mask','var') || isempty(mask)
@@ -1254,6 +1275,8 @@
       obj=obj.at_idx(obj.idx(x_now,varargin{:}),varargin{:});
     end
     function [obj,idx_add,idx_old,x_old]=x_merge(obj,x_add,y_new)
+      %adds the x-domain given in x_add and assigns NaN (or whatever is given in y_new)
+      %to the new data points.
       if ~exist('y_new','var') || isempty(y_new)
         y_new=NaN;
       end
@@ -1286,16 +1309,62 @@
       end
     end
     function out=tx(obj)
-      if isprop(obj,'t'); out=obj.t; %#ok<MCNPN>
-      else              ; out=obj.x;
+      if obj.is_timeseries; out=obj.t; %#ok<MCNPN>
+      else                ; out=obj.x;
       end
     end
     function out=tx_masked(obj,mask)
       if ~exist('mask','var') || isempty(mask)
         mask=obj.mask;
       end
-      if ismethod(obj,'t_masked'); out=obj.t_masked(mask);
-      else                     ; out=obj.x_masked(mask);
+      if obj.is_timeseries; out=obj.t_masked(mask);
+      else                ; out=obj.x_masked(mask);
+      end
+    end
+    function [obj1,obj2]=match_tx_domain(obj1,obj2)
+      if obj1.is_timeseries & obj2.is_timeseries  %#ok<AND2>
+        [obj1,obj2]=obj1.match_epoch(obj2);
+      end
+      [obj1,obj2]=obj1.match_x_units(obj2);
+    end
+    function assert_x_domain(obj1,obj2)
+      if ~obj1.isxequal(obj2)
+        disp([...
+          'Cannot operate on scalar objects with different x-domains: ',newline,...
+          'obj1.x obj2.x',...
+          ])
+        idx=obj1.peek_idx;
+        for i=1:numel(idx)
+          disp(num2str([obj1.x(i),obj2.x(i)]))
+        end
+        error('Cannot continue')
+      end
+    end
+    function assert_tx_domain(obj1,obj2)
+      obj1.assert_x_domain(obj2);
+      if obj1.is_timeseries & obj2.is_timeseries  %#ok<AND2>
+        obj1.assert_t_domain(obj2);
+      end
+    end
+    %% x_units methods
+    function obj=set.x_units(obj,in)
+      if obj.is_timeseries
+        %NOTICE: unlike in simpledata, x_units is important to define the relation between
+        %        the t-domain and the x-domain
+        %keep the t-domain as it is and re-defined the x-domain
+        obj=obj.assign_x(simpletimeseries.time2num(obj.t,obj.epoch,in)); %#ok<MCNPN>
+      end
+      %NOTICE: in this object x_units is cosmetic, it can be any string
+      obj.x_unitsi=in;
+    end
+    function out=get.x_units(obj)
+      %NOTICE: in this object x_units is cosmetic, it can be any string
+      out=obj.x_unitsi;
+    end
+    function [obj1,obj2]=match_x_units(obj1,obj2)
+      if ~strcmp(obj1.x_units,obj2.x_units)
+        warning(['Reset x_units in obj2 (',obj2.descriptor,') to ',obj1.x_units,' from ',obj2.x_units])
+        obj2.x_units=obj1.x_units;
       end
     end
     %% y methods
@@ -1489,10 +1558,7 @@
       out=all(obj.mask);
     end
     function [obj1,obj2]=match_mask(obj1,obj2)
-      if ~exist('errmsg','var') || isempty(errmsg)
-        errmsg='x-domain discrepancy, cannot match masks';
-      end
-      assert(obj1.length==obj2.length && all(simpledata.isx('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol]))),errmsg)
+      [obj1,obj2]=obj1.match_tx_domain(obj2);
       obj1.mask=obj1.mask & obj2.mask;
       obj2.mask=obj2.mask & obj1.mask;
       obj1=obj1.mask_update;
@@ -1918,12 +1984,17 @@
     %% multiple object manipulation
     function out=isxequal(obj1,obj2)
       %NOTICE: this also handles the single-object operation
-      if ismethod(obj1,'istequal') && ( isdatetime(obj2) || ismethod(obj2,'istequal'))
-        out=obj1.istequal(obj2);
-      elseif isnumeric(obj2)
-        out=obj1.length==numel(obj2) && ~any(~simpledata.isx('==',obj1.x,obj2(:),obj1.x_tol));
+      if isnumeric(obj2)
+        out=obj1.length==numel(obj2) & ~any(~simpledata.isx('==',obj1.x,obj2(:),obj1.x_tol));
       else
-        out=obj1.length==obj2.length && ~any(~simpledata.isx('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol])));
+        out=obj1.length==obj2.length & ~any(~simpledata.isx('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol])));
+      end
+    end
+    function out=istxequal(obj1,obj2)
+      if obj1.is_timeseries && ( isdatetime(obj2) || obj2.is_timeseries)
+        out=obj1.istequal(obj2);
+      else
+        out=obj1.isxequal(obj2);
       end
     end
     function compatible(obj1,obj2,varargin)
@@ -1937,12 +2008,9 @@
       % parse it
       p.parse(varargin{:});
       %basic sanity
-%       if ~strcmp(class(obj1),class(obj2))
-%         error(['incompatible objects: different classes'])
-%       end
-      if p.Results.check_width && (obj1.width ~= obj2.width)
-        error('incompatible objects: different number of columns')
-      end
+      assert(p.Results.check_width & (obj1.width == obj2.width),...
+        ['incompatible objects: different number of columns (',...
+        num2str(obj1.width),' != ',num2str(obj2.width)])
       %shorter names
       par=p.Results.compatible_parameters;
       for i=1:numel(par)
@@ -1958,7 +2026,7 @@
         end
       end
     end
-    function [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2,y_new)
+    function [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2,y_new,varargin)
       %NOTICE:
       % - idx1 contains the index of the x in obj1 that were added from obj2
       % - idx2 contains the index of the x in obj2 that were added from obj1
@@ -1971,14 +2039,16 @@
       if ~exist('y_new','var') || isempty(y_new)
         y_new=NaN;
       end
+      %basic sanitization
+      [obj1,obj2]=obj1.match_tx_domain(obj2);
+      compatible(obj1,obj2,varargin{:})
+      %merge x-domains
       [obj1_out,idx2]=obj1.x_merge(obj2.x,y_new);
       if nargout>1
         %add as gaps in obj2 those x that are in obj1 but not in obj2
         [obj2_out,idx1]=obj2.x_merge(obj1.x,y_new);
         %sanity on outputs
-        if obj1_out.length~=obj2_out.length && obj1_out.isxsame(obj2_out)
-          error('BUG TRAP: merge operation failed.')
-        end
+        obj1_out.assert_tx_domain(obj2_out)
       end
     end
     function [obj1,obj2]=interp2(obj1,obj2,varargin)
@@ -1986,9 +2056,11 @@
       %with the each other. The resulting x-domains possibly have
       %numerous gaps, which are interpolated over (interpolation
       %scheme and other options can be set in varargin).
+      %basic sanitization
+      [obj1,obj2]=obj1.match_tx_domain(obj2);
       compatible(obj1,obj2,varargin{:})
       %trivial call
-      if isxequal(obj1,obj2)
+      if obj1.isxequal(obj2)
         return
       end
       %build extended x-domain
@@ -1997,6 +2069,8 @@
       obj1=obj1.interp(x_total,varargin{:});
       %interpolate obj2 over x_total
       obj2=obj2.interp(x_total,varargin{:});
+      %sanity
+      obj1.assert_tx_domain(obj2);
     end
     function [obj,idx1,idx2]=append(obj1,obj2,over_write_flag,varargin)
       if ~exist('over_write_flag','var') || isempty(over_write_flag)
@@ -2009,7 +2083,8 @@
         obj=obj1;
         return
       end
-      %sanity
+      %basic sanitization
+      [obj1,obj2]=obj1.match_tx_domain(obj2);
       compatible(obj1,obj2,varargin{:})
       %append with awareness
       if all(obj1.x(end) < obj2.x)
@@ -2077,8 +2152,9 @@
       p.addParameter('skip_gaps',   false, @(i)islogical(i) && isscalar(i));
       % parse it
       p.parse(varargin{:});
-      %need compatible data
-      obj1.compatible(obj2,varargin{:});
+      %basic sanitization
+      [obj1,obj2]=obj1.match_tx_domain(obj2);
+      compatible(obj1,obj2,varargin{:})
       %merge x domain, also get idx2, which is needed to propagate data
       if p.Results.skip_gaps
         [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2.masked);
@@ -2108,7 +2184,7 @@
           disp(['WARNING:BEGIN',10,'There are ',num2str(numel(common_diff_idx)),...
               ' entries in obj1 that are defined at the same epochs as in obj2 but with different values:'])
           for i=1:min([10,numel(common_diff_idx)])
-            if isprop(obj1,'t')
+            if obj.is_timeseries
               var_name='t';
             else
               var_name='x';
@@ -2164,9 +2240,9 @@
       out=true;
     end
     function obj1=glue(obj1,obj2,varargin)
-      %objects need to have the same time domain
-      assert(obj1.isxsame(obj2),'Input objects do not share the same x-domain.')
-      %make sure objects are compatible
+      %basic sanitization
+      [obj1,obj2]=obj1.match_tx_domain(obj2);
+      obj1.assert_tx_domain(obj2);
       compatible(obj1,obj2,varargin{:})
       %augment the data, labels and units
       obj1=obj1.assign([obj1.y,obj2.y],'reset_width',true);
@@ -2674,7 +2750,7 @@
         end
         % smooth if requested
         if v.smooth_span>0
-          if isprop(obj,'t') && isduration(v.smooth_span)
+          if obj.is_timeseries & isduration(v.smooth_span) %#ok<AND2>
             span=ceil(v.smooth_span/obj.step);
           else
             span=v.smooth_span;
@@ -2737,7 +2813,7 @@
       if obj.length>1
         %get common axis limits (don't crop stuff)
         xl=plotting.common_lim(gca,'x');
-        if isprop(obj,'t')
+        if obj.is_timeseries
           try
             xlim(datetime(xl,'convertfrom','datenum'));
           catch

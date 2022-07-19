@@ -6,7 +6,7 @@ classdef simpletimeseries < simpledata
       'format',    'modifiedjuliandate',@(i)ischar(i)||isdatetime(i);...
       't_tol',     2e-6,                @num.isscalar;...
       'timesystem','utc',               @ischar;...
-      'debug',     false,               @(i) islogical(i) && isscalar(i);...
+      'debug',     false,               @(i) islogical(i) && isscalar(i);... %TODO: move 'debug' to simpledata
       'data_dir'   file.orbdir('data'), @ischar;...
       'x_units',   'seconds',           @ischar;...
       'epoch',     time.zero_date,      @isdatetime;...
@@ -14,7 +14,7 @@ classdef simpletimeseries < simpledata
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
-    compatible_parameter_list={'timesystem'};
+    compatible_parameter_list={'timesystem','epoch'};
     %define periods when CSR calmod is upside down
     csr_acc_mod_invert_periods=datetime({...
       '2016-01-28','2016-03-02';...
@@ -150,12 +150,10 @@ classdef simpletimeseries < simpledata
         out=in;
       else
         %transmute into this object
-        if isprop(in,'t')
+        if obj.is_timeseries
           out=simpletimeseries(in.t,in.y,in.varargin{:});
-        elseif isprop(in,'x')
-          out=simpletimeseries(in.x,in.y,in.varargin{:});
         else
-          error('Cannot find ''t'' or ''x''. Cannot continue.')
+          out=simpletimeseries(in.x,in.y,in.varargin{:});
         end
       end
     end
@@ -694,6 +692,45 @@ classdef simpletimeseries < simpledata
           title(method)
 
           disp(pardecomp.table(pd_set,'tablify',true))
+        case 'x_units'
+          t=datetime('now')-years(10:-1:0);
+          a=simpletimeseries.zero(t,2,'x_units','seconds');
+          b=simpletimeseries.zero(t,2,'x_units','years'); 
+          disp('First column was created with x_units=seconds and second column with x_units=years')
+          disp('t-domains:')
+          disp([a.t,b.t])
+          disp('x-domains:')
+          disp([a.x,b.x])
+          assert(all(a.t==b.t),'test failed')
+        case 'minus'
+          t=datetime('now')-years(10:-1:0);
+          a=simpletimeseries.one(t,2,'x_units','seconds','epoch',datetime('now'));
+          b=simpletimeseries.one(t,2,'x_units','years',  'epoch',datetime('now')+days(1)); 
+          c=a-b;
+          disp('First  column: x_units=seconds,epoch=now')
+          disp('Second column: x_units=year   ,epoch=now+1 day')
+          disp('Third  column: first - second objects')
+          disp('epochs:')
+          disp(datestr([a.epoch,b.epoch,c.epoch]))
+          disp('x_units:')
+          disp([a.x_units,' ',b.x_units,' ',c.x_units])
+          disp('t-domains:')
+          disp([a.t,b.t,c.t])
+          disp('x-domains:')
+          disp([a.x,b.x,c.x])
+          disp('time2num:')
+          disp([...
+            simpletimeseries.time2num(a.t,a.epoch,a.x_units),...
+            simpletimeseries.time2num(b.t,b.epoch,b.x_units),...
+            simpletimeseries.time2num(c.t,c.epoch,c.x_units)...
+          ])
+          disp('num2time:')
+          disp([...
+            simpletimeseries.num2time(a.x,a.epoch,a.x_units),...
+            simpletimeseries.num2time(b.x,b.epoch,b.x_units),...
+            simpletimeseries.num2time(c.x,c.epoch,c.x_units)...
+          ])
+          assert(all(c.y(:)==0),'test failed')
       end
     end
   end
@@ -1069,13 +1106,32 @@ classdef simpletimeseries < simpledata
       % %add NaNs
       % obj=obj.set_at(t_new,nan(numel(t_new),obj.width));
     end
+    function sanity_t(obj)
+      assert(obj.isxequal(simpletimeseries.time2num(obj.t,obj.epoch,obj.x_units)),...
+        'Discrepancy between t-domain and x-domain, debug needed!')
+    end
+    function assert_t_domain(obj1,obj2)
+      obj1.sanity_t;
+      obj2.sanity_t;
+      if ~obj1.istequal(obj2)
+        disp([...
+          'Cannot operate on scalar objects with different t-domains: ',newline,...
+          'obj1.t obj2.t',...
+          ])
+        idx=obj1.peek_idx;
+        for i=1:numel(idx)
+          disp(datestr([obj1.t(i),obj2.t(i)]))
+        end
+        error('Cannot continue')
+      end
+    end
     %% mask methods
     function [obj1,obj2]=match_mask(obj1,obj2,errmsg)
       if ~exist('errmsg','var') || isempty(errmsg)
         errmsg='time domain discrepancy, cannot match masks';
       end
       %match epochs
-      obj1.epoch=obj2.epoch;
+      [obj1,obj2]=obj1.match_epoch(obj2);
       %call mother routine
       [obj1,obj2]=mask_match@simpledata(obj1,obj2,errmsg);
     end
@@ -1527,9 +1583,9 @@ classdef simpletimeseries < simpledata
     function out=istequal(obj1,obj2)
       %NOTICE: this also handles the single-object operation
       if isdatetime(obj2)
-        out=~any(~simpletimeseries.ist('==',obj1.t,obj2,obj1.t_tol));
+        out=obj1.length==numel(obj2) & ~any(~simpletimeseries.ist('==',obj1.t,obj2,obj1.t_tol));
       else
-        out=~any(~simpletimeseries.ist('==',obj1.t,obj2.t,min([obj1.t_tol,obj2.t_tol])));
+        out=obj1.length==obj2.length & ~any(~simpletimeseries.ist('==',obj1.t,obj2.t,min([obj1.t_tol,obj2.t_tol])));
       end
     end
     function compatible(obj1,obj2,varargin)
@@ -1553,28 +1609,10 @@ classdef simpletimeseries < simpledata
         end
       end
     end
-    function [obj1,obj2,idx1,idx2]=merge(obj1,obj2,y_new)
-      %add as gaps the t in obj1 that are in obj2 but not in obj1 (and vice-versa)
-      %NOTICE:
-      % - idx1 contains the index of the x in obj1 that were added from obj2
-      % - idx2 contains the index of the x in obj2 that were added from obj1
-      % - no data is propagated between objects, only the time domain is changed!
-      % - y_new sets the value of the data at the new entries of x, both obj1
-      %   and obj2 (default to NaN)
-      if ~exist('y_new','var') || isempty(y_new)
-        y_new=NaN;
-      end
-      if isprop(obj1,'epoch') && isprop(obj2,'epoch')
-        [obj1,obj2]=matchepoch(obj1,obj2);
-      end
-      %call upstream method
-      [obj1,obj2,idx1,idx2]=merge@simpledata(obj1,obj2,y_new);
-      %sanity
-      assert(istequal(obj1,obj2),'BUG TRAP: failed to merge time domains. Debug needed!')
-    end
+    %the merge method can be called directly
     function [obj1,obj2]=interp2(obj1,obj2,varargin)
       %trivial call
-      if istequal(obj1,obj2)
+      if obj1.istequal(obj2)
         return
       end
       %extends the t-domain of both objects to be in agreement
@@ -1582,39 +1620,22 @@ classdef simpletimeseries < simpledata
       %numerous gaps, which are interpolated over (interpolation
       %scheme and other options can be set in varargin).
       %handle default optional arguments
-      %NOTE: no interpolation is done between the objects, only
-      %      the time domain is made in agreement between then
       if ~exist('varargin','var') || isempty(varargin)
         varargin={...
           'interp_over_gaps_narrower_than',3*min([obj1.step,obj2.step]),...
           'interp1_args',{'linear'}...
         };
       end
-      %need to match the epoch
-      if ismethod(obj1,'matchepoch') && ismethod(obj2,'matchepoch')
-        [obj1,obj2]=matchepoch(obj1,obj2);
-      end
       %call upstream method
       [obj1,obj2]=interp2@simpledata(obj1,obj2,varargin{:});
       %sanity
-      assert(istequal(obj1,obj2),'BUG TRAP: failed to merge time domains. Debug needed!')
+      obj1.assert_t_domain(obj2);
     end
-    function [obj,idx1,idx2]=append(obj1,obj2,varargin)
-      if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
-        [obj1,obj2]=matchepoch(obj1,obj2);
-      end
-      %call upstream method
-      [obj,idx1,idx2]=append@simpledata(obj1,obj2,varargin{:});
-    end
-    function obj1_out=augment(obj1,obj2,varargin)
-      if isa(obj1,'simpletimeseries') && isa(obj2,'simpletimeseries')
-        [obj1,obj2]=matchepoch(obj1,obj2);
-      end
-      %call upstream method
-      obj1_out=augment@simpledata(obj1,obj2,varargin{:});
-    end
-    %NOTICE: this function used to be called consolidate
+    %the append method can be called directly
+    %the augment method can be called directly
+    %the glue method can be called directly
     function [obj1,obj2]=interp2_lcm(obj1,obj2,varargin)
+      %NOTICE: this function used to be called consolidate
       %extends the time domain of both objects to be in agreement
       %with the each other
       compatible(obj1,obj2,varargin{:})

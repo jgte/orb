@@ -40,12 +40,10 @@ classdef simplefreqseries < simpletimeseries
         out=in;
       else
         %transmute into this object
-        if isprop(in,'t')
+        if obj.is_timeseries
           out=simplefreqseries(in.t,in.y,in.varargin{:});
-        elseif isprop(in,'x')
-          out=simplefreqseries(in.x,in.y,in.varargin{:});
         else
-          error('Cannot find ''t'' or ''x''. Cannot continue.')
+          out=simplefreqseries(in.x,in.y,in.varargin{:});
         end
       end
     end
