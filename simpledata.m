@@ -14,6 +14,8 @@
       'invalid',      999999999,@num.isscalar;...
       'outlier_sigma',4,        @num.isscalar;...
       'cdate',datetime('now'),  @isdatetime;...
+      'debug',        false,    @(i) islogical(i) && isscalar(i);...
+
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -43,6 +45,7 @@
     invalid
     outlier_sigma
     cdate
+    debug
   end
   properties(Dependent)
     x_units
@@ -1363,7 +1366,9 @@
     end
     function [obj1,obj2]=match_x_units(obj1,obj2)
       if ~strcmp(obj1.x_units,obj2.x_units)
-        warning(['Reset x_units in obj2 (',obj2.descriptor,') to ',obj1.x_units,' from ',obj2.x_units])
+        if obj1.debug || obj2.debug
+          disp(['WARNING: Reset x_units in obj2 (',obj2.descriptor,') to ',obj1.x_units,' from ',obj2.x_units])
+        end
         obj2.x_units=obj1.x_units;
       end
     end

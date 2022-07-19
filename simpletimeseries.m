@@ -6,7 +6,6 @@ classdef simpletimeseries < simpledata
       'format',    'modifiedjuliandate',@(i)ischar(i)||isdatetime(i);...
       't_tol',     2e-6,                @num.isscalar;...
       'timesystem','utc',               @ischar;...
-      'debug',     false,               @(i) islogical(i) && isscalar(i);... %TODO: move 'debug' to simpledata
       'data_dir'   file.orbdir('data'), @ischar;...
       'x_units',   'seconds',           @ischar;...
       'epoch',     time.zero_date,      @isdatetime;...
@@ -34,7 +33,6 @@ classdef simpletimeseries < simpledata
     format
     t_tol
     timesystem
-    debug
     data_dir
   end
   %private (visible only to this object)
@@ -1172,10 +1170,12 @@ classdef simpletimeseries < simpledata
       end
       %new timestep is the greatest common divisor
       step_now=step_gcd(obj1,obj2);
-      warning(['Reset step in ',...
-        'obj1 (',obj1.descriptor,') from ',char(obj1.epoch),' and ',...
-        'obj2 (',obj2.descriptor,') from ',char(obj2.epoch),...
-        'to ',char(step_now)])
+      if obj1.debug || obj2.debug
+        disp(['WARNING: Reset step in ',...
+          'obj1 (',obj1.descriptor,') from ',char(obj1.epoch),' and ',...
+          'obj2 (',obj2.descriptor,') from ',char(obj2.epoch),...
+          'to ',char(step_now)])
+      end
       %resample to the common step size
       obj1=obj1.resample(step_now);
       obj2=obj2.resample(step_now);
@@ -1207,10 +1207,14 @@ classdef simpletimeseries < simpledata
       end
       %match epochs (this is only necessary when epochs are infinite)
       if obj2.epoch>obj1.epoch
-        warning(['Reset epoch in obj2 (',obj2.descriptor,') to ',datestr(obj1.epoch),' from ',datestr(obj2.epoch)])
+        if obj1.debug || obj2.debug
+          disp(['WARNING: Reset epoch in obj2 (',obj2.descriptor,') to ',datestr(obj1.epoch),' from ',datestr(obj2.epoch)])
+        end
         obj2.epoch=obj1.epoch;
       else
-        warning(['Reset epoch in obj1 (',obj1.descriptor,') to ',datestr(obj2.epoch),' from ',datestr(obj1.epoch)])
+        if obj1.debug || obj2.debug
+          disp(['WARNING: Reset epoch in obj1 (',obj1.descriptor,') to ',datestr(obj2.epoch),' from ',datestr(obj1.epoch)])
+        end
         obj1.epoch=obj2.epoch;
       end
     end
