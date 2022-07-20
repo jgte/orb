@@ -90,17 +90,18 @@ classdef plotting
       %loop over all lines
       for i=1:numel(lh)
         %get x-data
-        d=get(lh(i),mode);
-        %clean up infs
-        d(:)=d(isfinite(d(:)));
-        if isdatetime(d)
-          d=datenum(d);
+        x=get(lh(i), mode  );
+        y=get(lh(i),'YData');
+        %clean up nans and infs
+        x=x( ~isnan(y(:)) & isfinite(y(:)) & isfinite(x(:)) );
+        if isdatetime(x)
+          x=datenum(x);
           dates=true;
         end
-        %clean up NaNs (datenum above converts NaTs to NaNs)
-        d(:)=d(~isnan(d(:)));
+        %clean up NaNs (datenum above converts NaTs to NaNs, and this needs to be done after that conversion)
+        x=x(~isnan(x(:)));
         %get x-data extremeties
-        mm=minmax(d);
+        mm=minmax(x);
         %accumulate inclusive x-axis limits
         v(1)=min([v(1),mm(1)]);
         v(2)=max([v(2),mm(2)]);
