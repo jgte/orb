@@ -940,6 +940,9 @@ classdef simpletimeseries < simpledata
     end
     %% t methods
     function x_out=t2x(obj,t_now)
+      if ~exist('t_now','var')
+        t_now=obj.t;
+      end
       if simpletimeseries.valid_t(t_now)
         x_out=simpletimeseries.time2num(t_now,obj.epoch,obj.x_units);
       else
@@ -947,6 +950,9 @@ classdef simpletimeseries < simpledata
       end
     end
     function t_out=x2t(obj,x_now)
+      if ~exist('x_now','var')
+        x_now=obj.x;
+      end
       switch class(x_now)
       case 'datetime'; t_out=x_now;
       otherwise
