@@ -98,14 +98,6 @@ classdef pardecomp
         out=find(cells.isstrequal(pardecomp.xnames(np,T),name));
       end
     end
-    %TODO: Need to revise these functions, they are somewhat duplicate to simpletimeseries.timescale
-    %TODO: It makes sense to support different timescales in simpletimeseries, need to implement that there
-    function out=to_timescaled(t,timescale)
-      out=time.num2duration(simpletimeseries.timescale(t),timescale);
-    end
-    function out=from_timescaled(t,timescale)
-      out=simpletimeseries.timescale(time.duration2num(t,timescale));
-    end
     %% decomposition into pd_set
     function pd_set=split(obj,varargin)
       % NOTICE: the following parameters are pretty much mandatory to define the parametric regression (see below)
@@ -125,7 +117,6 @@ classdef pardecomp
       t_pd=simpletimeseries.time2num(obj.t_masked,obj.epoch,v.timescale);
       y_pd=obj.y_masked;
       %convert t0 to numeric, honour v.timescale (obj.t2x only know about the obj.x_units timescale and obj.epoch)
-      t0=v.t0;
       v.t0=time.swap_units(obj.t2x(v.t0),obj.x_units,v.timescale);
 
       % TODO: pardecomp().lsq may well handle y_pd as an array
@@ -152,13 +143,18 @@ classdef pardecomp
             t_pd,y_pd(:,i),v.varargin{:}...
           ).lsq; %#ok<AGROW>
           if ~v.quiet; s=time.progress(s,i); end
+          %sanity
+          assert(rms(y_pd(:,i)-d(i).y_sum-d(i).yr)<1e-12,...
+            ['Parameter decomposition failed for ',obj.labels{i},'.'])
         end
       end
       %init containers
       init=str2func(class(obj)); %use correct constructor
       pd_args=cell(1,4*pardecomp.xlength(d(1).np,d(1).T)); 
       coeffnames=pardecomp.xnames(d(1).np,d(1).T);
+      common_args=[obj.varargin,{'silent',true,'x_units',v.timescale,'epoch',obj.epoch}];
       c=0;
+      clearvars s; s.msg=['ts constituents pardecomp   ',obj.descriptor]; s.n=numel(coeffnames);
       for j=1:numel(coeffnames)
         %retrieve coefficient index within its type
         switch coeffnames{j}(1)
@@ -175,7 +171,7 @@ classdef pardecomp
           error(['Cannot understand the coefficient name ''',coeffnames{j},'''.'])
         end
         %save coefficients (indexed to zero-date, since they are time-invariant)
-        o=init(time.zero_date,transpose(num.struct_deal(d,coeffnames{j}(1),i,[])),obj.varargin{:},'silent',true);
+        o=init(time.zero_date,transpose(num.struct_deal(d,coeffnames{j}(1),i,[])),common_args{:});
         o.descriptor=[coeffnames{j},' of ',str.clean(obj.descriptor,'file')];
         o.units(:)={units}; o.labels(:)={labels};
         %append to pd_args
@@ -184,7 +180,7 @@ classdef pardecomp
         c=c+2;
         %save timeseries represented by each coefficient
         clearvars o
-        o=init(obj.t_masked,num.struct_deal(d,['y',coeffnames{j}(1)],[],i),obj.varargin{:},'silent',true);
+        o=init(obj.t_masked,num.struct_deal(d,['y',coeffnames{j}(1)],[],i),common_args{:});
         o.descriptor=['p',num2str(i-1),' of ',str.clean(obj.descriptor,'file')];
         %restore gaps
         o=o.t_merge(obj.t);
@@ -192,6 +188,20 @@ classdef pardecomp
         pd_args{c+1}=['ts_',coeffnames{j}];
         pd_args{c+2}=o;
         c=c+2;
+        if ~v.quiet; s=time.progress(s,j); end
+      end
+      %some sanity
+      pdm.metadata=varargs(pd_args);
+      pdm.fn=fieldnames(pdm.metadata);
+      pdm.fg=pdm.fn(cells.strfind(pdm.fn,'ts_'));
+      pdm.sum=num.struct_deal(d,'yr',[],1);
+      for i=1:numel(pdm.fg)
+        pdm.sum=pdm.sum+pdm.metadata.(pdm.fg{i}).y;
+      end
+      pdm.check=pdm.sum-y_pd;
+      if ~rms(pdm.check(:))<1e-12
+        semilogy(rms(pdm.check))
+        disp('Buildind time series constituents failed.')
       end
       %save everything into pd_set record (including metadata, done internally)
       pd_set=pardecomp.assemble(...
@@ -203,26 +213,31 @@ classdef pardecomp
         'epoch',obj.epoch,...
         'descriptor',obj.descriptor,...
         'timescale',v.timescale,...
+        'quiet',v.quiet,...
         pd_args{:});
       %this is the abcissae defined in obj, excluding gaps
       pd_set.t_masked=obj.t_masked;
+      clearvars s; s.msg=['statistics of  pardecomp of ',obj.descriptor]; s.n=3;
       %save residuals
       clearvars o
-      o=init(obj.t_masked,num.struct_deal(d,'yr',[],1),obj.varargin{:},'silent',true);
+      o=init(obj.t_masked,num.struct_deal(d,'yr',[],1),common_args{:});
       o.descriptor=['residual of ',str.clean(obj.descriptor,'file')];
       %restore gaps
       o=o.t_merge(obj.t);
       pd_set.res=o;
+      if ~v.quiet; s=time.progress(s,1); end
       %save norms
       clearvars o
-      o=init(time.zero_date,num.struct_deal(d,'rn',[],1),obj.varargin{:},'silent',true);
+      o=init(time.zero_date,num.struct_deal(d,'rn',[],1),common_args{:});
       o.descriptor=['norm of the residuals of ',str.clean(obj.descriptor,'file')];
       pd_set.norm=o;
+      if ~v.quiet; s=time.progress(s,2); end
       %save norm ratio
       clearvars o
-      o=init(time.zero_date,num.struct_deal(d,'rrn',[],1),obj.varargin{:},'silent',true);
+      o=init(time.zero_date,num.struct_deal(d,'rrn',[],1),common_args{:});
       o.descriptor=['signal and residual norms ratio for ',str.clean(obj.descriptor,'file')];
       pd_set.rnorm=o;
+      if ~v.quiet; s=time.progress(s,3); end
     end
     %% reconstruction from pd_set
     function obj=join(pd_set,varargin)
@@ -245,8 +260,8 @@ classdef pardecomp
         case 'gravity';obj=eval([func2str(pd_set.init),'.unit(gravity.width2lmax(pd_set.width),''t'',v.time,pd_set.varargin{:},''scale'',0);']);
         otherwise;     obj=eval([func2str(pd_set.init),'.zero(v.time,pd_set.width,pd_set.varargin{:});']);
       end
-      %match epochs (very important and not done with copying the metadata)
-      obj.epoch=pd_set.epoch;
+      %NOTICE: do not match epochs explicitly, it should be done at initialization (above), otherwise you get artificial shifts
+      %obj.epoch=pd_set.epoch;
       %update descriptor (not done with copying the metadata1)
       obj.descriptor=pd_set.descriptor;
       %initialize coefficient containers
@@ -257,7 +272,7 @@ classdef pardecomp
         %get time series name
         tname=['ts_',v.coeffnames{i}];
         %check if this time series is available and is in the same time domain
-        if isfield(pd_set,tname) && pd_set.(tname).isxequal(v.time)
+        if isfield(pd_set,tname) && pd_set.(tname).istxequal(v.time)
           %if so, just increment it
           obj=obj+pd_set.(tname);
         %check if this parameter is available
@@ -279,7 +294,7 @@ classdef pardecomp
         s.msg=['Parametric reconstruction of ',obj.descriptor,' with components ',strjoin(coeffnameall(coeffidx==1),', ')]; s.n=obj.width;
         for i=1:obj.width
           obj=obj.set_cols(i,pardecomp(...
-            simpletimeseries.time2num(obj.t,pd_set.timescale),[],...
+            simpletimeseries.time2num(obj.t,pd_set.epoch,pd_set.timescale),[],...
             'T' ,pd_set.T,...
             'np',pd_set.np,...
             't0',pd_set.t0,...
@@ -319,6 +334,7 @@ classdef pardecomp
       v=varargs.wrap('sources',{v,....
         {...
           'time',simpletimeseries.num2time(v.t,v.epoch,v.timescale), @isdatetime;...
+          'quiet',        false, @islogical;...
         },...
       },varargin{:});
       %initialize output
@@ -327,6 +343,7 @@ classdef pardecomp
       records=struct([]);
       rnames={'width','class','metadata'};
       coeffnames=pardecomp.xnames(pd_set.np,pd_set.T);
+      s.msg=['Assemble pd_set  pardecomp  ',v.descriptor]; s.n=numel(coeffnames);
       for i=1:numel(coeffnames)
         %check if this field exists
         if v.isparameter(coeffnames{i})
@@ -361,10 +378,13 @@ classdef pardecomp
           pd_set.(['ts_',coeffnames{i}])=v.(['ts_',coeffnames{i}]);
           assert(pd_set.(['ts_',coeffnames{i}]).istequal(v.time),'Time domain discrepancy: debug needed!')
         end
+        if ~v.quiet; s=time.progress(s,i); end
       end
+      %NOTICE: this is important to join the pd_set correctly
+      pd_set.metadata=structs.rm_empty(records.metadata);
+      %NOTICE: this is largely for information only (at least I think so)
       pd_set.init=str2func(records.class);
       pd_set.width=records.width;
-      pd_set.metadata=structs.rm_empty(records.metadata);
       pd_set.descriptor=v.descriptor;
       pd_set.start=v.time(1);
       pd_set.stop=v.time(end);
@@ -507,13 +527,20 @@ classdef pardecomp
         if v.print
           out.print([],ref);
         end
-      case 'split'
+      case {'split','split-unstable'}
         t_start=datetime('now');
-        epoch=t_start-days(0.5);
-        t0=t_start-years(1);
         out_timescale='hours';
         tst_timescale='seconds';
         tsx_timescale='days';
+        switch v.mode
+          case 'split-unstable'
+            t0=t_start-years(1);
+            epoch=t_start-days(0.5);
+          case 'split'
+            delta=years(randn(1)*10);
+            t0=t_start-delta;
+            epoch=t_start-delta;
+        end
         %get timeseries objects
         pd=pardecomp.test('mode','forwards');
         ts=pd.ts(tst_timescale,epoch,'x_units',tsx_timescale);
@@ -549,8 +576,8 @@ classdef pardecomp
           disp(pardecomp.table(out));
           disp(['RMS(pd.y_sum-ts.y)=',num2str(rms(pd.y_sum-ts.y))])
         end
-      case 'join'
-        pd_set=pardecomp.test('mode','split');
+      case {'join','join-unstable'}
+        pd_set=pardecomp.test('mode',strrep(v.mode,'join','split'));
         pd=pardecomp.test('mode','forwards');
         out=pardecomp.join(pd_set);
         %show results
@@ -564,7 +591,7 @@ classdef pardecomp
             'plot_legend',{'split/joined','forwards'}...
           );
           subplot(2,1,2)
-          plot(out.y-pd.y_sum)
+          plot(out.t,out.y-pd.y_sum)
           plotting.enforce(...
             'plot_title','split/joined-forwards',...
             'plot_legend_location','none'...
