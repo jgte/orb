@@ -403,13 +403,37 @@ classdef gravity < simpletimeseries
     function obj=kaula(lmax,varargin)
       obj=gravity.unit(lmax,'scale_per_degree',[0,1e-5./(1:lmax).^2],varargin{:},'skip_common_ops',true);
     end
-    % Creates a random model with mean 0 and std 1 (per degree)
-    function obj=unit_randn(lmax,varargin)
-      obj=gravity.unit(lmax,'scale_per_coeff',randn(lmax+1),varargin{:},'skip_common_ops',true);
-    end
     function obj=nan(lmax,varargin)
       obj=gravity.unit(lmax,'scale',nan,varargin{:},'skip_common_ops',true);
     end
+    function obj=zero(lmax,varargin)
+      obj=gravity.unit(lmax,'scale',0,varargin{:},'skip_common_ops',true);
+    end
+    % Creates a random model with mean 0 and std 1 (per degree)
+    function obj=randn(lmax,varargin)
+      obj=gravity.unit(lmax,'scale_per_coeff',randn(lmax+1),varargin{:},'skip_common_ops',true);
+    end
+    function [obj,w]=sin(lmax,w,varargin)
+      %NOTICE: it's probably a good idea to define a time domain when calling this method
+      obj=gravity.unit(lmax,varargin{:},'skip_common_ops',true);
+      %handle definitions of w
+      switch class(w)
+        case 'char'
+          switch w
+            case 'randn'; w=abs(randn(1,obj.width));
+            case 'seq'  ; w=1:obj.width;
+            otherwise
+              error(['Cannot handle input ''w'' with value ',w,'.'])
+          end
+        case 'double'
+          assert(numel(w)==obj.width,'Input ''w'' must be defined for every coefficient')
+        otherwise
+          error(['Cannot handle input ''w'' of class ',class(w),'.'])
+      end
+      obj=obj.assign(cell2mat(arrayfun(@(i) sin(obj.t2x*pi/i),w,'UniformOutput',false)));
+      if isempty(obj.descriptor),obj.descriptor='sinusoidal';end
+    end
+    %% data loading
     % epoch-parsing functions, needed by the load functions below
     function out=parse_epoch_grace(filename)
       [~,f]=fileparts(filename);
@@ -888,7 +912,7 @@ classdef gravity < simpletimeseries
           if v.stop~=time.inf_date
             if v.stop>mod.stop
               %append extremeties
-              mod=mod.append(gravity.nan(mod.lmax,'t',v.stop,'R',mod.R,'GM',mod.GM));
+              mod=mod.append(gravity.nan(mod.lmax,'t',v.stop,'R',mod.R,'GM',mod.GM,'static_model',mod.static_model));
             elseif v.stop<mod.stop
               %trim extremeties (this is redundant unless data is saved before the stop metadata is decreased)
               mod=mod.trim(mod.start,v.stop);
@@ -1111,6 +1135,7 @@ classdef gravity < simpletimeseries
         save(datafile,'m','e')
       end
     end
+    %% static model handler
     function [m,e]=static(model)
       switch upper(model)
         case 'GIF48'
@@ -1941,6 +1966,16 @@ classdef gravity < simpletimeseries
         end
         %call mother routine
         obj=scale@simpledata(obj,s);
+      elseif strcmp(method,'static_model')
+        assert(ischar(s) || isempty(s),['If ''method'' is ''static_model'', input ''s'' must be char (or empty), not ',class(s),'.'])
+        if isempty(s) || str.none(s)
+          %do nothing, no valid static model given in 's'
+        else
+          %load current static model and restore it to obj
+          obj=obj+gravity.static(obj.static_model);
+          %load new static model and remove it from obj
+          obj=obj-gravity.static(s);
+        end
       else
         % input 's' assumes different meanings, dependending on the method; invoke as:
         % obj.scale('geoid','functional')
@@ -2648,8 +2683,8 @@ function [m,e]=load_gsm(filename,time,varargin)
          yaml_header{i}=fgets(fid);
        end
        %define header filename
-       [~,header_filename]=fileparts(filename);
-       header_filename=fullfile('tmp',[header_filename,'.yaml']);
+       [d,header_filename]=fileparts(filename);
+       header_filename=fullfile(d,[header_filename,'.yaml']);
        %write to file
        file.strsave(header_filename,strjoin(yaml_header,'\n'));
        %read yaml from file (that's how it works...)
