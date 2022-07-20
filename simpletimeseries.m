@@ -1141,7 +1141,7 @@ classdef simpletimeseries < simpledata
     end
     %% step methods
     function out=step_num(obj)
-      out=simpletimeseries.timescale(obj.step);
+      out=simpletimeseries.time2num(obj.step,0,obj.x_units);
     end
     function out=step_get(obj)
       out=simpletimeseries.timestep(obj.t);
