@@ -125,7 +125,7 @@ classdef gravityTest < matlab.unittest.TestCase
       test='gravity.grid';
       plotting.figure('plot_visible','off');
       s_prev=rng(0);
-      gravity.unit_randn(120,'t',gravityTest.t).grid.imagesc;
+      gravity.randn(120,'t',gravityTest.t).grid.imagesc;
       rng(s_prev);
       testCase=utilsTest.check_single_plot(testCase,test);
     end
@@ -157,7 +157,7 @@ classdef gravityTest < matlab.unittest.TestCase
            datetime(now+li*10-1,'convertfrom','modifiedjuliandate');
       end
       s_prev=rng(0);
-      a.start=gravity.unit_randn(li,'t',ti);
+      a.start=gravity.randn(li,'t',ti);
       d=round(rand*li);
       o=round(rand*2*d)-d;
       rng(s_prev);
@@ -221,7 +221,7 @@ classdef gravityTest < matlab.unittest.TestCase
     end
     function testCase=funct_circ(testCase)
       funcs=gravity.functionals;
-      a=gravity.unit_randn(gravityTest.l);
+      a=gravity.randn(gravityTest.l);
       for i=1:numel(funcs)
         m0=a.scale(funcs{i},'functional');
         for j=i+1:numel(funcs)

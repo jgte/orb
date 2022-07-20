@@ -511,7 +511,7 @@ classdef simpletimeseries < simpledata
     function out=randn(t,width,varargin)
       out=simpletimeseries(t(:),randn(numel(t),width),'descriptor','randn',varargin{:});
     end
-    function out=sin(t,w,varargin)
+    function out=sinusoidal(t,w,varargin)
       y=cell2mat(arrayfun(@(i) sin((t(:)-t(1))*pi/i),w,'UniformOutput',false));
       out=simpletimeseries(t(:),y,'descriptor','sinusoidal',varargin{:});
     end

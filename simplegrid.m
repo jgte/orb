@@ -712,7 +712,7 @@ classdef simplegrid < simpletimeseries
       end
     end
     % Creates a random model with mean 0 and std 1
-    function obj=unit_randn(n_lon,n_lat,varargin)
+    function obj=randn(n_lon,n_lat,varargin)
       p=machinery.inputParser;
       p.addRequired( 'n_lon',  @num.isscalar);
       p.addRequired( 'n_lat',  @num.isscalar);
@@ -1006,7 +1006,7 @@ classdef simplegrid < simpletimeseries
         figure
         a.imagesc('t',a.t);
       case {'plus','minus','times','rdivide'}
-        a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(l(3)));
+        a=simplegrid.randn(l(1),l(2),'t',time.rand(l(3)));
         b=simplegrid.unit(      l(1),l(2),'t',a.t,'scale',2);
         switch lower(method)
           case 'plus'
@@ -1032,8 +1032,8 @@ classdef simplegrid < simpletimeseries
         a.(method).prettymap(a.t(1))
       case 'crop'
         %TODO: update this test once the interpolant method works with multiple epochs
-        %a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(l(3)));
-        a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(1));
+        %a=simplegrid.randn(l(1),l(2),'t',time.rand(l(3)));
+        a=simplegrid.randn(l(1),l(2),'t',time.rand(1));
         disp('original')
         a.prettymap(a.t(1))
         disp('cropped')
@@ -1056,7 +1056,7 @@ classdef simplegrid < simpletimeseries
         disp('interpolated:b')
         b.prettymap
       case {'min','max','mean','std','rms','meanabs','stdabs','rmsabs','length','gaps'}
-        a=simplegrid.unit_randn(l(1),l(2),'t',time.rand(l(3)));
+        a=simplegrid.randn(l(1),l(2),'t',time.rand(l(3)));
         m=a.map;
         m(1,1,:)=0;
         m(round(l(1)/2),round(l(2)/3),:)=1;
