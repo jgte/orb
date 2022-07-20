@@ -2119,7 +2119,9 @@ classdef simpletimeseries < simpledata
         %get PSD of residuals
         rf=simplefreqseries.transmute(pd_set.res).psd;
         %get period where PSD is maximum
-        T_now=pardecomp.to_timescaled(1/rf.x(rf.y(:,1)==max(rf.y(:,1))),v.timescale);
+        max_idx=find(rf.y(:,1)==max(rf.y(:,1)),1,'first');
+        simpletimeseries.time2num(obj.step,0,obj.x_units);
+        T_now=simpletimeseries.num2time(1/rf.x(max_idx),0,pd_set.timescale);
         %update norm and delta
         norm_now=norm(pd_set.norm.y);
         delta=(norm_now-norm_prev)/norm_now;
@@ -2139,7 +2141,7 @@ classdef simpletimeseries < simpledata
           break
         end
         %increment T
-        v.T(end+1)=T_now;
+        v.T(end+1)=simpletimeseries.time2num(T_now,0,pd_set.timescale);
       end
       obj=pardecomp.join(pd_set,'time',obj.t);
     end
