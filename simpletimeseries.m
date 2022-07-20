@@ -700,8 +700,11 @@ classdef simpletimeseries < simpledata
           disp('x-domains:')
           disp([a.x,b.x])
           assert(all(a.t==b.t),'test failed')
-        case 'minus'
-          t=datetime('now')-years(10:-1:0);
+        case {'minus','minus-scalar'}
+          switch method
+            case 'minus',        t=datetime('now')-years(10:-1:0);
+            case 'minus-scalar', t=datetime('now');
+          end
           a=simpletimeseries.one(t,2,'x_units','seconds','epoch',datetime('now'));
           b=simpletimeseries.one(t,2,'x_units','years',  'epoch',datetime('now')+days(1)); 
           c=a-b;
