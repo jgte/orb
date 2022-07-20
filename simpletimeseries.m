@@ -1211,8 +1211,8 @@ classdef simpletimeseries < simpledata
       if simpletimeseries.ist('==',obj1.epoch,obj2.epoch,min([obj1.t_tol,obj2.t_tol])) 
         return
       end
-      %match epochs (this is only necessary when epochs are infinite)
-      if obj2.epoch>obj1.epoch
+      %match epochs, avoid zero and inf epochs
+      if time.isfinite(obj1.epoch)
         if obj1.debug || obj2.debug
           disp(['WARNING: Reset epoch in obj2 (',obj2.descriptor,') to ',datestr(obj1.epoch),' from ',datestr(obj2.epoch)])
         end
