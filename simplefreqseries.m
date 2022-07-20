@@ -506,13 +506,17 @@ classdef simplefreqseries < simpletimeseries
       if any(isnan(psd0(:)))
         error('detected NaNs in psd computation algorithm.')
       end
+      switch obj.x_units;
+        case 's' ; x_units='Hz';
+        otherwise; x_units=['1/',obj.x_units];
+      end
       units=cell(size(obj.units));
       for i=1:numel(obj.units)
-        units{i}=[obj.units{i},'/(Hz)^{1/2}'];
+        units{i}=[obj.units{i},'/(',x_units,')^{1/2}'];
       end
       obj.psdi=simpledata(f0,psd0,...
         'units',units,...
-        'x_units','Hz',...
+        'x_units',x_units,...
         'labels' ,obj.labels,...
         'descriptor',obj.descriptor...
       );
