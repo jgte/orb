@@ -40,7 +40,7 @@ classdef simplefreqseries < simpletimeseries
         out=in;
       else
         %transmute into this object
-        if obj.is_timeseries
+        if in.is_timeseries
           out=simplefreqseries(in.t,in.y,in.varargin{:});
         else
           out=simplefreqseries(in.x,in.y,in.varargin{:});
