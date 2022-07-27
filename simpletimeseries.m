@@ -1132,16 +1132,6 @@ classdef simpletimeseries < simpledata
         error('Cannot continue')
       end
     end
-    %% mask methods
-    function [obj1,obj2]=match_mask(obj1,obj2,errmsg)
-      if ~exist('errmsg','var') || isempty(errmsg)
-        errmsg='time domain discrepancy, cannot match masks';
-      end
-      %match epochs
-      [obj1,obj2]=obj1.match_epoch(obj2);
-      %call mother routine
-      [obj1,obj2]=match_mask@simpledata(obj1,obj2,errmsg);
-    end
     %% step methods
     function out=step_num(obj)
       out=simpletimeseries.time2num(obj.step,0,obj.x_units);
@@ -1191,9 +1181,7 @@ classdef simpletimeseries < simpledata
     end
     %% epoch methods
     function obj=set.epoch(obj,epoch)
-      if ~simpletimeseries.valid_epoch(epoch)
-        error('invalid input ''epoch''.')
-      end
+      assert(simpletimeseries.valid_epoch(epoch),'invalid input ''epoch''.')
       %get current time domain
       t_old=obj.t;
       %set epoch
