@@ -85,6 +85,11 @@ classdef gravity < simpletimeseries
     functional
     origin
     static_model
+    %This parameter enures the common ops are not applied twice to derived models, i.e. if
+    %you compute a model residual from two models which have already had a (the same) static 
+    %model removed (and possibly have already been converted to non-dim functionals), you don't 
+    %want common_ops to kick in, notably consistent_R, consistent_GM and tide_system
+    common_ops_done=false;
   end
   %calculated only when asked for
   properties(Dependent)
@@ -796,6 +801,12 @@ classdef gravity < simpletimeseries
     end
     %% common operations
     function mod=common_ops(mode,mod,varargin)
+      %trivial call
+      if mod.common_ops_done
+        %this means the common ops have already been done, most likely on models that have
+        %been used to compute the one being considered now (e.g. model differences)
+        return
+      end
       %handle vector call on mode
       if iscellstr(mode)
         for i=1:numel(mode)
@@ -832,6 +843,8 @@ classdef gravity < simpletimeseries
         switch mode
         case 'all'
           mod=gravity.common_ops(gravity.common_ops_mode_list,mod,v.varargin{:});
+          %update records
+          mod.common_ops_done=true;
           %get out so that no message is shown for sure
           return
         case 'consistent_GM'
