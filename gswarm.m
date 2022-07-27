@@ -2795,7 +2795,6 @@ classdef gswarm
           'get_input_data',false,                   @islogical;... %NOTICE: consider turning this on to update all input data
           'c20model',  true,                        @islogical;...
          'grace_model',true,                        @islogical;...
-  'overwrite_common_t',false,                       @islogical;...
         },...
       },varargin{:});
       %check if all needed arguments are available
@@ -2827,7 +2826,7 @@ classdef gswarm
           'start',v.start,...
           'stop', v.stop);
         for i=1:p{1}.nr_sources
-          d=d.init(p{1}.sources(i),'force',v.force,'overwrite_common_t',v.overwrite_common_t);
+          d=d.init(p{1}.sources(i),'force',v.force);
         end
         file.ensuredir(datafilename,true);
         save(datafilename,'d')
