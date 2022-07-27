@@ -2270,25 +2270,18 @@
       elseif isnumeric(obj1)
         obj1=obj1+obj2.y;
       else
-        %sanity
-        compatible(obj1,obj2)
         %operate
-        if obj1.length==1 && obj2.length==1
-          assert(simpledata.isx('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol])),...
-            ['Cannot operate on scalar objects with different x-domains: ',...
-            num2str(obj1.x),' != ',num2str(obj2.x)])
-          if isprop(obj1,'epoch')
-            assert(simpletimeseries.ist('==',obj1.epoch,obj2.epoch,min([obj1.t_tol,obj2.t_tol])), ...
-              ['Cannot operate on scalar objects with different epochs: ',...
-              datestr(obj1.epoch),' != ',datestr(obj2.epoch)])
-          end
-          obj1=obj1.assign_tx_mask(obj1.y+obj2.y,obj2.tx,obj1.mask&&obj2.mask);
-        elseif obj1.length==1
+%         if obj1.length==1 && obj2.length==1
+%           obj1=obj1.assign_tx_mask(obj1.y+obj2.y,obj2.tx,obj1.mask&&obj2.mask);
+%         else
+        if obj1.length==1
+          obj1.compatible(obj2)
           obj1=obj1.assign_tx_mask(ones(obj2.length,1)*obj1.y+obj2.y,obj2.tx,obj2.mask);
         elseif obj2.length==1
+          obj1.compatible(obj2)
           obj1=obj1.assign_tx_mask(ones(obj1.length,1)*obj2.y+obj1.y,obj1.tx,obj1.mask);
         else
-          %consolidate data sets
+          %consolidate data sets (epochs and x_units matched inside if needed)
           [obj1,obj2]=obj1.merge(obj2,0);
           %operate
           obj1=obj1.assign(obj1.y+obj2.y,'mask',obj1.mask & obj2.mask);
@@ -2306,28 +2299,22 @@
       elseif isnumeric(obj1)
         obj1=obj1-obj2.y;
       else
-        %sanity
-        compatible(obj1,obj2)
         %operate
-        if obj1.length==1 && obj2.length==1
-          assert(simpledata.isx('==',obj1.x,obj2.x,min([obj1.x_tol,obj2.x_tol])), ...
-            ['Cannot operate on scalar objects with different x-domains: ',...
-            num2str(obj1.x),' != ',num2str(obj2.x)])
-          if isprop(obj1,'epoch')
-            assert(simpletimeseries.ist('==',obj1.epoch,obj2.epoch,min([obj1.t_tol,obj2.t_tol])), ...
-              ['Cannot operate on scalar objects with different epochs: ',...
-              datestr(obj1.epoch),' != ',datestr(obj2.epoch)])
-          end
-          obj1=obj1.assign_tx_mask(obj1.y-obj2.y,obj2.tx,obj1.mask&&obj2.mask);
-        elseif obj1.length==1
+%         if obj1.length==1 && obj2.length==1
+%           obj1=obj1.assign_tx_mask(obj1.y-obj2.y,obj2.tx,obj1.mask&&obj2.mask);
+%         else
+        if obj1.length==1 && obj2.length>1
+          obj1.compatible(obj2)
           obj1=obj1.assign_tx_mask(ones(obj2.length,1)*obj1.y-obj2.y,obj2.tx,obj2.mask);
-        elseif obj2.length==1
+        elseif obj2.length==1 && obj1.length>1
+          obj1.compatible(obj2)
           obj1=obj1.assign_tx_mask(obj1.y-ones(obj1.length,1)*obj2.y,obj1.tx,obj1.mask);
         else
-          %consolidate data sets
+          %consolidate data sets (epochs matched inside if needed)
           [obj1,obj2]=obj1.merge(obj2,0);
           %operate
           obj1=obj1.assign(obj1.y-obj2.y,'mask',obj1.mask & obj2.mask);
+          obj1.sanity_t
         end
       end
     end
