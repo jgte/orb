@@ -1131,24 +1131,48 @@
       )
       % parse it
       p.parse(varargin{:});
-      %need compatible objects
-      compatible(obj1,obj2,varargin{:})
-      %need to make the mask match to make sure x_masked is common
-      [obj1,obj2]=obj1.match_mask(obj2,'x-domain discrepancy, interpolate objects before calling this method');
-      %detrend and remove outliers (if there inclinded according to outlier_iter, outlier_sigma and detrend)
-      %NOTICE: need to set 'outlier_iter' to 0, otherwise the default in obj.outlier is used in the (common)
-      %        case varargin{:} is omissive in the value of this option.
-      obj1=obj1.outlier('outlier_iter',0,varargin{:});
-      obj2=obj2.outlier('outlier_iter',0,varargin{:});
-      %trivial call
+      % handle trivial calls and vector modes
       switch p.Results.mode
       case {'cov','corrcoef'}
-        %bad things happend when deriving statistics of zero or one data points
+        %trivial call: bad things happend when deriving statistics of zero or one data points
         if size(obj1.y_masked,1)<=max([2,p.Results.minlen])
           out=nan(1,obj1.width);
           return
         end
+      case 'struct'
+        for f=p.Results.struct_fields
+          out.(f{1})=obj1.stats2(obj2,varargin{:},'mode',f{1});
+        end
+        return
+      case 'obj'
+        %get structure with requested stats
+        s=stats2@simpledata(obj1,obj2,varargin{:},'mode','struct');
+        % use correct abcissae (obj2 should produce the same x_now, since the time simpledata.merge method was used
+        x_now=mean(obj1.tx_masked);
+        % use the correct object constructor
+        init=str2func(class(obj1));
+        %loop over all structure fields and create an object (unless there's only one field)
+        fields=fieldnames(s);
+        if numel(fields)==1
+          out=init(x_now,s.(fields{1}),obj1.varargin{:});
+          out.descriptor=[fields{1},' of ',obj1.descriptor,' minus ',obj2.descriptor];
+        else
+          for i=1:numel(fields)
+            out.(fields{i})=init(x_now,s.(fields{i}),obj1.varargin{:});
+            out.descriptor=[fields{i},' of ',obj1.descriptor,' minus ',obj2.descriptor];
+          end
+        end
+        return
       end
+      %need compatible objects
+      compatible(obj1,obj2,varargin{:})
+      %need to make the mask match to make sure x_masked is common
+      [obj1,obj2]=obj1.match_mask(obj2);
+      %detrend and remove outliers (if they're included according to outlier_iter, outlier_sigma and detrend)
+      %NOTICE: need to set 'outlier_iter' to 0, otherwise the default value (~=0) in obj.outlier is used in 
+      %        the (frequent) case, i.e. when varargin{:} is omissive in the value of this option.
+      obj1=obj1.outlier('outlier_iter',0,varargin{:});
+      obj2=obj2.outlier('outlier_iter',0,varargin{:});
       % type conversions
       if iscell(p.Results.columns)
         columns=cell2mat(p.Results.columns);
@@ -1163,31 +1187,11 @@
         out=num.corrcoef(obj1.y_masked([],columns),obj2.y_masked([],columns));
       case {'rms','std'}
         o=obj1.cols(columns)-obj2.cols(columns);
-        out=o.stats('mode',strrep(p.Results.mode,'diff',''));
+        out=o.stats('mode',p.Results.mode);
       case 'length'
         out=(obj1.nr_valid+obj2.nr_valid)*ones(1,numel(columns));
       case 'gaps'
         out=(obj1.nr_gaps+obj2.nr_gaps)*ones(1,numel(columns));
-      case 'struct'
-        for f=p.Results.struct_fields
-          out.(f{1})=obj1.stats2(obj2,varargin{:},'mode',f{1});
-        end
-      case 'obj'
-        %get structure with requested stats
-        s=stats2@simpledata(obj1,obj2,varargin{:},'mode','struct');
-        % use correct abcissae (obj2 should produce the same x_now, since the time simpledata.merge method was used
-        x_now=mean(obj1.tx_masked);
-        % use the correct object constructor
-        init=str2func(class(obj1));
-        %loop over all structure fields and create an object (unless there's only one field)
-        fields=fieldnames(s);
-        if numel(fields)==1
-          out=init(x_now,s.(fields{1}),obj1.varargin{:});
-        else
-          for i=1:numel(fields)
-            out.(fields{i})=init(x_now,s.(fields{i}),obj1.varargin{:});
-          end
-        end
       otherwise
         error(['unknown mode ''',p.Results.mode,'''.'])
       end
