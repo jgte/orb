@@ -1165,6 +1165,7 @@
         return
       end
       %need compatible objects
+      [obj1,obj2]=obj1.match_tx_domain(obj2);
       obj1.compatible(obj2,varargin{:})
       %need to make the mask match to make sure x_masked is common
       [obj1,obj2]=obj1.match_mask(obj2);
@@ -2359,10 +2360,11 @@
         obj1=obj2.scale(obj1).y;
       else
         %sanity
-        obj1.compatible(obj2,'skip_par_check',{'units'})
         if obj1.length==1
+          obj1.compatible(obj2,'skip_par_check',{'units'})
           obj1=obj1.assign_tx_mask(ones(obj2.length,1)*obj1.y.*obj2.y,obj2.tx,obj2.mask);
         elseif obj2.length==1
+          obj1.compatible(obj2,'skip_par_check',{'units'})
           obj1=obj1.assign_tx_mask(ones(obj1.length,1)*obj2.y.*obj1.y,obj1.tx,obj1.mask);
         else
           %consolidate data sets
@@ -2404,10 +2406,11 @@
         obj1=obj2.scale(1/obj1).y;
       else
         %sanity
-        obj1.compatible(obj2,'skip_par_check',{'units'})
         if obj1.length==1
+          obj1.compatible(obj2,'skip_par_check',{'units'})
           obj1=obj1.assign_tx_mask(ones(obj2.length,1)*obj1.y./obj2.y,obj2.tx,obj2.mask);
         elseif obj2.length==1
+          obj1.compatible(obj2,'skip_par_check',{'units'})
           obj1=obj1.assign_tx_mask(obj1.y./ones(obj1.length,1)*obj2.y,obj1.tx,obj1.mask);
         else
           %consolidate data sets
@@ -2620,21 +2623,23 @@
       % computes the unit vector of y
       out=obj.y./(obj.norm*ones(1,obj.width));
     end
-    function obj=dot(obj,obj_new)
+    function obj1=dot(obj1,obj2)
       %sanity
-      obj.compatible(obj_new,'compatible_parameters',{'x_units'})
+      [obj1,obj2]=obj1.match_tx_domain(obj2);
+      obj1.compatible(obj2,'compatible_parameters',{'x_units'})
       %consolidate data sets
-      [obj,obj_new]=obj.merge(obj_new);
+      [obj1,obj2]=obj1.merge(obj2);
       %operate
-      obj=obj.assign(sum(obj.y.*obj_new.y,2),'reset_width',true);
+      obj1=obj1.assign(sum(obj1.y.*obj2.y,2),'reset_width',true);
     end
-    function obj=cross(obj,obj_new)
+    function obj1=cross(obj1,obj2)
       %sanity
-      obj.compatible(obj_new,'compatible_parameters',{'x_units'})
+      [obj1,obj2]=obj1.match_tx_domain(obj2);
+      obj1.compatible(obj2,'compatible_parameters',{'x_units'})
       %consolidate data sets
-      [obj,obj_new]=obj.merge(obj_new);
+      [obj1,obj2]=obj1.merge(obj2);
       %operate
-      obj=obj.assign(cross(obj.y,obj_new.y));
+      obj1=obj1.assign(cross(obj1.y,obj2.y));
     end
     function obj=autocross(obj)
       %get autocross product
@@ -2677,6 +2682,7 @@
         order=1;
       end
       %sanity
+      [obj1,obj2]=obj1.match_tx_domain(obj2);
       obj1.compatible(obj2,varargin{:})
       %need to match the gaps
       [obj1,obj2]=obj1.match_mask(obj2);

@@ -2367,14 +2367,16 @@ classdef gravity < simpletimeseries
       [obj1,obj2,idx1,idx2]=merge@simpletimeseries(obj1,obj2);
     end
     function obj1=glue(obj1,obj2,varargin)
-      %objects need to have the same time domain
+      %moves the columns in obj2.y that are all non-zero to the columns of obj1.y that are all zero
+      %NOTICE: objects need to have the same time domain
+      [obj1,obj2]=obj1.match_tx_domain(obj2);
       assert(obj1.istequal(obj2),'Input objects do not share the same time domain.')
+      %make sure objects are compatible
+      obj1.compatible(obj2,varargin{:})
       %get maximum degree
       lmax_now=max([obj1.lmax,obj2.lmax]);
       %match lmax
       obj1.lmax=lmax_now; obj2.lmax=lmax_now;
-      %make sure objects are compatible
-      obj1.compatible(obj2,varargin{:})
       %get mapping
       map=gravity.mapping(lmax_now);
       %augment the data, labels and units, coefficient-wise
