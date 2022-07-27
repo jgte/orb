@@ -586,7 +586,7 @@ classdef attitude
       odt=attitude.data_types;
       for i=1:numel(odt)
         if ~isempty(obj1.(odt{i})) && ~isempty(obj2.(odt{i}))
-          [obj1.(odt{i}),obj2.(odt{i})]=obj1.(odt{i}).consolidate(obj2.(odt{i}));
+          [obj1.(odt{i}),obj2.(odt{i})]=obj1.(odt{i}).interp2_lcm(obj2.(odt{i}));
           counter=counter+1;
         end
       end
