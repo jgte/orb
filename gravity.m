@@ -27,6 +27,15 @@ classdef gravity < simpletimeseries
       'vertgravgrad',  struct('units','s^{-2}',    'name','Vert. Gravity Gradient'),...
       'gravity',       struct('units','m.s^{-2}',  'name','Gravity Acc.')...
     );
+    %NOTICE: the sequence of operations is important:
+    %       - use_GRACE_C20 before static_model means the SLR C20 will be ~1e-10 (the residual relative to the static), not ~1e-4 (mainly the static)
+    %       - permanent_tide should come before use_GRACE_C20 because the tide system of the SLR data is handled before it is replaced in this model
+    %       - delete_C20 makes more sense after use_GRACE_C20, static_model and permanent_tide (otherwise, those components will remain)
+    common_ops_mode_list={...
+      'consistent_GM','consistent_R','max_degree',...
+      'permanent_tide','use_GRACE_C20','static_model',...
+      'start','stop','delete_C00','delete_C20'...
+    };
   end
   properties(Constant,GetAccess=private)
     %TODO: the parameters below are a mix of physical constants and default values for properties; find a way to fix this
@@ -821,20 +830,8 @@ classdef gravity < simpletimeseries
         %inits user feedback vars
         msg='';
         switch mode
-        case 'mode_list'
-          %NOTICE: the sequence of operations is important:
-          %       - use_GRACE_C20 before static_model means the SLR C20 will be ~1e-10 (the residual relative to the static), not ~1e-4 (mainly the static)
-          %       - permanent_tide should come before use_GRACE_C20 because the tide system of the SLR data is handled before it is replaced in this model
-          %       - delete_C20 makes more sense after use_GRACE_C20, static_model and permanent_tide (otherwise, those components will remain)
-          mod={...
-            'consistent_GM','consistent_R','max_degree',...
-            'permanent_tide','use_GRACE_C20','static_model',...
-            'start','stop','delete_C00','delete_C20'...
-          };
-          %get out so that no message is shown for sure
-          return
         case 'all'
-          mod=gravity.common_ops(gravity.common_ops('mode_list'),mod,v.varargin{:});
+          mod=gravity.common_ops(gravity.common_ops_mode_list,mod,v.varargin{:});
           %get out so that no message is shown for sure
           return
         case 'consistent_GM'
