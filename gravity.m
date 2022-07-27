@@ -2374,7 +2374,7 @@ classdef gravity < simpletimeseries
       %match lmax
       obj1.lmax=lmax_now; obj2.lmax=lmax_now;
       %make sure objects are compatible
-      compatible(obj1,obj2,varargin{:})
+      obj1.compatible(obj2,varargin{:})
       %get mapping
       map=gravity.mapping(lmax_now);
       %augment the data, labels and units, coefficient-wise

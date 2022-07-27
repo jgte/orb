@@ -580,7 +580,7 @@ classdef attitude
     %object obj1 will have the time domain of obj2 (interpolated if needed)
     function [obj1,obj2]=consolidate(obj1,obj2,varargin)
       %compatibility check
-      compatible(obj1,obj2,varargin{:})
+      obj1.compatible(obj2,varargin{:})
       %consolidate all data types
       counter=0;
       odt=attitude.data_types;

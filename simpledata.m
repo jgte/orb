@@ -1165,7 +1165,7 @@
         return
       end
       %need compatible objects
-      compatible(obj1,obj2,varargin{:})
+      obj1.compatible(obj2,varargin{:})
       %need to make the mask match to make sure x_masked is common
       [obj1,obj2]=obj1.match_mask(obj2);
       %detrend and remove outliers (if they're included according to outlier_iter, outlier_sigma and detrend)
@@ -2050,7 +2050,7 @@
       end
       %basic sanitization
       [obj1,obj2]=obj1.match_tx_domain(obj2);
-      compatible(obj1,obj2,varargin{:})
+      obj1.compatible(obj2,varargin{:})
       %merge x-domains
       [obj1_out,idx2]=obj1.x_merge(obj2.x,y_new);
       if nargout>1
@@ -2067,7 +2067,7 @@
       %scheme and other options can be set in varargin).
       %basic sanitization
       [obj1,obj2]=obj1.match_tx_domain(obj2);
-      compatible(obj1,obj2,varargin{:})
+      obj1.compatible(obj2,varargin{:})
       %trivial call
       if obj1.isxequal(obj2)
         return
@@ -2094,7 +2094,7 @@
       end
       %basic sanitization
       [obj1,obj2]=obj1.match_tx_domain(obj2);
-      compatible(obj1,obj2,varargin{:})
+      obj1.compatible(obj2,varargin{:})
       %append with awareness
       if all(obj1.x(end) < obj2.x)
         x_now=[obj1.x;obj2.x];
@@ -2163,7 +2163,7 @@
       p.parse(varargin{:});
       %basic sanitization
       [obj1,obj2]=obj1.match_tx_domain(obj2);
-      compatible(obj1,obj2,varargin{:})
+      obj1.compatible(obj2,varargin{:})
       %merge x domain, also get idx2, which is needed to propagate data
       if p.Results.skip_gaps
         [obj1_out,obj2_out,idx1,idx2]=merge(obj1,obj2.masked);
@@ -2252,7 +2252,7 @@
       %basic sanitization
       [obj1,obj2]=obj1.match_tx_domain(obj2);
       obj1.assert_tx_domain(obj2);
-      compatible(obj1,obj2,varargin{:})
+      obj1.compatible(obj2,varargin{:})
       %augment the data, labels and units
       obj1=obj1.assign([obj1.y,obj2.y],'reset_width',true);
       obj1.labels=[obj1.labels(:);obj2.labels(:)]';
@@ -2372,7 +2372,7 @@
         obj1=obj2.scale(obj1).y;
       else
         %sanity
-        compatible(obj1,obj2,'compatible_parameters',{'x_units'})
+        obj1.compatible(obj2,'skip_par_check',{'units'})
         if obj1.length==1
           obj1=obj1.assign_tx_mask(ones(obj2.length,1)*obj1.y.*obj2.y,obj2.tx,obj2.mask);
         elseif obj2.length==1
@@ -2417,7 +2417,7 @@
         obj1=obj2.scale(1/obj1).y;
       else
         %sanity
-        compatible(obj1,obj2,'compatible_parameters',{'x_units'})
+        obj1.compatible(obj2,'skip_par_check',{'units'})
         if obj1.length==1
           obj1=obj1.assign_tx_mask(ones(obj2.length,1)*obj1.y./obj2.y,obj2.tx,obj2.mask);
         elseif obj2.length==1
@@ -2635,7 +2635,7 @@
     end
     function obj=dot(obj,obj_new)
       %sanity
-      compatible(obj,obj_new,'compatible_parameters',{'x_units'})
+      obj.compatible(obj_new,'compatible_parameters',{'x_units'})
       %consolidate data sets
       [obj,obj_new]=obj.merge(obj_new);
       %operate
@@ -2643,7 +2643,7 @@
     end
     function obj=cross(obj,obj_new)
       %sanity
-      compatible(obj,obj_new,'compatible_parameters',{'x_units'})
+      obj.compatible(obj_new,'compatible_parameters',{'x_units'})
       %consolidate data sets
       [obj,obj_new]=obj.merge(obj_new);
       %operate
@@ -2690,7 +2690,7 @@
         order=1;
       end
       %sanity
-      compatible(obj1,obj2,varargin{:})
+      obj1.compatible(obj2,varargin{:})
       %need to match the gaps
       [obj1,obj2]=obj1.match_mask(obj2);
       %go column-by column

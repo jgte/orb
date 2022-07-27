@@ -1688,7 +1688,7 @@ classdef simpletimeseries < simpledata
       %NOTICE: this function used to be called consolidate
       %extends the time domain of both objects to be in agreement
       %with the each other
-      compatible(obj1,obj2,varargin{:})
+      obj1.compatible(obj2,varargin{:})
       %trivial call
       if istequal(obj1,obj2)
         return
