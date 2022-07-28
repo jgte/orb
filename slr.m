@@ -84,7 +84,7 @@ classdef slr < gravity
       end
       switch v.mode
       case 'model-poly'
-        out=2;
+        out=3;
       case 'model-periods-datfile'
         [p,n]=fileparts(GetGRACEC20('mode','data_file','source',v.source));
         out=fullfile(p,[n,'_periods.mat']);
