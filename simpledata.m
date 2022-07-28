@@ -1334,6 +1334,8 @@
         [obj1,obj2]=obj1.match_epoch(obj2);
       end
       [obj1,obj2]=obj1.match_x_units(obj2);
+      %sanity
+      obj1.assert_tx_domain(obj2)
     end
     function assert_x_domain(obj1,obj2)
       if ~obj1.isxequal(obj2)
