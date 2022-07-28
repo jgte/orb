@@ -963,7 +963,7 @@ classdef gswarm
         %% triangular plots
 
         %loop over all sources
-        %NOTICE: out.mod.* have one less element than out.source.*, so keep that in mind and don't mix them!
+        %NOTICE: out.pod.mod.dat have one less element than out.pod.source.dat, so keep that in mind and don't mix them!
         for i=1:numel(v.pod.mod.dat)
           %build filename
           filename=file.build(v.pod.file_root,...
@@ -2658,7 +2658,7 @@ classdef gswarm
       %WORKFLOW                rsyncf.sh and ~/data/gswarm/rsyncf.list)
       %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need
       %WORKFLOW                ~/data/grace/download-l2.sh, which
-      %WORKFLOW                iterates over specific years, currently 2021)
+      %WORKFLOW                iterates over specific years, currently 2022)
       %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'get_input_data' to false.
       %WORKFLOW     5.3: if TYPE=validation, check if the 'git_ci' option is true:
       %WORKFLOW         5.3.1: after the swarm data is processed, the quality is computed in
@@ -2780,12 +2780,8 @@ classdef gswarm
 
       %NOTICE: this method expects some input arguments, notably:
       % - products (cellstr)
-
+      
       %parse input args
-      %NOTICE: gracefo.sh.rl06.csr.ld.ts has metadata never_force set as true (usually!)
-      %        so 'force' as true will only reload the Swarm individual models
-      %NOTICE: 'inclusive' can be false, because the GRACE data is only used to derive
-      %        gracefo.sh.rl06.csr.ld.ts, separately
       v=varargs.wrap('sources',{....
         {...
           'products',  {},                          @iscellstr;...

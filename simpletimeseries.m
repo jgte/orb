@@ -693,7 +693,7 @@ classdef simpletimeseries < simpledata
         case 'x_units'
           t=datetime('now')-years(10:-1:0);
           a=simpletimeseries.zero(t,2,'x_units','seconds');
-          b=simpletimeseries.zero(t,2,'x_units','years'); 
+          b=simpletimeseries.zero(t,2,'x_units','years');
           disp('First column was created with x_units=seconds and second column with x_units=years')
           disp('t-domains:')
           disp([a.t,b.t])
@@ -706,7 +706,7 @@ classdef simpletimeseries < simpledata
             case 'minus-scalar', t=datetime('now');
           end
           a=simpletimeseries.one(t,2,'x_units','seconds','epoch',datetime('now'));
-          b=simpletimeseries.one(t,2,'x_units','years',  'epoch',datetime('now')+days(1)); 
+          b=simpletimeseries.one(t,2,'x_units','years',  'epoch',datetime('now')+days(1));
           c=a-b;
           disp('First  column: x_units=seconds,epoch=now')
           disp('Second column: x_units=year   ,epoch=now+1 day')
@@ -1199,7 +1199,7 @@ classdef simpletimeseries < simpledata
     end
     function [obj1,obj2]=match_epoch(obj1,obj2)
       %trivial call
-      if simpletimeseries.ist('==',obj1.epoch,obj2.epoch,min([obj1.t_tol,obj2.t_tol])) 
+      if simpletimeseries.ist('==',obj1.epoch,obj2.epoch,min([obj1.t_tol,obj2.t_tol]))
         return
       end
       %match epochs, avoid zero and inf epochs

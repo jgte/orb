@@ -2361,7 +2361,7 @@
       elseif isnumeric(obj1)
         obj1=obj2.scale(obj1).y;
       else
-        %sanity
+        %branch on object length
         if obj1.length==1
           obj1.compatible(obj2,'skip_par_check',{'units'})
           obj1=obj1.assign_tx_mask(ones(obj2.length,1)*obj1.y.*obj2.y,obj2.tx,obj2.mask);

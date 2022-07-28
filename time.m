@@ -195,6 +195,7 @@ classdef time
         out='cent';
       otherwise
         error(['unknown time units ''',in,'''.'])
+      
       end
     end
     function out=units(in)
