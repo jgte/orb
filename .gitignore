@@ -13,3 +13,4 @@ project.yaml
 GRACE_animation.gif
 test/out/
 test/in/*/*.mat
+auxiliary/landmask.mat
