@@ -1,0 +1,8 @@
+import_dir: <getenv('HOME')>/data/gswarm/ifg/gravity/
+model_types: [signal,error]
+#the trailing wildcard here is needed to pick data that has not been decompressed
+wildcarded_filename: 'GSWARM_GF_SABC_IFG_*_*_IFG.gfc*'
+model_format: gfc
+date_parser: gravity.parse_epoch_gswarm
+submetadata: [model.processing.replaceC20.submetadata,model.plotting.submetadata]
+overwrite_common_t: true
