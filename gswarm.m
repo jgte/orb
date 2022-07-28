@@ -2587,16 +2587,17 @@ classdef gswarm
         end
       case 'plot'
         if ~gswarm.c20model('done',plot_dir)
-          %define time arguments
-          time_args={'start',gswarm.production_date('start'),'stop',gswarm.production_date('stop')};
+          %define time arguments 
+          %NOTICE: Don't use time_args{:} below so that all the time series is shown
+          %time_args={'start',gswarm.production_date('start'),'stop',gswarm.production_date('stop')};
           %this updates the coefficient time series, to make sure it has recent-enough data
-          slr.graceC20('mode','get','version',strrep(version,'-model',''));
+          slr.graceC20('mode','set','version',strrep(version,'-model',''));
           if str.contains(version,'-model')
             %this updates the model itself
-            slr.graceC20('mode','set','version',strrep(version,'-model',''));
-            out=slr.graceC20('mode','model-plot','version',version,time_args{:});
+            slr.graceC20('mode','get','version',strrep(version,'-model',''));
+            out=slr.graceC20('mode','model-plot','version',version); %NOTICE: Don't use time_args{:} here so that all the time series is shown
           else
-            out=slr.graceC20('mode','plot-all','version',unique({'GSFC-7DAY','GSFC','TN-14','TN-11',upper(version)}),time_args{:});
+            out=slr.graceC20('mode','plot-all','version',unique({'GSFC-7DAY','GSFC','TN-14','TN-11',upper(version)})); %NOTICE: Don't use time_args{:} here so that all the time series is shown
           end
           plotting.save(gswarm.c20model('filename',plot_dir))
         else
