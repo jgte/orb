@@ -145,7 +145,7 @@ classdef pardecomp
           if ~v.quiet; s=time.progress(s,i); end
           %sanity
           assert(rms(y_pd(:,i)-d(i).y_sum-d(i).yr)<1e-12,...
-            ['Parameter decomposition failed for ',obj.labels{i},'.'])
+            ['Parameter decomposition failed for ',obj.labels{i},', RMS=',num2str(rms(y_pd(:,i)-d(i).y_sum-d(i).yr))])
         end
       end
       %init containers
@@ -196,12 +196,14 @@ classdef pardecomp
       pdm.fg=pdm.fn(cells.strfind(pdm.fn,'ts_'));
       pdm.sum=num.struct_deal(d,'yr',[],1);
       for i=1:numel(pdm.fg)
-        pdm.sum=pdm.sum+pdm.metadata.(pdm.fg{i}).y;
+        pdm.sum=pdm.sum+pdm.metadata.(pdm.fg{i}).y_masked;
       end
       pdm.check=pdm.sum-y_pd;
-      if ~rms(pdm.check(:))<1e-12
+      if rms(pdm.check(:))>1e-12
+        plotting.figure
         semilogy(rms(pdm.check))
-        disp('Buildind time series constituents failed.')
+        title(['RMS=',num2str(rms(pdm.check(:)))])
+        error('Buildind time series constituents failed.')
       end
       %save everything into pd_set record (including metadata, done internally)
       pd_set=pardecomp.assemble(...
