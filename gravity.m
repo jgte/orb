@@ -73,11 +73,12 @@ classdef gravity < simpletimeseries
         'zf_love', 0.30190,       @num.isscalar;...      % zero frequency Love number: reported in IERS2003 Section 6.3 as "k20"
         'pt_factor',1.391413e-08, @num.isscalar;...      % permanent tide factor: reported in IERS2003 Section 6.3 as "A0*H0", (4.4228e-8)*(0.31460)
         'static_model',   'none', @ischar;... %assume there is no static model; if there is one, it has to be specified
+        'common_ops_done', false, @islogical;... 
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
-    compatible_parameter_list={'GM','R','functional','lmax','static_model'};
+    compatible_parameter_list={'GM','R','functional','lmax','static_model','common_ops_done'};
   end
   properties(SetAccess=public)
     GM
@@ -89,7 +90,7 @@ classdef gravity < simpletimeseries
     %you compute a model residual from two models which have already had a (the same) static 
     %model removed (and possibly have already been converted to non-dim functionals), you don't 
     %want common_ops to kick in, notably consistent_R, consistent_GM and tide_system
-    common_ops_done=false;
+    common_ops_done
   end
   %calculated only when asked for
   properties(Dependent)
