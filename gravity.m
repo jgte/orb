@@ -933,6 +933,12 @@ classdef gravity < simpletimeseries
         case 'static_model'
           %remove static field (if requested)
           if ~str.none(v.static_model) && strcmp(v.model_type,'signal')
+            if ~isempty(mod.static_model) && ~str.none(mod.static_model)
+              %NOTICE: this should not happen, the static_model is initialized as 'none' and
+              %        then updated with the relevant static model at the first pass of common_ops;
+              %        odds are some upstream method is calling commmon_ops erroneously.
+              keyboard
+            end
             %load the static model
             static=gravity.static(v.static_model);
             %adjust the start/stop
@@ -1468,8 +1474,6 @@ classdef gravity < simpletimeseries
       obj=v.save(obj,{'t','y'});
       %apply model processing options (unless requested otherwise)
       if ~v.skip_common_ops
-        %reset static model, so that it is handled correctly in the common_ops
-        obj.static_model='';
         obj=gravity.common_ops('all',obj,v.varargin{:});
       end
     end
