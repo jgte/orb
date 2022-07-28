@@ -2105,7 +2105,7 @@ classdef gswarm
         plotfilename=fullfile(v.figures_dir,'checks','C20-sources.png');
         if ~file.exist(plotfilename)
 %         version_list={'GSFC-7day','GSFC','TN-14','TN-11','TN-07'};
-          version_list={'GSFC-7day','TN-11','TN-11-C20-model'};
+          version_list={'GSFC-7day','TN-11','TN-11-model'};
           plotting.figure;
           cellfun(@(i) slr.load(...
             i...

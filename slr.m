@@ -119,7 +119,7 @@ classdef slr < gravity
 %         str.say('Written',b,'bytes of data to file:',newline,f,newline,'related to the periods of:',newline,c20.descriptor);
       case 'model-datfile'
         [p,n]=fileparts(GetGRACEC20(varargin{:},'mode','data_file'));
-        out=fullfile(p,[n,'_pd.mat']);
+        out=fullfile(p,[n,'_graceC20_pd.mat']);
       case 'model-md5file'
         [p,n]=fileparts(GetGRACEC20(varargin{:},'mode','data_file'));
         out=fullfile(p,[n,'.md5']);
@@ -301,12 +301,12 @@ classdef slr < gravity
         },...
       },varargin{:});
       %handle producing the parametric model
-      if contains(source,'-C20-model')
+      if contains(source,'-model')
         %save data source
-        data_source=strrep(source,'-C20-model','');
+        data_source=strrep(source,'-model','');
         %build parametric model data filename
         [p,n]=fileparts(fullfile(slr.dir(data_source),data_source));
-        datafile=fullfile(p,[n,'_C20_pd.mat']);
+        datafile=fullfile(p,[n,'_pd.mat']);
         %check if data file is missing or it's old
         if ~file.exist(datafile) || file.age(datafile)>days(30)
           %need to clean vararing of 'start' and 'stop' so that the model can be built from all data
@@ -396,7 +396,7 @@ classdef slr < gravity
           for i=1:numel(test_list)
             plotting.figure;
             slr.load( test_list{i},          'start',start,'stop',stop).plot('method','timeseries','degrees',2,'orders',0);
-            slr.load([test_list{i},'-C20-model'],'start',start,'stop',stop).plot('method','timeseries');
+            slr.load([test_list{i},'-model'],'start',start,'stop',stop).plot('method','timeseries');
             plotting.enforce(...
               'plot_legend',{test_list{i},'model'}...
             );
