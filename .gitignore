@@ -14,3 +14,11 @@ GRACE_animation.gif
 test/out/
 test/in/*/*.mat
 auxiliary/landmask.mat
+auxiliary/GGM05C.gfc
+auxiliary/GGM05G.gfc
+auxiliary/GIF48.2007.GEO
+auxiliary/WGS84.GEO
+auxiliary/GGM05C.gfc.mat
+auxiliary/GGM05G.gfc.mat
+auxiliary/GIF48.2007.GEO.mat
+auxiliary/WGS84.GEO.mat
