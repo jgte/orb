@@ -1,7 +1,7 @@
 classdef gravityTest < matlab.unittest.TestCase
   properties(Constant)
     l=4;
-    t=[datetime('now'),datetime('now')+seconds(1)];
+    t=datetime('now'):seconds(2):datetime('now')+seconds(20);
     rep_list={'y','mat','cs','tri','mod'};
   end
   methods(Static)
