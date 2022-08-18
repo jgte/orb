@@ -3,9 +3,10 @@
 DIR=$(cd $(dirname $BASH_SOURCE);pwd)
 
 #inits
+ECHO=
 SOURCE=
 SINK=
-ECHO=
+FLATTEN=false
 for i in "$@"
 do
   case "$i" in
@@ -24,7 +25,7 @@ do
     echo) #show what would have been done but don't do anything
       ECHO=echo
     ;;
-    source=*) #mandatory: define the directory to which the links will point to
+    source=*) #mandatory, unless 'flatten' is given: define the directory to which the links will point to
       SOURCE=${i/source=}
       if [ ! -d "$SOURCE" ]
       then
@@ -40,13 +41,16 @@ do
         exit 3
       fi
     ;;
+    flatten) #replace links with original files in sink
+      FLATTEN=true
+    ;;
     *)
       echo "ERROR: cannot handle input '$i'"
     ;;
   esac
 done
 
-if [ -z "$SOURCE" ]
+if [ -z "$SOURCE" ] && ! $FLATTEN
 then
   echo "ERROR: need input 'source=...; call '$BASH_SOURCE help' for more info"
   exit 3
@@ -59,6 +63,17 @@ fi
 
 
 cd $SINK
+
+if $FLATTEN
+then
+  for i in $(find . -type l -name \*.yaml)
+  do
+    FROM=$(readlink $i)
+    $ECHO rm -fv $i
+    $ECHO cp -v  $FROM .
+  done
+  exit
+fi
 
 for i in *.yaml
 do
