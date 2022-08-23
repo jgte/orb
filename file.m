@@ -110,6 +110,15 @@ classdef file
         %patch outputs
         msg=['fid ',num2str(fid),' attributed to file ''',filename,'''.'];
       else
+        %resolve mat/compressed file names
+        filename=file.unwrap(filename,...
+          'op_sequence', {...
+            @file.resolve_wildcards;...
+            @file.resolve_compressed;...
+            @file.resolve_ext;...
+          },...
+          'scalar_as_strings',true...
+        );
         %make sure dir exists
         d=fileparts(filename);
         if ~contains(perm,'r')
@@ -443,7 +452,7 @@ classdef file
         %if neither file exists, make some noise
         else
           out=in;
-          warning(['Cannot find neither ''',yesext,''' nor ''',nonext,'''.'])
+          str.say(['WARNING: cannot find neither ''',yesext,''' nor ''',nonext,'''.'])
         end
       end
       %handle additional outputs
@@ -808,7 +817,7 @@ classdef file
         @file.resolve_wildcards;...
         @file.resolve_compressed;...
         @file.resolve_ext;...
-      },                            @(i) isfun(i) || iscell(i) && all(cellfun(@(j) isa(j,'function_handle'), i)));
+      }, @(i) isa(i,'function_handle') || (iscell(i) && all(cellfun(@(j) isa(j,'function_handle'), i))));
       p.addParameter('debug'            , false, @islogical);
       p.addParameter('scalar_as_strings', false, @(i) islogical(i) && isscalar(i));
       p.parse(io,varargin{:})
