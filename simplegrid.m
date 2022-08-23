@@ -1662,12 +1662,10 @@ classdef simplegrid < simpletimeseries
         case 'rms';          m.map=sqrt(obj.map_squared_sum_weighted/m.n);
         case {'rss','norm'}; m.map=sqrt(obj.map_squared_sum_weighted);
       end
-      %reduce to timeseries object
-      out=simpletimeseries(obj.t,m.map(:),obj.varargin{:});
-      out.descriptor=[mode,' of ',obj.descriptor,' (centered at ',num2str(m.lat),'deg lat by ',num2str(m.lon),'deg long)'];
+      %reduce to timeseries object and
       %adjust labels and units (NOTICE; this assumes there is no order in the labels and units (which makes sense in a grid)
-      out.labels=obj.labels(1);
-      out.units=obj.units(1);
+      out=simpletimeseries(obj.t,m.map(:),obj.varargin{:},'labels',obj.labels(1),'units',obj.units(1));
+      out.descriptor=[mode,' of ',obj.descriptor,' (centered at ',num2str(m.lat),'deg lat by ',num2str(m.lon),'deg long)'];
     end
     %% utilities
     function obj=area(obj,radius)
