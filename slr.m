@@ -59,6 +59,7 @@ classdef slr < gravity
       out=v.picker(varargin{:});
     end
     %% retrieves the Monthly estimates of C20 from 5 SLR satellites based on GRACE RL05/RL06 models
+    %TODO: retire this method and use slr.load
     function out=graceC20(varargin)
       %parse arguments that are required later
       v=varargs.wrap('sources',{...
@@ -956,6 +957,7 @@ function [t_out,y_out,header]=import_C20(varargin)
       v.data_file='GSFC_SLR_C20_GSM_replacement.txt';
       v.data_dir_url='https://earth.gsfc.nasa.gov/sites/default/files/neptune/images_db/';
     case 'GSFC-7DAY'
+      %NOTICE: this was periodically sent by Bryant Loomis but has been replaced by GSFC5x5 (you can still manually copy-paste the data from there into this file)
       v.data_file='GSFC_SLR_C20_7day.txt';
       v.data_dir_url='none';
       v.data_format='%10.4f%23.13f';
