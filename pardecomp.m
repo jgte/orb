@@ -108,16 +108,16 @@ classdef pardecomp
       v=varargs.wrap('sources',{....
         {...
           'timescale',obj.x_units, @ischar;...
-          't0',       obj.epoch, @isdatetime;... %NOTICE: need simpletimeseries or derived class
-          'quiet',        false, @islogical;...
-          'parallel',     false, @islogical;...
+          'epoch',      obj.epoch, @isdatetime;... %NOTICE: need simpletimeseries or derived class
+          'quiet',          false, @islogical;...
+          'parallel',       false, @islogical;...
         },...
       },varargin{:});
       %init loop vars
       t_pd=simpletimeseries.time2num(obj.t_masked,obj.epoch,v.timescale);
       y_pd=obj.y_masked;
       %convert t0 to numeric, honour v.timescale (obj.t2x only know about the obj.x_units timescale and obj.epoch)
-      v.t0=time.swap_units(obj.t2x(v.t0),obj.x_units,v.timescale);
+      v=v.join({'t0',time.swap_units(obj.t2x(v.epoch),obj.x_units,v.timescale)});
 
       % TODO: pardecomp().lsq may well handle y_pd as an array
 
@@ -536,22 +536,22 @@ classdef pardecomp
         tsx_timescale='days';
         switch v.mode
           case 'split-unstable'
-            t0=t_start-years(1);
-            epoch=t_start-days(0.5);
+            epoch_pd=t_start-years(1);
+            epoch_ts=t_start-days(0.5);
           case 'split'
             delta=years(randn(1)*10);
-            t0=t_start-delta;
-            epoch=t_start-delta;
+            epoch_pd=t_start-delta;
+            epoch_ts=t_start-delta;
         end
         %get timeseries objects
         pd=pardecomp.test('mode','forwards');
-        ts=pd.ts(tst_timescale,epoch,'x_units',tsx_timescale);
+        ts=pd.ts(tst_timescale,epoch_ts,'x_units',tsx_timescale);
         %split it
         out=pardecomp.split(ts,...
           'np',pd.np,...
           'T',time.swap_units(pd.T,tst_timescale,out_timescale),...
           'timescale',out_timescale,...
-          't0',t0...
+          'epoch',epoch_pd...
         );
         %show results
         if v.plot
