@@ -1707,6 +1707,9 @@ classdef gswarm
         v.plot_time=sort(v.pod.t(v.plot_time));
       end
 
+      %inform
+      str.say('will plot the maps for the following dates:',v.plot_time)
+      
       for i=1:v.pod.source.n
         clear grid_now
         for it=1:numel(v.plot_time)
