@@ -1163,7 +1163,7 @@ classdef gravity < simpletimeseries
           datafile=fullfile(file.orbdir('auxiliary'),'GGM05C.gfc');
           fmt='gfc';
         case 'GGM05G'
-          datafile=fullfile(file.orbdir('auxiliary'),'ggm05g.gfc');
+          datafile=fullfile(file.orbdir('auxiliary'),'GGM05G.gfc');
           fmt='gfc';
         case 'WGS84'
           datafile=fullfile(file.orbdir('auxiliary'),'WGS84.GEO');
@@ -1992,6 +1992,8 @@ classdef gravity < simpletimeseries
           %load new static model and remove it from obj
           obj=obj-gravity.static(s);
         end
+      elseif strcmp(method,'common_ops_done')
+        %do nothing
       else
         % input 's' assumes different meanings, dependending on the method; invoke as:
         % obj.scale('geoid','functional')
