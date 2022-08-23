@@ -1648,10 +1648,7 @@ classdef simpletimeseries < simpledata
       par=simpletimeseries.compatible_parameter_list;
       for i=1:numel(par)
         % if a parameter is empty, no need to check it
-        if ( iscell(obj1.(par{i})) && isempty([obj1.(par{i}){:}]) ) || ...
-           ( ischar(obj1.(par{i})) && isempty( obj1.(par{i})    ) ) || ...
-           ( iscell(obj2.(par{i})) && isempty([obj2.(par{i}){:}]) ) || ...
-           ( ischar(obj2.(par{i})) && isempty( obj2.(par{i})    ) )
+        if all(cells.isempty(obj1.(par{i})))|| all(cells.isempty(obj2.(par{i})))
           continue
         end
         if ~cells.isincluded(p.Results.skip_par_check,par{i}) && ~isequal(obj1.(par{i}),obj2.(par{i}))
