@@ -78,7 +78,7 @@ classdef slr < gravity
         new_mode=['model-',strrep(v.mode,'model-','')];
         new_source=strrep(v.source,'-model','');
         str.say('WARNING: over-writing input mode',str.quote(v.mode),'with',str.quote(new_mode),...
-          'since input version is',str.quote(v.source),', now passed along as',str.quote(new_source),'.')
+          'since input source is',str.quote(v.source),', now passed along as',str.quote(new_source),'.')
         out=slr.graceC20(varargin{:},'mode',new_mode,'source',new_source);
         return
       end
@@ -925,7 +925,7 @@ function [t_out,y_out,header]=import_C20(varargin)
       'data_format'  , '%7.1f%10.4f%22.13f%8.4f%8.4f',@ischar;...
     },...
   },varargin{:});
-  %upper-case version name
+  %upper-case source name
   v.source=upper(v.source);
   %update local import dir
   v.import_dir=slr.dir(v.source);
@@ -1062,7 +1062,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   e_idx=5;
   CommentStyle='*';
   datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f';
-  %upper-case version name
+  %upper-case source name
   v.source=upper(v.source);
   %parse dependent arguments (can be over-written)
   %(NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
@@ -1099,7 +1099,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       s_idx=2;
       e_idx=0;
     otherwise
-      error(['Cannot handle version ''',v.source,'''.'])
+      error(['Cannot handle source ''',v.source,'''.'])
   end
   %append v.file and v.url
   v=varargs.wrap('sources',{v,{...
@@ -1131,7 +1131,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       error(['cannot open the data file ''',v.file,'''.'])
     end
     %default descriptor
-    d=['C20 time series, version ',v.source];
+    d=['C20 time series, source ',v.source];
     %get header info (NOTICE: upper is redundant but the preprocessor shows non-capitalized cases)
     switch upper(v.source)
     case {'GSFC-7DAY','CSR-RL06'}

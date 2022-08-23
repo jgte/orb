@@ -2569,14 +2569,14 @@ classdef gswarm
         error(['Cannot handle ''mode'' with value ''',mode,'''.'])
       end
     end
-    function out=c20model(mode,plot_dir,version)
-      if ~exist('version','var') || isempty(version)
-        version=dataproduct('model.processing.replaceC20.submetadata').metadata.use_GRACE_C20;
+    function out=c20model(mode,plot_dir,source)
+      if ~exist('source','var') || isempty(source)
+        source=dataproduct('model.processing.replaceC20.submetadata').metadata.use_GRACE_C20;
       end
       %document the C20 model
       switch mode
       case 'filename'
-        out=fullfile(plot_dir,'c20model',['C20_',version,'.png']);
+        out=fullfile(plot_dir,'c20model',['C20_',source,'.png']);
       case 'clear'
         plotfile=gswarm.c20model('filename',plot_dir);
         delete(plotfile);
@@ -2585,7 +2585,7 @@ classdef gswarm
       case 'done'
         plotfile=gswarm.c20model('filename',plot_dir);
         out=file.exist(plotfile);
-        if contains(version,'-model')
+        if contains(source,'-model')
           out=out && file.exist(strrep(plotfile,'.png','.tex'));
         end
       case 'plot'
@@ -2594,13 +2594,13 @@ classdef gswarm
           %NOTICE: Don't use time_args{:} below so that all the time series is shown
           %time_args={'start',gswarm.production_date('start'),'stop',gswarm.production_date('stop')};
           %this updates the coefficient time series, to make sure it has recent-enough data
-          slr.graceC20('mode','set','version',strrep(version,'-model',''));
-          if str.contains(version,'-model')
+          slr.graceC20('mode','set','source',strrep(source,'-model',''));
+          if str.contains(source,'-model')
             %this updates the model itself
-            slr.graceC20('mode','get','version',strrep(version,'-model',''));
-            out=slr.graceC20('mode','model-plot','version',version); %NOTICE: Don't use time_args{:} here so that all the time series is shown
+            slr.graceC20('mode','get','source',strrep(source,'-model',''));
+            out=slr.graceC20('mode','model-plot','source',source); %NOTICE: Don't use time_args{:} here so that all the time series is shown
           else
-            out=slr.graceC20('mode','plot-all','version',unique({'GSFC-7DAY','GSFC','TN-14','TN-11',upper(version)})); %NOTICE: Don't use time_args{:} here so that all the time series is shown
+            out=slr.graceC20('mode','plot-all','source',unique({'CSR-RL06','TN-14','TN-11',upper(source)})); %NOTICE: Don't use time_args{:} here so that all the time series is shown
           end
           plotting.save(gswarm.c20model('filename',plot_dir))
         else
@@ -2608,15 +2608,15 @@ classdef gswarm
         end
       case 'latex'
         latexfile=strrep(gswarm.c20model('filename',plot_dir),'.png','.tex');
-        if str.contains(version,'-model')
-          out=slr.graceC20('mode','model-list-tex','version',version);
+        if str.contains(source,'-model')
+          out=slr.graceC20('mode','model-list-tex','source',source);
           if ~file.exist(latexfile)
             file.strsave(latexfile,out);
             disp(['Saved C20 coefficients to ',latexfile])
           end
         else
           file.strsave(latexfile,'');
-          disp(['Saved empty string (',version,' is not a C20 model) to ',latexfile])
+          disp(['Saved empty string (',source,' is not a C20 model) to ',latexfile])
         end
       otherwise
         error(['Unknown mode ''',mode,'''.'])

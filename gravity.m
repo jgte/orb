@@ -880,7 +880,7 @@ classdef gravity < simpletimeseries
               c20mode='interp';
             end
             %get C20 timeseries, interpolated to current time domain
-            c20=slr.graceC20('version',v.use_GRACE_C20,'mode',c20mode,'time',mod.t);
+            c20=slr.graceC20('source',v.use_GRACE_C20,'mode',c20mode,'time',mod.t);
             if v.use_GRACE_C20_plot
               figure
               plot(c20.x_masked,c20.y_masked([],1),'x-','MarkerSize',10,'LineWidth',4), hold on
