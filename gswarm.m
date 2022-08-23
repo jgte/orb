@@ -2671,11 +2671,8 @@ classdef gswarm
       %WORKFLOW          last 3 months
       %WORKFLOW         5.4.1: The easiest way to be sure is to run:
       %WORKFLOW                'gswarm.c20model('plot',file.orbdir('plot'))'
-      %WORKFLOW         5.4.2: For TYPE=precombval, a TN-14 model is used, so this is a good
-      %WORKFLOW                opportunity to send the email to Bryant Loomis and ask for
-      %WORKFLOW                the updated weekly C20 data.
-      %WORKFLOW         5.4.3: For TYPE=validation, make sure the data Bryant sent is saved as
-      %WORKFLOW                ~/data/gswarm/analyses/<date>-validation/orb/auxiliary/GSFC_SLR_C20_7day.txt
+      %WORKFLOW         5.4.2: For TYPE=precombval, the TN-14 model is used.
+      %WORKFLOW         5.4.3: For TYPE=validation, the GSFC-7DAY model is used.
       %WORKFLOW     5.5: run the gswarm.TYPE method and keep an eye the last epoch of the
       %WORKFLOW          data as it is being loaded, it has to be the same as the last
       %WORKFLOW          available month; otherwise the analysis is incomplete
