@@ -1751,6 +1751,7 @@ classdef gswarm
     end
     %% utils
     function d=grace_model(varargin)
+      error('Needs revision')
       %define the data product stem (no particular reason to make it an input argument)
 %       stem='grace';
 %       stem='gracefo';
@@ -2795,7 +2796,7 @@ classdef gswarm
           'force_d',   false,                       @islogical;... %this affects load(datafilename,'d') if force is false
           'get_input_data',false,                   @islogical;... %NOTICE: consider turning this on to update all input data
           'c20model',  true,                        @islogical;...
-         'grace_model',true,                        @islogical;...
+         'grace_model',false,                       @islogical;...
         },...
       },varargin{:});
       %check if all needed arguments are available
