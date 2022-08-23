@@ -2365,7 +2365,7 @@
           obj1=obj1.assign_tx_mask(ones(obj1.length,1)*obj2.y.*obj1.y,obj1.tx,obj1.mask);
         else
           %consolidate data sets
-          [obj1,obj2]=obj1.merge(obj2,1);
+          [obj1,obj2]=obj1.merge(obj2,1,'skip_par_check',{'units'});
           %operate
           obj1=obj1.assign(obj1.y.*obj2.y,'mask',obj1.mask & obj2.mask);
         end
@@ -2382,7 +2382,7 @@
       assert(numel(map)==n*n,'Input ''map'' must have the same number of elements as obj2.width')
       assert(obj2.width==n*n,'Input ''obj2'' must represent a square matrix and have nr cols equal to obj1.width')
       %consolidate data sets
-      [obj1,obj2]=obj1.merge(obj2,1);
+      [obj1,obj2]=obj1.merge(obj2,1,'skip_par_check',{'units'});
       %get data
       y1=obj1.y;y2=obj2.y;
       %operate
@@ -2411,7 +2411,7 @@
           obj1=obj1.assign_tx_mask(obj1.y./ones(obj1.length,1)*obj2.y,obj1.tx,obj1.mask);
         else
           %consolidate data sets
-          [obj1,obj2]=obj1.merge(obj2,1);
+          [obj1,obj2]=obj1.merge(obj2,1,'skip_par_check',{'units'});
           %operate
           obj1=obj1.assign(obj1.y./obj2.y,'mask',obj1.mask & obj2.mask);
         end
@@ -2433,7 +2433,7 @@
           obj1=obj1.assign_tx_mask(ones(obj1.length,1)*obj2.y.^obj1.y,obj1.tx,obj1.mask);
         else
           %consolidate data sets
-          [obj1,obj2]=obj1.merge(obj2,1);
+          [obj1,obj2]=obj1.merge(obj2,1,'skip_par_check',{'units'});
           %operate
           obj1=obj1.assign(obj1.y.^obj2.y,'mask',obj1.mask & obj2.mask);
         end
@@ -2622,13 +2622,13 @@
     end
     function obj1=dot(obj1,obj2)
       %consolidate data sets
-      [obj1,obj2]=obj1.merge(obj2);
+      [obj1,obj2]=obj1.merge(obj2,[],'compatible_parameters',{'x_units'});
       %operate
       obj1=obj1.assign(sum(obj1.y.*obj2.y,2),'reset_width',true);
     end
     function obj1=cross(obj1,obj2)
       %consolidate data sets
-      [obj1,obj2]=obj1.merge(obj2);
+      [obj1,obj2]=obj1.merge(obj2,[],'compatible_parameters',{'x_units'});
       %operate
       obj1=obj1.assign(cross(obj1.y,obj2.y));
     end
