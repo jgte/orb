@@ -1334,8 +1334,6 @@
         [obj1,obj2]=obj1.match_epoch(obj2);
       end
       [obj1,obj2]=obj1.match_x_units(obj2);
-      %sanity
-      obj1.assert_tx_domain(obj2)
     end
     function assert_x_domain(obj1,obj2)
       if ~obj1.isxequal(obj2)
@@ -2623,18 +2621,12 @@
       out=obj.y./(obj.norm*ones(1,obj.width));
     end
     function obj1=dot(obj1,obj2)
-      %sanity
-      [obj1,obj2]=obj1.match_tx_domain(obj2);
-      obj1.compatible(obj2,'compatible_parameters',{'x_units'})
       %consolidate data sets
       [obj1,obj2]=obj1.merge(obj2);
       %operate
       obj1=obj1.assign(sum(obj1.y.*obj2.y,2),'reset_width',true);
     end
     function obj1=cross(obj1,obj2)
-      %sanity
-      [obj1,obj2]=obj1.match_tx_domain(obj2);
-      obj1.compatible(obj2,'compatible_parameters',{'x_units'})
       %consolidate data sets
       [obj1,obj2]=obj1.merge(obj2);
       %operate
