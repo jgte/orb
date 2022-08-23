@@ -2110,8 +2110,7 @@ classdef gswarm
       case 'C20-sources'          %checking only
         plotfilename=fullfile(v.figures_dir,'checks','C20-sources.png');
         if ~file.exist(plotfilename)
-%         version_list={'GSFC-7day','GSFC','TN-14','TN-11','TN-07'};
-          version_list={'GSFC-7day','TN-11','TN-11-model'};
+          version_list={'GSFC-7day','GSFC','TN-14','TN-11','TN-07'};
           plotting.figure;
           cellfun(@(i) slr.load(...
             i...
@@ -2675,7 +2674,7 @@ classdef gswarm
       %WORKFLOW         5.4.1: The easiest way to be sure is to run:
       %WORKFLOW                'gswarm.c20model('plot',file.orbdir('plot'))'
       %WORKFLOW         5.4.2: For TYPE=precombval, the TN-14 model is used.
-      %WORKFLOW         5.4.3: For TYPE=validation, the GSFC-7DAY model is used.
+      %WORKFLOW         5.4.3: For TYPE=validation, the TN-14 model is used.
       %WORKFLOW     5.5: run the gswarm.TYPE method and keep an eye the last epoch of the
       %WORKFLOW          data as it is being loaded, it has to be the same as the last
       %WORKFLOW          available month; otherwise the analysis is incomplete
