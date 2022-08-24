@@ -2416,8 +2416,7 @@ classdef gswarm
       %define Swarm products
       p.err = dataproduct('swarm.sh.gswarm.rl01.err');
       p.swm = dataproduct(p.err.sources(1)); %swarm.sh.gswarm.rl01
-      p.grm = dataproduct(p.err.sources(2)); %gswarm.gracefo.sh.rl06.csr.pd.ts
-      p.grs = dataproduct(dataproduct(p.grm.sources(1)).sources(1)); %gswarm.gracefo.sh.rl06.csr
+      p.grs = dataproduct(p.err.sources(2)); %gswarm.gracefo.sh.rl06.csr
       %sanity on the C20 data
       assert(strcmp( p.grs.metadata.use_GRACE_C20, p.swm.metadata.use_GRACE_C20),...
         ['C20 model of products ',p.grs.name,' and ',p.swm.name,' are not the same.'])
@@ -2435,7 +2434,10 @@ classdef gswarm
       );
       str.say(' --- File name stem is: ',f)
 
-      %show the grace model
+      grs_name=p.grs.dataname.append_field_leaf('signal');
+      swm_name=p.swm.dataname.append_field_leaf('signal');
+      
+      %show the grace data
       fn={[f,'.grace-C20.png'],[f,'.grace-C30.png']};
       if any(~file.exist(fn))
         start=datetime('2001-04-01');
@@ -2444,16 +2446,14 @@ classdef gswarm
           'start',start,...
           'stop', v.stop,...
           'debug',v.debug...
-        ).init(p.grs).init(p.grm);
+        ).init(p.grs);
         %make pretty plots
         if ~file.exist(fn{1})
           plotting.figure(varargin{:});
-          grs=d.data_get_scalar(p.grs.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
-          grm=d.data_get_scalar(p.grm.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
-          c20=slr.load(               C20_name).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          grs=d.data_get_scalar(grs_name             ).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          c20=slr.load(C20_name,'remove_C20mean',true).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
           plotting.enforce('plot_legend',{...
             str.rep(grs.legend{1},'C2,0','GRACE data');...
-            str.rep(grm.legend{1},'C2,0','GRACE model');...
             str.rep(c20.legend{1},'C2,0',C20_name);...
           },'plot_title','C_{2,0}','plot_ylabel','non-dim');
           saveas(gcf,fn{1})
@@ -2461,11 +2461,9 @@ classdef gswarm
         end
         if ~file.exist(fn{2})
           plotting.figure(varargin{:});
-          grs=d.data_get_scalar(p.grs.dataname).ts_C(3,0).plot('zeromean',false);
-          grm=d.data_get_scalar(p.grm.dataname).ts_C(3,0).plot('zeromean',false);
+          grs=d.data_get_scalar(grs_name).ts_C(3,0).addgaps(days(45)).plot('zeromean',false);
           plotting.enforce('plot_legend',{...
             str.rep(grs.legend{1},'C3,0','GRACE data');...
-            str.rep(grm.legend{1},'C3,0','GRACE model');...
           },'plot_title','C_{3,0}','plot_ylabel','non-dim');
           saveas(gcf,fn{2})
           str.say('plotted',fn{2})
@@ -2481,19 +2479,17 @@ classdef gswarm
           'start',start,...
           'stop', v.stop,...
           'debug',v.debug...
-        ).init(p.grs).init(p.grm).init(p.swm);
+        ).init(p.grs).init(p.swm);
         %make pretty plots
         if ~file.exist(fn{1})
           plotting.figure(varargin{:});
-          swp=d.data_get_scalar(p.swm.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
-          gsp=d.data_get_scalar(p.grs.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
-          gmp=d.data_get_scalar(p.grm.dataname).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
-          c20=slr.load(               C20_name).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          swp=d.data_get_scalar(swm_name             ).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          gsp=d.data_get_scalar(grs_name             ).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
+          c20=slr.load(C20_name,'remove_C20mean',true).ts_C(2,0).addgaps(days(45)).plot('zeromean',false);
           %NOTICE: if C20_name does not contain '-model', there are more legend entries than plotted lines
           plotting.enforce('plot_legend',{...
             str.rep(swp.legend{1},'C2,0','Swarm (repl.)');...
             str.rep(gsp.legend{1},'C2,0','GRACE data');...
-            str.rep(gmp.legend{1},'C2,0','GRACE model (p12)');...
             str.rep(c20.legend{1},'C2,0',C20_name);...
           },'plot_title','C_{2,0}','plot_ylabel','non-dim');
           saveas(gcf,fn{1})
@@ -2501,20 +2497,18 @@ classdef gswarm
         end
         if ~file.exist(fn{2})
           plotting.figure(varargin{:});
-          swp=d.data_get_scalar(p.swm.dataname).ts_C(3,0).addgaps(days(45)).plot;
-          gsp=d.data_get_scalar(p.grs.dataname).ts_C(3,0).addgaps(days(45)).plot;
-          gmp=d.data_get_scalar(p.grm.dataname).ts_C(3,0).addgaps(days(45)).plot;
+          swp=d.data_get_scalar(swm_name).ts_C(3,0).addgaps(days(45)).plot;
+          gsp=d.data_get_scalar(grs_name).ts_C(3,0).addgaps(days(45)).plot;
           plotting.enforce('plot_legend',{...
-            str.rep(swp.legend{1},'C3,0','Swarm (repl.)');...
+            str.rep(swp.legend{1},'C3,0','Swarm (original)');...
             str.rep(gsp.legend{1},'C3,0','GRACE data');...
-            str.rep(gmp.legend{1},'C3,0','GRACE model');...
           },'plot_title','C_{3,0}','plot_ylabel','non-dim');
           saveas(gcf,fn{2})
           str.say('plotted',fn{2})
         end
       end
 
-      %show the GRACE and Swarm data
+      %show the Swarm data quality
       fn=strjoin({f,v.functional,'quality','png'},'.');
       if ~file.exist(fn)
         start=datetime('2013-10-01');
@@ -2527,7 +2521,7 @@ classdef gswarm
         ).init(p.swm).init(p.err);
         str.say(' --- Getting gravity:')
         g =d.data_get_scalar(p.err.dataname.append_field_leaf('signal'));
-        gs=d.data_get_scalar(p.swm.dataname.append_field_leaf('signal'));
+        gs=d.data_get_scalar(swm_name);
         str.say(' --- Time domain is:')
         disp([g.t_masked,gs.t_masked]);
         str.say(' --- Applying',v.mask,'spatial mask:')
