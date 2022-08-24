@@ -29,11 +29,11 @@ classdef gravity < simpletimeseries
     );
     %NOTICE: the sequence of operations is important:
     %       - use_GRACE_C20 before static_model means the SLR C20 will be ~1e-10 (the residual relative to the static), not ~1e-4 (mainly the static)
-    %       - permanent_tide should come before use_GRACE_C20 because the tide system of the SLR data is handled before it is replaced in this model
-    %       - delete_C20 makes more sense after use_GRACE_C20, static_model and permanent_tide (otherwise, those components will remain)
+    %       - tide_system should come before use_GRACE_C20 because the tide system of the SLR data is handled before it is replaced in this model
+    %       - delete_C20 makes more sense after use_GRACE_C20, static_model and tide_system (otherwise, those components will remain)
     common_ops_mode_list={...
       'consistent_GM','consistent_R','max_degree',...
-      'permanent_tide','use_GRACE_C20','static_model',...
+      'tide_system','use_GRACE_C20','static_model',...
       'start','stop','delete_C00','delete_C20'...
     };
   end
@@ -74,11 +74,12 @@ classdef gravity < simpletimeseries
         'pt_factor',1.391413e-08, @num.isscalar;...      % permanent tide factor: reported in IERS2003 Section 6.3 as "A0*H0", (4.4228e-8)*(0.31460)
         'static_model',   'none', @ischar;... %assume there is no static model; if there is one, it has to be specified
         'common_ops_done', false, @islogical;...
+        'tide_system','zero_tide',@ischar;...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
     %NOTE: edit this if you add a new parameter (if relevant)
-    compatible_parameter_list={'GM','R','functional','lmax','static_model','common_ops_done'};
+    compatible_parameter_list={'GM','R','functional','lmax','static_model','common_ops_done','tide_system'};
   end
   properties(SetAccess=public)
     GM
@@ -91,6 +92,7 @@ classdef gravity < simpletimeseries
     %model removed (and possibly have already been converted to non-dim functionals), you don't
     %want common_ops to kick in, notably consistent_R, consistent_GM and tide_system
     common_ops_done
+    tide_system
   end
   %calculated only when asked for
   properties(Dependent)
@@ -961,9 +963,9 @@ classdef gravity < simpletimeseries
             mod.static_model=upper(v.static_model);
             msg=[': subtracted ',v.static_model];
           end
-        case 'permanent_tide'
-          mod=mod.setC(2,0,gravity.permanent_tide(mod.C(2,0),v.tide_system),mod.t);
-          msg=['set to ',v.tide_system];
+        case 'tide_system'
+          msg=['set to ',v.tide_system,' (from ',mod.tide_system,')'];
+          mod=mod.update_tide_system(v.tide_system);
         otherwise
           error(['Cannot handle operantion ''',mode,'''.'])
         end
@@ -1291,7 +1293,24 @@ classdef gravity < simpletimeseries
       end
     end
     %% permanent (solid earth) tide
-    function C20=permanent_tide(C20,tide_system)
+    function out=translate_tide_system(in)
+      %NOTICE: 'none' and tide_systems resolve to zero_tide
+      if str.none(in) || isempty(in)
+        out='zero_tide';
+        return
+      end
+      switch lower(in)
+      case {'zero_tide','zero tide'} 
+        out='zero_tide';
+      case {'free_tide','tide_free','tide_tide','non_tidal'}
+        out='free_tide';
+      case {'mean_tide'}
+        out='mean_tide';
+      otherwise
+        error(['Cannot handle the permanent tide system ''',tide_system,'''.'])
+      end
+    end
+    function [delta,tide_system]=permanent_tide(tide_system)
     % https://geodesyworld.github.io/SOFTS/solid.htm
     %?http://www.springerlink.com/index/V1646106J6746210.pdf
     % https://www.ngs.noaa.gov/PUBS_LIB/EGM96_GEOID_PAPER/egm96_geoid_paper.html
@@ -1300,30 +1319,22 @@ classdef gravity < simpletimeseries
     %   value that is nonzero. This time independent (nm) = (20) potential
     %   produces a permanent deformation and a consequent time independent
     %   contribution to the geopotential coefficient C20.
-      %trivial call
-      if str.none(tide_system)
-        return
-      end
-      %internal parameter
-      debug=false;
+      %translate tide system to internal options
+      tide_system=gravity.translate_tide_system(tide_system);
       %branch on the tide system
       switch tide_system
-      case {'zero_tide','zero tide'}
+      case 'zero_tide'
         % the zero-frequency value includes the indirect distortion, but not the direct distortion
         % NOTICE: do nothing, this is the default
         delta=0;
-      case {'free_tide','tide_free','tide_tide','non_tidal'}
+      case 'free_tide'
         % the tide-free value is the quantity from which all tidal effects have been removed
         delta=-gravity.parameters('zf_love')*gravity.parameters('pt_factor');
       case 'mean_tide'
         % the mean tide value includes both the direct and indirect permanent tidal distortions
         %http://mitgcm.org/~mlosch/geoidcookbook/node9.html
-        delta=gravity.parameter('pt_factor');
-      otherwise
-        error(['Cannot handle the permanent tide system ''',tide_system,'''.'])
+        delta=gravity.parameters('pt_factor');
       end
-      str.say('disp',debug,['Converted to zero tide by adding ',num2str(delta)])
-      C20=C20+delta;
     end
     %% utilities
     function [degrees,orders]=resolve_degrees_orders(varargin)
@@ -2038,6 +2049,22 @@ classdef gravity < simpletimeseries
     end
     function obj=resetR(obj,r)
       obj.R=r;
+    end
+    %% tide system
+    function obj=update_tide_system(obj,tide_system)
+      %trivial call
+      if str.none(tide_system)
+        return
+      end
+      %get relative delta between tide systems
+      [delta,tide_system]=gravity.permanent_tide(tide_system);
+      delta=gravity.permanent_tide(obj.tide_system)-delta;
+      %update C20
+      obj=obj.setC(2,0,obj.C(2,0)+delta,obj.t);
+      %inform
+      str.say('Converted from',obj.tide_system,'to',tide_system,'by adding',delta)
+      %update internal records
+      obj.tide_system=tide_system;
     end
     %% derived quantities
     % number of orders in each degree
@@ -2757,7 +2784,7 @@ function [m,e]=load_gsm(filename,time,varargin)
     % read next line
     s=fgets(fid);
   end
-  %fix permanent_tide
+  %fix tide_system
   if zero_tide
     tide_system='zero_tide';
   else
