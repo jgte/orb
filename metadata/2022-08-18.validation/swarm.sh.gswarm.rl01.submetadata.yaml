@@ -1,17 +1,1 @@
-explicit_fields: true
-model_types: [signal]
-plot_outlier_iter: 0
-plot_product: true
-plot_save_data: yes
-plot_xdateformat: yy/mm
-storage_period: direct
-plot_pause_on_save: true
-plot_visible: true
-plot_summary: false
-plot_legend_sorting: none
-plot_min_degree: 2
-plot_max_degree: 20
-plot_fontsize_axis: 24
-plot_fontsize_title: 32
-plot_fontsize_label: 28
-plot_fontsize_legend: 28
+../2022-03-27.validation/swarm.sh.gswarm.rl01.submetadata.yaml

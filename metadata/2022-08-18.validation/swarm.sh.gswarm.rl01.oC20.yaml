@@ -1,7 +1,1 @@
-import_dir: <getenv('HOME')>/data/gswarm/aiub/gravity/
-model_types: [signal]
-#the trailing wildcard here is needed to pick data that has not been decompressed
-wildcarded_filename: GSWARM_GF_SABC_COMBINED_*_09.gfc*
-model_format: gfc
-date_parser: gravity.parse_epoch_gswarm
-submetadata: [model.processing.keepC20.submetadata,model.plotting.submetadata]
+../2022-03-27.validation/swarm.sh.gswarm.rl01.oC20.yaml
