@@ -330,7 +330,7 @@ classdef file
     % wrapper for saving mat file (NOTICE: the non-mat file is given in 'filename')
     function save_mat(out,filename,varargin)
       p=machinery.inputParser;
-      p.addRequired( 'datafile',       @(i) ischar(i));
+      p.addRequired( 'filename',       @(i) ischar(i));
       p.addParameter('save_mat', true, @(i) isscalar(i) && islogical(i))
       p.addParameter('data_var','out', @ischar);
       p.parse(filename,varargin{:})
