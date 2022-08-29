@@ -664,6 +664,7 @@ classdef gravity < simpletimeseries
           'stop',                    [], @(i) isempty(i) || (isdatetime(i)  &&  isscalar(i));... %NOTICE: start/stop is only used to avoid loading models outside a certain time range
           'overwrite_common_t',   false, @islogical;
           'skip_common_ops',      false, @islogical;
+          'show_time',            true, @islogical;
         },...
       },varargin{:});
       %retrieve all gsm files in the specified dir
@@ -671,6 +672,10 @@ classdef gravity < simpletimeseries
       assert(~isempty(filelist{1}),['Need valid dir, not ''',fileparts(filelist{1}),'''.'])
       %this counter is needed to report the duplicate models correctly
       c=0;init_flag=true;
+      if v.show_time
+        %show remaining time to load models
+        s.msg=['Loading models from ',v.datadir]; s.n=numel(filelist);
+      end
       %loop over all models
       for i=1:numel(filelist)
         %skip png and yamls files (some files inheret the name of the models)
@@ -695,7 +700,9 @@ classdef gravity < simpletimeseries
         end
         %user feedback
         [~,f]=fileparts(filelist{i});
-        disp(['Loading  ',f,' (to date ',datestr(t),')'])
+        if ~v.show_time
+          disp(['Loading  ',f,' (to date ',datestr(t),')'])
+        end
         %load the data
         if init_flag
           %init output objects
@@ -727,6 +734,9 @@ classdef gravity < simpletimeseries
             e=e.append(e1.set_lmax(e.lmax),v.overwrite_common_t);
           end
         end
+        if v.show_time
+         s=time.progress(s,i);
+        end
       end
       %fix some parameters
       m.origin=v.datadir;
@@ -756,7 +766,6 @@ classdef gravity < simpletimeseries
           'lmax',                    -1, @isnumeric;
         },...
       },varargin{:});
-      functional='eqwh';
       %load the data
       g=gravity.load_dir(...
         'datadir',v.datadir,...
@@ -780,7 +789,7 @@ classdef gravity < simpletimeseries
       %convert to grid
       out=g.grid('spatial_step',v.spatial_step).center_resample;
       %export to xyz format
-      out_file=str.rep(in_file,'*','_','.gfc',['.',functional,'.xyz']);
+      out_file=str.rep(in_file,'*','_','.gfc',['.',v.functional,'.xyz']);
       disp(['Grid of ',in_file,' saved to ',out_file])
       out.xyz(out_file)
     end
