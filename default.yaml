@@ -17,3 +17,4 @@ plot_dir: ./plot
 metadata_dir: ./metadata
 test_dir: ./test
 #NOTICE: arbitrary <type>_dir entries can be added as needed, which can be retrieved with file.orbdir(<type>)
+grace_L2_dir: ~/data/grace/L2
