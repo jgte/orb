@@ -364,6 +364,12 @@ classdef varargs < dynamicprops
         end
       end
     end
+    function out=name(obj,parameters_to_skip)
+      if ~exist('parameters_to_skip','var') || isempty(parameters_to_skip)
+        parameters_to_skip={};
+      end
+      out=str.say('say_skip_stack',true,'say_join_char','.',dup(obj).delete(parameters_to_skip).varargin);
+    end
     %% get methods
     %abstracts string or index
     function out=idx(obj,name)
