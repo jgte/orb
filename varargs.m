@@ -326,7 +326,7 @@ classdef varargs < dynamicprops
       sort_idx=obj.sort_idx;
       for i=1:obj.length
         p=obj.get(sort_idx(i));
-        out{i}=str.show({str.tabbed(p.name,tab,true),p.value},'',' : ');
+        out{i}=str.show({str.tabbed(p.name,tab,true),p.value},'join_char',' : ');
       end
       out=strjoin(out,newline);
     end

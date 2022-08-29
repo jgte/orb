@@ -249,7 +249,7 @@ classdef file
       %cropping so that is not the case
       if any(len~=len(1))
         for i=1:numel(data)
-          str.say('stack_delta',1,['NOTICE: removed ',num2str(size(data{i},1)-min(len)),' entries from the ',...
+          str.say('say_stack_delta',1,['NOTICE: removed ',num2str(size(data{i},1)-min(len)),' entries from the ',...
             num2str(i),'-th column of the data in file ''',filename,'''.'])
           data{i} = data{i}(1:min(len),:);
         end
@@ -490,7 +490,7 @@ classdef file
       p.addParameter('stop_if_empty',       false, @(i) islogical(i) && isscalar(i));
       p.addParameter('passtrough_if_empty', false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',   false, @(i) islogical(i) && isscalar(i));
-      p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
+      p.addParameter('say_stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
       % parse it
       p.parse(in,varargin{:});
       %reduce scalar cell to char (avoids infinite loops with vector mode)
@@ -554,7 +554,7 @@ classdef file
             return
           end
           if p.Results.disp
-            str.say('stack_delta',p.Results.stack_delta,['WARNING: ',msg])
+            str.say('say_stack_delta',p.Results.stack_delta,['WARNING: ',msg])
           end
           out='';
           return
@@ -564,7 +564,7 @@ classdef file
         out=cellfun(@(i) fullfile(root,i),f1,'UniformOutput',false);
         %inform user
         if p.Results.disp && wildcarded_flag
-          str.say('stack_delta',p.Results.stack_delta,['found ',num2str(numel(out)),' filenames in wildcarded string ''',in,'''.'])
+          str.say('say_stack_delta',p.Results.say_stack_delta,['found ',num2str(numel(out)),' filenames in wildcarded string ''',in,'''.'])
         end
       end
       %convert to string if requested
@@ -587,7 +587,7 @@ classdef file
       p.addRequired( 'in',                            @(i) ischar(i)   || iscellstr(i));
       p.addParameter('prefer_compressed_files',false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',      false, @(i) islogical(i) && isscalar(i));
-      p.addParameter('stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
+      p.addParameter('say_stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
       p.parse(in,varargin{:})
       %reduce scalar
       in=cells.scalar(in);
@@ -633,12 +633,12 @@ classdef file
               out=in;
             end
             if arch
-              str.say('stack_delta',p.Results.stack_delta,['From archive ''',in,''' extracted the following files:'],newline,...
+              str.say('say_stack_delta',p.Results.stack_delta,['From archive ''',in,''' extracted the following files:'],newline,...
                 strjoin(out,newline))
             end
           catch
             %if the zip file is corrupted, assume data file is missing
-            str.say('stack_delta',p.Results.stack_delta,['WARNING: error extracting archive ''',in,'''.'])
+            str.say('say_stack_delta',p.Results.stack_delta,['WARNING: error extracting archive ''',in,'''.'])
             out=in;
             return
           end
@@ -1128,12 +1128,12 @@ classdef file
         if disp_flag
           if exist(file.resolve_home(in),'file')~=0
             if str.logical(force)
-              str.say('stack_delta',1,'file exists but force is true',in)
+              str.say('say_stack_delta',1,'file exists but force is true',in)
             else
-              str.say('stack_delta',1,'file exists',in)
+              str.say('say_stack_delta',1,'file exists',in)
             end
           else
-            str.say('stack_delta',1,'file does not exist',in)
+            str.say('say_stack_delta',1,'file does not exist',in)
           end
         end
       else

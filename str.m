@@ -16,6 +16,8 @@ classdef str
     'upper',struct('start', 65,'stop' , 90),...
     'lower',struct('start', 97,'stop' ,122) ...
   );
+  fmt='';
+  join_char=' ';
   end
   methods(Static)
     function test
@@ -69,17 +71,18 @@ classdef str
         ['Input ''idx'' cannot have any entry larger than ',num2str(numel(map))])
       out=char(map(idx));
     end
-    function out=show(in,fmt,join_char)
+    function out=show(in,varargin)
+      % parse mandatory arguments
+      p=machinery.inputParser;
+      p.addRequired( 'in',                       @(i) true);
+      p.addParameter('fmt',       str.fmt,       @(i) isempty(i) || ischar(i));
+      p.addParameter('join_char', str.join_char, @ischar);
+      p.parse(in,varargin{:});
       %trivial call
       if ischar(in)
         out=in;
         return
       end
-      %default optionals
-      if ~exist('fmt','var') || isempty(fmt); fmt=''; end
-      assert(ischar(fmt),['Input ''fmt'' must of class ''char'', not ''',class(fmt),'''.'])
-      if ~exist('join_char','var'); join_char=' '; end
-      assert(ischar(join_char),['Input ''join_char'' must of class ''char'', not ''',class(join_char),'''.'])
       %handle non-scalar quantities
       %NOTICE: don't use isscalar here because it will pick the size method in objects and return false
       %TODO: this breaks with non-scalar structures
@@ -92,11 +95,14 @@ classdef str
       otherwise
         out=cell(size(in));
         for i=1:numel(in)
-          out{i}=str.show(in(i),fmt,join_char);
+          out{i}=str.show(in(i),varargin{:});
         end
         out=strjoin(out,join_char);
         return
       end
+      %shortcuts
+      fmt=p.Results.fmt;
+      join_char=p.Results.join_char;
       %branch on scalar type
       switch class(in)
       case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64','single','double'}
@@ -129,7 +135,7 @@ classdef str
         if isempty(in{1})
           out='';
         else
-          out=str.show(in{1},fmt,join_char); %non-scalar cells already handled above
+          out=str.show(in{1},varargin{:}); %non-scalar cells already handled above
         end
       case 'datetime'
         if isnat(in)
@@ -146,7 +152,7 @@ classdef str
       case 'duration'
         out=time.str(seconds(in));
       case 'struct'
-        if ~exist('join_char','var')
+        if isempty(join_char)
           out=['  ',strjoin(strsplit(structs.str(in,'','',false),newline),[10,'  '])];
         else
           if strcmp(join_char,'_')
@@ -684,6 +690,9 @@ classdef str
         out=[s(1).name,':',num2str(s(1).line),': '];
       end
     end
+    %NOTICE: in str.say, all arguments are assumed to be strings that are concatenated and
+    %        shown to the user. Optional arguments have the 'say_' prefix to minimize the
+    %        method taking legitimate strings for optional arguments, notably 'disp' or 'fmt'
     function out=say(varargin)
       %default value for internal parameters
       stack_delta=1;
@@ -691,6 +700,9 @@ classdef str
       %loop control
       start_idx=1;
       start_idx_old=0;
+      fmt=str.fmt;
+      join_char=str.join_char;
+      skip_stack=false;
       %pass parameters to this method as the first arguments
       while start_idx~=start_idx_old
         %update loop controls
@@ -698,15 +710,29 @@ classdef str
         if ~ischar(varargin{start_idx}); break; end
         %check if this is an internal parameter
         switch varargin{start_idx}
-        case 'stack_delta'
+        case 'say_stack_delta'
           stack_delta=varargin{start_idx+1};
           start_idx=start_idx+2;
-        case 'disp'
+        case 'say_disp'
           disp_flag=varargin{start_idx+1};
+          start_idx=start_idx+2;
+        case 'say_fmt'
+          fmt=varargin{start_idx+1};
+          start_idx=start_idx+2;
+        case 'say_join_char'
+          join_char=varargin{start_idx+1};
+          start_idx=start_idx+2;
+        case 'say_skip_stack'
+          skip_stack=varargin{start_idx+1};
           start_idx=start_idx+2;
         end
       end
-      out=[str.dbstack(stack_delta),str.show(cells.rm_empty(varargin(start_idx:end)))];
+      if ~skip_stack
+        out=str.dbstack(stack_delta);
+      else
+        out='';
+      end
+      out=[out,str.show(cells.rm_empty(varargin(start_idx:end)),'fmt',fmt,'join_char',join_char)];
       if nargout==0
         if disp_flag
           disp(out);

@@ -1950,7 +1950,7 @@ classdef simpletimeseries < simpledata
           str.show({'t_crop',            t_crop         },'yyyy-mm-dd','_'),...
           str.show({'aperiodic_order',   aperiodic_order},'',          '_'),...
           strjoin(obj.labels,'_')...
-        },'','.'),...
+        },'join_char','.'),...
       ext]);
     end
     function J=component_split_fitness(obj,seg_length,tf,varargin)
@@ -2005,7 +2005,7 @@ classdef simpletimeseries < simpledata
           if v.search
             str.say('For',obj.descriptor,'estimating',str.th(i),'out of',v.nr_seg,'periodic components')
           else
-            str.say('For',obj.descriptor,'computing',v.nr_seg,'periodic components with lengths',str.show({v.seg_lengths(:)},'',', '))
+            str.say('For',obj.descriptor,'computing',v.nr_seg,'periodic components with lengths',str.show({v.seg_lengths(:)},'join_char',', '))
           end
           %compute polifit and remove from rest (unextended time domain)
           warning('off','MATLAB:polyfit:RepeatedPointsOrRescale')

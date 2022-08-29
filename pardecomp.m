@@ -666,9 +666,9 @@ classdef pardecomp
         fmt='';
       end
       if ~exist('label','var') || isempty(label)
-        disp([str.tabbed(field,tab),' : ',str.show(transpose(value(:)),fmt)])
+        disp([str.tabbed(field,tab),' : ',str.show(transpose(value(:)),'fmt',fmt)])
       else
-        disp([str.tabbed(label,tab),' : ',str.show(transpose(value(:)),fmt)])
+        disp([str.tabbed(label,tab),' : ',str.show(transpose(value(:)),'fmt',fmt)])
       end
     end
     function print(obj,tab,ref)

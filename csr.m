@@ -2398,7 +2398,7 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
         % direct mode: the data is given in obj
         dat=obj;
         % use this function to show messages
-        dispfun=@(i) str.say('stack_delta',1,i{:});
+        dispfun=@(i) str.say('say_stack_delta',1,i{:});
         % define dummy variable v
         v={};
       else

@@ -503,7 +503,7 @@ classdef dataproduct
     function out=force(obj,force_in)
       out=(force_in && ~obj.mdget('never_force','default',false)) || obj.mdget('always_force','default',false);
       if (force_in && obj.mdget('never_force','default',false))
-        str.say('stack_delta',1,'WARNING: Force is true as input argument but product',obj,...
+        str.say('say_stack_delta',1,'WARNING: Force is true as input argument but product',obj,...
           'has the never_force property: force as input argument ignored')
       end
     end

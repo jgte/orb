@@ -753,7 +753,7 @@ classdef num
       if l*fun_mem^2>p.Results.searchlenmaxfactor
         l_old=l;
         l=floor(p.Results.searchlenmaxfactor/fun_mem^2);
-        str.say('stack_delta',1,['searchlen reset to ',num2str(l),...
+        str.say('say_stack_delta',1,['searchlen reset to ',num2str(l),...
           ' because searchlen*fun_mem>searchlenmaxfactor (',...
           num2str(l_old),'*',num2str(fun_mem),'>',num2str(p.Results.searchlenmaxfactor),')'])
       end
@@ -774,12 +774,12 @@ classdef num
       %iterate if requested
       if p.Results.searchiter>0
         sd=1+p.Results.searchiter_counter;
-        str.say('stack_delta',sd,str.tablify(16,'----- iter ----- ',p.Results.searchiter_counter+1))
-        str.say('stack_delta',sd,str.tablify(16,'res',min(y)))
-        str.say('stack_delta',sd,str.tablify(16,'res',min(y)))
-        str.say('stack_delta',sd,str.tablify(16,'x_lower',x_lower))
-        str.say('stack_delta',sd,str.tablify(16,'x_opt',x_opt))
-        str.say('stack_delta',sd,str.tablify(16,'x_upper',x_upper))
+        str.say('say_stack_delta',sd,str.tablify(16,'----- iter ----- ',p.Results.searchiter_counter+1))
+        str.say('say_stack_delta',sd,str.tablify(16,'res',min(y)))
+        str.say('say_stack_delta',sd,str.tablify(16,'res',min(y)))
+        str.say('say_stack_delta',sd,str.tablify(16,'x_lower',x_lower))
+        str.say('say_stack_delta',sd,str.tablify(16,'x_opt',x_opt))
+        str.say('say_stack_delta',sd,str.tablify(16,'x_upper',x_upper))
         if p.Results.searchiter_counter<=p.Results.searchiter
           %define next iter search space amplitude
           dx=dx/p.Results.searchshrinkfactor;
