@@ -341,7 +341,11 @@ classdef file
           eval([p.Results.data_var,'=out']);
         end
         %save the data with the requested variable name (properly propagated above)
-        save(file.ext(filename,'.mat','set'),p.Results.data_var)
+        try
+          save(file.ext(filename,'.mat','set'),p.Results.data_var)
+        catch ME
+          disp(['Could not save ''',mat_filename,'''; error: ',ME.message])
+        end
       end
     end
     %% mat-file resolving (also works with any other extension)
@@ -864,18 +868,17 @@ classdef file
       p.parse(com,varargin{:})
       if ~isempty(p.Results.cd)
         cdnow=cd(p.Results.cd);
+      else
+        cdnow=pwd;
       end
-      [status,result]=system(com);
+      [status,result]=system(['cd ',cdnow,'; ',com]);
       result=str.chomp(result);
       out=(status==0);
-      if ~isempty(p.Results.cd)
-        cd(cdnow);
-      end
       if ~out
         if p.Results.stop_if_error
           error([str.dbstack,result])
         else
-          disp(['WARNING: problem issuing command ''',com,''':',newline,result])
+          disp(['WARNING: problem issuing command ''',com,''' from directory ',cdnow,newline,'error message:',newline,result])
         end
       else
         if p.Results.disp
