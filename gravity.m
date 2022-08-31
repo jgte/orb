@@ -67,7 +67,7 @@ classdef gravity < simpletimeseries
                   70     -0.020;...
                   100    -0.014;...
                   150    -0.010;...
-                  200    -0.007], @(i) isnumeric(i) && size(i,2)==2;...     % Love numbers ?http://dx.doi.org/10.1029/98JB02844
+                  200    -0.007], @(i) isnumeric(i) && size(i,2)==2;...     % Love numbers: http://dx.doi.org/10.1029/98JB02844
         'origin',      'unknown', @ischar;...                        % (arbitrary string)
         'functional',   'nondim', @(i) ischar(i) && any(strcmp(i,gravity.functionals)); %see above
         'zf_love', 0.30190,       @num.isscalar;...      % zero frequency Love number: reported in IERS2003 Section 6.3 as "k20"
@@ -75,6 +75,7 @@ classdef gravity < simpletimeseries
         'static_model',   'none', @ischar;... %assume there is no static model; if there is one, it has to be specified
         'common_ops_done', false, @islogical;...
         'tide_system','zero_tide',@ischar;...
+        'icgem_data_dir','~/data/icgem',@ischar;...
     };
     %These parameter are considered when checking if two data sets are
     %compatible (and only these).
@@ -537,6 +538,15 @@ classdef gravity < simpletimeseries
       month=str2double(file(idx+5:idx+6));
       out=datetime(year,month,1);
       out=out+(dateshift(out,'end','month')-out)/2;
+    end
+    function out=parse_epoch_swarm(filename)
+      %SW_OPER_EGF_SHA_2__20210701T000000_20210731T235959_0101
+      [~,file]=fileparts(filename);
+      file=strsplit(file,'_');
+      out=mean([...
+        time.ToDateTime(file{6},'yyyyMMdd''T''HHmmss'),...
+        time.ToDateTime(file{7},'yyyyMMdd''T''HHmmss')+seconds(1),...
+      ]);
     end
     function out=parse_epoch_tn14(filename)
       %NOTICE: these data live in ~/data/SLR/TN-14/ (not set explicitly)
@@ -1412,7 +1422,109 @@ classdef gravity < simpletimeseries
         [out,loaded_flag]=file.load_mat(mat_filename);
         assert(loaded_flag,['Problem loading ',mat_filename])
       end
-    end    
+    end
+    %% ICGEM data loader
+    function out=icgem(source,varargin)
+%usefull input arguments
+      % - start         (gravity.load_dir)
+      % - stop          (gravity.load_dir)
+      % - max_degree    (gravity.common_ops)
+      % - use_GRACE_C20 (gravity.common_ops)
+      % - delete_C00    (gravity.common_ops)
+      % - delete_C20    (gravity.common_ops)
+      % - static_model  (gravity.common_ops)
+      v=varargs.wrap('sources',{{...
+        %these parameters are directly relevant to this method
+        'data_dir',gravity.parameters('icgem_data_dir'),@ischar;...
+        'download_data',                 true ,@islogical;...
+        'force',                        false ,@islogical;...
+        %these parameters are only needed to build the data file name (copied from common_ops)
+        %and to set some more reasonable defaults
+        'max_degree',            -1 , @(i) isnumeric(i) && isscalar(i);...
+        'smoothing_radius',    750e3, @isnumeric;...
+        'functional',         'eqwh', @ischar;...
+        'use_GRACE_C20',    'TN-14' , @(i) ischar(i) || islogical(i); ...
+        'delete_C00',          true , @islogical; ...
+        'delete_C20',         false , @islogical; ...
+        'start',     time.zero_date , @isdatetime; ...
+        'stop',       time.inf_date , @isdatetime; ...
+        'static_model',    'GGM05G' , @ischar; ...
+        'tide_system',   gravity.parameters('tide_system'), @ischar;...
+        'date_parser',        'auto', @ischar; ...
+        'wildcarded_filename','auto', @ischar; ...
+      }},varargin{:});
+      %download the data if requested  
+      if v.download_data
+        %NOTICE: the download-l2.sh script iterates over specific years (currently 2022)
+        disp(['Downloading ',source,' SH data'])
+        file.system(...
+          ['./download.sh ',source],...
+          'disp',true,...
+          'cd',fullfile(v.data_dir)...
+        );
+      end
+      %define the data filename
+      %NOTICE: you'll have to use the 'force' option to re-load new models 
+      no_name_parameters={'data_dir','download_data','force','wildcarded_filename','date_parser'};
+      if v.start==time.zero_date
+        no_name_parameters={no_name_parameters,'start'};
+      end
+      if v.stop==time.inf_date
+        no_name_parameters={no_name_parameters,'stop'};
+      end
+      if v.max_degree==-1
+        no_name_parameters={no_name_parameters,'max_degree'};
+      end
+      if v.delete_C00
+        no_name_parameters={no_name_parameters,'delete_C00'};
+      end
+      if ~v.delete_C20
+        no_name_parameters={no_name_parameters,'delete_C20'};
+      end
+      if strcmp(v.tide_system,gravity.parameters('tide_system'))
+        no_name_parameters={no_name_parameters,'tide_system'};
+      end
+      v1=v;
+      mat_filename=fullfile(v.data_dir,source,[source,'.',v1.name(no_name_parameters),'.mat']);
+      clear v1
+      %auto-resolve date parser if requested
+      if strcmp(v.date_parser,'auto')
+        switch source
+        case 'swarm'
+          v.date_parser='gravity.parse_epoch_swarm';
+        otherwise
+          error(['Cannot automatically resolve the date parser for source ',source,'.'])  
+        end
+      end
+      %auto-resolve wildcarded filename if requested
+      if strcmp(v.wildcarded_filename,'auto')
+        switch source
+          case 'swarm'
+            v.wildcarded_filename='SW_OPER_EGF_SHA_2__*.gfc';
+          case 'grace-csr'
+            v.wildcarded_filename='GSM-2_*BA01*.gsm*';
+        otherwise
+          error(['Cannot automatically resolve the wildcarded fileame for source ',source,'.'])  
+        end
+      end
+      %check if the data file is available
+      if ~file.exist(mat_filename) || v.force
+        %load the data and apply common ops
+        out=gravity.load_dir(...
+          v.varargin{:},...
+          'datadir',            fullfile(v.data_dir,source),...
+          'descriptor',         source...
+        );
+        %save the mat data
+        disp(['Saving ',source,' data to ',mat_filename])
+        file.save_mat(out,mat_filename)
+      else
+        %load the mat data
+        disp(['Loading ',source,' data from ',mat_filename])
+        [out,loaded_flag]=file.load_mat(mat_filename);
+        assert(loaded_flag,['Problem loading ',mat_filename])
+      end
+    end
     %% permanent (solid earth) tide
     function out=translate_tide_system(in)
       %NOTICE: 'none' and tide_systems resolve to the default tide system zero_tide
@@ -2657,7 +2769,7 @@ classdef gravity < simpletimeseries
       end
     end
     %% export functions
-    function filelist=icgem(obj,varargin)
+    function filelist=export_gfc(obj,varargin)
       % Parse inputs
       p=machinery.inputParser;
       % optional arguments
@@ -2738,7 +2850,7 @@ classdef gravity < simpletimeseries
         end
       end
     end
-    function filelist=csr(obj,varargin)
+    function filelist=export_csr(obj,varargin)
       % Parse inputs
       p=machinery.inputParser;
       % optional arguments
