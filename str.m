@@ -97,7 +97,7 @@ classdef str
         for i=1:numel(in)
           out{i}=str.show(in(i),varargin{:});
         end
-        out=strjoin(out,join_char);
+        out=strjoin(out,p.Results.join_char);
         return
       end
       %shortcuts
