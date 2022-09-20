@@ -99,7 +99,7 @@ classdef slr < gravity
           c20=slr.graceC20(varargin{:},'mode','read','force',v.force);
            np=slr.graceC20(varargin{:},'mode','model-poly');
           %compute periods
-          [~,pd]=c20.parametric_decomposition_search('np',np,'T',[365.2426,182.6213],'timescale','days');
+          [~,pd]=c20.pardecomp_search('np',np,'T',[365.2426,182.6213],'timescale','days');
           out=pd.T;
           %save periods
           save(f,'out');
@@ -153,7 +153,7 @@ classdef slr < gravity
         f_pd   =slr.graceC20(varargin{:},'mode','model-datfile');
         if ~file.exist(f_pdset) || ~file.exist(f_pd) || ~slr.graceC20(varargin{:},'mode','model-md5check') || v.force
           %get the coefficients; NOTICE: always use c20.t so that f_pdset is not dependent on inputs
-          [~,pd_set]=c20.parametric_decomposition('np',np,'T',T,...
+          [~,pd_set]=c20.pardecomp('np',np,'T',T,...
             'timescale','days','time',c20.t_domain(days(7)));
           %save them
           save(f_pdset,'pd_set')
@@ -317,7 +317,7 @@ classdef slr < gravity
           %load the data
           data=slr.load(data_source,varargin_now{:});
           %get the modelled coefficients; NOTICE: always use data.t so that f_pdset is not dependent on inputs
-          [~,pd_set]=data.ts_C(2,0).parametric_decomposition_search(...
+          [~,pd_set]=data.ts_C(2,0).pardecomp_search(...
             'np',2,...
             'T',[1,1/2]*days(years(1)),...
             'timescale','days'...

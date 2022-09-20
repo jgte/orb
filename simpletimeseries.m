@@ -677,7 +677,7 @@ classdef simpletimeseries < simpledata
           disp(['sin_coeffs  : ',num2str(sin_coeffs(:)')])
           disp(['cos_coeffs  : ',num2str(cos_coeffs(:)')])
           %derived parameters
-          [b,pd_set]=a.parametric_decomposition(...
+          [b,pd_set]=a.pardecomp(...
             'np',numel(poly_coeffs),...
             'T',sin_periods,...
             'timescale','days'...
@@ -2086,13 +2086,13 @@ classdef simpletimeseries < simpledata
       end
     end
     %% parametric decomposition
-    function [obj,pd_set]=parametric_decomposition(obj,varargin)
+    function [obj,pd_set]=pardecomp(obj,varargin)
       %get the pd-set
       pd_set=pardecomp.split(obj,   varargin{:});
       %reconstruct the time series
       obj   =pardecomp.join( pd_set,varargin{:});
     end
-    function [obj,pd_set]=parametric_decomposition_search(obj,varargin)
+    function [obj,pd_set]=pardecomp_search(obj,varargin)
       %need some stuf
       v=varargs.wrap('sources',{....
         {...
@@ -2112,7 +2112,7 @@ classdef simpletimeseries < simpledata
         %save previous norm
         norm_prev=norm_now;
         %get pd-set
-        [~,pd_set]=obj.parametric_decomposition(v.varargin{:},'quiet',true,'T',v.T);
+        [~,pd_set]=obj.pardecomp(v.varargin{:},'quiet',true,'T',v.T);
         %get PSD of residuals
         rf=simplefreqseries.transmute(pd_set.res).psd;
         %get period where PSD is maximum

@@ -1241,7 +1241,7 @@ classdef gswarm
       obj=gswarm.plot_temporal_stats(obj,product,varargin{:},'pod',pod);
       obj=gswarm.plot_low_degrees(   obj,product,varargin{:},'pod',pod);
     end
-    function obj=plot_parametric_decomposition(obj,product,varargin)
+    function obj=plot_pardecomp(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
       % add input arguments and plot metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{....
