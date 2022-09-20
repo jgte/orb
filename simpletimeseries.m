@@ -549,36 +549,35 @@ classdef simpletimeseries < simpledata
             simpletimeseries.test(i{1},l);
           end
         case 'component_split'
-%           %TODO: update this test, it's not in agreement with the new implementation of the relevant methods
-%           error('unfinished')
-%           a=simpletimeseries.randn(t,w,args.varargin{:});
-%           a=a.scale(0.05);
-%           idx=2:4;
-%           for i=1:numel(idx)
-%             as=simpletimeseries.sin(t,days(l/3)/idx(i)*ones(1,w),args.varargin{:});
-%             as=as.scale(rand(1,w));
-%             a=a+as;
-%           end
-%           a.descriptor='original';
-%           a.component_split_plot(days(l/3)./idx,'columns',1);
-%           return
-%           i=0;c=1;
-%           i=i+1;h{i}=figure('visible','on');
-%           a.plot('column',c)
-%           [m,s,segs]=a.component_ampl(days(2*l/5));
-%           for si=1:numel(segs)
-%             i=i+1;h{i}=figure('visible','on');
-%             segs{si}.plot('column',c)
-%           end
-%           i=i+1;h{i}=figure('visible','on');
-%           plot(m(:,1))
-%           title('mean')
-%
-%           i=i+1;h{i}=figure('visible','on');
-%           plot(s(:,1))
-%           title('std')
+          a=simpletimeseries.randn(t,w,args.varargin{:});
+          a=a.scale(0.05);
+          idx=2:4;
+          for i=1:numel(idx)
+            as=simpletimeseries.sinusoidal(t,days(l/3)/idx(i)*ones(1,w),args.varargin{:});
+            as=as.scale(rand(1,w));
+            a=a+as;
+          end
+          a.descriptor='original';
+          i=0;c=1;
+          i=i+1;h{i}=plotting.figure('visible','on');
+          subplot(2,2,1)
+          a.plot('column',c)
+          legend off
+          subplot(2,2,2)
+          [out,res,J,segs]=a.component_ampl(days(2*l/5));
+          for si=1:numel(segs)
+            segs{si}.plot('column',c)
+          end
+          title('segmented'); legend off
+          subplot(2,2,3)
+          plot(out(:,1))
+          title('average and repeated'); legend off
+          subplot(2,2,4)
+          plot(res(:,1))
+          title(['residuals (relative norm=',num2str(J),')']); legend off
+          %TODO: finish this test
         case 'calibrate_poly'
-          a=simpletimeseries.sin(t,days(l./(1:w)),args.varargin{:});
+          a=simpletimeseries.sinusoidal(t,days(l./(1:w)),args.varargin{:});
           bn=simpletimeseries.randn(t,w,args.varargin{:});
           a=a+bn.scale(0.05);
           b=a.scale(rand(1,w))+bn.scale(0.1)+ones(a.length,1)*randn(1,w);
@@ -1879,7 +1878,10 @@ classdef simpletimeseries < simpledata
       %remove empty entries
       out=out(~cells.isempty(out));
     end
-    function [out,res]=component_ampl(obj,seg_length,tf,varargin)
+    %1. splits the time series into segments
+    %2. computes the mean of all those segements
+    %3. repeats that mean segment over the complete time domain (discontinuities likely)
+    function [out,res,J,segs]=component_ampl(obj,seg_length,tf,varargin)
       %defaul value for some inputs
       if ~exist('tf','var') || isempty(tf)
         tf=obj.stop;
@@ -1915,12 +1917,18 @@ classdef simpletimeseries < simpledata
         error(['Class ',class(segs{1}),' not yet implemented (easy fix!)'])
       end
       out.descriptor=['mean amplitude of ',char(seg_length),' period of ',obj.descriptor];
-      %project onto input (and extended) time domain
+      %repeat onto input (and extended) time domain
       out=out.repeat(tf).interp(obj.t);
-      %compute norm of the residual
-      res=out.minus(obj).stats('mode','norm')/obj.stats('mode','norm');
+      if nargout > 1
+        %compute residuals
+        res=out-obj;
+      end
+      if nargout > 2
+        %compute relative norm of residuals (scalar)
+        J=res.stats('mode','norm')./obj.stats('mode','norm');
+      end
     end
-    function component_split_plot(~,stats)
+    function component_split_plot(stats)
       plotting.figure('plot_visible',false);
       legend_str=cell(0); i=0;
       for j=1:numel(stats.periodic)
@@ -1954,7 +1962,7 @@ classdef simpletimeseries < simpledata
       ext]);
     end
     function J=component_split_fitness(obj,seg_length,tf,varargin)
-      [~,J]=obj.component_ampl(seg_length,tf,varargin{:});
+      [~,~,J]=obj.component_ampl(seg_length,tf,varargin{:});
     end
     function [obj,stats]=component_split(obj,varargin)
       v=varargs.wrap('sources',{{...
