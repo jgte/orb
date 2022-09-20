@@ -544,11 +544,11 @@ classdef simpletimeseries < simpledata
 
       switch method
         case 'all'
-          %TODO: add 'component_split'
+          %TODO: add 'pardecomp'
           for i={'calibrate_poly','median','fill-resample','append','trim','resample','extend','slice','pardecomp'}
             simpletimeseries.test(i{1},l);
           end
-        case 'component_split'
+        case 'pardecomp'
 %           %TODO: update this test, it's not in agreement with the new implementation of the relevant methods
 %           error('unfinished')
 %           a=simpletimeseries.randn(t,w,args.varargin{:});
@@ -560,7 +560,7 @@ classdef simpletimeseries < simpledata
 %             a=a+as;
 %           end
 %           a.descriptor='original';
-%           a.component_split_plot(days(l/3)./idx,'columns',1);
+%           a.pardecomp_plot(days(l/3)./idx,'columns',1);
 %           return
 %           i=0;c=1;
 %           i=i+1;h{i}=figure('visible','on');
@@ -1920,7 +1920,7 @@ classdef simpletimeseries < simpledata
       %compute norm of the residual
       res=out.minus(obj).stats('mode','norm')/obj.stats('mode','norm');
     end
-    function component_split_plot(~,stats)
+    function pardecomp_plot(~,stats)
       plotting.figure('plot_visible',false);
       legend_str=cell(0); i=0;
       for j=1:numel(stats.periodic)
@@ -1937,7 +1937,7 @@ classdef simpletimeseries < simpledata
       plotting.line_color;
       plotting.line_width;
     end
-    function f=component_split_fileroot(obj,dir,ext,search,lower_durat,upper_durat,nr_seg,t_extrapolate,t_crop,aperiodic_order)
+    function f=pardecomp_fileroot(obj,dir,ext,search,lower_durat,upper_durat,nr_seg,t_extrapolate,t_crop,aperiodic_order)
       %build filename in case it needs to be saved outside
       f=fullfile(dir,[...;
         str.show({...
@@ -1953,10 +1953,10 @@ classdef simpletimeseries < simpledata
         },'join_char','.'),...
       ext]);
     end
-    function J=component_split_fitness(obj,seg_length,tf,varargin)
+    function J=pardecomp_fitness(obj,seg_length,tf,varargin)
       [~,J]=obj.component_ampl(seg_length,tf,varargin{:});
     end
-    function [obj,stats]=component_split(obj,varargin)
+    function [obj,stats]=pardecomp(obj,varargin)
       v=varargs.wrap('sources',{{...
         'search',         true,       @islogical;...
         'lower_durat',    obj.step*4, @isduration;...
@@ -1977,7 +1977,7 @@ classdef simpletimeseries < simpledata
       %check if data is already available (need data_dir non-empty)
       recompute=true;
       if ~isempty(v.data_dir)
-        datafile=obj.component_split_fileroot(v.data_dir,'.mat',...
+        datafile=obj.pardecomp_fileroot(v.data_dir,'.mat',...
           v.search,v.lower_durat,v.upper_durat,v.nr_seg,v.t_extrapolate,v.t_crop,v.aperiodic_order);
         if exist(datafile,'file')
           str.say('Loading data file ',datafile)
@@ -2016,7 +2016,7 @@ classdef simpletimeseries < simpledata
           %search
           if v.search
             %define function to minimze
-            fun=@(i) rest.component_split_fitness(v.time_scale(i),v.t_extrapolate,varargin{:});
+            fun=@(i) rest.pardecomp_fitness(v.time_scale(i),v.t_extrapolate,varargin{:});
             %get segment length for this iter
             v.seg_lengths(i)=v.time_scale(fminbnd(fun,...
               v.time_scale(v.lower_durat),...
@@ -2068,8 +2068,8 @@ classdef simpletimeseries < simpledata
       end
       %plot it
       if ~isempty(v.plot_dir)
-        obj.component_split_plot(stats);
-        plotfile=obj_orig.component_split_fileroot(v.data_dir,'.png',...
+        obj.pardecomp_plot(stats);
+        plotfile=obj_orig.pardecomp_fileroot(v.data_dir,'.png',...
           v.search,v.lower_durat,v.upper_durat,v.nr_seg,v.t_extrapolate,v.t_crop,v.aperiodic_order);
         file.ensuredir(plotfile);
         str.say('Saving plot ',plotfile)

@@ -2154,9 +2154,9 @@ classdef datastorage
       obj=obj.data_set(product,out);
       obj.log('@','out','product',product,'start',obj.start,'stop',obj.stop)
     end
-    function obj=component_split(obj,product,varargin)
+    function obj=pardecomp(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
-      assert(product.nr_sources==1,['The component_split method cannot operated on product ''',product.str,...
+      assert(product.nr_sources==1,['The pardecomp method cannot operated on product ''',product.str,...
         ''' because it only accept one source, not ',num2str(product.nr_sources),'.'])
       %gather inputs
       v=varargs.wrap('sources',{product.metadata},varargin{:});
@@ -2165,7 +2165,7 @@ classdef datastorage
       %TEMPORARY: patch descriptor
       in.descriptor=product.sources(1).codename;
       %split into components
-      out=in.component_split(v.rename_silent('comp_plot_dir','plot_dir').rename_silent('comp_data_dir','data_dir').varargin{:});
+      out=in.pardecomp(v.rename_silent('comp_plot_dir','plot_dir').rename_silent('comp_data_dir','data_dir').varargin{:});
       %append 'signal' to field path, so that downstream procedures can identify this as valid data
       if ~strcmp(product.dataname.field_path{end},'signal'); product.dataname=product.dataname.append_field_leaf('signal'); end
       %propagate result
@@ -2174,7 +2174,7 @@ classdef datastorage
     end
     function obj=pardecomp_split(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
-      assert(product.nr_sources==1,['The component_split method cannot operated on product ''',product.str,...
+      assert(product.nr_sources==1,['The pardecomp method cannot operated on product ''',product.str,...
         ''' because it only accept one source, not ',num2str(product.nr_sources),'.'])
       %gather inputs
       v=varargs.wrap('sources',{product.metadata},varargin{:});
@@ -2196,7 +2196,7 @@ classdef datastorage
     end
     function obj=pardecomp_join(obj,product,varargin)
       obj.log('@','in','product',product,'start',obj.start,'stop',obj.stop)
-      assert(product.nr_sources==1,['The component_split method cannot operated on product ''',product.str,...
+      assert(product.nr_sources==1,['The pardecomp method cannot operated on product ''',product.str,...
         ''' because it only accept one source, not ',num2str(product.nr_sources),'.'])
       %gather inputs
       v=varargs.wrap('sources',{{...
