@@ -2539,7 +2539,7 @@ classdef gravity < simpletimeseries
       obj=obj.grid('Nfactor',3,varargin{:}).spatial_mask(mode,varargin{:}).sh(obj.lmax,'functional',obj.functional);
     end
     %% overloading
-    function [obj,stats]=pardecomp(obj,varargin)
+    function [obj,stats]=component_split(obj,varargin)
       v=varargs.wrap('sources',{{...
         't_extrapolate',  obj.stop,   @isdatetime;...
       }},varargin{:});
@@ -2571,7 +2571,7 @@ classdef gravity < simpletimeseries
           ts{i}=ts{i}.append_epochs( (ts{i}.stop+ts{i}.step):ts{i}.step:t_extrapolate , ts{i}.y_masked(1) );
         else
           %call mother routine, save stats to index consistent with columns of y
-          [ts{i},dat{i}]=ts{i}.pardecomp(varargin{:}); %#ok<PFBNS>
+          [ts{i},dat{i}]=ts{i}.component_split(varargin{:}); %#ok<PFBNS>
         end
       end
       %init outputs
