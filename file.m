@@ -554,7 +554,7 @@ classdef file
             return
           end
           if p.Results.disp
-            str.say('say_stack_delta',p.Results.stack_delta,['WARNING: ',msg])
+            str.say('say_stack_delta',p.Results.say_stack_delta,['WARNING: ',msg])
           end
           out='';
           return
@@ -633,12 +633,12 @@ classdef file
               out=in;
             end
             if arch
-              str.say('say_stack_delta',p.Results.stack_delta,['From archive ''',in,''' extracted the following files:'],newline,...
+              str.say('say_stack_delta',p.Results.say_stack_delta,['From archive ''',in,''' extracted the following files:'],newline,...
                 strjoin(out,newline))
             end
           catch
             %if the zip file is corrupted, assume data file is missing
-            str.say('say_stack_delta',p.Results.stack_delta,['WARNING: error extracting archive ''',in,'''.'])
+            str.say('say_stack_delta',p.Results.say_stack_delta,['WARNING: error extracting archive ''',in,'''.'])
             out=in;
             return
           end
@@ -871,7 +871,7 @@ classdef file
       else
         cdnow=pwd;
       end
-      [status,result]=system(['cd ',cdnow,'; ',com]);
+      [status,result]=system(['cd "',cdnow,'"; ',com]);
       result=str.chomp(result);
       out=(status==0);
       if ~out
