@@ -2087,10 +2087,29 @@ classdef simpletimeseries < simpledata
     end
     %% parametric decomposition
     function [obj,pd_set]=pardecomp(obj,varargin)
-      %get the pd-set
-      pd_set=pardecomp.split(obj,   varargin{:});
-      %reconstruct the time series
-      obj   =pardecomp.join( pd_set,varargin{:});
+       v=varargs.wrap('sources',{...
+        {...
+          %these arguments change the defaults values in common_ops_args
+          'datafile',   '', @ischar;...
+          'force',                        false ,@islogical;...
+        }...
+      },varargin{:});
+      %check if data file is availble
+      if ~file.exist(v.datafile) || v.force
+        %get the pd-set
+        out.pd_set=pardecomp.split(obj,varargin{:});
+        %reconstruct the time series
+        out.obj   =pardecomp.join(out.pd_set,varargin{:});
+        %save the mat data
+        file.save_mat(out,v.datafile)
+      else
+        %load the mat data
+        [out,loaded_flag]=file.load_mat(v.datafile);
+        assert(loaded_flag,['Problem loading ',v.datafile])
+      end
+      %unwrap data
+      obj=out.obj;
+      pd_set=out.pd_set;
     end
     function [obj,pd_set]=pardecomp_search(obj,varargin)
       %need some stuf
