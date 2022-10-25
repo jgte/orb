@@ -368,7 +368,12 @@ classdef varargs < dynamicprops
       if ~exist('parameters_to_skip','var') || isempty(parameters_to_skip)
         parameters_to_skip={};
       end
-      out=str.say('say_skip_stack',true,'say_join_char','.',dup(obj).delete(parameters_to_skip).varargin);
+      particles=dup(obj).delete(parameters_to_skip).varargin;
+      out=cell(1,numel(particles)/2);
+      for i=1:numel(particles)/2
+        out{i}=str.say('say_skip_stack',true,'say_join_char','_',particles(2*i-1:2*i));
+      end
+      out=strjoin(out,'.');
     end
     %% get methods
     %abstracts string or index
