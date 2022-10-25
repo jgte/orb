@@ -214,6 +214,10 @@ classdef cells
         out=cellfun(@(i) all(size(i)==size(strin)) && all(i==strin),cellstrin);
       end
     end
+    function out=isanystrequal(cellstrin,strin) %same as any(isstrequal)
+      out=cells.isstrequal(cellstrin,strin);
+      out=any(out(:));
+    end
     function out=strequal(cellstrin,strin)
       if isempty(cellstrin)
         out={};
