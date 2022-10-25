@@ -748,7 +748,7 @@ classdef plotting
           out.colormap=eval([v.plot_colormap,'(1000)']);
         else
           %any fine-tuned colormap will be distorted by the caxis command above
-          if any(isfinite(v.plot_caxis))
+          if any(isfinite(v.plot_colormap))
             disp('WARNING: numeric plot_colormap doesn''t play well with plot_caxis for non-generic colormaps; for generic ones, you might as well pass the colormap names');
           end
           clist={'unknown'};
