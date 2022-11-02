@@ -78,6 +78,11 @@ classdef simpletimeseries < simpledata
       end
     end
     function out=time2num(in,epoch,time_units)
+      %NOTICE: when calling obj.x_units=..., there can be the case that 'in' is empty
+      if isempty(in)
+        out=[];
+        return
+      end
       if ~exist('epoch','var') || isempty(epoch)
         epoch=in(1);
       end
