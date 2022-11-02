@@ -128,20 +128,19 @@ classdef pardecomp
 
       % TODO: pardecomp().lsq may well handle y_pd as an array
 
-      % parfor wide objects
-      % TODO: can't seem to get this to work: Error using pardecomp (line 313) Not enough input arguments.)
+      s.msg=['Parametric decomposition of ',obj.descriptor]; s.n=obj.width;
+
+      % parfor wide objects (this is roughly 3.5 times faster than in series)
       if v.parallel
+        %create temporary var
+        varargin_now=v.varargin;
         parfor i=1:obj.width
-          %create temporary var
-          varargin_now=varargin;
-          % call mother routine, solve and implement higher x-domain resolution
-          % for the model if needed (trivial check done inside)
-          % TODO: the latter needs checking
-          d(i)=pardecomp(t_pd,y_pd(:,i),varargin_now{:});
-          d(i)=d(i).lsq;
+          d{i}=pardecomp(t_pd,y_pd(:,i),varargin_now{:}).lsq;
         end
+        %convert cell array to structure array
+        d=[d{:}];
+        if ~v.quiet; s=time.progress(s,obj.width); end
       else
-        s.msg=['Parametric decomposition of ',obj.descriptor]; s.n=obj.width;
         for i=1:obj.width
           % call mother routine, solve and implement higher x-domain resolution
           % for the model if needed (trivial check done inside)
@@ -155,6 +154,7 @@ classdef pardecomp
             ['Parameter decomposition failed for ',obj.labels{i},', RMS=',num2str(rms(y_pd(:,i)-d(i).y_sum-d(i).yr))])
         end
       end
+
       %init containers
       init=str2func(class(obj)); %use correct constructor
       pd_args=cell(1,4*pardecomp.xlength(d(1).np,d(1).T)); 
