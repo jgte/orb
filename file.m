@@ -95,7 +95,7 @@ classdef file
         faction=1;
       end
     end
-    function [fid,filename,close_file,msg]=open(filename,perm)
+    function [fid,filename,close_file,msg]=open(filename,perm,varargin)
       if ~exist('perm','var') || isempty(perm)
         perm = 'r';
       end
@@ -117,6 +117,7 @@ classdef file
             @file.resolve_compressed;...
             @file.resolve_ext;...
           },...
+          varargin{:},...
           'scalar_as_strings',true...
         );
         %make sure dir exists
