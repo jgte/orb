@@ -1,0 +1,21 @@
+method: gswarm.plot_maps
+submetadata: gswarm.swarm.validation.replaceC20.submetadata
+sources: [
+  swarm.sh.gswarm.rl01,
+  # gswarm.swarm.aiub.aiub.v01,
+  # gswarm.swarm.asu.ifg.v03,
+  # gswarm.swarm.ifg.ifg,
+  # gswarm.swarm.osu.aiub.v02,
+  gswarm.gracefo.sh.rl06.csr,
+]
+stats_relative_to: none
+plot_time_domain_source: 1 #options are: idx of source or 0, meaning the common time domain
+
+#plot_ops
+plot_max_degree: 20
+plot_smoothing_degree: 750e3
+plot_smoothing_method: gauss
+
+plot_colormap: jetzero
+plot_caxis: [-0.5,0.5]
+plot_time: [-1,-2,-3,-4,-5,-6] #although index -1 is the extremity (gap by definition), the code in gswarm.plot_maps removes them before resolving these indexes
