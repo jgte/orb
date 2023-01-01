@@ -2094,9 +2094,8 @@ classdef simpletimeseries < simpledata
     function [obj,pd_set]=pardecomp(obj,varargin)
        v=varargs.wrap('sources',{...
         {...
-          %these arguments change the defaults values in common_ops_args
-          'datafile',   '', @ischar;...
-          'force',                        false ,@islogical;...
+          'datafile',    '', @ischar;...
+          'force',   false ,@islogical;...
         }...
       },varargin{:});
       %check if data file is availble
@@ -2105,9 +2104,11 @@ classdef simpletimeseries < simpledata
         out.pd_set=pardecomp.split(obj,varargin{:});
         %reconstruct the time series
         out.obj   =pardecomp.join(out.pd_set,varargin{:});
+        disp(['Saving pardecomp data to ',v.datafile])
         %save the mat data
         file.save_mat(out,v.datafile)
       else
+        disp(['Loading pardecomp data from ',v.datafile])
         %load the mat data
         [out,loaded_flag]=file.load_mat(v.datafile);
         assert(loaded_flag,['Problem loading ',v.datafile])
