@@ -151,8 +151,8 @@ classdef datastorage
           end
         end
         if ~all(...
-          cellfun(@(i) strcmp(i,'N/A'        ),msg(2:end)) | ... 
-          cellfun(@(i) strcmp(i,'0'          ),msg(2:end)) | ... 
+          cellfun(@(i) strcmp(i,'N/A'        ),msg(2:end)) | ...
+          cellfun(@(i) strcmp(i,'0'          ),msg(2:end)) | ...
           cellfun(@(i) strcmp(i,'00-Jan-0000'),msg(2:end))...
         )
           disp(str.tablify(tab,dn_list{i}.str,msg{:}))
@@ -187,7 +187,7 @@ classdef datastorage
         list1{i}=stoplist( start_idx:stop_idx);
       end
       %show header
-      disp(['Showing ',p.Results.info_method,' for periods of ',str.show(p.Results.period),'.'])
+      disp(str.show({'Showing',p.Results.info_method,'for periods of',p.Results.period,'.'})
       for l=1:n
         disp(str.tablify(p.Results.tab,'product',list0{l}))
         %retrieve global field path list

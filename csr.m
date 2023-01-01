@@ -2584,10 +2584,10 @@ fields{3},obj.data_get_scalar(calparp.dataname.set_field_path([product.dataname.
             %build info text
             text_str=cell(numel(xn)+2,1);
             for ti=1:numel(xn)
-              text_str{ti}=[xn{ti},': ',str.show(x{bti}(:,ti),'',', '),'\times10^{',num2str(log10(v.xs(ti))),'}'];
+              text_str{ti}=[xn{ti},': ',str.show(x{bti}(:,ti),'join_char',', '),'\times10^{',num2str(log10(v.xs(ti))),'}'];
             end
-            text_str{ti+1}=['rnorm: ',str.show(rnorm(bti),'%.1f',', ')];
-            text_str{ti+2}=['n: ',str.show(numel(y_pop{bti}),'%d',', ')];
+            text_str{ti+1}=['rnorm: ',str.show(   rnorm(bti),'fmt','%.1f','join_char',', ')];
+            text_str{ti+2}=['n: ',str.show(numel(y_pop{bti}),'fmt','%d'  ,'join_char',', ')];
             %plot ot
             plotting.figure(v.varargin{:});
             h{1}=tsf.plot(           'zeromean',true,'normalize',true);

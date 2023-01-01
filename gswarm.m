@@ -326,7 +326,7 @@ classdef gswarm
       otherwise
         switch v.plot_spatial_mask
         case {'ocean','land'}
-          pod.title_masking=str.show(v.plot_spatial_mask,'areas');
+          pod.title_masking=str.show({v.plot_spatial_mask,'areas'});
         otherwise
           pod.title_masking=v.plot_spatial_mask;
         end
@@ -1256,7 +1256,7 @@ classdef gswarm
           'sin_period_unit',                        'months' , @ischar;...
           'timescale',                               'years' , @ischar;...
           'epoch',                     datetime('2000-01-01'), @isdatetime;...
-          'plot_spatial_step',                              1, @num.isscalar;... %NOTICE: this affects gravity.grid 
+          'plot_spatial_step',                              1, @num.isscalar;... %NOTICE: this affects gravity.grid
           'plot_catchment_list',simplegrid.catchment_list(:,1),@iscellstr; ....
           'plot_catchment_boxes',                       false, @islogical; ....
           'plot_std_colormap',                       'parula', @ischar;...
@@ -1709,7 +1709,7 @@ classdef gswarm
 
       %inform
       str.say('will plot the maps for the following dates:',v.plot_time)
-      
+
       for i=1:v.pod.source.n
         clear grid_now
         for it=1:numel(v.plot_time)
@@ -2436,7 +2436,7 @@ classdef gswarm
 
       grs_name=p.grs.dataname.append_field_leaf('signal');
       swm_name=p.swm.dataname.append_field_leaf('signal');
-      
+
       %show the grace data
       fn={[f,'.grace-C20.png'],[f,'.grace-C30.png']};
       if any(~file.exist(fn))
@@ -2586,7 +2586,7 @@ classdef gswarm
         end
       case 'plot'
         if ~gswarm.c20model('done',plot_dir)
-          %define time arguments 
+          %define time arguments
           %NOTICE: Don't use time_args{:} below so that all the time series is shown
           %time_args={'start',gswarm.production_date('start'),'stop',gswarm.production_date('stop')};
           %this updates the coefficient time series, to make sure it has recent-enough data
@@ -2740,7 +2740,7 @@ classdef gswarm
       %      starts in April 2013 but it's only in the filename, the plot titles show it's
       %      actually starting in 2016
 
-      
+
       %produce plots for the report
       [d,p]=gswarm.production(...
         'products',  {...
@@ -2777,7 +2777,7 @@ classdef gswarm
 
       %NOTICE: this method expects some input arguments, notably:
       % - products (cellstr)
-      
+
       %parse input args
       v=varargs.wrap('sources',{....
         {...

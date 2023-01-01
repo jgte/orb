@@ -301,9 +301,9 @@ classdef str
           else
             for j=1:size(in,2)
               if j==size(in,2)
-                out{i,j}=[str.show(in{i,j},fmt{j}),' \\',newline];
+                out{i,j}=[str.show(in{i,j},'fmt',fmt{j}),' \\',newline];
               else
-                out{i,j}=[str.show(in{i,j},fmt{j}),' & '];
+                out{i,j}=[str.show(in{i,j},'fmt',fmt{j}),' & '];
               end
             end
           end
@@ -529,7 +529,7 @@ classdef str
         end
         %loop over every element of the current argument (even if scalar)
         for j=1:numel(in{i})
-          c=c+1; out{c} = str.just(str.show(in{i}(j),['%',num2str(w(i)),'g']),w(i),'just',mode);
+          c=c+1; out{c} = str.just(str.show(in{i}(j),'fmt',['%',num2str(w(i)),'g']),w(i),'just',mode);
         end
       end
       out=strjoin(out,' ');
