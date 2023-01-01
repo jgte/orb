@@ -1117,7 +1117,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   case 'data_file'
     t=v.file;
   case 'read' %'set' if not already, then 'get'
-    if ~file.exist(v.file) || v.force
+    if ~file.exist(v.file) || file.age(v.file) > days(30) || v.force
       GetGRACEC20('mode','set','source',v.source,'data_dir',v.data_dir);
     end
     [t,s,e,d]=GetGRACEC20('mode','get','source',v.source,'file',v.file,'start',v.start,'stop',v.stop);
@@ -1181,7 +1181,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     idx=t>=v.start & t<=v.stop;
     t=t(idx);
     %inform
-    str.say('start/stop of',d,':',t(1),t(end))
+    str.say('start/stop of',v.source,',',d,':',t(1),t(end))
     s=dat{s_idx}(idx);
     if e_idx>0
       e=dat{e_idx}(idx)*1e-10;
