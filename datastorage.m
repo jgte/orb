@@ -187,7 +187,7 @@ classdef datastorage
         list1{i}=stoplist( start_idx:stop_idx);
       end
       %show header
-      disp(str.show({'Showing',p.Results.info_method,'for periods of',p.Results.period,'.'})
+      disp(str.show({'Showing',p.Results.info_method,'for periods of',p.Results.period,'.'}))
       for l=1:n
         disp(str.tablify(p.Results.tab,'product',list0{l}))
         %retrieve global field path list
