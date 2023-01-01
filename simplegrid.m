@@ -2088,22 +2088,22 @@ classdef simplegrid < simpletimeseries
       [fd,fn,fe]=fileparts(filename);
       %get the map
       m=obj.vecmat;
+      s.msg=['exporting xyz grid of ',obj.descriptor];s.n=size(m.map,3);
       for f=1:size(m.map,3)
         %build file for the current time
         f_now=fullfile(fd,[fn,'.',datestr(obj.t(f),'yyyymmddTHHMMSS'),fe]);
         if ~exist(f_now,'file') || v.force
           %open the file (sanity done inside)
-          fid=file.open(f_now,'w');
+          fid=file.open(f_now,'w','warn',false);
           %save the data
-          s.msg=['exporting ',obj.descriptor,' for ',datestr(obj.t(f),'yyyy-mm-dd HH:MM:SS'),' to file ',f_now];s.n=size(m.map,2);
           for j=1:size(m.map,2)
             for i=1:size(m.map,1)
               fprintf(fid,v.fmt,m.lon(j),m.lat(i),m.map(i,j,f));
             end
-            s=time.progress(s,j);
           end
           fclose(fid);
         end
+        s=time.progress(s,f);
       end
     end
   end
