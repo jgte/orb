@@ -1991,6 +1991,57 @@ classdef simplegrid < simpletimeseries
         end
       end
     end
+    function out=animation(obj,varargin)
+      %NOTICE: interesting arguments to pass to this function, relevant to child methods:
+      % - plot_size     (for plotting.figure)
+      % - cb_title      (for simplegrid.imagesc)
+      % - plot_colormap (for plotting.enforce)
+      % - plot_caxis    (for plotting.enforce)
+      v=varargs.wrap('sources',{....
+        {...
+          'frame_rate'   , 30            , @(i) isnumeric(i) && isscalar(i);...
+          'decimate_rate', 1             , @(i) isnumeric(i) && isscalar(i);...
+          'filename'     ,'animation.gif', @ischar;
+        },...
+      },varargin{:});
+      if file.exist(v.filename)
+        disp(['Animation ',v.filename,' already available.'])
+        return
+      end
+      out.frame_rate=v.frame_rate;
+      out.n_frames=floor(obj.nr_valid/v.decimate_rate);
+      fig=plotting.figure(varargin{:},'plot_visible','off');
+      s.msg=['Rendering ',v.filename]; s.n=out.n_frames;
+      out.im=cell(1,out.n_frames);
+      for i=1:out.n_frames
+        t_now=obj.t_masked(i*v.decimate_rate);
+        %check if image is not all nans
+        if all(isnan(obj.at(t_now).y(:)) | ~isfinite(obj.at(t_now).y(:))) 
+          continue
+        end
+        obj.at(t_now).imagesc(varargin{:},'center_resample',false);
+        plotting.enforce(varargin{:},...
+          'plot_title',datestr(t_now,'yyyy'),...
+          'plot_legend_location','none',...
+          'plot_ylabel','none',...
+          'plot_xlabel','none'...
+        );
+        axis off
+        out.im{i}=frame2im(getframe(fig));
+        s=time.progress(s,i);
+      end
+      out.A=cell(1,out.n_frames);out.cmap=cell(1,out.n_frames);
+      for i = 1:out.n_frames
+        [out.A{i},out.cmap{i}] = rgb2ind(out.im{i},256);
+      end
+      for i = 1:out.n_frames
+        if i == 1
+          imwrite(out.A{i},out.cmap{i},v.filename,'gif','LoopCount',Inf,'DelayTime',0);
+        else
+          imwrite(out.A{i},out.cmap{i},v.filename,'gif','WriteMode','append','DelayTime',1/v.frame_rate);
+        end
+      end
+    end
     %% spatial truncation and parameter decomposition
     function catchment=catchment_get(obj,name,varargin)
       v=varargs.wrap('sources',{....
