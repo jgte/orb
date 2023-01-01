@@ -408,6 +408,7 @@ classdef file
       p.addParameter('prefer_ext_files',       false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',      false, @(i) islogical(i) && isscalar(i));
       p.addParameter('debug',                  false, @islogical);
+      p.addParameter('warn',                    true, @islogical);
       p.parse(in,ext,varargin{:})
       %sanity
       assert(~(p.Results.prefer_non_ext_files && p.Results.prefer_ext_files),'Cannot both prefer non-ext and ext files')
@@ -457,7 +458,7 @@ classdef file
         %if neither file exists, make some noise
         else
           out=in;
-          str.say(['WARNING: cannot find neither ''',yesext,''' nor ''',nonext,'''.'])
+          if p.Results.warn; str.say(['WARNING: cannot find neither ''',yesext,''' nor ''',nonext,'''.']); end
         end
       end
       %handle additional outputs
