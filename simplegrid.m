@@ -1977,6 +1977,7 @@ classdef simplegrid < simpletimeseries
           end
         end
       end
+      title([obj.descriptor,' @ ',datestr(v.t)])
       %add boxes
       if ~isempty(v.boxes)
         b=simplegrid.catchment_subset(v.boxes);
