@@ -1510,7 +1510,7 @@ classdef simplegrid < simpletimeseries
       %NOTICE: cannot interpolate centered grids because of the discontinuity at longitude 360
       assert(~obj.centered,'Cannot interpolated centered grids')
       %build new meshed domain
-      [lat_meshed,lon_meshed,t_meshed]=ndgrid(lat_new,lon_new,datenum(obj.t));
+      [lat_meshed,lon_meshed,t_meshed]=ndgrid(lat_new,lon_new,datenum(obj.t_masked));
       %fix missing 360 (if needed)
       [obj,changed]=obj.add360lon;
       %get the interpolant
@@ -1537,7 +1537,7 @@ classdef simplegrid < simpletimeseries
         assert(~any(isnan(map_new(:))),'BUG TRAP:Still there''s NaNs in the interpolated map')
       end
       %save results
-      obj=obj.assign(map_new,'t',obj.t,'lat',lat_new,'lon',lon_new);
+      obj=obj.assign(map_new,'t',obj.t_masked,'lat',lat_new,'lon',lon_new);
       %unfix missing 360 (if needed)
       if changed && ~simplegrid.islon360complete(lon_new)
         obj=obj.del360lon;
