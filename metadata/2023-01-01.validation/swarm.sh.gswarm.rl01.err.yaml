@@ -1,0 +1,6 @@
+method: arithmetic
+operation: minus
+sources: [swarm.sh.gswarm.rl01/signal,gswarm.gracefo.sh.rl06.csr/signal]
+source_fields_from: gswarm.gracefo.sh.rl06.csr
+operation_order: [1,2]
+storage_period: yearly

@@ -44,7 +44,7 @@ classdef structs
       for i=1:numel(field_list)
         v=structs.get_value(S,field_list{i});
         if strcmp(varname,'_')
-          out{i}=[strjoin(field_list{i},','),str.show(v,'',varname)];
+          out{i}=[strjoin(field_list{i},','),str.show(v,'join_char',varname)];
         else
           out{i}=[varname,'.',strjoin(field_list{i},'.'),'=',str.show(v)];
           if show_class

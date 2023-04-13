@@ -326,7 +326,7 @@ classdef gswarm
       otherwise
         switch v.plot_spatial_mask
         case {'ocean','land'}
-          pod.title_masking=str.show(v.plot_spatial_mask,'areas');
+          pod.title_masking=str.show({v.plot_spatial_mask,'areas'});
         otherwise
           pod.title_masking=v.plot_spatial_mask;
         end
@@ -1256,7 +1256,7 @@ classdef gswarm
           'sin_period_unit',                        'months' , @ischar;...
           'timescale',                               'years' , @ischar;...
           'epoch',                     datetime('2000-01-01'), @isdatetime;...
-          'plot_spatial_step',                              1, @num.isscalar;... %NOTICE: this affects gravity.grid 
+          'plot_spatial_step',                              1, @num.isscalar;... %NOTICE: this affects gravity.grid
           'plot_catchment_list',simplegrid.catchment_list(:,1),@iscellstr; ....
           'plot_catchment_boxes',                       false, @islogical; ....
           'plot_std_colormap',                       'parula', @ischar;...
@@ -1709,7 +1709,7 @@ classdef gswarm
 
       %inform
       str.say('will plot the maps for the following dates:',v.plot_time)
-      
+
       for i=1:v.pod.source.n
         clear grid_now
         for it=1:numel(v.plot_time)
@@ -2436,7 +2436,7 @@ classdef gswarm
 
       grs_name=p.grs.dataname.append_field_leaf('signal');
       swm_name=p.swm.dataname.append_field_leaf('signal');
-      
+
       %show the grace data
       fn={[f,'.grace-C20.png'],[f,'.grace-C30.png']};
       if any(~file.exist(fn))
@@ -2586,7 +2586,7 @@ classdef gswarm
         end
       case 'plot'
         if ~gswarm.c20model('done',plot_dir)
-          %define time arguments 
+          %define time arguments
           %NOTICE: Don't use time_args{:} below so that all the time series is shown
           %time_args={'start',gswarm.production_date('start'),'stop',gswarm.production_date('stop')};
           %this updates the coefficient time series, to make sure it has recent-enough data
@@ -2663,27 +2663,30 @@ classdef gswarm
       %WORKFLOW         5.3.1: after the swarm data is processed, the quality is computed in
       %WORKFLOW                the gswarm.quality method, where it is added to the git repo
       %WORKFLOW         5.3.2: NOTICE: when doing tests, it's best to set 'git_ci' to false.
-      %WORKFLOW     5.4: check that the C20 data is updated and the model evaluated at the
+      %WORKFLOW     5.4: Check the metadata makes sense. Go to orb/metadata and:
+      %WORKFLOW         5.4.1: ./link-dup-metadatafiles.sh flatten sink=CURRENT_DATE.TYPE/
+      %WORKFLOW         5.4.2: diffmerge PREVIOUS_DATE.TYPE CURRENT_DATE.TYPE
+      %WORKFLOW     5.5: check that the C20 data is updated and the model evaluated at the
       %WORKFLOW          last 3 months
-      %WORKFLOW         5.4.1: The easiest way to be sure is to run:
+      %WORKFLOW         5.5.1: The easiest way to be sure is to run:
       %WORKFLOW                'gswarm.c20model('plot',file.orbdir('plot'))'
-      %WORKFLOW         5.4.2: For TYPE=precombval, the TN-14 model is used.
-      %WORKFLOW         5.4.3: For TYPE=validation, the TN-14 model is used.
-      %WORKFLOW     5.5: run the gswarm.TYPE method and keep an eye the last epoch of the
+      %WORKFLOW         5.5.2: For TYPE=precombval, the TN-14 model is used.
+      %WORKFLOW         5.5.3: For TYPE=validation, the TN-14 model is used.
+      %WORKFLOW     5.6: run the gswarm.TYPE method and keep an eye the last epoch of the
       %WORKFLOW          data as it is being loaded, it has to be the same as the last
       %WORKFLOW          available month; otherwise the analysis is incomplete
-      %WORKFLOW     5.6: things that may go wrong:
-      %WORKFLOW         5.6.1: the C20 data is not up-to-date
-      %WORKFLOW         5.6.2: IfG releases a new version of their models and the metadata
+      %WORKFLOW     5.7: things that may go wrong:
+      %WORKFLOW         5.7.1: the C20 data is not up-to-date
+      %WORKFLOW         5.7.2: IfG releases a new version of their models and the metadata
       %WORKFLOW                was not updated to that
-      %WORKFLOW         5.6.3: AIUB names the models incorrectly or does not compress them
-      %WORKFLOW         5.6.4: You changed a matlab class and the *.mat files in the GRACE
+      %WORKFLOW         5.7.3: AIUB names the models incorrectly or does not compress them
+      %WORKFLOW         5.7.4: You changed a matlab class and the *.mat files in the GRACE
       %WORKFLOW                L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell
       %WORKFLOW                this is the case when the error happens only on the first new
       %WORKFLOW                models); just delete the offending *.mat files:
       %WORKFLOW                rm -fv ~/data/gswarm/*/gravity/*.mat ~/data/grace/L2/CSR/RL06/*.mat
       %WORKFLOW                and re-import everything (by simply re-running gswarm.TYPE).
-      %WORKFLOW         5.6.5: Some analysis start in 2002-04 instead of 2016-01, particularly
+      %WORKFLOW         5.7.5: Some analysis start in 2002-04 instead of 2016-01, particularly
       %WORKFLOW                the product gswarm.swarm.validation.unsmoothed. Not sure why
       %WORKFLOW                this is happening but running it another time fixes the problem.
       %WORKFLOW 6.  go through the report and update all %NEEDS UPDATING lines (some are
@@ -2693,7 +2696,7 @@ classdef gswarm
       %WORKFLOW          ./ls-missing-figures.sh to see which plots are being wrongly picked.
       %WORKFLOW 7.  compile it and compare this report with the previous one
       %WORKFLOW 8.  go to the report dir in the new TYPE dir and make sure everything
-      %WORKFLOW     is in synch.sh (don't synch %NEEDS UPDATING lines)
+      %WORKFLOW     is in sync.sh (don't sync %NEEDS UPDATING lines)
       %WORKFLOW 9.  Submit changes to GitHub:
       %WORKFLOW     9.1: Run the script link-dup-metadatafiles.sh in directory
       %WORKFLOW          ~/data/gswarm/analyses/<date>-TYPE/orb/metadata/ with arguments:
@@ -2740,7 +2743,7 @@ classdef gswarm
       %      starts in April 2013 but it's only in the filename, the plot titles show it's
       %      actually starting in 2016
 
-      
+
       %produce plots for the report
       [d,p]=gswarm.production(...
         'products',  {...
@@ -2777,7 +2780,7 @@ classdef gswarm
 
       %NOTICE: this method expects some input arguments, notably:
       % - products (cellstr)
-      
+
       %parse input args
       v=varargs.wrap('sources',{....
         {...
