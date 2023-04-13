@@ -380,6 +380,16 @@ classdef time
         end
       end
     end
+    function list=month_middle_list(start,stop)
+      p=machinery.inputParser;
+      p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
+      p.addRequired( 'stop',    @(i) isscalar(i) && isdatetime(i));
+      p.parse(start,stop)
+      %get start/stop month list
+      [startlist,stoplist]=time.month_list(start,stop);
+      %get the average of that
+      list=startlist+(stoplist-startlist)/2;
+    end
     function [startlist,stoplist]=year_list(start,stop)
       p=machinery.inputParser;
       p.addRequired( 'start',   @(i) isscalar(i) && isdatetime(i));
