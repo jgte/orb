@@ -1214,7 +1214,7 @@
       case 1
         out=out(varargin{1});
       otherwise
-        error('Cannot handle two optional inputs.')
+        error('Cannot handle two or more optional inputs.')
       end
     end
     %NOTICE: cannot use numel because it is often used by external code to iterate over 
