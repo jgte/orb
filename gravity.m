@@ -1313,7 +1313,7 @@ classdef gravity < simpletimeseries
     %component : A, AOHIS, H, I, O or S (char)
     function [m,e]=ESA_MTM(year,month,component,varargin)
       p=machinery.inputParser;
-      p.addParameter('datadir',gravity.ESA_MTM_dir(year,month,component),@(i) ischar(i) && exist(i,'dir')~=0)
+      p.addParameter('datadir',gravity.ESA_MTM_data_dir(year,month,component),@(i) ischar(i) && exist(i,'dir')~=0)
       p.parse(varargin{:})
       [m,e]=gravity.load_dir(...
         'datadir',p.Results.datadir,...
