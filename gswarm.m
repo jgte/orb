@@ -2566,8 +2566,14 @@ classdef gswarm
       end
     end
     function out=c20model(mode,plot_dir,source)
+      if ~exist('mode','var') || isempty(mode)
+        mode='plot';
+      end
       if ~exist('source','var') || isempty(source)
         source=dataproduct('model.processing.replaceC20.submetadata').metadata.use_GRACE_C20;
+      end
+      if ~exist('plot_dir','var') || isempty(plot_dir)
+        plot_dir=file.orbdir('plot');
       end
       %document the C20 model
       switch mode
@@ -2657,7 +2663,7 @@ classdef gswarm
       %WORKFLOW             which iterates over specific years, currently 2022)
       %WORKFLOW     5.2: check that the C20 data is updated and the model evaluated at the
       %WORKFLOW          last 3 months
-      %WORKFLOW          - The easiest way to be sure is to run: 'gswarm.c20model('plot',file.orbdir('plot'))'
+      %WORKFLOW          - The easiest way to be sure is to run: 'gswarm.c20model'
       %WORKFLOW            - For TYPE=precombval, the TN-14 model is used.
       %WORKFLOW            - For TYPE=validation, the TN-14 model is used.
       %WORKFLOW     5.3: Check the metadata makes sense. Go to orb/metadata and:
