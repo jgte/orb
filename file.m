@@ -869,11 +869,11 @@ classdef file
       p.addParameter('stop_if_error', false, @islogical);
       p.parse(com,varargin{:})
       if ~isempty(p.Results.cd)
-        cdnow=cd(p.Results.cd);
+        cdnow=p.Results.cd;
       else
         cdnow=pwd;
       end
-      [status,result]=system(['cd "',cdnow,'"; ',com]);
+      [status,result]=system(['cd ',strrep(cdnow,' ','\ '),'; ',com]);
       result=str.chomp(result);
       out=(status==0);
       if ~out
