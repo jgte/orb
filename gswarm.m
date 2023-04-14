@@ -2649,45 +2649,44 @@ classdef gswarm
       %WORKFLOW     script) and check the stop_date in project.yaml is the last day of the
       %WORKFLOW     last available model (the new-analysis.sh script automatically updates
       %WORKFLOW     this but better check if it's OK)
-      %WORKFLOW 5.  fire up matlab and look at the gswarm.TYPE method:
-      %WORKFLOW     5.1: check if all products are being used, some may be commented
-      %WORKFLOW     5.2: check if the 'get_input_data' option is true:
-      %WORKFLOW         5.2.1: the swarm data is downloaded from aristarchos (need
-      %WORKFLOW                rsyncf.sh and ~/data/gswarm/rsyncf.list)
-      %WORKFLOW         5.2.2: the GRACE data is downloaded from PODACC (need
-      %WORKFLOW                ~/data/grace/download-l2.sh, which
-      %WORKFLOW                iterates over specific years, currently 2022)
-      %WORKFLOW         5.2.2: NOTICE: when doing tests, it's quicker to set 'get_input_data' to false.
-      %WORKFLOW     5.3: if TYPE=validation, check if the 'git_ci' option is true:
-      %WORKFLOW         5.3.1: after the swarm data is processed, the quality is computed in
-      %WORKFLOW                the gswarm.quality method, where it is added to the git repo
-      %WORKFLOW         5.3.2: NOTICE: when doing tests, it's best to set 'git_ci' to false.
-      %WORKFLOW     5.4: Check the metadata makes sense. Go to orb/metadata and:
-      %WORKFLOW         5.4.1: ./link-dup-metadatafiles.sh flatten sink=CURRENT_DATE.TYPE/
-      %WORKFLOW         5.4.2: diffmerge PREVIOUS_DATE.TYPE CURRENT_DATE.TYPE
-      %WORKFLOW     5.5: check that the C20 data is updated and the model evaluated at the
+      %WORKFLOW 5.  fire up matlab:
+      %WORKFLOW     5.1: call gswarm.get_input_data('all'):
+      %WORKFLOW           - the swarm data is downloaded from aristarchos (need rsyncf.sh and 
+      %WORKFLOW             ~/data/gswarm/rsyncf.list)
+      %WORKFLOW           - the GRACE data is downloaded from PODACC (need ~/data/grace/download-l2.sh, 
+      %WORKFLOW             which iterates over specific years, currently 2022)
+      %WORKFLOW     5.2: check that the C20 data is updated and the model evaluated at the
       %WORKFLOW          last 3 months
-      %WORKFLOW         5.5.1: The easiest way to be sure is to run:
-      %WORKFLOW                'gswarm.c20model('plot',file.orbdir('plot'))'
-      %WORKFLOW         5.5.2: For TYPE=precombval, the TN-14 model is used.
-      %WORKFLOW         5.5.3: For TYPE=validation, the TN-14 model is used.
-      %WORKFLOW     5.6: run the gswarm.TYPE method and keep an eye the last epoch of the
-      %WORKFLOW          data as it is being loaded, it has to be the same as the last
-      %WORKFLOW          available month; otherwise the analysis is incomplete
-      %WORKFLOW     5.7: things that may go wrong:
-      %WORKFLOW         5.7.1: the C20 data is not up-to-date
-      %WORKFLOW         5.7.2: IfG releases a new version of their models and the metadata
-      %WORKFLOW                was not updated to that
-      %WORKFLOW         5.7.3: AIUB names the models incorrectly or does not compress them
-      %WORKFLOW         5.7.4: You changed a matlab class and the *.mat files in the GRACE
-      %WORKFLOW                L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell
-      %WORKFLOW                this is the case when the error happens only on the first new
-      %WORKFLOW                models); just delete the offending *.mat files:
+      %WORKFLOW          - The easiest way to be sure is to run: 'gswarm.c20model('plot',file.orbdir('plot'))'
+      %WORKFLOW            - For TYPE=precombval, the TN-14 model is used.
+      %WORKFLOW            - For TYPE=validation, the TN-14 model is used.
+      %WORKFLOW     5.3: Check the metadata makes sense. Go to orb/metadata and:
+      %WORKFLOW          - recall that the new-analysis.sh script already removed the links 
+      %WORKFLOW            from CURRENT_DATE.TYPE
+      %WORKFLOW          - diffmerge PREVIOUS_DATE.TYPE CURRENT_DATE.TYPE (this command is 
+      %WORKFLOW            shown by new-analysis.sh)
+      %WORKFLOW     5.4: Look at the gswarm.TYPE method:
+      %WORKFLOW          - check if all products are being used, some may be commented
+      %WORKFLOW          - run the gswarm.TYPE method and keep an eye the last epoch of the
+      %WORKFLOW            data as it is being loaded, it has to be the same as the last
+      %WORKFLOW            available month; otherwise the analysis is incomplete
+      %WORKFLOW         -  things that may go wrong:
+      %WORKFLOW            - the C20 data is not up-to-date
+      %WORKFLOW            - IfG releases a new version of their models and the metadata
+      %WORKFLOW              was not updated to that
+      %WORKFLOW            - AIUB names the models incorrectly or does not compress them
+      %WORKFLOW            - You changed a matlab class and the *.mat files in the GRACE
+      %WORKFLOW              L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell
+      %WORKFLOW              this is the case when the error happens only on the first new
+      %WORKFLOW              models); just delete the offending *.mat files:
       %WORKFLOW                rm -fv ~/data/gswarm/*/gravity/*.mat ~/data/grace/L2/CSR/RL06/*.mat
-      %WORKFLOW                and re-import everything (by simply re-running gswarm.TYPE).
-      %WORKFLOW         5.7.5: Some analysis start in 2002-04 instead of 2016-01, particularly
-      %WORKFLOW                the product gswarm.swarm.validation.unsmoothed. Not sure why
-      %WORKFLOW                this is happening but running it another time fixes the problem.
+      %WORKFLOW              and re-import everything (by simply re-running gswarm.TYPE).
+      %WORKFLOW            - Some analysis start in 2002-04 instead of 2016-01, particularly
+      %WORKFLOW              the product gswarm.swarm.validation.unsmoothed. Not sure why
+      %WORKFLOW              this is happening but running it another time fixes the problem.
+      %WORKFLOW     5.5: if TYPE=validation, call gswarm.quality:
+      %WORKFLOW          - this computes the quality of the new gravity field models and 
+      %WORKFLOW            adds it to the respective git repo
       %WORKFLOW 6.  go through the report and update all %NEEDS UPDATING lines (some are
       %WORKFLOW     automatically updated by new-analysis.sh)
       %WORKFLOW     6.1: There are plots that refer to the most recent months and cannot be
@@ -2741,8 +2740,7 @@ classdef gswarm
       %TODO: gswarm.swarm.validation.unsmoothed is broken in the first run, the time series
       %      starts in April 2013 but it's only in the filename, the plot titles show it's
       %      actually starting in 2016
-
-
+  
       %produce plots for the report
       [d,p]=gswarm.production(...
         'products',  {...
