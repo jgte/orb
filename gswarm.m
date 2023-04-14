@@ -2550,12 +2550,12 @@ classdef gswarm
 
     end
     function get_input_data(mode)
-      switch mode
-      case('GRACE')
+      switch lower(mode)
+        case('grace')
         %NOTICE: the download-l2.sh script iterates over specific years (currently 2021)
         disp('Downloading GRACE data')
-        file.system('./download-l2.sh CSR 06','disp',true,'cd',grace.dir('l1b'));
-      case ('Swarm')
+        file.system('ls -la; ./download-l2.sh CSR 06','disp',true,'cd',grace.dir('l1b'));
+      case ('swarm')
         disp('Downloading Swarm data')
         file.system('~/bin/rsyncf.sh aristarchos --no-l2r','disp',true,'cd',gswarm.dir('data'));
       case('all')
