@@ -1,6 +1,7 @@
 *~
 .DS*
 *.sublime-workspace
+*.asv
 data
 plot
 obsolete/
