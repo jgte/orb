@@ -1,0 +1,30 @@
+method: gswarm.plot_parametric_decomposition
+submetadata: gswarm.swarm.validation.replaceC20.submetadata
+sources: [
+  swarm.sh.gswarm.rl01,
+  # gswarm.swarm.aiub.aiub.v01,
+  # gswarm.swarm.asu.ifg.v03,
+  # gswarm.swarm.ifg.ifg,
+  # gswarm.swarm.osu.aiub.v02,
+  gswarm.gracefo.sh.rl06.csr,
+]
+stats_relative_to: none
+#plot_ops
+plot_max_degree: 20
+plot_smoothing_degree: 750e3
+plot_smoothing_method: gauss
+
+polyorder: 1
+sin_period: [365.2426,182.6213]
+sin_period_unit: days
+sin_names: [yearly,semi-yearly]
+timescale: years
+
+plot_colormap: jetzero
+plot_poly_range: [0.5,0.1]
+plot_amplitude_range: [0.3,0.2]
+
+plot_std_range: 0.1
+pardecomp_catchments: false
+
+inclusive: false

@@ -1,0 +1,41 @@
+method: gswarm.plot_catchments
+submetadata: gswarm.swarm.validation.replaceC20.submetadata
+sources: [
+  swarm.sh.gswarm.rl01,
+  # gswarm.swarm.aiub.aiub.v01,
+  # gswarm.swarm.asu.ifg.v03,
+  # gswarm.swarm.ifg.ifg,
+  # gswarm.swarm.osu.aiub.v02,
+  gswarm.gracefo.sh.rl06.csr,
+]
+
+#plot_ops
+plot_max_degree: 20
+
+#smoothing
+plot_smoothing_degree: 750e3
+plot_smoothing_method: gauss
+plot_legend_location: eastoutside
+plot_legend_include_smoothing: false
+
+# plot_parametric_decomposition
+parametric_decomposition: true
+polyorder: 1
+polynames: [constant,linear]
+epoch: 2014-07-01
+sin_period: [365.2426,182.6213]
+sin_period_unit: days
+sin_names: [yearly,semi-yearly]
+timescale: years
+plot_parametric_components: [p0,p1]
+plot_parametric_timestep_value: 7
+plot_parametric_timestep_units: days
+plot_parametric_t_masked: true
+
+plot_poly_range: [1,0.3]
+plot_amplitude_range: [0.1,0.01]
+plot_std_range: 0.2
+
+inclusive: false
+
+#TODO: fix line colors, legend location, values of p0
