@@ -2676,7 +2676,7 @@ classdef gswarm
       %WORKFLOW          - check if all products are being used, some may be commented
       %WORKFLOW          - run the gswarm.TYPE method and keep an eye the last epoch of the
       %WORKFLOW            data as it is being loaded, it has to be the same as the last
-      %WORKFLOW            available month; otherwise the analysis is incomplete
+      %WORKFLOW            available month; otherwise the analysis will be incomplete
       %WORKFLOW         -  things that may go wrong:
       %WORKFLOW            - the C20 data is not up-to-date
       %WORKFLOW            - IfG releases a new version of their models and the metadata
@@ -2706,8 +2706,7 @@ classdef gswarm
       %WORKFLOW     9.1: Run the script link-dup-metadatafiles.sh in directory
       %WORKFLOW          ~/data/gswarm/analyses/<date>-TYPE/orb/metadata/ with arguments:
       %WORKFLOW          source=<previous date>-TYPE sink=<date>-TYPE [echo]
-      %WORKFLOW     9.2: check the following git repos to make sure things are up to date (should
-      %WORKFLOW          be open in smerge):
+      %WORKFLOW     9.2: check the following git repos to make sure things are up to date:
       %WORKFLOW          - ~/data/gswarm/analyses/<date>-TYPE/orb/
       %WORKFLOW          - ~/data/gswarm/analyses/
       %WORKFLOW 10. put the data into aristarchos (remove --dry-run, as usual):
