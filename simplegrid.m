@@ -901,6 +901,7 @@ classdef simplegrid < simpletimeseries
           'parametric_components_line_fmt',{'--'},@ischar;...
           'plot_lines_over_gaps_narrower_than', days(120), @isduration;...
           'time',[],@isdatetime;...
+          'datafile','',@ischar;....
         },...
       },varargin{:});
       %add gaps (trivial call handled inside)
@@ -921,7 +922,7 @@ classdef simplegrid < simpletimeseries
           if isempty(v.time)
             pwst_now=catchment.pws.(['ts_',v.plot_parametric_components{i}]);
           else
-            pwst_now=pardecomp.join(catchment.pws,'time',v.time,'coeffnames',v.plot_parametric_components(i));
+            pwst_now=pardecomp.join(catchment.pws,'time',v.time,'coeffnames',v.plot_parametric_components(i),'datafile',v.datafile);
           end
           if i==1
             catchment.pwst=pwst_now;

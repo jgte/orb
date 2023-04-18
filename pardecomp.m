@@ -336,9 +336,11 @@ classdef pardecomp
       if isfield(pd_set,'res') && v.add_res
         obj=obj+pd_set.res.interp(v.time);
       end
-      %save the mat data
-      disp(['Saving join data to ',v.datafile])
-      file.save_mat(obj,v.datafile)
+      if ~isempty(v.datafile)
+        %save the mat data
+        disp(['Saving join data to ',v.datafile])
+        file.save_mat(obj,v.datafile)
+      end
     end
     function out=default
       out={...
