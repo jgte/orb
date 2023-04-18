@@ -2762,15 +2762,19 @@ classdef gswarm
         varargin{:}...
       );
     end
-    function out=production_date(mode)
-      global PROJECT
-      assert(strcmp(mode,'start') || strcmp(mode,'stop'),...
-        'input ''mode'' must either ''start'' or ''stop''.')
-      mode=[mode,'_date'];
-      if isfield(PROJECT,mode)
-        out=datetime(PROJECT.(mode));
+    function out=production_date(mode,override)
+      global PROJECT %#ok<GVMIS> 
+      if exist('override','var') && ~isempty(override)
+        out=override;
       else
-        out=gswarm.(mode);
+        assert(strcmp(mode,'start') || strcmp(mode,'stop'),...
+          'input ''mode'' must either ''start'' or ''stop''.')
+        mode=[mode,'_date'];
+        if isfield(PROJECT,mode)
+          out=datetime(PROJECT.(mode));
+        else
+          out=gswarm.(mode);
+        end
       end
     end
     function [d,p]=production(varargin)
@@ -2828,7 +2832,21 @@ classdef gswarm
       %plot it
       tstart=tic;
       for i=1:numel(p)
-        d.init(p{i},v.varargin{:});
+        %set default value for inclusive, start and stop properties
+        if ~isfield(p{i}.metadata,'inclusive')
+          p{i}.metadata.inclusive=false;
+        end
+        if ~isfield(p{i}.metadata,'start')
+          p{i}.metadata.start=[];
+        end
+        if ~isfield(p{i}.metadata,'stop')
+          p{i}.metadata.stop=[];
+        end
+        d.init(p{i},v.varargin{:},...
+          'inclusive',p{i}.metadata.inclusive,...
+          'start',gswarm.production_date('start',p{i}.metadata.start),...
+          'stop' ,gswarm.production_date('stop' ,p{i}.metadata.stop)  ...
+        );
         disp(['Finished plotting product ',p{i}.str,' after ',time.str(toc(tstart)),' elapsed'])
       end
     end
