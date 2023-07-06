@@ -24,6 +24,15 @@ classdef url
     function out=is(in)
       out=any(contains(url.type_list,url.type(in)));
     end
+    function out=is_web(in)
+      out=any(contains({'http','https'},url.type(in)));
+    end
+    function out=is_ftp(in)
+      out=any(contains({'ftp'},url.type(in)));
+    end
+    function out=is_scp(in)
+      out=any(contains({'scp'},url.type(in)));
+    end
     function out=address(in)
       out=strsplit(in,url.type_set);
       out=out{2};
