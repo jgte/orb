@@ -1091,8 +1091,8 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       s_idx=2;
       e_idx=4;
     case 'TN-14'
-      datfil=[v.source,'_C30_C20_GSFC_SLR.txt'];
-      daturl=['https://podaac-tools.jpl.nasa.gov/drive/files/allData/grace/docs/',datfil];
+      datfil=[v.source,'_C30_C20_SLR_GSFC.txt'];
+      daturl=['ftp://isdcftp.gfz-potsdam.de/grace/DOCUMENTS/TECHNICAL_NOTES/',datfil];
       datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
     case 'GSFC'
       datfil='GSFC_SLR_C20_GSM_replacement.txt';
@@ -1189,8 +1189,12 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       e=zeros(size(s));
     end
   case 'set' %download the data
-    if url.is(v.url)
+    if url.is_web(v.url)
       websave(v.file,v.url);
+    elseif url.is_ftp(v.url)
+      file.system(['wget ',v.url],'disp',true,'cd',v.data_dir);
+    else
+      error(['Cannot support URL ',v.url])
     end
     t=[];s=[];e=[];d=[];
   otherwise
