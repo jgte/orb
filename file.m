@@ -793,8 +793,16 @@ classdef file
           %patch output (wildcards must be resolved externally, possibly with file.resolve_wildcards)
           out=in;
         else
-          if p.Results.debug, str.say('Using websave to download non-wildcarded file:',in); end
-          out=websave(in,[p.Results.remote_url,'/',f]);
+          if url.is_web(p.Results.remote_url)
+            if p.Results.debug, str.say('Using websave to download non-wildcarded file:',in); end
+            out=websave(in,[p.Results.remote_url,'/',f]);
+          elseif url.is_ftp(p.Results.remote_url)
+            if p.Results.debug, str.say('Using wget to download non-wildcarded file:',in); end
+            file.system(['wget -O ',f,' ',p.Results.remote_url,'/',f],'disp',true,'cd',d);
+            out=in;
+          else
+            error(['Cannot support URL ',p.Results.remote_url])
+          end
         end
         assert(file.exist(out),['BUG TRAP: cannot find downloaded file: ',out])
         if p.Results.debug, str.say('Finished downloading file:',out); end
