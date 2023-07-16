@@ -955,8 +955,8 @@ function [t_out,y_out,header]=import_C20(varargin)
       v.signal_column=2;
       v.error_column=4;
     case 'TN-14'
-      v.data_file=[v.source,'_C30_C20_GSFC_SLR.txt'];
-      v.data_dir_url='https://podaac-tools.jpl.nasa.gov/drive/files/allData/grace/docs/';
+      v.data_file=[v.source,'_C30_C20_SLR_GSFC.txt'];
+      v.data_dir_url='ftp://isdcftp.gfz-potsdam.de/grace/DOCUMENTS/TECHNICAL_NOTES/';
       v.data_format='%7.1f%10.4f%22.13f%8.4f%8.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
     case 'GSFC'
       v.data_file='GSFC_SLR_C20_GSM_replacement.txt';
