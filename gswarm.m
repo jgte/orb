@@ -2608,11 +2608,9 @@ classdef gswarm
         end
       case 'plot'
         if ~gswarm.c20model('done',plot_dir)
-          %define time arguments
           %NOTICE: Don't use time_args{:} below so that all the time series is shown
-          %time_args={'start',gswarm.production_date('start'),'stop',gswarm.production_date('stop')};
           %this updates the coefficient time series, to make sure it has recent-enough data
-          slr.graceC20('mode','set','source',strrep(source,'-model',''));
+          slr.graceC20('mode','read','source',strrep(source,'-model',''));
           if str.contains(source,'-model')
             %this updates the model itself
             slr.graceC20('mode','get','source',strrep(source,'-model',''));
@@ -2673,19 +2671,23 @@ classdef gswarm
       %WORKFLOW     this but better check if it's OK)
       %WORKFLOW 5.  fire up matlab:
       %WORKFLOW     5.1: call gswarm.get_input_data('all'):
-      %WORKFLOW           - the swarm data is downloaded from aristarchos (need rsyncf.sh and 
+      %WORKFLOW           - the swarm data is downloaded from aristarchos (need rsyncf.sh and
       %WORKFLOW             ~/data/gswarm/rsyncf.list)
-      %WORKFLOW           - the GRACE data is downloaded from PODACC (need ~/data/grace/download-l2.sh, 
+      %WORKFLOW           - the GRACE data is downloaded from ISDC (need ~/data/grace/download-l2.sh,
       %WORKFLOW             which iterates over specific years, currently 2022)
+      %WORKFLOW           - the GRACE SH solutions are (since 2023) put in the CSR/RL06.1 subdir;
+      %WORKFLOW             you need to manually link them to the CSR/RL06 dir (check that the gz files
+      %WORKFLOW             have been expanded with ~/data/grace/extract-l2.sh CSR 06.1):
+      %WORKFLOW               cd ~/data/grace/L2/CSR/RL06; ln -sfv ../RL06.1/GSM-2_* .
       %WORKFLOW     5.2: check that the C20 data is updated and the model evaluated at the
       %WORKFLOW          last 3 months
       %WORKFLOW          - The easiest way to be sure is to run: 'gswarm.c20model'
       %WORKFLOW            - For TYPE=precombval, the TN-14 model is used.
       %WORKFLOW            - For TYPE=validation, the TN-14 model is used.
       %WORKFLOW     5.3: Check the metadata makes sense. Go to orb/metadata and:
-      %WORKFLOW          - recall that the new-analysis.sh script already removed the links 
+      %WORKFLOW          - recall that the new-analysis.sh script already removed the links
       %WORKFLOW            from CURRENT_DATE.TYPE
-      %WORKFLOW          - diffmerge PREVIOUS_DATE.TYPE CURRENT_DATE.TYPE (this command is 
+      %WORKFLOW          - diffmerge PREVIOUS_DATE.TYPE CURRENT_DATE.TYPE (this command is
       %WORKFLOW            shown by new-analysis.sh)
       %WORKFLOW     5.4: Look at the gswarm.TYPE method:
       %WORKFLOW          - check if all products are being used, some may be commented
@@ -2707,7 +2709,7 @@ classdef gswarm
       %WORKFLOW              the product gswarm.swarm.validation.unsmoothed. Not sure why
       %WORKFLOW              this is happening but running it another time fixes the problem.
       %WORKFLOW     5.5: if TYPE=validation, call gswarm.quality:
-      %WORKFLOW          - this computes the quality of the new gravity field models and 
+      %WORKFLOW          - this computes the quality of the new gravity field models and
       %WORKFLOW            adds it to the respective git repo
       %WORKFLOW 6.  go through the report and update all %NEEDS UPDATING lines (some are
       %WORKFLOW     automatically updated by new-analysis.sh)
@@ -2761,7 +2763,7 @@ classdef gswarm
       %TODO: gswarm.swarm.validation.unsmoothed is broken in the first run, the time series
       %      starts in April 2013 but it's only in the filename, the plot titles show it's
       %      actually starting in 2016
-  
+
       %produce plots for the report
       [d,p]=gswarm.production(...
         'products',  {...
@@ -2777,7 +2779,7 @@ classdef gswarm
       );
     end
     function out=production_date(mode,override)
-      global PROJECT %#ok<GVMIS> 
+      global PROJECT %#ok<GVMIS>
       if exist('override','var') && ~isempty(override)
         out=override;
       else
