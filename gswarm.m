@@ -589,7 +589,7 @@ classdef gswarm
           'plot_force',            false, @islogical;...
           'plot_detrended',           '', @ischar;...   %see simpledata.detrend for modes, empty means no detrending
           'plot_outlier_iter',     false, @isfinite;... %number of outlier removal iters, see simpledata.stats
-
+          'plot_Kp',               false, @islogical;...
         },...
         product.plot_args...
       },varargin{:});
@@ -759,6 +759,21 @@ classdef gswarm
               'plot_title',v.plot_title,...
               'plot_title_default',str.show({title_prefix,v.pod.title_wrt,title_suffix})...
             );
+
+            %plot Kp, if requested and this is cumdas
+            if strcmp(v.plot_spatial_diff_quantity{qi},'cumdas') && v.plot_Kp
+              %load the data (you may need to download it manually)
+              k=kp.load('start',obj.start,'stop',obj.stop);
+              %plot it on the left axis
+              yyaxis right
+              area(k.t,smooth(k.F107adj,15),'FaceColor','k','FaceAlpha',0.1,'EdgeAlpha',0.1)
+              ylabel('F_{10.7} index (15 day average)')
+              %update the legend text (https://stackoverflow.com/questions/22048494/change-figure-legend-text)
+              hl = findobj(gcf, 'tag', 'legend');
+              ltext = get(hl,'string');
+              ltext{end} = 'F_{10.7}';
+              set(hl,'string',ltext);
+            end
             plotting.save(filenames{fn_idx},v.varargin{:})
           else
             disp(['NOTICE: plot already available: ',filenames{fn_idx}])
