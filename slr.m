@@ -1192,7 +1192,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
     if url.is_web(v.url)
       websave(v.file,v.url);
     elseif url.is_ftp(v.url)
-      file.system(['wget ',v.url],'disp',true,'cd',v.data_dir);
+      file.system(['wget ',v.url,' -O ',datfil],'disp',true,'cd',v.data_dir);
     else
       error(['Cannot support URL ',v.url])
     end
