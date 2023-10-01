@@ -2682,11 +2682,13 @@ classdef gswarm
       %WORKFLOW           - the swarm data is downloaded from aristarchos (need rsyncf.sh and
       %WORKFLOW             ~/data/gswarm/rsyncf.list)
       %WORKFLOW           - the GRACE data is downloaded from ISDC (need ~/data/grace/download-l2.sh,
-      %WORKFLOW             which iterates over specific years, currently 2022)
-      %WORKFLOW           - the GRACE SH solutions are (since 2023) put in the CSR/RL06.1 subdir;
-      %WORKFLOW             you need to manually link them to the CSR/RL06 dir (check that the gz files
-      %WORKFLOW             have been expanded with ~/data/grace/extract-l2.sh CSR 06.1):
-      %WORKFLOW               cd ~/data/grace/L2/CSR/RL06; ln -sfv ../RL06.1/GSM-2_* .
+      %WORKFLOW             which iterates over specific years, currently 2023). Note that:
+      %WORKFLOW             - the GRACE SH filenames do not end in gsm, so they need to be extracted
+      %WORKFLOW               before calling the gravity.load_dir method; this is automatically done 
+      %WORKFLOW               in gswarm.get_input_data('all').
+      %WORKFLOW             - the GRACE SH solutions are (since 2023) put in the CSR/RL06.1 subdir.
+      %WORKFLOW               Because of this, need to link the files in this dir to CSR/RL06. This
+      %WORKFLOW               is automatically done in gswarm.get_input_data('all').
       %WORKFLOW     5.2: check that the C20 data is updated and the model evaluated at the
       %WORKFLOW          last 3 months
       %WORKFLOW          - The easiest way to be sure is to run: 'gswarm.c20model'
@@ -2701,7 +2703,7 @@ classdef gswarm
       %WORKFLOW          - check if all products are being used, some may be commented
       %WORKFLOW          - run the gswarm.TYPE method and keep an eye the last epoch of the
       %WORKFLOW            data as it is being loaded, it has to be the same as the last
-      %WORKFLOW            available month; otherwise the analysis will be incomplete
+      %WORKFLOW            available month; otherwise the analysis wil  l be incomplete
       %WORKFLOW         -  things that may go wrong:
       %WORKFLOW            - the C20 data is not up-to-date
       %WORKFLOW            - IfG releases a new version of their models and the metadata
