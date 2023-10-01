@@ -590,6 +590,7 @@ classdef file
       p.addParameter('prefer_compressed_files',false, @(i) islogical(i) && isscalar(i));
       p.addParameter('scalar_as_strings',      false, @(i) islogical(i) && isscalar(i));
       p.addParameter('say_stack_delta',find(arrayfun(@(i) strcmp(i.file,'file.m'),dbstack),1,'last'), @num.isscalar);
+      p.addParameter('debug'            , false, @islogical);
       p.parse(in,varargin{:})
       %reduce scalar
       in=cells.scalar(in);
@@ -634,7 +635,7 @@ classdef file
               arch=false;
               out=in;
             end
-            if arch
+            if arch && p.Results.debug
               str.say('say_stack_delta',p.Results.say_stack_delta,['From archive ''',in,''' extracted the following files:'],newline,...
                 strjoin(out,newline))
             end
