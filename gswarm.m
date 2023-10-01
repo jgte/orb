@@ -2604,8 +2604,9 @@ classdef gswarm
         out=fullfile(plot_dir,'c20model',['C20_',source,'.png']);
       case 'clear'
         plotfile=gswarm.c20model('filename',plot_dir);
-        delete(plotfile);
-        delete(strrep(plotfile,'.png','.tex'));
+        if file.exist(plotfile); delete(plotfile); end
+        texfile=strrep(plotfile,'.png','.tex');
+        if file.exist(texfile); delete(texfile); end
         out='';
       case 'done'
         plotfile=gswarm.c20model('filename',plot_dir);
