@@ -2574,7 +2574,10 @@ classdef gswarm
         case('grace')
         %NOTICE: the download-l2.sh script iterates over specific years (currently 2021)
         disp('Downloading GRACE data')
-        file.system('ls -la; ./download-l2.sh CSR 06','disp',true,'cd',grace.dir('l1b'));
+        file.system('./download-l2.sh CSR 06.1','disp',true,'cd',grace.dir('base'));
+        file.system('./download-l2.sh CSR 06.2','disp',true,'cd',grace.dir('base'));
+        file.system('ln -sfv ../RL06.1/GSM-2_* .','disp',true,'cd',fullfile(grace.dir('l2'),'CSR','RL06'));
+        file.system('ln -sfv ../RL06.2/GSM-2_* .','disp',true,'cd',fullfile(grace.dir('l2'),'CSR','RL06'));
       case ('swarm')
         disp('Downloading Swarm data')
         file.system('~/bin/rsyncf.sh aristarchos --no-l2r','disp',true,'cd',gswarm.dir('data'));
