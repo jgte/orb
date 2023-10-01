@@ -1,6 +1,6 @@
 classdef grace
   properties(Constant)
-    l1bdir_options={...
+    datadir_options={...
       '~/data/grace';...
       './data/grace';...
     };
@@ -52,15 +52,23 @@ classdef grace
   methods(Static)
     %% directories
     function out=dir(type)
+      base='';
+      for i=1:numel(grace.datadir_options)
+        if file.exist(grace.datadir_options{i})
+          base=grace.datadir_options{i};
+        end
+      end
+      assert(~isempty(base),'Cannot find any valid directory.')
       switch type
+        case {'data','base'}
+          out=base;
         case 'l1b'
-          for i=1:numel(grace.l1bdir_options)
-            if file.exist(grace.l1bdir_options{i})
-              out=grace.l1bdir_options{i};
-              return
-            end
-          end
+          out=fullfile(base,'L1B');
+        case 'l2'
+          out=fullfile(base,'L2');
         %add more directories here
+        otherwise
+          error(['Cannot handle type ''',type,'''.'])
       end
     end
     %% interface methods to object constants
@@ -162,7 +170,7 @@ classdef grace
           || strcmp(data_dir,'.') ...
           || strcmp(data_dir,simpletimeseries.parameters('value','data_dir'))
         year=time.FromDateTime(start,'yyyy');
-        dirname=fullfile(grace.dir('l1b'),'L1B','JPL',['RL',version],year);
+        dirname=fullfile(grace.dir('l1b'),'JPL',['RL',version],year);
       else
         dirname=data_dir;
       end
@@ -263,7 +271,7 @@ classdef grace
         %make sure there's a directory for o
         if ~exist(dirname,'dir'); mkdir(dirname); end
         %issue com
-        file.system(com,'stop_if_error',true,'cd',grace.dir('l1b'));
+        file.system(com,'stop_if_error',true,'cd',grace.dir('base'));
         %recursive call to retrieve the data
         obj=grace.import_format(o,[format,'-asc']);
         %NOTICE: the data_dir was changed above, so need to bail to avoid writing a duplicate mat file in the default data_dir
@@ -341,7 +349,7 @@ classdef grace
     %% utils
     function obj=GRACEaltitude(varargin)
       p=machinery.inputParser;
-      p.addParameter('datafile',file.resolve_home(fullfile('~','data','grace','altitude','GRACE.altitude.dat')));
+      p.addParameter('datafile',file.resolve_home(fullfile(grace.dir('base'),'altitude','GRACE.altitude.dat')));
       p.parse(varargin{:});
       obj=simpletimeseries.import(p.Results.datafile,...
         'format','mjd',...

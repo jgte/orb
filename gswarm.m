@@ -1,6 +1,6 @@
 classdef gswarm
   properties(Constant)
-    l1bdir_options={...
+    datadir_options={...
       '~/data/gswarm';...
       './data/gswarm';...
     };
@@ -28,15 +28,19 @@ classdef gswarm
   end
   methods(Static)
     function out=dir(type)
+      base='';
+      for i=1:numel(grace.datadir_options)
+        if file.exist(grace.datadir_options{i})
+          base=grace.datadir_options{i};
+        end
+      end
+      assert(~isempty(base),'Cannot find any valid directory.')
       switch type
-        case 'data'
-          for i=1:numel(gswarm.l1bdir_options)
-            if file.exist(gswarm.l1bdir_options{i})
-              out=gswarm.l1bdir_options{i};
-              return
-            end
-          end
+        case {'data','base'}
+          out=base;
         %add more directories here
+      otherwise
+          error(['Cannot handle type ''',type,'''.'])
       end
     end
     function obj=load_models(obj,product,varargin)
