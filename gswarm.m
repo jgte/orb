@@ -2618,7 +2618,7 @@ classdef gswarm
         if ~gswarm.c20model('done',plot_dir)
           %NOTICE: Don't use time_args{:} below so that all the time series is shown
           %this updates the coefficient time series, to make sure it has recent-enough data
-          slr.graceC20('mode','read','source',strrep(source,'-model',''));
+          slr.graceC20('mode','read','source',strrep(source,'-model',''),'force',true);
           if str.contains(source,'-model')
             %this updates the model itself
             slr.graceC20('mode','get','source',strrep(source,'-model',''));
