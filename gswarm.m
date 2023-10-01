@@ -2850,6 +2850,7 @@ classdef gswarm
           'start',v.start,...
           'stop', v.stop);
         for i=1:p{1}.nr_sources
+          disp(['Init ',p{1}.sources(i).name])
           d=d.init(p{1}.sources(i),'force',v.force);
         end
         file.ensuredir(datafilename,true);
