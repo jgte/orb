@@ -1,9 +1,5 @@
 classdef grace
   properties(Constant)
-    datadir_options={...
-      '~/data/grace';...
-      './data/grace';...
-    };
     % data_name, version, ...
     l1b_data={...
       'KBR1B','03';...
@@ -52,13 +48,7 @@ classdef grace
   methods(Static)
     %% directories
     function out=dir(type)
-      base='';
-      for i=1:numel(grace.datadir_options)
-        if file.exist(grace.datadir_options{i})
-          base=grace.datadir_options{i};
-        end
-      end
-      assert(~isempty(base),'Cannot find any valid directory.')
+      base=file.orbdir('grace_L1B',true);
       switch type
         case {'data','base'}
           out=base;

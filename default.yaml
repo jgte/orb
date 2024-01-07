@@ -18,3 +18,7 @@ metadata_dir: ./metadata
 test_dir: ./test
 #NOTICE: arbitrary <type>_dir entries can be added as needed, which can be retrieved with file.orbdir(<type>)
 grace_L2_dir: ~/data/grace/L2
+grace_L1B_dir: ~/data/grace/L1B
+ESA_MTM_data_dir: /Volumes/data/data/ESA_MTM
+ESA_MTM_stats_dir: ~/data/ESA-MTM.stats
+icgem_data_dir: ~/data/icgem
