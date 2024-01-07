@@ -9,4 +9,14 @@ project=$(
 project=$(echo $project| awk -F\: '{print $2}')
 project=${project// }
 
-grep --color=always "$@" "$DIRNOW/"*.m "$DIRNOW/metadata/$project/"*.yaml
+case "$1" in
+  orbdir)
+    grep file.orbdir\( "$DIRNOW/"*.m "$DIRNOW/metadata/$project/"*.yaml \
+    | awk -F'file.orbdir' '{print $2}' \
+    | awk -F"'" '{print $2}' \
+    | sort -u
+  ;;
+  *)
+    grep --color=always "$@" "$DIRNOW/"*.m "$DIRNOW/metadata/$project/"*.yaml
+  ;;
+esac
