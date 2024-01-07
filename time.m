@@ -193,9 +193,10 @@ classdef time
         out = 'yrs';
       case {'centuries','century','cent','c'}
         out='cent';
+      case {'time'}
+        out='s';
       otherwise
         error(['unknown time units ''',in,'''.'])
-      
       end
     end
     function out=units(in)
