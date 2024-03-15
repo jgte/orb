@@ -48,7 +48,7 @@ classdef grace
   methods(Static)
     %% directories
     function out=dir(type)
-      base=file.orbdir('grace_L1B',true);
+      base=file.orbdir('grace_data',true);
       switch type
         case {'data','base'}
           out=base;
