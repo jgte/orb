@@ -28,18 +28,14 @@ classdef gswarm
   end
   methods(Static)
     function out=dir(type)
-      base='';
-      for i=1:numel(grace.datadir_options)
-        if file.exist(grace.datadir_options{i})
-          base=grace.datadir_options{i};
-        end
-      end
-      assert(~isempty(base),'Cannot find any valid directory.')
+      base=file.orbdir('swarm_data',true);
       switch type
         case {'data','base'}
           out=base;
+        case {'aiub','asu','ifg','igg','osu','tudelft'}
+          out=fullfile(base,type);
         %add more directories here
-      otherwise
+        otherwise
           error(['Cannot handle type ''',type,'''.'])
       end
     end
@@ -2703,7 +2699,7 @@ classdef gswarm
       %WORKFLOW          - check if all products are being used, some may be commented
       %WORKFLOW          - run the gswarm.TYPE method and keep an eye the last epoch of the
       %WORKFLOW            data as it is being loaded, it has to be the same as the last
-      %WORKFLOW            available month; otherwise the analysis wil  l be incomplete
+      %WORKFLOW            available month; otherwise the analysis will be incomplete
       %WORKFLOW         -  things that may go wrong:
       %WORKFLOW            - the C20 data is not up-to-date
       %WORKFLOW            - IfG releases a new version of their models and the metadata
