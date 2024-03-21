@@ -3,10 +3,11 @@
 function mlab
 {
   #define default arguments
-  local DEFAULT_ARGS=(-nouserjavapath -nosplash)
+  # local DEFAULT_ARGS=(-nouserjavapath -nosplash)
+  local DEFAULT_ARGS=(-nosplash)
   [[   "${@/desktop/}" == "$@" ]] && DEFAULT_ARGS+=(-nodesktop)
   [[ ! "${@/timing/}"  == "$@" ]] && DEFAULT_ARGS+=(-timing)
-  
+
   #get matlab executable
   local MATLAB_EXE="$(which matlab 2> /dev/null)"
   [ ! -e "$MATLAB_EXE" ] && MATLAB_EXE="$(find /Applications -maxdepth 1 -type d -name MATLAB_R20[0-9][0-9]\* 2> /dev/null | sort -fd | tail -n1)/bin/matlab"
@@ -32,9 +33,9 @@ function mlab
   if [ -d ~/.matlab ]
   then
     local DOT_MATLAB_DIR="$(find ~/.matlab -maxdepth 1 -type d -name R20[0-9][0-9]\* 2> /dev/null | sort -fd | tail -n1)"
-    #if   : can figure out matlab version from path 
-    #and  : the dot matlab dir corresponds to the one in the MATLAB_EXE 
-    #then : add for matlab dir to 
+    #if   : can figure out matlab version from path
+    #and  : the dot matlab dir corresponds to the one in the MATLAB_EXE
+    #then : add for matlab dir to
     [ -d "$DOT_MATLAB_DIR" ] && \
     [[ ! "${MATLAB_EXE/R20}" == "$MATLAB_EXE" ]] && \
     [[ ! "${MATLAB_EXE/$(basename $DOT_MATLAB_DIR)}" == "$MATLAB_EXE" ]] && \
@@ -65,7 +66,7 @@ function mlab
   rm -fv ~/java.log.* ~/matlab_crash_dump.*
   #check for debug mode
   [[ ! "${@/echo/}" == "$@" ]] && ECHO=echo || ECHO=
-  
+
   #check if we're on a login node
   case $HOSTNAME in
     login*)
