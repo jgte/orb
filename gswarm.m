@@ -2567,7 +2567,7 @@ classdef gswarm
     end
     function get_input_data(mode)
       switch lower(mode)
-        case('grace')
+      case('grace')
         %NOTICE: the download-l2.sh script iterates over specific years (currently 2021)
         disp('Downloading GRACE data')
         file.system('./download-l2.sh CSR 06.1','disp',true,'cd',grace.dir('base'));
@@ -2577,6 +2577,9 @@ classdef gswarm
       case ('swarm')
         disp('Downloading Swarm data')
         file.system('~/bin/rsyncf.sh aristarchos --no-l2r','disp',true,'cd',gswarm.dir('data'));
+      case ('kp')
+        disp('Downloading Kp data')
+        kp.download
       case('all')
         gswarm.get_input_data('GRACE')
         gswarm.get_input_data('Swarm')
