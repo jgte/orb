@@ -2735,15 +2735,21 @@ classdef gswarm
       %WORKFLOW 10. put the data into aristarchos (remove --dry-run, as usual):
       %WORKFLOW     rsyncf.sh remotes-file=~/data/gswarm/rsyncf.list aristarchos --no-r2l --delete --dry-run
       %WORKFLOW
-      %WORKFLOW If this is a precombval, then mail it to colleagues and you're done.
+      %WORKFLOW If this is a precombval, then e-mail it to colleagues and you're done (needs checking):
+      %WORKFLOW
+      %WORKFLOW     ~/data/gswarm/analyses/new-analysis.sh precombval email
       %WORKFLOW
       %WORKFLOW 11. run publish.sh [echo] (inside the dir of the latest report)
-      %WORKFLOW 12. email the report to colleagues
+      %WORKFLOW 12. email the report to colleagues (make sure to check if the link in the email 
+      %WORKFLOW     works as expected):
       %WORKFLOW
-      %WORKFLOW     (wait for email reponses)
+      %WORKFLOW     ~/data/gswarm/analyses/new-analysis.sh validation email
       %WORKFLOW
       %WORKFLOW 13. make sure data is in aristarchos (remove --dry-run, as usual):
       %WORKFLOW     rsyncf.sh remotes-file=~/data/gswarm/rsyncf.list aristarchos --no-r2l --delete --dry-run
+      %WORKFLOW
+      %WORKFLOW     (wait for email reponses)
+      %WORKFLOW
       %WORKFLOW 14. login to aristarchos and:
       %WORKFLOW     cd /home/gswarm/data/dissemination
       %WORKFLOW     tail *list && ./op.sh get-L1B-GPS get-L1B-ATT force && tail *list
