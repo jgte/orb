@@ -404,9 +404,9 @@ classdef gravity < simpletimeseries
       l=cell(1,size(map,2));
       for i=1:size(map,2)
         if map(2,i)<0
-          l{i}=['S',num2str(map(1,i)),',',num2str(-map(2,i))];
+          l{i}=sprintf('S%i,%i',map(1,i),-map(2,i));
         else
-          l{i}=['C',num2str(map(1,i)),',',num2str( map(2,i))];
+          l{i}=sprintf('C%i,%i',map(1,i),map(2,i));
         end
       end
       if nargin>1 && nargout>1

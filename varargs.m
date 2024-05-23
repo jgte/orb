@@ -442,15 +442,16 @@ classdef varargs < dynamicprops
       obj.update_dynamic_fields(idx,new_parameter);
     end
     function out=isdynamic_defined(obj,name)
-      try
-        %if this works, then this name is already defined
-        obj.(name);
-        %set output
-        out=true;
-      catch
-        %set output
-        out=false;
-      end
+      out=isprop(obj,name) || ismethod(obj,name);
+%       try
+%         %if this works, then this name is already defined
+%         obj.(name);
+%         %set output
+%         out=true;
+%       catch
+%         %set output
+%         out=false;
+%       end
     end
     function obj=dynamic_set(obj,value,name)
       obj.S(obj.idx(name)).value=value;
