@@ -574,9 +574,12 @@ classdef plotting
 
       % enforce line properties
       line_handles=plotting.line_handles(out.axis_handle);
-      for i=1:numel(line_handles)
-        set(line_handles(i),'LineWidth',v.plot_line_width)
+      if ~str.none(v.plot_line_width)
+        plotting.line_width(v.plot_line_width,out.axis_handle)
       end
+%       for i=1:numel(line_handles)
+%         set(line_handles(i),'LineWidth',v.plot_line_width)
+%       end
       if ~str.none(v.plot_line_style)
         plotting.line_style(v.plot_line_style,out.axis_handle)
       end
