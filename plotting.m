@@ -312,8 +312,12 @@ classdef plotting
       %loop over all axis
       for ah = axis_handle(:)'
         lh=plotting.line_handles(ah);
+        %handle scalars
+        if isscalar(w)
+          w=w*ones(size(lh));
+        end
         for i=1:numel(lh)
-          set(lh(i),'LineWidth',w)
+          set(lh(i),'LineWidth',w(i))
         end
       end
     end
