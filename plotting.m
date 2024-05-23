@@ -817,14 +817,14 @@ classdef plotting
       % add input arguments and metadata to collection of parameters 'v'
       v=varargs.wrap('sources',{plotting.default,{...
       }},varargin{:});
+      %propagate
+      out=v.plot_legend;
       %replace explicit strings (keep this before the legend-cleaning bit so the strings make sense outside)
-      if ~isempty(v.plot_legend_replace)
-        out=cellfun(@(i) str.rep(i,v.plot_legend_replace{:}),v.plot_legend,'UniformOutput',false);
-      else
-        out=v.plot_legend;
-      end
+      out=cellfun(@(i) str.rep(i,v.plot_legend_replace{:}),out,'UniformOutput',false);
       %clean legend of _ and remove whatever is given in plot_legend_suppress
       out=cellfun(@(i) str.clean(i,[v.plot_legend_suppress(:);{'title'}]),out,'UniformOutput',false);
+      %replace again (sometimes, it makes more sense to replace cleaned legends)
+      out=cellfun(@(i) str.rep(i,v.plot_legend_replace{:}),out,'UniformOutput',false);
     end
     function legend_handle=legend(varargin)
       % add input arguments and metadata to collection of parameters 'v'
