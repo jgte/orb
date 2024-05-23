@@ -339,7 +339,7 @@ classdef file
       if p.Results.save_mat && ~isempty(out)
         if ~strcmp(p.Results.data_var,'out')
           %propagate 'out' to p.Results.data_var
-          eval([p.Results.data_var,'=out']);
+          eval([p.Results.data_var,'=out;']);
         end
         %save the data with the requested variable name (properly propagated above)
         try
