@@ -1,3 +1,4 @@
+${SHELL_STARTUP_DEBUG:-false} && echo ">>>>> $BASH_SOURCE" || true
 
 # short name for matlab
 function mlab
@@ -95,3 +96,5 @@ function mlab
     ;;
   esac
 }
+
+${SHELL_STARTUP_DEBUG:-false} && echo "<<<<< $BASH_SOURCE" || true
