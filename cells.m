@@ -372,10 +372,12 @@ classdef cells
     function [io,changed]=scalar(io,direction)
       %[io,changed]=scalar(io,direction)
       %depending on the value of 'direction' (defaults to 'get'):
-      % - if get: checks if there is only one cell entry, if so return it (changed is true);
-      %   otherwise nothing changes (changed is false)
-      % - if set: checks if it's a cell array, if so return it (changed is false);
-      %   otherwise make it a cell and return io (changed is true)
+      % - if 'get': checks if there is only one cell entry:
+      %   - true  : return its contents (changed is true);
+      %   - false : nothing changes (changed is false)
+      % - if 'set': checks if it's a cell array:
+      %   - true  : nothing changes (changed is false);
+      %   - false : make it a cell and return it (changed is true)
       if ~exist('direction','var') || isempty(direction)
         direction='get';
       end
