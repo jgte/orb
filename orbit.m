@@ -392,8 +392,15 @@ classdef orbit
       p.parse(filename,varargin{:});
       %unwrap wildcards and place holders (output is always a cellstr)
       filename=file.unwrap(filename,varargin{:});
-      %if argument is a cell string, then load all those files
-      if iscellstr(filename)
+      assert(iscellstr(filename),['BUG TRAP: expecting file.unwrap to return a cellstr, not a ',class(filename),'.'])
+      %trivial call
+      if numel(filename)==0
+        obj=[];
+        disp('WARNING: input argument ''filename'' is empty, skipping.')
+        return
+      end
+      %if argument contains multiple filenames, then load all those files
+      if numel(filename)>1
         for i=1:numel(filename)
           disp(['reading data from file ',filename{i}])
           %read the data from a single file
@@ -419,6 +426,8 @@ classdef orbit
         end
         return
       end
+      %reduce cellstr
+      filename=filename{1};
       %trivial call
       if exist(filename,'file')==0
         obj=[];
