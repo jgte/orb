@@ -667,7 +667,9 @@ classdef time
             error(['can not understand time ',class(in),': ',num2str(in)])
           end
         else
-          if isdatetime(format_in) || ischar(format_in)
+          %NOTICE: cannot have format_in as char here because it obscures the 'else' case completely.
+          %        In case you need an 'epochtime' convertion, you need to give format_in as datetime.
+          if isdatetime(format_in) %|| ischar(format_in)
               out=datetime(in,...
                 'convertfrom','epochtime',...
                 'epoch',format_in...
