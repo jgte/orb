@@ -295,6 +295,21 @@ classdef file
       s2=file.strload(f2);
       out=numel(s1)==numel(s2) && ~any((s1.^2-s2.^2)~=0);
     end
+    %count the number of lines in the file
+    function out=nr_lines(filename)
+      %open the file if needed
+      [fid,~,close_file]=file.open(filename);
+      out = 0;
+      while ~feof(fid)
+          out = out + sum( fread( fid, 16384, 'char' ) == newline );
+      end
+      %close the file (if fid not given)
+      if close_file
+        fclose(fid);
+      else
+        frewind(fid)
+      end
+    end
     %% resolves filenames that exist in multiple machines, each one with a home directory listed in file.homes
     function io=resolve_home(io)
       for i=1:numel(file.homes)
