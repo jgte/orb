@@ -1465,6 +1465,8 @@ function [t,pos,pos_cor,mask,header] = read_aiub(filename)
   RMS=str.num(hline(RMSidx+length(RMSstr):end));
   %back to the top
   frewind(fid)
+  %count the number of data points
+  data_len=file.nr_lines(fid)-HeaderLines;
   %read the data (robustly)
   try
     d=textscan(fid,formatSpec,'HeaderLines',HeaderLines,'Delimiter',' ','MultipleDelimsAsOne',true);
@@ -1478,6 +1480,35 @@ function [t,pos,pos_cor,mask,header] = read_aiub(filename)
   %make sure the data refers to the same satellite
   assert(all(strcmp(d{1}{1},d{1}(2:end))) && all(strcmp(d{2}{1},d{2}(2:end))),...
     ['file ',filename,' appears to contain data from multiple satellites; this is not currently supported'])
+  %make sure we read all the data
+  if numel(d{1})~=data_len
+    disp(['file ',filename,' was read only up to data line ',num2str(numel(d{1})),' while it has ',num2str(data_len),' data points; switching to slow reading alternative'])
+    %back to the top
+    frewind(fid)
+    %skip the header
+    for i=1:HeaderLines,fgetl(fid);end
+    for i=1:data_len
+      % 1       2    3    4       5    6    7    8   9   10  11  12  13  14
+      % %4s     %3s  %4f  %8f     %14f %14f %14f %1s %13f%13f%13f%13f%13f%13f';
+      % STATION NAME WEEK SECONDS X    Y    Z    F   xx  yy  xx  xy  xz  yz
+      l=fgetl(fid);
+      d{ 1}{i}=           l ( 2:  5) ;
+      d{ 2}{i}=           l ( 7:  9) ;
+      d{ 3}(i)=str2double(l (18: 22));
+      d{ 4}(i)=str2double(l (24: 32));
+      d{ 5}(i)=str2double(l( 34: 47));
+      d{ 6}(i)=str2double(l( 49: 62));
+      d{ 7}(i)=str2double(l( 64: 77));
+      d{ 8}{i}=           l( 79    ) ;
+      d{ 9}(i)=str2double(l( 84: 95));
+      d{10}(i)=str2double(l( 97:108));
+      d{11}(i)=str2double(l(110:121));
+      d{12}(i)=str2double(l(123:134));
+      d{13}(i)=str2double(l(136:147));
+      d{14}(i)=str2double(l(149:160));
+    end
+  end
+  assert(numel(d{1})==data_len,['Discrepancy in number of data points loaded and number of data lines in file ',filename])
   %propagate
   t=time.ToDateTime([d{3:4}],'gpsweeksecond');
   pos=[d{5:7}];
