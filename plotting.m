@@ -735,6 +735,7 @@ classdef plotting
       %enforce colormap
       if str.none(v.plot_colormap)
         out.colormap=[];
+        delete(colorbar);
       else
         %enforce caxis limits
         if any(isfinite(v.plot_caxis))
