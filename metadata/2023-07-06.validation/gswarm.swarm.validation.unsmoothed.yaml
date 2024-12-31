@@ -18,7 +18,7 @@ plot_type: line
 plot_spatial_stat_list: [diff,monthly]
 plot_spatial_monthly_error: false                      #needs 'monthly' in plot_spatial_stat_list
 plot_spatial_monthly_quantity: ['das','trianglog10']   #needs 'monthly' in plot_spatial_stat_list
-plot_spatial_monthly_last: 3                           #needs 'monthly' in plot_spatial_stat_list
+plot_spatial_monthly_last: 9                           #needs 'monthly' in plot_spatial_stat_list
 plot_spatial_monthly_triang_caxis: [-15,-9]
 
 #plot_low_degrees
