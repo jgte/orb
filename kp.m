@@ -5,7 +5,7 @@ classdef kp
   methods(Static)
     %% https://github.com/mattkjames7/kpindex
     % these methods make use of the python package kpindex
-    % the data is taken from ftp://ftp.gfz-potsdam.de/pub/home/obs/kp-ap/tab/
+    % the data is taken from ftp://ftp.gfz-potsdam.de/pub/home/obs/Kp_ap_Ap_SN_F107/
     % the data is saved in '~/data/kp/kpindex'
     function out=kpindex_install
       out=file.system('pip3 install DateTimeTools kpindex --user','stop_if_error',true,'disp',true);
@@ -56,7 +56,7 @@ classdef kp
     %% ftp.gfz-potsdam.de:~/pub/home/obs/Kp_ap_Ap_SN_F107
     function download
       ftpobj = ftp('ftp.gfz-potsdam.de');
-      cd(ftpobj,'~/pub/home/obs/Kp_ap_Ap_SN_F107');
+      cd(ftpobj,'/pub/home/obs/Kp_ap_Ap_SN_F107');
       mget(ftpobj,'Kp_ap_Ap_SN_F107_[0-9]*.txt',fullfile(kp.data_dir,'Kp_ap_Ap_SN_F107'));
       close(ftpobj)
     end
