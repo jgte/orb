@@ -2687,7 +2687,7 @@ classdef gswarm
       %WORKFLOW           - the GRACE data is downloaded from ISDC (need ~/data/grace/download-l2.sh,
       %WORKFLOW             which iterates over specific years, currently 2024). Note that:
       %WORKFLOW             - the GRACE SH filenames do not end in gsm, so they need to be extracted
-      %WORKFLOW               before calling the gravity.load_dir method; this is automatically done 
+      %WORKFLOW               before calling the gravity.load_dir method; this is automatically done
       %WORKFLOW               in gswarm.get_input_data('all').
       %WORKFLOW             - the GRACE SH solutions are (since 2024) put in the CSR/RL06.3 subdir.
       %WORKFLOW               Because of this, need to link the files in this dir to CSR/RL06. This
@@ -2749,17 +2749,14 @@ classdef gswarm
       %WORKFLOW     ~/data/gswarm/analyses/new-analysis.sh precombval email
       %WORKFLOW
       %WORKFLOW 11. run publish.sh [echo] (inside the dir of the latest report)
-      %WORKFLOW 12. email the report to colleagues (make sure to check if the link in the email 
+      %WORKFLOW 12. email the report to colleagues (make sure to check if the link in the email
       %WORKFLOW     works as expected):
       %WORKFLOW
       %WORKFLOW     ~/data/gswarm/analyses/new-analysis.sh validation email
       %WORKFLOW
-      %WORKFLOW 13. make sure data is in aristarchos (remove --dry-run, as usual):
-      %WORKFLOW     rsyncf.sh remotes-file=~/data/gswarm/rsyncf.list aristarchos --no-r2l --delete --dry-run
-      %WORKFLOW
       %WORKFLOW     (wait for email reponses)
       %WORKFLOW
-      %WORKFLOW 14. login to aristarchos and:
+      %WORKFLOW 13. login to aristarchos and:
       %WORKFLOW     cd /home/gswarm/data/dissemination
       %WORKFLOW     tail *list && ./op.sh get-L1B-GPS get-L1B-ATT force && tail *list
       %WORKFLOW     ./op.sh update-source update-raw
@@ -2768,11 +2765,11 @@ classdef gswarm
       %WORKFLOW     follow the instructions, additional commands needed.
       %WORKFLOW
       %WORKFLOW     After sending the email to ESA and ICGEM (as reported in the instructions):
-      %WORKFLOW 15  update the dissemination dir git repo:
+      %WORKFLOW 14  update the dissemination dir git repo:
       %WORKFLOW     git st && git add *; git ci -m 'added new models'
-      %WORKFLOW 16. update local data (remove --dry-run, as usual):
+      %WORKFLOW 15. update local data (remove --dry-run, as usual):
       %WORKFLOW     ~/data/gswarm/rsync.remote2local-subset.sh --delete --dry-run
-      %WORKFLOW 17. plug in the data disk, mount it and sync the thumbs drive:
+      %WORKFLOW 16. plug in the data disk, mount it and sync the thumbs drive:
       %WORKFLOW     mount-disk.sh data
       %WORKFLOW     ~/media/data/data/rsync.thumb.sh reverse --dry-run
 
