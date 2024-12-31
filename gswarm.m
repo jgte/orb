@@ -2699,7 +2699,9 @@ classdef gswarm
       %WORKFLOW            - For TYPE=validation, the TN-14 model is used.
       %WORKFLOW     5.3: Check the metadata makes sense. Go to orb/metadata and:
       %WORKFLOW          - recall that the new-analysis.sh script already removed the links
-      %WORKFLOW            from CURRENT_DATE.TYPE
+      %WORKFLOW            from CURRENT_DATE.TYPE; this is so that any editing on the metadata
+      %WORKFLOW            remains as a new file. Later in the processing, the unchanged metadata
+      %WORKFLOW            files are replaced with links.
       %WORKFLOW          - diffmerge PREVIOUS_DATE.TYPE CURRENT_DATE.TYPE (this command is
       %WORKFLOW            shown by new-analysis.sh)
       %WORKFLOW     5.4: Look at the gswarm.TYPE method:
