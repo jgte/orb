@@ -762,7 +762,9 @@ classdef gswarm
 
             %plot Kp, if requested and this is cumdas
             if strcmp(v.plot_spatial_diff_quantity{qi},'cumdas') && v.plot_Kp
-              %load the data (you may need to download it manually)
+              %update the data (no output from this command)
+              kp.download
+              %load the data
               k=kp.load('start',obj.start,'stop',obj.stop);
               %plot it on the left axis
               yyaxis right
