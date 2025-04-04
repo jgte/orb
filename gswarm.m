@@ -2672,9 +2672,9 @@ classdef gswarm
 
       %WORKFLOW Workflow of the TYPE={precombval|validation} report:
       %WORKFLOW 1.  OPTIONAL: plug the thumb drive in (no need to mount-disk.sh)
-      %WORKFLOW 2.  sure everything is in synch.sh:
-      %WORKFLOW     2.1: in ~/data/gswarm/analyses/report-TYPE/
-      %WORKFLOW     2.2: rsyncf.sh remotes-file=~/data/gswarm/rsyncf.list --no-l2r --dry-run aristarchos
+      %WORKFLOW 2.  make sure latex is in synch.sh in:
+      %WORKFLOW     2.1: ~/data/gswarm/analyses/PREVIOUS_REPORT_DATE.TYPE/report/
+      %WORKFLOW     2.2: ~/data/gswarm/analyses/report-TYPE/
       %WORKFLOW 3.  create a new TYPE dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
       %WORKFLOW 4.  cd to the orb dir in the new TYPE dir (shown by new-analysis.sh
       %WORKFLOW     script) and check the stop_date in project.yaml is the last day of the
@@ -2711,9 +2711,7 @@ classdef gswarm
       %WORKFLOW            available month; otherwise the analysis will be incomplete
       %WORKFLOW         -  things that may go wrong:
       %WORKFLOW            - the C20 data is not up-to-date
-      %WORKFLOW            - IfG releases a new version of their models and the metadata
-      %WORKFLOW              was not updated to that
-      %WORKFLOW            - AIUB names the models incorrectly or does not compress them
+      %WORKFLOW            - IfG/OSU/AIUB names the models incorrectly or does not compress them
       %WORKFLOW            - You changed a matlab class and the *.mat files in the GRACE
       %WORKFLOW              L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell
       %WORKFLOW              this is the case when the error happens only on the first new
@@ -2726,13 +2724,14 @@ classdef gswarm
       %WORKFLOW     5.5: if TYPE=validation, call gswarm.quality:
       %WORKFLOW          - this computes the quality of the new gravity field models and
       %WORKFLOW            adds it to the respective git repo
-      %WORKFLOW 6.  go through the report and update all %NEEDS UPDATING lines (some are
-      %WORKFLOW     automatically updated by new-analysis.sh)
-      %WORKFLOW     6.1: There are plots that refer to the most recent months and cannot be
+      %WORKFLOW 6.  go the report dir:
+      %WORKFLOW     6.1: Update all %NEEDS UPDATING lines (some are automatically updated 
+      %WORKFLOW          by new-analysis.sh).
+      %WORKFLOW     6.2: There are plots that refer to the most recent months and cannot be
       %WORKFLOW          named automatically, look for '%NEEDS UPDATING (MAPS)' and run
       %WORKFLOW          ./ls-missing-figures.sh to see which plots are being wrongly picked.
-      %WORKFLOW 7.  compile it and compare this report with the previous one
-      %WORKFLOW 8.  go to the report dir in the new TYPE dir and make sure everything
+      %WORKFLOW     6.3: Compile it and compare this report with the previous one
+      %WORKFLOW 8.  Go to the report dir in the new TYPE dir and make sure everything
       %WORKFLOW     is in sync.sh (don't sync %NEEDS UPDATING lines)
       %WORKFLOW 9.  Submit changes to GitHub:
       %WORKFLOW     9.1: Run the script link-dup-metadatafiles.sh in directory
