@@ -39,7 +39,7 @@ METADATA_OLD=$(find $METADATADIR -name \*$1\* | grep -v "/$RETIREDIR/" | grep -v
 METADATA_NEW=$METADATADIR/$(basename ${METADATA_OLD/$1/$2})
 
 if [ $(echo "$METADATA_OLD" | wc -l) -eq 0 ]
-then  
+then
   echo "ERROR: cannot find any metadata called *$METADATA_OLD*"
   exit 3
 elif [ $(echo "$METADATA_OLD" | wc -l) -gt 1 ]; then
@@ -76,7 +76,7 @@ do
   #rename all files in this new dir
   for j in $(find $dir/$MTDR_OLD -name $MTDR_OLD\* -not -type d || echo "NOTICE: no data found for $MTDR_OLD, ignoring data move" 1>&2)
   do
-    #rename data 
+    #rename data
     $ECHO mv -v $j $dir/$MTDR_NEW/$(basename ${j//$MTDR_OLD/$MTDR_NEW})
   done
   #remove old dir
@@ -88,4 +88,4 @@ $ECHO mv -v $METADATA_OLD $METADATA_NEW
 
 #check for references to this metadata in remaining metadata files
 OUT=$(grep -l $(basename ${MTDR_OLD/.yaml}) $METADATADIR/*.yaml)
-[ -z "$OUT" ] || file-find-replace.sh -from=$MTDR_OLD -to=$MTDR_NEW $OUT
+[ -z "$OUT" ] || $ECHO file-find-replace.sh -from=$MTDR_OLD -to=$MTDR_NEW $OUT
