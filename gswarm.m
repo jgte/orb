@@ -2725,7 +2725,7 @@ classdef gswarm
       %WORKFLOW          - this computes the quality of the new gravity field models and
       %WORKFLOW            adds it to the respective git repo
       %WORKFLOW 6.  go the report dir:
-      %WORKFLOW     6.1: Update all %NEEDS UPDATING lines (some are automatically updated 
+      %WORKFLOW     6.1: Update all %NEEDS UPDATING lines (some are automatically updated
       %WORKFLOW          by new-analysis.sh).
       %WORKFLOW     6.2: There are plots that refer to the most recent months and cannot be
       %WORKFLOW          named automatically, look for '%NEEDS UPDATING (MAPS)' and run
@@ -2762,15 +2762,7 @@ classdef gswarm
       %WORKFLOW     ./op.sh make -val=yyyy-mm (run this for as many months as needed)
       %WORKFLOW     [...]
       %WORKFLOW     follow the instructions, additional commands needed.
-      %WORKFLOW
-      %WORKFLOW     After sending the email to ESA and ICGEM (as reported in the instructions):
-      %WORKFLOW 14  update the dissemination dir git repo:
-      %WORKFLOW     git st && git add *; git ci -m 'added new models'
-      %WORKFLOW 15. update local data (remove --dry-run, as usual):
-      %WORKFLOW     ~/data/gswarm/rsync.remote2local-subset.sh --delete --dry-run
-      %WORKFLOW 16. plug in the data disk, mount it and sync the thumbs drive:
-      %WORKFLOW     mount-disk.sh data
-      %WORKFLOW     ~/media/data/data/rsync.thumb.sh reverse --dry-run
+
 
       %TODO on next release(s):
       % - remove trends from gswarm.swarm.validation.maps (also plot trends)
