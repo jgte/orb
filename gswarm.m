@@ -2673,91 +2673,87 @@ classdef gswarm
       %        at the same location, usually: ~/data/gswarm/analyses/<date>-validation
 
       %WORKFLOW Workflow of the TYPE={precombval|validation} report:
-      %WORKFLOW 1.  OPTIONAL: plug the thumb drive in (no need to mount-disk.sh)
-      %WORKFLOW 2.  make sure latex is in synch.sh in:
-      %WORKFLOW     2.1: ~/data/gswarm/analyses/PREVIOUS_REPORT_DATE.TYPE/report/
-      %WORKFLOW     2.2: ~/data/gswarm/analyses/report-TYPE/
-      %WORKFLOW 3.  create a new TYPE dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
-      %WORKFLOW 4.  cd to the orb dir in the new TYPE dir (shown by new-analysis.sh
-      %WORKFLOW     script) and check the stop_date in project.yaml is the last day of the
-      %WORKFLOW     last available model (the new-analysis.sh script automatically updates
-      %WORKFLOW     this but better check if it's OK)
-      %WORKFLOW 5.  fire up matlab:
-      %WORKFLOW     5.1: call gswarm.get_input_data('all'):
-      %WORKFLOW           - the swarm data is downloaded from aristarchos (need rsyncf.sh and
-      %WORKFLOW             ~/data/gswarm/rsyncf.list)
-      %WORKFLOW           - the GRACE data is downloaded from ISDC (need ~/data/grace/download-l2.sh,
-      %WORKFLOW             which iterates over specific years, currently 2024). Note that:
-      %WORKFLOW             - the GRACE SH filenames do not end in gsm, so they need to be extracted
-      %WORKFLOW               before calling the gravity.load_dir method; this is automatically done
-      %WORKFLOW               in gswarm.get_input_data('all').
-      %WORKFLOW             - the GRACE SH solutions are (since 2024) put in the CSR/RL06.3 subdir.
-      %WORKFLOW               Because of this, need to link the files in this dir to CSR/RL06. This
-      %WORKFLOW               is automatically done in gswarm.get_input_data('all').
-      %WORKFLOW     5.2: check that the C20 data is updated and the model evaluated at the
-      %WORKFLOW          last 3 months
-      %WORKFLOW          - The easiest way to be sure is to run: 'gswarm.c20model'
-      %WORKFLOW            - For TYPE=precombval, the TN-14 model is used.
-      %WORKFLOW            - For TYPE=validation, the TN-14 model is used.
-      %WORKFLOW     5.3: Check the metadata makes sense. Go to orb/metadata and:
-      %WORKFLOW          - recall that the new-analysis.sh script already removed the links
-      %WORKFLOW            from CURRENT_DATE.TYPE; this is so that any editing on the metadata
-      %WORKFLOW            remains as a new file. Later in the processing, the unchanged metadata
-      %WORKFLOW            files are replaced with links.
-      %WORKFLOW          - diffmerge PREVIOUS_DATE.TYPE CURRENT_DATE.TYPE (this command is
-      %WORKFLOW            shown by new-analysis.sh)
-      %WORKFLOW     5.4: Look at the gswarm.TYPE method:
-      %WORKFLOW          - check if all products are being used, some may be commented
-      %WORKFLOW          - run the gswarm.TYPE method and keep an eye the last epoch of the
-      %WORKFLOW            data as it is being loaded, it has to be the same as the last
-      %WORKFLOW            available month; otherwise the analysis will be incomplete
-      %WORKFLOW         -  things that may go wrong:
-      %WORKFLOW            - the C20 data is not up-to-date
-      %WORKFLOW            - IfG/OSU/AIUB names the models incorrectly or does not compress them
-      %WORKFLOW            - You changed a matlab class and the *.mat files in the GRACE
-      %WORKFLOW              L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell
-      %WORKFLOW              this is the case when the error happens only on the first new
-      %WORKFLOW              models); just delete the offending *.mat files:
-      %WORKFLOW                rm -fv ~/data/gswarm/*/gravity/*.mat ~/data/grace/L2/CSR/RL06/*.mat
-      %WORKFLOW              and re-import everything (by simply re-running gswarm.TYPE).
-      %WORKFLOW            - Some analysis start in 2002-04 instead of 2016-01, particularly
-      %WORKFLOW              the product gswarm.swarm.validation.unsmoothed. Not sure why
-      %WORKFLOW              this is happening but running it another time fixes the problem.
-      %WORKFLOW     5.5: if TYPE=validation, call gswarm.quality:
-      %WORKFLOW          - this computes the quality of the new gravity field models and
-      %WORKFLOW            adds it to the respective git repo
-      %WORKFLOW 6.  go the report dir:
-      %WORKFLOW     6.1: Update all %NEEDS UPDATING lines (some are automatically updated
-      %WORKFLOW          by new-analysis.sh).
-      %WORKFLOW     6.2: There are plots that refer to the most recent months and cannot be
-      %WORKFLOW          named automatically, look for '%NEEDS UPDATING (MAPS)' and run
-      %WORKFLOW          ./ls-missing-figures.sh to see which plots are being wrongly picked.
-      %WORKFLOW     6.3: Compile it and compare this report with the previous one
-      %WORKFLOW 8.  Go to the report dir in the new TYPE dir and make sure everything
-      %WORKFLOW     is in sync.sh (don't sync %NEEDS UPDATING lines)
-      %WORKFLOW 9.  Submit changes to GitHub:
-      %WORKFLOW     9.1: Run the script link-dup-metadatafiles.sh in directory
-      %WORKFLOW          ~/data/gswarm/analyses/<date>-TYPE/orb/metadata/ with arguments:
-      %WORKFLOW          source=<previous date>-TYPE sink=<date>-TYPE [echo]
-      %WORKFLOW     9.2: check the following git repos to make sure things are up to date:
-      %WORKFLOW          - ~/data/gswarm/analyses/<date>-TYPE/orb/
-      %WORKFLOW          - ~/data/gswarm/analyses/
-      %WORKFLOW 10. put the data into aristarchos (remove --dry-run, as usual):
+      %WORKFLOW - make sure latex is in synch.sh in:
+      %WORKFLOW   - ~/data/gswarm/analyses/PREVIOUS_REPORT_DATE.TYPE/report/
+      %WORKFLOW   - ~/data/gswarm/analyses/report-TYPE/
+      %WORKFLOW - create a new TYPE dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
+      %WORKFLOW - cd to the orb dir in the new TYPE dir (shown by new-analysis.sh script)
+      %WORKFLOW - fire up matlab:
+      %WORKFLOW     - call gswarm.get_input_data('all'):
+      %WORKFLOW       - the swarm data is downloaded from aristarchos (need rsyncf.sh and
+      %WORKFLOW         ~/data/gswarm/rsyncf.list)
+      %WORKFLOW       - the GRACE data is downloaded from ISDC (need ~/data/grace/download-l2.sh).
+      %WORKFLOW         Note that:
+      %WORKFLOW         - the GRACE SH filenames do not end in gsm, so they need to be extracted
+      %WORKFLOW           before calling the gravity.load_dir method; this is automatically done
+      %WORKFLOW           in gswarm.get_input_data('all').
+      %WORKFLOW         - the GRACE SH solutions are (since 2024) put in the CSR/RL06.3 subdir.
+      %WORKFLOW           Because of this, need to link the files in this dir to CSR/RL06. This
+      %WORKFLOW           is automatically done in gswarm.get_input_data('all').
+      %WORKFLOW     - check that the C20 data is updated and the model evaluated at the
+      %WORKFLOW       last 3 months
+      %WORKFLOW       - The easiest way to be sure is to run: 'gswarm.c20model'
+      %WORKFLOW         - For TYPE=precombval, the TN-14 model is used.
+      %WORKFLOW         - For TYPE=validation, the TN-14 model is used.
+      %WORKFLOW     - Check the metadata makes sense. Go to orb/metadata and:
+      %WORKFLOW       - recall that the new-analysis.sh script already removed the links
+      %WORKFLOW         from CURRENT_DATE.TYPE; this is so that any editing on the metadata
+      %WORKFLOW         remains as a new file. Later in the processing, the unchanged metadata
+      %WORKFLOW         files are replaced with links.
+      %WORKFLOW       - diffmerge PREVIOUS_DATE.TYPE CURRENT_DATE.TYPE (this command is
+      %WORKFLOW         shown by new-analysis.sh); it's not too bad of an idea to leave this open
+      %WORKFLOW     - Look at the gswarm.TYPE method:
+      %WORKFLOW       - check if all products are being used, some may be commented
+      %WORKFLOW       - run the gswarm.TYPE method and keep an eye the last epoch of the
+      %WORKFLOW         data as it is being loaded, it has to be the same as the last
+      %WORKFLOW         available month; otherwise the analysis will be incomplete
+      %WORKFLOW       - things that may go wrong:
+      %WORKFLOW         - the C20 data is not up-to-date
+      %WORKFLOW         - IfG/OSU/AIUB names the models incorrectly or does not compress them
+      %WORKFLOW         - You changed a matlab class and the *.mat files in the GRACE
+      %WORKFLOW           L2/AIUB/ASU/IfG/OSU data dirs are now outdated (you can tell
+      %WORKFLOW           this is the case when the error happens only on the first new
+      %WORKFLOW           models); just delete the offending *.mat files:
+      %WORKFLOW             rm -fv ~/data/gswarm/*/gravity/*.mat ~/data/grace/L2/CSR/RL06/*.mat
+      %WORKFLOW           ... and re-import everything (by simply re-running gswarm.TYPE).
+      %WORKFLOW         - Some analysis start in 2002-04 instead of 2016-01, particularly
+      %WORKFLOW           the product gswarm.swarm.validation.unsmoothed. Not sure why
+      %WORKFLOW           this is happening but running it another time fixes the problem.
+      %WORKFLOW     - if TYPE=validation, call gswarm.quality:
+      %WORKFLOW       - this computes the quality of the new gravity field models and
+      %WORKFLOW         adds it to the respective git repo
+      %WORKFLOW - go the report dir:
+      %WORKFLOW   - Update all %NEEDS UPDATING lines (some are automatically updated
+      %WORKFLOW     by new-analysis.sh).
+      %WORKFLOW   - There are plots that refer to the most recent months and cannot be
+      %WORKFLOW     named automatically, look for '%NEEDS UPDATING (MAPS)' and run
+      %WORKFLOW       ./ls-missing-figures.sh to see which plots are being wrongly picked.
+      %WORKFLOW   - Compile it and compare this report with the previous one
+      %WORKFLOW - Go to the report dir in the new TYPE dir and make sure everything
+      %WORKFLOW   is in sync.sh (don't sync %NEEDS UPDATING lines)
+      %WORKFLOW - Submit changes to GitHub:
+      %WORKFLOW   - Run the script link-dup-metadatafiles.sh in directory
+      %WORKFLOW     ~/data/gswarm/analyses/<date>-TYPE/orb/metadata/ with arguments:
+      %WORKFLOW       source=<previous date>.TYPE sink=<date>.TYPE [echo]
+      %WORKFLOW   - check the following git repos to make sure things are up to date:
+      %WORKFLOW      - ~/data/gswarm/analyses/<date>-TYPE/orb/
+      %WORKFLOW      - ~/data/gswarm/analyses/
+      %WORKFLOW - put the data into aristarchos (remove --dry-run, as usual):
       %WORKFLOW     rsyncf.sh remotes-file=~/data/gswarm/rsyncf.list aristarchos --no-r2l --delete --dry-run
       %WORKFLOW
       %WORKFLOW If this is a precombval, then e-mail it to colleagues and you're done (needs checking):
       %WORKFLOW
       %WORKFLOW     ~/data/gswarm/analyses/new-analysis.sh precombval email
       %WORKFLOW
-      %WORKFLOW 11. run publish.sh [echo] (inside the dir of the latest report)
-      %WORKFLOW 12. email the report to colleagues (make sure to check if the link in the email
-      %WORKFLOW     works as expected):
+      %WORKFLOW - run publish.sh [echo] (inside the dir of the latest report)
+      %WORKFLOW - email the report to colleagues (make sure to check if the link in the email
+      %WORKFLOW   works as expected):
       %WORKFLOW
-      %WORKFLOW     ~/data/gswarm/analyses/new-analysis.sh validation email
+      %WORKFLOW   ~/data/gswarm/analyses/new-analysis.sh validation email
       %WORKFLOW
-      %WORKFLOW     (wait for email reponses)
+      %WORKFLOW   (wait for email reponses)
       %WORKFLOW
-      %WORKFLOW 13. login to aristarchos and:
+      %WORKFLOW - login to aristarchos and:
       %WORKFLOW     cd /home/gswarm/data/dissemination
       %WORKFLOW     tail *list && ./op.sh get-L1B-GPS get-L1B-ATT force && tail *list
       %WORKFLOW     ./op.sh update-source update-raw
