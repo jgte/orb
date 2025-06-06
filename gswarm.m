@@ -2570,11 +2570,13 @@ classdef gswarm
     function get_input_data(mode)
       switch lower(mode)
       case('grace')
-        %NOTICE: the download-l2.sh script iterates over specific years
+        %NOTICE: the download-l2.sh script iterates over specific years, automatically set from PROJECT 
+        global PROJECT; %#ok<TLEV> 
+        y=num2str(year(PROJECT.stop_date));
         disp('Downloading GRACE data')
-        file.system('./download-l2.sh CSR 06.1','disp',true,'cd',grace.dir('base'));
-        file.system('./download-l2.sh CSR 06.2','disp',true,'cd',grace.dir('base'));
-        file.system('./download-l2.sh CSR 06.3','disp',true,'cd',grace.dir('base'));
+        file.system(['./download-l2.sh CSR 06.1 ',y],'disp',true,'cd',grace.dir('base'));
+        file.system(['./download-l2.sh CSR 06.2 ',y],'disp',true,'cd',grace.dir('base'));
+        file.system(['./download-l2.sh CSR 06.3 ',y],'disp',true,'cd',grace.dir('base'));
         file.system('ln -sfv ../RL06.1/GSM-2_* .','disp',true,'cd',fullfile(grace.dir('l2'),'CSR','RL06'));
         file.system('ln -sfv ../RL06.2/GSM-2_* .','disp',true,'cd',fullfile(grace.dir('l2'),'CSR','RL06'));
         file.system('ln -sfv ../RL06.3/GSM-2_* .','disp',true,'cd',fullfile(grace.dir('l2'),'CSR','RL06'));
