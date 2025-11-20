@@ -2673,15 +2673,19 @@ classdef gswarm
       %        at the same location, usually: ~/data/gswarm/analyses/<date>-validation
 
       %WORKFLOW Workflow of the TYPE={precombval|validation} report:
+      %WORKFLOW - sync the data from aristarchos: this puts eyeballs on the file transfer
+      %WORKFLOW   and tou can be sure no data is deleted. It is also an opportunity to make
+      %WORKFLOW   local changes are backed up tp aristarchos. From ~/data/gswarm, consider 
+      %WORKFLOW   also:
+      %WORKFLOW     for i in $(find . -maxdepth 3 -type d -name .git) ; do cd $i/.. && git-fix-dangling && cd -; done
       %WORKFLOW - make sure latex is in synch.sh in:
       %WORKFLOW   - ~/data/gswarm/analyses/PREVIOUS_REPORT_DATE.TYPE/report/
       %WORKFLOW   - ~/data/gswarm/analyses/report-TYPE/
       %WORKFLOW - create a new TYPE dir: ~/data/gswarm/analyses/new-analysis.sh TYPE
       %WORKFLOW - cd to the orb dir in the new TYPE dir (shown by new-analysis.sh script)
       %WORKFLOW - fire up matlab:
-      %WORKFLOW     - call gswarm.get_input_data('all'):
-      %WORKFLOW       - the swarm data is downloaded from aristarchos (need rsyncf.sh and
-      %WORKFLOW         ~/data/gswarm/rsyncf.list)
+      %WORKFLOW     - call gswarm.get_input_data('grace'):
+      %WORKFLOW       - the swarm data is manually downloaded from aristarchos above
       %WORKFLOW       - the GRACE data is downloaded from ISDC (need ~/data/grace/download-l2.sh).
       %WORKFLOW         Note that:
       %WORKFLOW         - the GRACE SH filenames do not end in gsm, so they need to be extracted
@@ -2701,8 +2705,8 @@ classdef gswarm
       %WORKFLOW         remains as a new file. Later in the processing, the unchanged metadata
       %WORKFLOW         files are replaced with links.
       %WORKFLOW       - diffmerge PREVIOUS_DATE.TYPE CURRENT_DATE.TYPE (this command is
-      %WORKFLOW         shown by new-analysis.sh); it's not too bad of an idea to leave this open
-      %WORKFLOW     - Look at the gswarm.TYPE method:
+      %WORKFLOW         shown by new-analysis.sh).
+      %WORKFLOW     - Main run with the gswarm.TYPE method:
       %WORKFLOW       - check if all products are being used, some may be commented
       %WORKFLOW       - run the gswarm.TYPE method and keep an eye the last epoch of the
       %WORKFLOW         data as it is being loaded, it has to be the same as the last
@@ -2725,6 +2729,7 @@ classdef gswarm
       %WORKFLOW - go the report dir:
       %WORKFLOW   - Update all %NEEDS UPDATING lines (some are automatically updated
       %WORKFLOW     by new-analysis.sh).
+      %WORKFLOW   - Check that the report number makes sense and follows the previous one
       %WORKFLOW   - There are plots that refer to the most recent months and cannot be
       %WORKFLOW     named automatically, look for '%NEEDS UPDATING (MAPS)' and run
       %WORKFLOW       ./ls-missing-figures.sh to see which plots are being wrongly picked.
@@ -2760,7 +2765,6 @@ classdef gswarm
       %WORKFLOW     ./op.sh make -val=yyyy-mm (run this for as many months as needed)
       %WORKFLOW     [...]
       %WORKFLOW     follow the instructions, additional commands needed.
-
 
       %TODO on next release(s):
       % - remove trends from gswarm.swarm.validation.maps (also plot trends)
