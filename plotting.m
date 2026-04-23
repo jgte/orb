@@ -976,7 +976,7 @@ classdef plotting
         file.mkdir(p);
       end
       if str.logical(v.plot_save_fig)
-        saveas(v.fig_handle,fullfile(p,n),'fig')
+        saveas(v.fig_handle,fullfile(p,[n,'.fig']),'fig')
       end
       saveas(v.fig_handle,fullfile(p,[n,e]))
       str.say('Plotted',fullfile(p,[n,e]))
