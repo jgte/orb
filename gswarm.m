@@ -381,19 +381,16 @@ classdef gswarm
         ref=pod.mod.ref.interp(pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than);
         %enforce consistent GM and R
         pod.mod.dat=cellfun(@(i) i.scale(pod.mod.ref),pod.mod.dat,'UniformOutput',false);
-        %compute residual
-        %NOTICE: need to interpolate a second time to force explicit gaps (first time was when retrieving ref)
+        %compute residual (need this second interpolation to force explicit gaps)
+        %NOTICE: extrapolation is for when the pod.t time domain is one day outside the time domain of any pod.mod.dat; 
+        %        If this is not done, there are data points missing at the end of the analysis period.
         pod.mod.res=cellfun(...
-          @(i) ref-i.interp(pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than),...
+          @(i) ref-i.interp(...
+            pod.t,...
+            'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than,...
+            'interp1_args',{'pchip','extrap'}...
+          ),...
         pod.mod.dat,'UniformOutput',false);
-%         pod.mod.res=cell(size(pod.mod.dat));
-%         for i=1:numel(pod.mod.dat)
-%           dat=pod.mod.dat{i}.interp(pod.t,'interp_over_gaps_narrower_than',v.plot_lines_over_gaps_narrower_than);
-%           pod.mod.res{i}=ref-dat.interp(pod.t);
-%         end
-%         %NOTICE: probably it's not a good idea to use 'interp_over_gaps_narrower_than' here because that can
-%         %        produce different time domains and break the subtraction.
-%         pod.mod.res=cellfun(@(i) pod.mod.ref.interp(pod.t)-i.interp(pod.t),pod.mod.dat,'UniformOutput',false);
         %title
         pod.title_wrt=str.show({'wrt',pod.source.names{pod.source.ref_idx}});
       end
