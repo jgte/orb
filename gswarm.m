@@ -2700,9 +2700,10 @@ classdef gswarm
       %WORKFLOW       - recall that the new-analysis.sh script already removed the links
       %WORKFLOW         from CURRENT_DATE.TYPE; this is so that any editing on the metadata
       %WORKFLOW         remains as a new file. Later in the processing, the unchanged metadata
-      %WORKFLOW         files are replaced with links.
+      %WORKFLOW         files are replaced with links. 
       %WORKFLOW       - diffmerge PREVIOUS_DATE.TYPE CURRENT_DATE.TYPE (this command is
-      %WORKFLOW         shown by new-analysis.sh).
+      %WORKFLOW         shown by new-analysis.sh). NOTICE: This is problematic because smerge 
+      %WORKFLOW         does not follow links, so it shows all files as different
       %WORKFLOW     - Main run with the gswarm.TYPE method:
       %WORKFLOW       - check if all products are being used, some may be commented
       %WORKFLOW       - run the gswarm.TYPE method and keep an eye the last epoch of the
