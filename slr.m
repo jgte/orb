@@ -956,7 +956,7 @@ function [t_out,y_out,header]=import_C20(varargin)
       v.error_column=4;
     case 'TN-14'
       v.data_file=[v.source,'_C30_C20_SLR_GSFC.txt'];
-      v.data_dir_url='ftp://isdcftp.gfz-potsdam.de/grace/DOCUMENTS/TECHNICAL_NOTES/';
+      v.data_dir_url='https://isdc-data.gfz.de/grace-fo/DOCUMENTS/TECHNICAL_NOTES/';
       v.data_format='%7.1f%10.4f%22.13f%8.4f%8.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
     case 'GSFC'
       v.data_file='GSFC_SLR_C20_GSM_replacement.txt';
@@ -1092,7 +1092,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
       e_idx=4;
     case 'TN-14'
       datfil=[v.source,'_C30_C20_SLR_GSFC.txt'];
-      daturl=['ftp://isdcftp.gfz-potsdam.de/grace/DOCUMENTS/TECHNICAL_NOTES/',datfil];
+      daturl=['https://isdc-data.gfz.de/grace-fo/DOCUMENTS/TECHNICAL_NOTES/',datfil];
       datfmt='%7.1f%10.4f%22.13f%8.4f%8.4f%22.13f%8.4f%8.4f%8.1f%10.4f';
     case 'GSFC'
       datfil='GSFC_SLR_C20_GSM_replacement.txt';
@@ -1202,7 +1202,7 @@ function [t,s,e,d]=GetGRACEC20(varargin)
   end
 end
 
-%% Outdate functions
+%% Outdated functions
 %NOTICE: this was used to load data in the following format:
 % MJD      Year       c30       c31      c32      c33      s31      s32      s33   sc20   sc31  sc32  sc33  ss31  ss32  ss33
 % 52275.0 2002.0000   1.7548   0.1293   0.7154   0.1866   0.6015  -0.3642   0.7701  1.61  2.38  4.04  6.09  2.27  3.95  5.75
