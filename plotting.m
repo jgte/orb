@@ -981,7 +981,10 @@ classdef plotting
       if str.logical(v.plot_save_fig)
         saveas(v.fig_handle,fullfile(p,[n,'.fig']),'fig')
       end
-      saveas(v.fig_handle,fullfile(p,[n,e]))
+      %NOTICE: for some reason, saveas is broken and the problem is similar to:
+      % https://nl.mathworks.com/matlabcentral/answers/95272-why-are-the-top-and-bottom-parts-of-my-matlab-figure-cropped-when-i-use-saveas-to-save-a-figure-to-a
+      imwrite(frame2im(getframe(v.fig_handle)),fullfile(p,[n,e]));
+      % saveas(v.fig_handle,fullfile(p,[n,e]))
       str.say('Plotted',fullfile(p,[n,e]))
     end
     function [loaddata,savedata]=forcing(varargin)
