@@ -967,7 +967,10 @@ classdef plotting
       v=varargs.wrap('sources',{plotting.default,{...
         'fig_handle',  gcf,  @(i) ~isempty(i) && ishandle(i);...
       }},varargin{:});
-      if str.logical(v.plot_pause_on_save); keyboard; end
+      if str.logical(v.plot_pause_on_save)
+        set(v.fig_handle,'visible','on')
+        keyboard
+      end
       [p,n,e]=fileparts(filename);
       if strcmp(e,'.') || isempty(e)
         e=['.',strrep(v.plot_save_ext,'.','')];
